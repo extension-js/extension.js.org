@@ -40,13 +40,12 @@ module.exports = {
  */
 function applyDefaults(custom) {
   return {
-    title: "Notes",
-    description: "Notes app",
+    title: "🧩 extension-create",
+    description: "Create cross-browser extensions with no build configuration.",
     lang: "en",
     ...custom,
-
     theme: {
-      color: "sky",
+      color: "green",
       ...custom.theme,
     },
 
@@ -74,7 +73,7 @@ function applyDefaults(custom) {
     panel: {
       tableOfContents: true,
       customProperties: true,
-      tags: true,
+      tags: false,
       incomingLinks: true,
       outgoingLinks: true,
       externalLinks: true,
