@@ -2,11 +2,11 @@
 const { defineConfig, createNotesQuery } = require("./.app/app-config");
 
 module.exports = defineConfig({
-  title: "Eleventy Notes",
+  title: "🧩 extension-create",
   description:
     "A simple, lightweight, and flexible note-taking template for Eleventy.",
   editThisNote: {
-    url: "https://github.com/rothsandro/eleventy-notes/edit/{{branch}}/{{file}}",
+    url: "https://github.com/cezaraugusto/extension-create/edit/{{branch}}/{{file}}",
   },
   customProperties: {
     properties: [
@@ -23,14 +23,14 @@ module.exports = defineConfig({
   sidebar: {
     links: [
       {
-        url: "https://github.com/rothsandro/eleventy-notes",
-        label: "GitHub / Support",
-        icon: "github",
+        url: "https://github.com/sponsors/cezaraugusto",
+        label: "Become a Sponsor",
+        icon: "user-check",
       },
       {
-        url: "https://www.buymeacoffee.com/sandroroth",
-        label: "Buy me a coffee",
-        icon: "coffee",
+        url: "https://github.com/cezaraugusto/extension-create/graphs/contributors",
+        label: "Contributors Hall of Fame",
+        icon: "users",
       },
     ],
     sections: [
@@ -93,11 +93,39 @@ module.exports = defineConfig({
           },
         ],
       },
+      // {
+      //   pattern: "^/Commands/",
+      //   label: "Commands",
+      // },
+      // {
+      //   pattern: "^/Develop/",
+      //   label: "Develop",
+      // },
+      // {
+      //   pattern: "^/Tutorials/",
+      //   label: "Tutorials",
+      // },
+      // {
+      //   pattern: "^/Guides/",
+      //   label: "Guides",
+      // },
+      // {
+      //   pattern: "^/Examples/",
+      //   label: "Examples"
+      // },
+      // {
+      //   pattern: "^/ExistingExtensions/",
+      //   label: "Usage With Existing Extensions",
+      // },
+      // {
+      //   pattern: "^/Extend/",
+      //   label: "Extending extension-create",
+      // },
+      // {
+      //   pattern: "^/Contribute/",
+      //   label: "Contribute To This Project",
+      // },
     ],
   },
-  tags: {
-    map: {
-      "dynamic-content": "dynamic content",
-    },
-  },
+  tags: {},
 });
