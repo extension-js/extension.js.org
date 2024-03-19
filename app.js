@@ -94,32 +94,28 @@ module.exports = defineConfig({
         ],
       },
       // {
-      //   pattern: "^/Commands/",
-      //   label: "Commands",
+      //   pattern: "^/Configuration Files/",
+      //   label: "Configuration Files",
       // },
       // {
-      //   pattern: "^/Develop/",
-      //   label: "Develop",
+      //   pattern: "^/Features/",
+      //   label: "Cross-Browser Features",
       // },
       // {
-      //   pattern: "^/Tutorials/",
-      //   label: "Tutorials",
+      //   pattern: "^/Examples/",
+      //   label: "Examples",
       // },
       // {
       //   pattern: "^/Guides/",
       //   label: "Guides",
       // },
       // {
-      //   pattern: "^/Examples/",
-      //   label: "Examples"
+      //   pattern: "^/Integrations/",
+      //   label: "Integrations",
       // },
       // {
-      //   pattern: "^/ExistingExtensions/",
-      //   label: "Usage With Existing Extensions",
-      // },
-      // {
-      //   pattern: "^/Extend/",
-      //   label: "Extending extension-create",
+      //   pattern: "^/Advanced/",
+      //   label: "Advanced",
       // },
       // {
       //   pattern: "^/Contribute/",
