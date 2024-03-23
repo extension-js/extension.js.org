@@ -17,7 +17,7 @@ Designed with practicity and fast prototyping in mind, running a single terminal
 `extension-create` has a default `create` command that allows you to generate the foundations of your next extension project (see demo above). It also supports templates via `--template` flag.
 
 ```sh
-npx extension-create <your-extension-name>
+npx extension create <your-extension-name>
 ```
 
 For a list of all supported templates, see [[Templates]].
@@ -31,7 +31,7 @@ If you have an existing extension which is using a package manager, you can inst
 **Step 1 - Install extension-create as a `devDependency`**
 
 ```sh
-npm install extension@latest --save-dev
+npm install extension --save-dev
 ```
 
 **Step 2 - Link your npm scripts with the executable `extension-create` commands**

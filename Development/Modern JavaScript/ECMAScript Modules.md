@@ -15,7 +15,7 @@ From [https://nodejs.org/api/esm.html#introduction](https://nodejs.org/api/esm.h
 ### Try it yourself
 
 ```sh
-npx extension-create my-extension --template=esm
+npx extension create my-extension --template=esm
 ```
 
 ## Usage With An Existing Extension 
@@ -51,12 +51,12 @@ To make `extension-create` recognize all files as ECMAScript Modules, you have t
   "description": "My Extension Example.",
 + "type": "module"
   "devDependencies": {
-    "extension-create": "latest"
+    "extension": "latest"
   },
   "scripts": {
-    "dev": "extension-create dev",
-    "start": "extension-create start",
-    "build": "extension-create build"
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
   }
 }
 ```

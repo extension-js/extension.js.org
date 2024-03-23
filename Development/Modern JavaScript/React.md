@@ -15,7 +15,7 @@ extension-create comes with a default React template for new projects, which you
 ### Try it yourself 
 
 ```sh
-npx extension-create my-extension --template=react
+npx extension create my-extension --template=react
 ```
 
 ## React+TypeScript Template
@@ -27,7 +27,7 @@ Alternatively, `extension-create` also supports a React+TypeScript template for 
 ### Try it yourself 
 
 ```sh
-npx extension-create my-extension --template=react-typescript
+npx extension create my-extension --template=react-typescript
 ```
 
 ## Usage With An Existing Extension 

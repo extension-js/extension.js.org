@@ -3,7 +3,7 @@ sort: 1
 ---
 
 ```sh
-yarn extension-create <extension-name|extension-path> [options]
+npx extension create <extension-name|extension-path> [options]
 ```
 
 **Responsible for creating new extensions,** the `create` command also accepts a `--template` flag where you can set one of the custom templates available (see [[Templates]]).

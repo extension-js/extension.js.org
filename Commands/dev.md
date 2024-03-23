@@ -3,7 +3,7 @@ sort: 2
 ---
 
 ```sh
-npx extension-create dev [extension-path | extension-url] [options]
+npx extension dev [extension-path | extension-url] [options]
 ```
 
 **Responsible for running your extension in `development` mode.** Gets the extension and bundles in a new browser instance. Browser extension files are watched and live-reloaded as they change.

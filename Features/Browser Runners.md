@@ -59,7 +59,7 @@ Type: `number`
 What port should run the extension reloader. Defaults to `8081`
 
 ```sh
-npx extension-create dev my-extension --browser=<browser-name>
+npx extension dev my-extension --browser=<browser-name>
 ```
 ### Desktop Browsers
 

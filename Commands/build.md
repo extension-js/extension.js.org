@@ -5,7 +5,7 @@ sort: 4
 <img src="./assets/build.png" alt="The build command line interface">
 
 ```sh
-npx extension-create build [extension-path | extension-url] [options]
+npx extension build [extension-path | extension-url] [options]
 ```
 
 **Responsible for building the extension in production mode.** Builds the extension for production, based on the browser choice. The `build/` folder will include as many subfolders as the user browser choices. Each subfolder includes the code for that specific browser, with proper code transforms for each platform.

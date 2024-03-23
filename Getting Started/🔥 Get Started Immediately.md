@@ -13,7 +13,7 @@ Dive right into development by starting with a sample from the Chrome Extension 
 2. Navigate to the directory where you want your project.
 3. Run the command:
    ```bash
-   npx extension-create dev <sample-name>
+   npx extension dev <sample-name>
    ```
    Replace `<sample-name>` with the name of the sample you wish to use from [Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
@@ -29,7 +29,7 @@ Dive right into development by starting with a sample from the Chrome Extension 
 2. Navigate to your desired project directory.
 3. Execute:
    ```bash
-   npx extension-create dev  <sample-name> --browser=edge
+   npx extension dev  <sample-name> --browser=edge
    ```
    Tailor your command by replacing `<sample-name>` with the specific sample you're interested in.
 
@@ -44,7 +44,7 @@ Bridge the gap between Firefox and Chrome by running Mozilla Add-Ons in Chrome:
 1. Navigate to your project directory.
 2. Use the command:
    ```bash
-   npx extension-create dev <addon-name> --browser=chrome --polyfill=true 
+   npx extension dev <addon-name> --browser=chrome --polyfill=true 
    ```
    This will fetch a Mozilla Add-On and adapt it for Chrome.
 
