@@ -17,7 +17,7 @@ The `dev` command runs the extension in development mode with support for reload
 In the example below, we are using the remote Chrome Sample [page_redder](#).
 
 ```
-npx extension-create dev xxxxx
+npx extension dev xxxxx
 ```
 
 ## Remote `start` command

@@ -11,7 +11,7 @@ With WebAssembly, developers can write parts of the extension in languages like 
 `extension-create` offers built-in WebAssembly (WASM) support. You can play around with WASM in `extension-create` by running the Chrome Sample [`cookbook.wasm-helloworld-print`](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print):
 
 ```sh
-npx extension-create dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
 ```
 <img src="./assets//wasm.png" alt="WASM Sample Extension">
 

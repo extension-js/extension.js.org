@@ -9,7 +9,7 @@ AUTHOR HINT: Browser runtimes are the "--template" flag capabilities
 You can create new extensions based on existing templates. Just pass a `--template` flag and use one of the options below.
 
 ```sh
-npx extension-create my-extension --template=<template>
+npx extension create my-extension --template=<template>
 ```
 
 |Template Flag|Description|Demo|
@@ -31,7 +31,7 @@ The default template includes a new tab page override, built with HTML, CSS, and
 ## Usage
 
 ```sh
-npx extension-create <your-extension-name>
+npx extension create <your-extension-name>
 ```
 
 # --template=init
@@ -41,7 +41,7 @@ For fast prototypes, includes just a single manifest.json file.
 <img src="./assets/init-template.png" alt="Init Extension Template">
 
 ```sh
-npx extension-create <your-extension-name>
+npx extension create <your-extension-name> --template=init
 ```
 
 # --template=content
@@ -51,7 +51,7 @@ Similar to the default template, except for the HTML part, which we inherit from
 <img src="./assets/content-template.png" alt="Content Extension Template">
 
 ```sh
-npx extension-create <your-extension-name> --template=content
+npx extension create <your-extension-name> --template=content
 ```
 
 # --template=react
@@ -61,7 +61,7 @@ Great for new projects using JSX without [TypeScript](https://www.typescriptlang
 <img src="./assets/react-template.png" alt="React Extension Template">
 
 ```sh
-npx extension-create <your-extension-name> --template=react
+npx extension create <your-extension-name> --template=react
 ```
 
 # --template=typescript
@@ -71,7 +71,7 @@ Similar to the default template, includes a new tab page override, built with HT
 <img src="./assets/ts-template.png" alt="TypeScript Extension Template">
 
 ```sh
-npx extension-create <your-extension-name> --template=typescript
+npx extension create <your-extension-name> --template=typescript
 ```
 
 # --template=react-typescript
@@ -81,7 +81,7 @@ Great for bootstrapping extensions with a rich UI experience. Includes a content
 <img src="./assets/react-ts-template.png" alt="React+TypeScript Extension Template">
 
 ```sh
-npx extension-create <your-extension-name> --template=react-typescript
+npx extension create <your-extension-name> --template=react-typescript
 ```
 
 # --template=chatgpt
@@ -91,7 +91,7 @@ The most complete template available. Fully integrated with the ChatGPT API. Inc
 <img src="./assets/chatgpt-template.png" alt="ChatGPT Extension Template">
 
 ```sh
-npx extension-create <your-extension-name> --template=chatgpt
+npx extension create <your-extension-name> --template=chatgpt
 ```
 
 ## Next Steps

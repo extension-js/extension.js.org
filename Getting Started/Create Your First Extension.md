@@ -25,7 +25,7 @@ Our goal is to make GitHub project searches as easy as searching on Google. To a
 Let's use the `create` command to bootstrap a minimal extension for us using the "init" template. Let's call it: `github-search`
 
 ```
-npx extension-create@latest github-search --template=init
+npx extension@latest github-search --template=init
 ```
 
 
@@ -75,18 +75,18 @@ If you take a looka t your `package.json` file now, it looks more or less like t
 {
   // ...your extension metadata
   "scripts": {
-    "dev": "extension-create dev",
-    "start": "extension-create start",
-    "build": "extension-create build"
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
   },
   "devDependencies": {
-    "extension-create": "latest"
+    "extension": "latest"
   }
 }
 
 ```
 
-These scripts are the main scripts used by extension-create for development mode. To preview your extension, let load it for the first time.
+These scripts are the main scripts used by `extension-create` for development mode. To preview your extension, let load it for the first time.
 
 ```
 npm run dev

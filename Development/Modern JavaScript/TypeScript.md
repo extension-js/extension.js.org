@@ -15,7 +15,7 @@ TypeScript is JavaScript with syntax for types.
 #### Try it yourself
 
 ```sh
-npx extension-create my-extension --template=typescript
+npx extension create my-extension --template=typescript
 ```
 
 > [!tip]
