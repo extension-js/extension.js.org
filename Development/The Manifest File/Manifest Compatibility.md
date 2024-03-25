@@ -9,7 +9,7 @@ In an ideal world, browser vendors would agree between conventions and developer
 
 ## Check For Required Fields
 
-![Required Field]("../assets/required_field.png")
+![Required Field](../assets/required_field.png)
 
 It is a common standard across all browsers vendors that the minimum Manifest file should contain a `name`, a `version`, and a `manifest_version` field as requirements. Missing one of these fields results in a runtime error.
 
@@ -18,7 +18,7 @@ It is a common standard across all browsers vendors that the minimum Manifest fi
 Fields such as [`options_page`](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/options_page) are deprecated in current valid Manifest versions. ~~Using deprecated fields results in a runtime error~~. [This feature is being tracked for future implementation](https://github.com/cezaraugusto/extension-create/issues/43).
 ## Check For Invalid Field Types
 
-![Invalid Field]("../assets/invalid_field.png")
+![Invalid Field](../assets/invalid_field.png)
 
 While the [`action` page in Chrome](https://developer.chrome.com/docs/extensions/reference/api/action) accepts a `default_icon` field value as a string, per the [official Manifest JSON Schema](https://json.schemastore.org/chrome-manifest.json) it is expected to be an object in Manifest V3. Using invalid field types results in a warning message.
 

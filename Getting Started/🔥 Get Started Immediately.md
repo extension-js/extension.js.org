@@ -38,9 +38,9 @@ See the example below where we request the sample [page-redder](https://github.c
 
 <div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/284d706379a84adabfdde6bd341b8d24?sid=24a4a6d5-5b30-4920-8a47-004540183aed" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
 
-## Run Mozilla Add-Ons in Chrome
+## Run Mozilla Add-Ons Using Edge
 
-Bridge the gap between Firefox and Chrome by running Mozilla Add-Ons using Edge:
+Bridge the gap between Firefox and Edge by running Mozilla Add-Ons using Edge:
 
 1. Navigate to your project directory.
 2. Use the command:

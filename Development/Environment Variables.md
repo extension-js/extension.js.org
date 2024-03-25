@@ -9,7 +9,7 @@ sort: 5
 
 Take for example, our ChatGPT [[Template]].
 
-![ChatGPT Extension Template]("./assets/chatgpt-template.png")
+![ChatGPT Extension Template](./assets/chatgpt-template.png)
 
 See that it expects the `EXTENSION_OPENAI_API_KEY` environment variable? Create an `.env` file at the project root so extension-create can parse its contents at runtime.
 

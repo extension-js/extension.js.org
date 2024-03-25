@@ -10,7 +10,7 @@ TypeScript is JavaScript with syntax for types.
 
 `extension-create` comes with a default TypeScript template for new projects, which you can use as a starting point for your next TypeScript-based Extension. This is the easiest way to have TypeScript integrated with `extension-create`. 
 
-![TypeScript Extension Template]("../assets/ts-template.png")
+![TypeScript Extension Template](../assets/ts-template.png)
 
 #### Try it yourself
 
@@ -92,7 +92,7 @@ compilerOptions: {
 
 In order to handle the multiple import capabilities such as `import()` of JavaScript modules and file assets, `extension-create` injects a `extension.d.ts` file at the root of your project folder. 
 
-![TypeScript Extension Type Definition]("../assets/extension-type-definition.png")
+![TypeScript Extension Type Definition](../assets/extension-type-definition.png)
 
 > [!tip]
 > Ensure the `extension.d.ts` file is added to your `.gitignore` file as it is auto-generated and only useful during `development` mode.
