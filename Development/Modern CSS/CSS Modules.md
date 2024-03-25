@@ -12,7 +12,7 @@ From [https://github.com/css-modules/css-modules](https://github.com/css-modules
 
 `extension-create` comes with a default CSS Module template for new projects, which you can use as a starting point for your next CSS Module-based Extension. This is the easiest way to have CSS Modules integrated with `extension-create`.
 
-<img src="https://place-hold.it/700x400">
+<!-- <img src="https://place-hold.it/700x400"> -->
 
 ### Try it yourself 
 

@@ -10,7 +10,7 @@ From [https://nodejs.org/api/esm.html#introduction](https://nodejs.org/api/esm.h
 
 `extension-create` comes with a default ECMASCript Module template for new projects, which you can use as a starting point for your next ECMASCript Module-based Extension. This is the easiest way to have ECMASCript Modules integrated with `extension-create`.
 
-<img src="https://place-hold.it/700x400">
+<!-- <img src="https://place-hold.it/700x400"> -->
 
 ### Try it yourself
 

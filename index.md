@@ -11,7 +11,7 @@ panel: false
 Designed with practicity and fast prototyping in mind, running a single terminal command is enough to start developing your extension and requires no extra knowledge to get started.
 > Create cross-browser extensions with no build configuration.
 
-<img src="./browser-all.png" alt="extension-create default template">
+![extension-create default template](./browser-all.png)
 
 ## Create A New Extension
 

@@ -85,17 +85,20 @@ npx extension dev my-extension --browser=<browser-name>
 It also includes support for running the following browsers:
 
 chrome, edge
-<img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg">
-<img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg">
+![chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg")
+![edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg")
+
 
 
 Desktop Browsers
 
-<img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg">
+![edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg")
+
 
 Mobile Browsers
 
-<img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg">
+![edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg")
+
 
 Desktop Browsers:
 Google Chrome: Supports web extensions through the Chrome Web Store.

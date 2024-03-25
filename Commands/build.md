@@ -2,7 +2,7 @@
 sort: 4
 ---
 
-<img src="./assets/build.png" alt="The build command line interface">
+![The build command line interface]("./assets/build.png")
 
 ```sh
 npx extension build [extension-path | extension-url] [options]

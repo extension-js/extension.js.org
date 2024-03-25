@@ -21,7 +21,7 @@ Cross-browser manifest support is not something straightfoward as well, so exten
 
 Fields like the action page and browser page overrides runs in the context of an HTML page. Adding any of these fields to your package JSON will make your .html file an entrypoint for your extension.
 
-<img src="../assets/new-template.png" alt="New extension template">
+![New extension template]("../assets/new-template.png")
 
 > A new extension from extension-create.
 
@@ -65,7 +65,7 @@ The `storage.managed_schema` property [indicates a file within the extension tha
 
 ### Scripts Fields
 
-<img src="../assets/service_worker.png" alt="The background inspect window">
+![The background inspect window]("../assets/service_worker.png")
 
 Support for both `background.scripts` (Manifest V2) and `background.service_worker` (Manifest V3). All scripts have [hot-module-replacement](https://webpack.js.org/concepts/hot-module-replacement/) support, except for `background.service_worker` (which is live-reloaded).
 
