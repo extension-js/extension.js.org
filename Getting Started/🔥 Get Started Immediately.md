@@ -3,6 +3,7 @@ sort: 0
 
 ---
 
+
 Welcome to the fast track of browser extension development with `extension-create`! Whether you're looking to prototype quickly or delve into full-scale development, you've made the right choice. Let's get your development environment set up and running in no time.
 
 ## Kickstart Any Sample from Chrome Extension Samples
@@ -17,9 +18,9 @@ Dive right into development by starting with a sample from the Chrome Extension 
    ```
    Replace `<sample-name>` with the name of the sample you wish to use from [Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
-<!-- > See the example below where we request the sample [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
+See the example below where we request the sample [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
-<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/e5782e95dce04b949935cf9c750ab472?sid=ea9b4daa-89cd-4661-8093-5fdb5446d676" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div> -->
+<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/34fc48f3f7954bfa990e767c6a7172f0?sid=346f6a11-58d6-48a4-8935-aac8119d765d" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
 
 ## Use `Microsoft Edge` to Kickstart Any Sample
 
@@ -33,24 +34,24 @@ Dive right into development by starting with a sample from the Chrome Extension 
    ```
    Tailor your command by replacing `<sample-name>` with the specific sample you're interested in.
 
-<!-- > See the example below where we request the sample [magic8ball](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball) from  from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples) using Edge as the runtime browser.
+> See the example below where we request the sample [magic8ball](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball) from  from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples) using Edge as the runtime browser.
 
-<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/share/c04b012185a04e2aa19461a3fff1ff24?sid=1d36a0fe-7c7a-4802-9fb8-59a0b02912a6" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div> -->
+<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/284d706379a84adabfdde6bd341b8d24?sid=24a4a6d5-5b30-4920-8a47-004540183aed" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
 
 ## Run Mozilla Add-Ons in Chrome
 
-Bridge the gap between Firefox and Chrome by running Mozilla Add-Ons in Chrome:
+Bridge the gap between Firefox and Chrome by running Mozilla Add-Ons using Edge:
 
 1. Navigate to your project directory.
 2. Use the command:
    ```bash
-   npx extension dev <addon-name> --browser=chrome --polyfill=true 
+   npx extension dev <addon-name> --browser=edge --polyfill=true 
    ```
-   This will fetch a Mozilla Add-On and adapt it for Chrome.
+   This will fetch a Mozilla Add-On and adapt it for Edge.
 
-<!-- > See the example below where we request the sample [Top Sites](https://github.com/mdn/webextensions-examples/tree/main/top-sites) from  from [MDN WebExtensions Examples](https://github.com/mdn/webextensions-examples) using Chrome as the runtime browser.
+> See the example below where we request the sample [Apply CSS](https://github.com/mdn/webextensions-examples/tree/main/apply-css) from [MDN WebExtensions Examples](https://github.com/mdn/webextensions-examples) using Edge as the runtime browser.
 
-<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/share/c04b012185a04e2aa19461a3fff1ff24?sid=1d36a0fe-7c7a-4802-9fb8-59a0b02912a6" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div> -->
+<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/6eb724aad822413fb4fe9f52afec5576?sid=e2aa47a4-71d4-4ff1-887a-dcf8031ea917" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
 
 ## Some Tips To Help You Get Started
 

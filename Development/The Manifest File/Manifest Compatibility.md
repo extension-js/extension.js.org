@@ -22,6 +22,7 @@ Fields such as [`options_page`](https://developer.mozilla.org/en-US/docs/Mozilla
 
 While the [`action` page in Chrome](https://developer.chrome.com/docs/extensions/reference/api/action) accepts a `default_icon` field value as a string, per the [official Manifest JSON Schema](https://json.schemastore.org/chrome-manifest.json) it is expected to be an object in Manifest V3. Using invalid field types results in a warning message.
 
+<!-- 
 ## Check If Field is Supported By The Manifest Version
 
 While the [`web_accessible_resources`](https://developer.chrome.com/docs/extensions/develop/migrate/manifest) field accepts an array of strings in Manifest V2, in Manifest V3 it is set as an array of objects. ~~Using fields not supported by the current `manifest_version` results in an error message~~. [This feature is being tracked for future implementation](https://github.com/cezaraugusto/extension-create/issues/42).
@@ -29,7 +30,7 @@ While the [`web_accessible_resources`](https://developer.chrome.com/docs/extensi
 ## Check If Field is Supported By The Current Browser
 
 The property `theme_icons` of [`browser_action`](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/browser_action) enables you to specify different icons for themes depending on whether Firefox detects that the theme uses dark or light text, but it has no effect in Chrome. ~~Using fields not supported by the current browser results in a warning message~~. [This feature is being tracked for future implementation](https://github.com/cezaraugusto/extension-create/issues/39).
-
+-->
 ---
 
 **🧩 extension-create** • create cross-browser extensions with no build configuration.

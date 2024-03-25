@@ -4,8 +4,6 @@ sort: 6
 
 To allow developers to use the latest language features without worrying about browser or environment constraints, `extension-create` relies on [Babel](#) to transpile cutting-edge JavaScript and TypeScript code, ensuring broad compatibility and enabling developers.
 
-https://nextjs.org/docs/pages/building-your-application/configuring/babel
-
 ## Feature Support
 
 Here’s how each Babel plugin and preset contributes to this feature:
