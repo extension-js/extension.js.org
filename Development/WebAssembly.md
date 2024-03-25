@@ -13,7 +13,7 @@ With WebAssembly, developers can write parts of the extension in languages like 
 ```sh
 npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
 ```
-![WASM Sample Extension]("./assets/wasm.png")
+![WASM Sample Extension](./assets/wasm.png)
 
 * Learn how `extension-create` works with extensions using [[Modern JavaScript]].
 

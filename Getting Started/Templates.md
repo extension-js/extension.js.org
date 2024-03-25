@@ -8,7 +8,7 @@ You can create new extensions based on existing templates. Just pass a `--templa
 ```sh
 npx extension create my-extension --template=<template>
 ```
-![extension-create prompt]("./assets/prompt.png")
+![extension-create prompt](./assets/prompt.png)
 
 |Template Flag|Description|Demo|
 |-|-|-|
@@ -24,7 +24,7 @@ npx extension create my-extension --template=<template>
 
 The default template includes a new tab page override, built with HTML, CSS, and JavaScript.
 
-![New Extension Template]("./assets/new-template.png")
+![New Extension Template](./assets/new-template.png)
 
 ## Usage
 
@@ -36,7 +36,7 @@ npx extension create <your-extension-name>
 
 For fast prototypes, includes just a single manifest.json file.
 
-![Init Extension Template]("./assets/init-template.png")
+![Init Extension Template](./assets/init-template.png)
 
 ```sh
 npx extension create <your-extension-name> --template=init
@@ -46,7 +46,7 @@ npx extension create <your-extension-name> --template=init
 
 Similar to the default template, except for the HTML part, which we inherit from the current tab. Uses JavaScript and CSS as a content_script.
 
-![Content Extension Template]("./assets/content-template.png")
+![Content Extension Template](./assets/content-template.png)
 
 ```sh
 npx extension create <your-extension-name> --template=content
@@ -56,7 +56,7 @@ npx extension create <your-extension-name> --template=content
 
 Great for new projects using Tailwind. Includes a new tab override using [React](https://react.dev) and [Tailwind.css](https://tailwindcss.com/).
 
-![Tailwind Extension Template]("./assets/tailwind-template.png")
+![Tailwind Extension Template](./assets/tailwind-template.png)
 
 ```sh
 npx extension create <your-extension-name> --template=tailwind
@@ -66,7 +66,7 @@ npx extension create <your-extension-name> --template=tailwind
 
 Great for new projects using JSX without [TypeScript](https://www.typescriptlang.org/). Includes a new tab override using [React](https://react.dev) and [sakura.css](https://oxal.org/projects/sakura/).
 
-![React Extension Template]("./assets/react-template.png")
+![React Extension Template](./assets/react-template.png)
 
 ```sh
 npx extension create <your-extension-name> --template=react
@@ -76,7 +76,7 @@ npx extension create <your-extension-name> --template=react
 
 Similar to the default template, includes a new tab page override, built with HTML, CSS, and [TypeScript](https://www.typescriptlang.org/).
 
-![TypeScript Extension Template]("./assets/ts-template.png")
+![TypeScript Extension Template](./assets/ts-template.png)
 
 ```sh
 npx extension create <your-extension-name> --template=typescript
@@ -86,7 +86,7 @@ npx extension create <your-extension-name> --template=typescript
 
 Great for bootstrapping extensions with a rich UI experience. Includes a content_script using [React](https://react.dev), [TypeScript](https://www.typescriptlang.org/) and [Tailwind.css](https://tailwindcss.com/).
 
-![React+TypeScript Extension Template]("./assets/react-ts-template.png")
+![React+TypeScript Extension Template](./assets/react-ts-template.png)
 
 ```sh
 npx extension create <your-extension-name> --template=react-typescript
@@ -96,7 +96,7 @@ npx extension create <your-extension-name> --template=react-typescript
 
 The most complete template available. Fully integrated with the ChatGPT API. Includes a `sidebar_panel` using [React](https://react.dev), [Tailwind.css](https://tailwindcss.com/), and the [official OpenAI Node API library](https://www.npmjs.com/package/openai). 
 
-![ChatGPT Extension Template]("./assets/chatgpt-template.png")
+![ChatGPT Extension Template](./assets/chatgpt-template.png)
 
 ```sh
 npx extension create <your-extension-name> --template=chatgpt
