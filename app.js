@@ -35,11 +35,11 @@ module.exports = defineConfig({
     ],
     sections: [
       {
-        label: "Introduction",
+        label: "Getting Started",
         groups: [
           {
             query: createNotesQuery({
-              pattern: "^/[^/]+$",
+              pattern: "^/Getting Started/",
             }),
           },
         ],
@@ -48,9 +48,9 @@ module.exports = defineConfig({
         label: "Guides",
         groups: [
           {
-            label: "Writing Notes",
+            label: "Development",
             query: createNotesQuery({
-              pattern: "^/Writing/",
+              pattern: "^/Development/",
               tree: {
                 replace: {
                   "^/\\w+": "",
@@ -59,67 +59,72 @@ module.exports = defineConfig({
             }),
           },
           {
-            label: "Organizing Notes",
+            label: "Commands",
             query: createNotesQuery({
-              pattern: "^/Organizing/",
+              pattern: "^/Commands/",
             }),
           },
-          {
-            label: "Core Features",
-            query: createNotesQuery({
-              pattern: "^/Features/",
-              tree: {
-                replace: {
-                  "^/\\w+": "",
-                },
-              },
-            }),
-          },
-          {
-            label: "Deployment",
-            query: createNotesQuery({
-              pattern: "^/Deployment/",
-            }),
-          },
+          // {
+          //   label: "Configuration Files",
+          //   query: createNotesQuery({
+          //     pattern: "^/Configuration Files/",
+          //     tree: {
+          //       replace: {
+          //         "^/\\w+": "",
+          //       },
+          //     },
+          //   }),
+          // },
+          // {
+          //   label: "^/Features/",
+          //   query: createNotesQuery({
+          //   pattern: "^/Features/",
+          // }),          // },
+          // {
+          //   label: "^/Examples/",
+          //   query: createNotesQuery({
+          //     pattern: "^/Examples/",
+          //   }),
+          // },
+          // {
+          //   label: "^/Guides/",
+          //   query: createNotesQuery({
+          //     pattern: "^/Guides/",
+          //   }),
+          // },
+          // {
+          //   label: "^/Integrations/",
+          //   query: createNotesQuery({
+          //     pattern: "^/Integrations/",
+          //   }),
+          // },
+          // {
+          //   label: "^/Advanced/",
+          //   query: createNotesQuery({
+          //     pattern: "^/Advanced/",
+          //   }),
+          // },
         ],
       },
-      {
-        label: "Releases",
-        groups: [
-          {
-            query: createNotesQuery({
-              pattern: "^/Releases/",
-            }),
-          },
-        ],
-      },
       // {
-      //   pattern: "^/Configuration Files/",
-      //   label: "Configuration Files",
-      // },
-      // {
-      //   pattern: "^/Features/",
-      //   label: "Cross-Browser Features",
-      // },
-      // {
-      //   pattern: "^/Examples/",
-      //   label: "Examples",
-      // },
-      // {
-      //   pattern: "^/Guides/",
-      //   label: "Guides",
-      // },
-      // {
-      //   pattern: "^/Integrations/",
-      //   label: "Integrations",
-      // },
-      // {
-      //   pattern: "^/Advanced/",
-      //   label: "Advanced",
-      // },
-      // {
-      //   pattern: "^/Contribute/",
       //   label: "Contribute To This Project",
+      //   groups: [
+      //     {
+      //       query: createNotesQuery({
+      //         pattern: "^/Contribute/",
+      //       }),
+      //     },
+      //   ],
+      // },
+      // {
+      //   label: "Releases",
+      //   groups: [
+      //     {
+      //       query: createNotesQuery({
+      //         pattern: "^/Releases/",
+      //       }),
+      //     },
+      //   ],
       // },
     ],
   },
