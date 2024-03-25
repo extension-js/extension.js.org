@@ -4,15 +4,18 @@ headline: Welcome to extension-create
 panel: false
 ---
 
-<img src="./cli.png" alt="extension-create default template">
 
-`extension-create` is a development tool for browser extensions, allowing developers to create cross-browser extensions with no build configuration. It has built-in support for [[TypeScript]], [[WebAssembly]], [[React]], and [[modern JavaScript]] (ESNext).
+`extension-create` is a development tool for browser extensions with built-in support for [[TypeScript]], [[WebAssembly]], [[React]], and [[modern JavaScript]].
+
 
 Designed with practicity and fast prototyping in mind, running a single terminal command is enough to start developing your extension and requires no extra knowledge to get started.
+> Create cross-browser extensions with no build configuration.
 
-## Create a New Extension
+<img src="./browser-all.png" alt="extension-create default template">
 
-<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/dabe24ad9ef34baa91004b3af48fa0b5?sid=00fcfeec-8b23-4a80-86e7-91b5b7990d4d" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
+## Create A New Extension
+
+<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/58e21900d693417db1e0e59c0a96c4b3?sid=80cf1003-7ed1-4f9d-a3fb-01c7876983ad" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
 
 `extension-create` has a default `create` command that allows you to generate the foundations of your next extension project (see demo above). It also supports templates via `--template` flag.
 
@@ -24,7 +27,7 @@ For a list of all supported templates, see [[Templates]].
 
 ## Usage With An Existing Extension
 
-<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/bff0cf2569dc4abc947f697dc40add9f?sid=42047d01-0925-4098-87ea-59cf8ac34207" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
+<div style="position: relative; padding-bottom: 62.5%; height: 0;"><iframe src="https://www.loom.com/embed/c7ae4fc7cdfc47c39334c7efe3175dd9?sid=035792a7-aec9-4f1a-852b-47ca7166a539" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>
 
 If you have an existing extension which is using a package manager, you can install the `extension-create` package and manually create the scripts used to run your extension. See the demo above or follow these instructions to get it done:
 
@@ -39,9 +42,9 @@ npm install extension --save-dev
 ```json
 {
   "scripts": {
+    "build": "extension build",
     "dev": "extension dev",
-    "start": "extension start",
-    "build": "extension build"
+    "start": "extension start"
   },
   "devDependencies": {
     // ...other deps,
