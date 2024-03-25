@@ -12,7 +12,7 @@ From [https://sass-lang.com/](https://sass-lang.com/):
 
 `extension-create` comes with a default Sass Module template for new projects, which you can use as a starting point for your next Sass Extension. This is the easiest way to have Sass integrated with `extension-create`.
 
-<img src="https://place-hold.it/700x400">
+<!-- <img src="https://place-hold.it/700x400"> -->
 
 ### Try it yourself 
 

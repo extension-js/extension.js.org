@@ -134,7 +134,7 @@ chrome.omnibox.onInputEntered.addListener((text) => {
 
 Adding this code lets you see live search suggestions from GitHub right in your URL bar, making your search experience even smoother. Here's how it looks like when I type "undefined is not a function":
 
-<img src="./assets/updated-result.png" alt="Updated result">
+![Updated result]("./assets/updated-result.png")
 
 ## Conclusion
 

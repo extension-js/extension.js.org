@@ -10,7 +10,7 @@ React is the library for web and native user interfaces.
 
 extension-create comes with a default React template for new projects, which you can use as a starting point for your next React-based Extension. This is the easiest way to have React integrated with extension-create.
 
-<img src="../assets/react-template.png" alt="React Extension Template">
+![React Extension Template]("../assets/react-template.png")
 
 ### Try it yourself 
 
@@ -22,7 +22,7 @@ npx extension create my-extension --template=react
 
 Alternatively, `extension-create` also supports a React+TypeScript template for a more robust UI.
 
-<img src="../assets/react-ts-template.png" alt="React Extension Template">
+![React Extension Template]("../assets/react-ts-template.png")
 
 ### Try it yourself 
 

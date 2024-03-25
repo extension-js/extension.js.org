@@ -4,7 +4,7 @@ sort: 2
 
 #### Demo
 
-<img src="https://place-hold.it/500">
+<!-- <img src="https://place-hold.it/500"> -->
 
 ```sh
 npx extension dev @extension-create/templates/less

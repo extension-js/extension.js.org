@@ -19,7 +19,7 @@ Special folders are folders that allows you to work with files outside the scope
 
 To work with complementary HTML files (such as internal page links or iframes), add the file into a `pages/` folder.
 
-<img src="./assets/pages-folder2.png">
+![Pages Folder]("./assets/pages-folder2.png")
 
 **Example:** 
 An iframe as a sandboxed frame. [See the sandbox sample from Chrome Samples repository](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox). The iframe is likely to be edited several times during development, so adding it inside a `pages/` folder guarantees support for hot page reloads and full integration with JavaScript/CSS pre/post-processors.
@@ -28,7 +28,7 @@ An iframe as a sandboxed frame. [See the sandbox sample from Chrome Samples repo
 
 For scripts without the need of HTML files, add the file into a `scripts/` folder. Any JavaScript-like file in this folder is a valid entry point.
 
-<img src="./assets/scripts-folder.png">
+![Scripts Folder]("./assets/scripts-folder.png")
 
 **Example:** 
 * Scripts injected via <code>chrome.scripting.executeScript</code>. [See the scripting sample from Chrome Samples repository.](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/scripting) where the API is called to request a script not defined in the `manifest.json` file. Adding the script to a `scripts/` folder guarantees support for hot page reloads and full integration with JavaScript/CSS pre/post-processors.
@@ -39,8 +39,8 @@ For files that you don't want extension-create to parse, or if you want a predic
 
 See thee example below using the previous [sandbox sample from Chrome Samples repository](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox). `handlebars.js` is an external lib that we don't want to parse, so we add it to the `/public` path, and `extension-create` will output the file as-is, skipping the compilation process.
 
-<img src="./assets/public-folder.png">
-  
+![Public Folder]("./assets/public-folder.png")
+) 
 ## Next Steps
 
 - Check the diffent types of [[Templates]] to bootstrap your next extension.
