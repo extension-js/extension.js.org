@@ -1,5 +1,5 @@
 ---
-title: Welcome
+title: Extension
 headline: Welcome to Extension
 panel: false
 ---
