@@ -2,7 +2,7 @@
 sort: 0
 ---
 
-[Extension](https://github.com/cezaraugusto/Extension) comes with a set of commands that can be customized with options.
+[Extension](https://github.com/cezaraugusto/extension) comes with a set of commands that can be customized with options.
 
 | command | description |
 |-|-|
