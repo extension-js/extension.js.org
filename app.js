@@ -4,9 +4,9 @@ const { defineConfig, createNotesQuery } = require("./.app/app-config");
 module.exports = defineConfig({
   title: "🧩 Extension",
   description:
-    "A simple, lightweight, and flexible note-taking template for Eleventy.",
+    "Plug-and-play, zero-config, cross-browser extension development tool.",
   editThisNote: {
-    url: "https://github.com/cezaraugusto/Extension/edit/{{branch}}/{{file}}",
+    url: "https://github.com/cezaraugusto/extension/edit/{{branch}}/{{file}}",
   },
   customProperties: {
     properties: [
@@ -28,7 +28,7 @@ module.exports = defineConfig({
         icon: "user-check",
       },
       {
-        url: "https://github.com/cezaraugusto/Extension/graphs/contributors",
+        url: "https://github.com/cezaraugusto/extension/graphs/contributors",
         label: "Contributors Hall of Fame",
         icon: "users",
       },
