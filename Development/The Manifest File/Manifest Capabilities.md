@@ -7,15 +7,15 @@ Browser extensions can do many things.
 
 One of the major challenges of developing an extension from scratch (and main motivation to start this project) is the lack of full manifest features support provided by the many frameworks/boilerplates/templates currently available.
 
-With that in mind, `extension-create` is designed to ensure that most of `manifest.json` features are covered for the various extension fields available.
+With that in mind, `Extension` is designed to ensure that most of `manifest.json` features are covered for the various extension fields available.
 
 ### Manifest Support
 
-Except for browser [Themes](https://developer.chrome.com/docs/extensions/develop/ui/themes#manifest), extension-create offers full Chrome Manifest V2 and V3 support, and plans to cover all manifest features in a cross-browser way, following the [MDN compatibility table](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Browser_compatibility_for_manifest.json). If there is a feature that is not covered but should, [you are encouraged to open an issue](https://github.com/cezaraugusto/extension-create/issues/new).
+Except for browser [Themes](https://developer.chrome.com/docs/extensions/develop/ui/themes#manifest), Extension offers full Chrome Manifest V2 and V3 support, and plans to cover all manifest features in a cross-browser way, following the [MDN compatibility table](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Browser_compatibility_for_manifest.json). If there is a feature that is not covered but should, [you are encouraged to open an issue](https://github.com/cezaraugusto/Extension/issues/new).
 
 > By **_supports_**, we mean live-reload of changes in the browser chrome interface (outside of web ui context) and handling of all file paths in the manifest as entrypoints, allowing full asset handling and output organization of your extension.
 
-Cross-browser manifest support is not something straightfoward as well, so extension-create also offers a [[Manifest Compatibility]] handler that warns and errors when a mistake is found, to ensure your extension matches the criteria of each browser vendor.
+Cross-browser manifest support is not something straightfoward as well, so Extension also offers a [[Manifest Compatibility]] handler that warns and errors when a mistake is found, to ensure your extension matches the criteria of each browser vendor.
 
 ### HTML Support
 
@@ -23,7 +23,7 @@ Fields like the action page and browser page overrides runs in the context of an
 
 ![New extension template](../assets/new-template.png)
 
-> A new extension from extension-create.
+> A new extension from Extension.
 
 | Manifest Field                   | File Type Expected |
 |----------------------------------|--------------------|
@@ -56,7 +56,7 @@ Browser extensions use icons to differentiate your extension in different extens
 ### JSON Fields
 
 The `chrome.declarativeNetRequest` API [is used to block or modify network requests by specifying declarative rules](https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest), and 
-The `storage.managed_schema` property [indicates a file within the extension that contains the policy schema](https://developer.chrome.com/docs/extensions/reference/manifest/storage). Both of these features rely on JSON files to work, which extension-create both support. 
+The `storage.managed_schema` property [indicates a file within the extension that contains the policy schema](https://developer.chrome.com/docs/extensions/reference/manifest/storage). Both of these features rely on JSON files to work, which Extension both support. 
 
 | Manifest Field              | File Type Expected |
 |-----------------------------|--------------------|
@@ -83,7 +83,7 @@ According to [Chrome Developers documentation](https://developer.chrome.com/docs
 
 > Web-accessible resources are files inside an extension that can be accessed by web pages or other extensions. Extensions typically use this feature to expose images or other assets that need to be loaded in web pages, but any asset included in an extension's bundle can be made web accessible.
 
-In extension-create, assets imported in `content_scripts` are set as `web_accessible_resources` by default.
+In Extension, assets imported in `content_scripts` are set as `web_accessible_resources` by default.
 
 ## Next Steps
 
@@ -91,4 +91,4 @@ In extension-create, assets imported in `content_scripts` are set as `web_access
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

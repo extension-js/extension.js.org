@@ -4,11 +4,11 @@ sort: 2
 
 In the early days of web development, CSS was challenging due to its limitations in scalability and maintainability. CSS preprocessors provided a way to organize stylesheets modularly, leading to the evolution of modern CSS practices.
 
-`extension-create` supports different ways of processing (more precisely, pre-processing and post-processing) CSS in your extension and offers some built-in tools to speed up the addition of styles into your browser extension.
+`Extension` supports different ways of processing (more precisely, pre-processing and post-processing) CSS in your extension and offers some built-in tools to speed up the addition of styles into your browser extension.
 
 ## Feature Support
 
-In addition to regular `*.css` files, `extension-create` also supports the following file extensions and CSS utilities:
+In addition to regular `*.css` files, `Extension` also supports the following file extensions and CSS utilities:
 
 | feature name | description | extension|
 |-|-|-|
@@ -19,8 +19,8 @@ In addition to regular `*.css` files, `extension-create` also supports the follo
 
 ## Next Steps
 
-* Using [[Stylelint]] with `extension-create` to lint your stylesheets.
+* Using [[Stylelint]] with `Extension` to lint your stylesheets.
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

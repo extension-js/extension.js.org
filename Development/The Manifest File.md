@@ -2,13 +2,13 @@
 sort: 3
 ---
 
-To allow developers to use the latest language features without worrying about browser or environment constraints, `extension-create` relies on [[Babel]] to transpile cutting-edge JavaScript and TypeScript code, ensuring broad compatibility and enabling developers.
+To allow developers to use the latest language features without worrying about browser or environment constraints, `Extension` relies on [[Babel]] to transpile cutting-edge JavaScript and TypeScript code, ensuring broad compatibility and enabling developers.
 
 ## Manifest Capabilities
 
 One of the major challenges of developing an extension from scratch (and main motivation to start this project) is the lack of full manifest features support provided by the many frameworks/boilerplates/templates currently available.
 
-With that in mind, `extension-create` is designed to ensure that most of manifest.json features are covered for the various extension fields available. See [[Manifest Capabilities]].
+With that in mind, `Extension` is designed to ensure that most of manifest.json features are covered for the various extension fields available. See [[Manifest Capabilities]].
 
 ## Manifest Compatibility
 
@@ -20,4 +20,4 @@ The `manifest.json` file is the only required file in an extension. While very s
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

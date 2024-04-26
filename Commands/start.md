@@ -8,9 +8,9 @@ npx extension dev [extension-path | extension-url] [options]
 
 **Responsible for running your extension in `production` mode.** Gets the extension and bundles in a new browser instance. Browser extension files are watched and live-reloaded as they change.
 
-If a URL is provided, `extension-create` will download and run the extension in the current working directory and follow the same tasks any other local extension would. _This feature only works for [GitHub](https://github.com) repositories currently_.
+If a URL is provided, `Extension` will download and run the extension in the current working directory and follow the same tasks any other local extension would. _This feature only works for [GitHub](https://github.com) repositories currently_.
 
-The target browser determines which browser they want to run their extension. Setting it to `"all"` will open all available browsers at once. If the user doesn't have the target browser installed, `extension-create will throw a compiler error.
+The target browser determines which browser they want to run their extension. Setting it to `"all"` will open all available browsers at once. If the user doesn't have the target browser installed, `Extension will throw a compiler error.
 
 Users can also opt for a different port to run their extensions.
 
@@ -37,10 +37,10 @@ Users can also opt for a different port to run their extensions.
 | -b, --browser       | 'chrome' or 'edge' or 'all' | Which browser to target your extension build. Defaults to `'chrome'`.                                                                 |
 | -p, --polyfill      | boolean                     | Whether or not to apply the cross-browser polyfill. Defaults to `true`.                                                               |
 | -a, --auto-reload   | boolean                     | Whether to enable auto-reload on save. Defaults to `true`.                                                                            |
-| -p, --port          | number                      | What port should extension-create/develop run. Defaults to `3000`.                                                                    |
+| -p, --port          | number                      | What port should Extension/develop run. Defaults to `3000`.                                                                    |
 | -r, --reloader-port | number                      | What port should run the reloader run. Defaults to `8081`.
 -->
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

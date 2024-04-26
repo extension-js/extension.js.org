@@ -1,5 +1,5 @@
-# extension.js.org
-> The extension-create official documentation website.
+# Extension.org
+> The Extension official documentation website.
 
 ## Installation
 

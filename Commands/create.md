@@ -30,4 +30,4 @@ npx extension create patb/to/my-extension --template=react
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

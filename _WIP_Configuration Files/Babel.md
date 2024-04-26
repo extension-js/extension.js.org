@@ -2,7 +2,7 @@
 sort: 6
 ---
 
-To allow developers to use the latest language features without worrying about browser or environment constraints, `extension-create` relies on [Babel](#) to transpile cutting-edge JavaScript and TypeScript code, ensuring broad compatibility and enabling developers.
+To allow developers to use the latest language features without worrying about browser or environment constraints, `Extension` relies on [Babel](#) to transpile cutting-edge JavaScript and TypeScript code, ensuring broad compatibility and enabling developers.
 
 ## Feature Support
 
@@ -22,9 +22,9 @@ This comprehensive setup empowers developers to write modern, efficient, and cle
 
 * Add a custom [[Babel]] config (`babel.config.js`) to your extension.
 * To maintain compatibility across diverse browser vendors, see [[Polyfill]].
-* Learn about [[React]] in extension-create.
-* Learn about [[TypeScript]] in extension-create.
+* Learn about [[React]] in Extension.
+* Learn about [[TypeScript]] in Extension.
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

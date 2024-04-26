@@ -8,7 +8,7 @@ You can create new extensions based on existing templates. Just pass a `--templa
 ```sh
 npx extension create my-extension --template=<template>
 ```
-![extension-create prompt](./assets/prompt.png)
+![Extension prompt](./assets/prompt.png)
 
 |Template Flag|Description|Demo|
 |-|-|-|
@@ -105,8 +105,8 @@ npx extension create <your-extension-name> --template=chatgpt
 ## Next Steps
 
 * Understand [[Browser Runners]] and how they help you visualize your extension.
-* Learn how `extension-create` handles [[Environment Variables]].
+* Learn how `Extension` handles [[Environment Variables]].
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

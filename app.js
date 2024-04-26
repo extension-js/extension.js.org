@@ -2,11 +2,11 @@
 const { defineConfig, createNotesQuery } = require("./.app/app-config");
 
 module.exports = defineConfig({
-  title: "🧩 extension-create",
+  title: "🧩 Extension",
   description:
     "A simple, lightweight, and flexible note-taking template for Eleventy.",
   editThisNote: {
-    url: "https://github.com/cezaraugusto/extension-create/edit/{{branch}}/{{file}}",
+    url: "https://github.com/cezaraugusto/Extension/edit/{{branch}}/{{file}}",
   },
   customProperties: {
     properties: [
@@ -28,7 +28,7 @@ module.exports = defineConfig({
         icon: "user-check",
       },
       {
-        url: "https://github.com/cezaraugusto/extension-create/graphs/contributors",
+        url: "https://github.com/cezaraugusto/Extension/graphs/contributors",
         label: "Contributors Hall of Fame",
         icon: "users",
       },

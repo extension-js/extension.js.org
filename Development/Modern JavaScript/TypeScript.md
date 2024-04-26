@@ -4,11 +4,11 @@ sort: 1
 
 TypeScript is JavaScript with syntax for types.
 
-`extension-create` offers built-in support for TypeScript files. 
+`Extension` offers built-in support for TypeScript files. 
 
 ## Starter TypeScript Template
 
-`extension-create` comes with a default TypeScript template for new projects, which you can use as a starting point for your next TypeScript-based Extension. This is the easiest way to have TypeScript integrated with `extension-create`. 
+`Extension` comes with a default TypeScript template for new projects, which you can use as a starting point for your next TypeScript-based Extension. This is the easiest way to have TypeScript integrated with `Extension`. 
 
 ![TypeScript Extension Template](../assets/ts-template.png)
 
@@ -39,7 +39,7 @@ npx tsc --init
 
 #### Automatic TypeScript Support
 
-If your extension has TypeScript installed but no `tsconfig.json` file, `extension-create` will attempt to automate the integration process by creating a `tsconfig.json` file at the project root, with the following defaults:
+If your extension has TypeScript installed but no `tsconfig.json` file, `Extension` will attempt to automate the integration process by creating a `tsconfig.json` file at the project root, with the following defaults:
 
 ```json5
 compilerOptions: {
@@ -90,7 +90,7 @@ compilerOptions: {
 
 #### Automatic Type Injection
 
-In order to handle the multiple import capabilities such as `import()` of JavaScript modules and file assets, `extension-create` injects a `extension.d.ts` file at the root of your project folder. 
+In order to handle the multiple import capabilities such as `import()` of JavaScript modules and file assets, `Extension` injects a `extension.d.ts` file at the root of your project folder. 
 
 ![TypeScript Extension Type Definition](../assets/extension-type-definition.png)
 
@@ -99,7 +99,7 @@ In order to handle the multiple import capabilities such as `import()` of JavaSc
 
 #### `tsconfig.json` Overrides
 
-`extension-create` applies some defaults to your extension `tsconfig.json` file. The options below overrides any user-defined rules.
+`Extension` applies some defaults to your extension `tsconfig.json` file. The options below overrides any user-defined rules.
 
 ```json5
 {
@@ -136,9 +136,9 @@ In order to handle the multiple import capabilities such as `import()` of JavaSc
 
 ## Next Steps
 
-- Learn how `extension-create` works with extensions using [[CSS Pre-Processors]].
-- Learn how `extension-create` works with extensions using [[React]].
+- Learn how `Extension` works with extensions using [[CSS Pre-Processors]].
+- Learn how `Extension` works with extensions using [[React]].
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

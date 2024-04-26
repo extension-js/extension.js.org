@@ -2,7 +2,7 @@
 sort: 2
 ---
 
-One of the coolest features of extension-create is the ability to execute remote extensions. By running a valid GitHub URL as the command argument, `extension-create` downloads and execute the extension files against the target browser, as if you would using any local extension.
+One of the coolest features of Extension is the ability to execute remote extensions. By running a valid GitHub URL as the command argument, `Extension` downloads and execute the extension files against the target browser, as if you would using any local extension.
 
 This is useful during prototype steps where you want to create something based on a working extension sample, such as [Chrome Samples](#) or [MDN samples](#). 
 
@@ -12,7 +12,7 @@ This is useful during prototype steps where you want to create something based o
 
 ## Remote `dev` command
 
-The `dev` command runs the extension in development mode with support for reloading upon file changes. By passing a valid GitHub URL (as long as there is a valid manifest file), extension-create will download the files to your current directory and run your extension against the current browser.
+The `dev` command runs the extension in development mode with support for reloading upon file changes. By passing a valid GitHub URL (as long as there is a valid manifest file), Extension will download the files to your current directory and run your extension against the current browser.
 
 In the example below, we are using the remote Chrome Sample [page_redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
@@ -42,4 +42,4 @@ In the example below, using the same [page_redder](https://github.com/GoogleChro
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

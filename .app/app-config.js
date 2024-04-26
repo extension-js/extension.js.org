@@ -40,7 +40,7 @@ module.exports = {
  */
 function applyDefaults(custom) {
   return {
-    title: "🧩 extension-create",
+    title: "🧩 Extension",
     description: "Create cross-browser extensions with no build configuration.",
     lang: "en",
     ...custom,

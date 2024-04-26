@@ -21,4 +21,4 @@ Users can also opt for a different port to run their extensions. Defaults to `:8
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

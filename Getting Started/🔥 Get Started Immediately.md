@@ -4,7 +4,7 @@ sort: 0
 ---
 
 
-Welcome to the fast track of browser extension development with `extension-create`! Whether you're looking to prototype quickly or delve into full-scale development, you've made the right choice. Let's get your development environment set up and running in no time.
+Welcome to the fast track of browser extension development with `Extension`! Whether you're looking to prototype quickly or delve into full-scale development, you've made the right choice. Let's get your development environment set up and running in no time.
 
 ## Kickstart Any Sample from Chrome Extension Samples
 
@@ -24,7 +24,7 @@ See the example below where we request the sample [page-redder](https://github.c
 
 ## Use `Microsoft Edge` to Kickstart Any Sample
 
-`extension-create` supports a variety of browsers, including Microsoft Edge. To start an Edge-compatible extension, simply:
+`Extension` supports a variety of browsers, including Microsoft Edge. To start an Edge-compatible extension, simply:
 
 1. Open your terminal.
 2. Navigate to your desired project directory.
@@ -62,8 +62,8 @@ Bridge the gap between Firefox and Edge by running Mozilla Add-Ons using Edge:
 
 ## Next Steps
 
-Start exploring the world of browser extension development with `extension-create` by [[Create Your First Extension]].
+Start exploring the world of browser extension development with `Extension` by [[Create Your First Extension]].
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.
