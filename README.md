@@ -1,4 +1,4 @@
-# docs.extensioncreate.com
+# extension.js.org
 > The extension-create official documentation website.
 
 ## Installation
