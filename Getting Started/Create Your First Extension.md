@@ -3,7 +3,7 @@ sort: 1
 
 ---
 
-To learn how to create an extension from scratch using `extension-create`, let's create one together, from scratch.
+To learn how to create an extension from scratch using `Extension`, let's create one together, from scratch.
 
 Take a common task for some developers: searching on GitHub.
 
@@ -86,7 +86,7 @@ If you take a looka t your `package.json` file now, it looks more or less like t
 
 ```
 
-These scripts are the main scripts used by `extension-create` for development mode. To preview your extension, let load it for the first time.
+These scripts are the main scripts used by `Extension` for development mode. To preview your extension, let load it for the first time.
 
 ```
 npm run dev
@@ -143,8 +143,8 @@ Congratulations! You've built a GitHub search extension. Experiment with it, imp
 ## Next Steps 
 
 - Learn how to load locally remotely hosted extensions in [[Remote Extension Execution]].
-- Create an extension using one of `extension-create` [[Templates]].
+- Create an extension using one of `Extension` [[Templates]].
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

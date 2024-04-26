@@ -2,7 +2,7 @@
 sort: 0
 ---
 
-[extension-create](https://github.com/cezaraugusto/extension-create) comes with a set of commands that can be customized with options.
+[Extension](https://github.com/cezaraugusto/Extension) comes with a set of commands that can be customized with options.
 
 | command | description |
 |-|-|
@@ -14,4 +14,4 @@ sort: 0
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

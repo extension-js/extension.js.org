@@ -2,11 +2,11 @@
 sort: 3
 ---
 
-`extension-create` offers first-class support for the utility-first CSS framework for rapidly building modern extensions without ever leaving your HTML.
+`Extension` offers first-class support for the utility-first CSS framework for rapidly building modern extensions without ever leaving your HTML.
 
 ## Starter Tailwind Templates 
 
-The easiest way to get started with `Tailwind CSS` with `extension-create` is using a template. Currently, there are three templates that include `Tailwind CSS` as a dependency. See [[Templates]] to learn more.
+The easiest way to get started with `Tailwind CSS` with `Extension` is using a template. Currently, there are three templates that include `Tailwind CSS` as a dependency. See [[Templates]] to learn more.
 
 ## Usage With An Existing Extension 
 
@@ -81,7 +81,7 @@ Now, add `css/globals.css` as an import for the file you want Tailwind.css to wo
   </head>
   <body>
     <!-- Add the styles you need -->
-   <h1 className="text-4xl font-bold">Hello, extension-create.</h1>
+   <h1 className="text-4xl font-bold">Hello, Extension.</h1>
   </body>
 </html>
 
@@ -96,7 +96,7 @@ import './css/globals.css'
  
 export default function MyNewTabPage() {
   return (
-    <h1 className="text-4xl font-bold">Hello, extension-create.</h1>
+    <h1 className="text-4xl font-bold">Hello, Extension.</h1>
   )
 }
 ```
@@ -111,7 +111,7 @@ export default function MyNewTabPage() {
 import('./css/globals.css')
  
 export default function MyNewTabPage() {
-  return <h1 className="text-3xl font-bold underline">Hello, extension-create!</h1>
+  return <h1 className="text-3xl font-bold underline">Hello, Extension!</h1>
 }
 ```
 
@@ -140,4 +140,4 @@ The manifest.json file supports `.css` extensions for `content_scripts`.
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

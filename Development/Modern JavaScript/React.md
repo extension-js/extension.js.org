@@ -4,11 +4,11 @@ sort: 2
 
 React is the library for web and native user interfaces.	
 
-`extension-create` offers built-in support for React and JSX. To have support for React in your extension, ensure you have [React](#) and [React-DOM]() set as a `dependency` or `devDependency` in your `package.json` file, and you are all set!
+`Extension` offers built-in support for React and JSX. To have support for React in your extension, ensure you have [React](#) and [React-DOM]() set as a `dependency` or `devDependency` in your `package.json` file, and you are all set!
 
 ## Starter React Template 
 
-extension-create comes with a default React template for new projects, which you can use as a starting point for your next React-based Extension. This is the easiest way to have React integrated with extension-create.
+Extension comes with a default React template for new projects, which you can use as a starting point for your next React-based Extension. This is the easiest way to have React integrated with Extension.
 
 ![React Extension Template](../assets/react-template.png)
 
@@ -20,7 +20,7 @@ npx extension create my-extension --template=react
 
 ## React+TypeScript Template
 
-Alternatively, `extension-create` also supports a React+TypeScript template for a more robust UI.
+Alternatively, `Extension` also supports a React+TypeScript template for a more robust UI.
 
 ![React Extension Template](../assets/react-ts-template.png)
 
@@ -41,7 +41,7 @@ npm install -D react react-dom @types/react @types/react-dom
 
 ### Configuration
 
-`extension-create` expects your React files to come from the following file extensions:
+`Extension` expects your React files to come from the following file extensions:
 
 * If TypeScript is not enabled: `*.jsx`, `*.mjsx`
 * If TypeScript is enabled: `*.tsx`, `*.mtsx`
@@ -86,11 +86,11 @@ root.render(
 ```
 
 ```js
-// MyExtension.jsx
+// MyExtensionx
 
 export default function MyExtension() {
   return (
-    <h1>Hello, extension-create!</h1>
+    <h1>Hello, Extension!</h1>
   )
 }
 ```
@@ -129,4 +129,4 @@ function initial() {
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

@@ -8,7 +8,7 @@ From [https://nodejs.org/api/esm.html#introduction](https://nodejs.org/api/esm.h
 
 ## Starter ECMASCript Module Template
 
-`extension-create` comes with a default ECMASCript Module template for new projects, which you can use as a starting point for your next ECMASCript Module-based Extension. This is the easiest way to have ECMASCript Modules integrated with `extension-create`.
+`Extension` comes with a default ECMASCript Module template for new projects, which you can use as a starting point for your next ECMASCript Module-based Extension. This is the easiest way to have ECMASCript Modules integrated with `Extension`.
 
 <!-- <img src="https://place-hold.it/700x400"> -->
 
@@ -20,7 +20,7 @@ npx extension create my-extension --template=esm
 
 ## Usage With An Existing Extension 
 
-To make `extension-create` recognize all files as ECMAScript Modules, you have two options:
+To make `Extension` recognize all files as ECMAScript Modules, you have two options:
 
 1. Add an `m` prefix to your JavaScript file, or
 2. Define `"type": "module"` in your `package.json`
@@ -28,13 +28,13 @@ To make `extension-create` recognize all files as ECMAScript Modules, you have t
 **Option #1 - Add an `m` prefix to your JavaScript Extension File**
 
 ```diff
-- my-extension.js
+- my-Extension
 + my-extension.mjs
 
 - my-extension.ts
 + my-extension.mts
 
-- my-extension.jsx
+- my-Extensionx
 + my-extension.mjsx
 
 - my-extension.tsx
@@ -99,8 +99,8 @@ Attempting to use CommonJs syntax such as `require`, `module`, `exports`, `__fil
 
 ## Next Steps
 
-- Learn how `extension-create` works with extensions using [[CSS Modules]].
+- Learn how `Extension` works with extensions using [[CSS Modules]].
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

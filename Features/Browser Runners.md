@@ -115,4 +115,4 @@ Yandex Browser: Available for Android and supports web extensions.
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

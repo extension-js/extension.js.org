@@ -7,7 +7,7 @@ sort: 2
 <!-- <img src="https://place-hold.it/500"> -->
 
 ```sh
-npx extension dev @extension-create/templates/less
+npx extension dev @Extension/templates/less
 ```
 
 #### In an HTML file
@@ -24,7 +24,7 @@ npx extension dev @extension-create/templates/less
   </head>
   <body>
     <!-- Add the styles you need -->
-   <h1 className="text-4xl font-bold">Hello, extension-create.</h1>
+   <h1 className="text-4xl font-bold">Hello, Extension.</h1>
   </body>
 </html>
 
@@ -39,7 +39,7 @@ import './css/globals.css'
  
 export default function MyNewTabPage() {
   return (
-    <h1 className="text-4xl font-bold">Hello, extension-create.</h1>
+    <h1 className="text-4xl font-bold">Hello, Extension.</h1>
   )
 }
 ```
@@ -54,7 +54,7 @@ export default function MyNewTabPage() {
 import('./css/globals.css')
  
 export default function MyNewTabPage() {
-  return <h1 className="text-3xl font-bold underline">Hello, extension-create!</h1>
+  return <h1 className="text-3xl font-bold underline">Hello, Extension!</h1>
 }
 ```
 
@@ -63,8 +63,8 @@ export default function MyNewTabPage() {
 * Learn how to apply styles to the multiple extension contexts in [[Working With Stylesheets]].
 * Learn how to enable [[PostCSS]] capabilities in your extension.
 * Configure [[Tailwind]] in your extension.
-* Using [[Stylelint]] with extension-create to lint your stylesheets.
+* Using [[Stylelint]] with Extension to lint your stylesheets.
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.

@@ -6,18 +6,18 @@ From [https://sass-lang.com/](https://sass-lang.com/):
 
 > Sass is the most mature, stable, and powerful professional grade CSS extension language in the world
 
-`extension-create` supports both `.scss` and `sass` extensions. It also supports component-level Sass via CSS Modules and the `.module.scss` or `.module.sass` extension.
+`Extension` supports both `.scss` and `sass` extensions. It also supports component-level Sass via CSS Modules and the `.module.scss` or `.module.sass` extension.
 
 ## Starter Scss Template
 
-`extension-create` comes with a default Sass Module template for new projects, which you can use as a starting point for your next Sass Extension. This is the easiest way to have Sass integrated with `extension-create`.
+`Extension` comes with a default Sass Module template for new projects, which you can use as a starting point for your next Sass Extension. This is the easiest way to have Sass integrated with `Extension`.
 
 <!-- <img src="https://place-hold.it/700x400"> -->
 
 ### Try it yourself 
 
 ```sh
-npx extension dev @extension-create/templates/sass
+npx extension dev @Extension/templates/sass
 ```
 
 ## Usage With An Existing Extension 
@@ -45,7 +45,7 @@ npm install -D sass
   </head>
   <body>
     <!-- Add the styles you need -->
-   <h1 className="text-4xl font-bold">Hello, extension-create.</h1>
+   <h1 className="text-4xl font-bold">Hello, Extension.</h1>
   </body>
 </html>
 
@@ -60,7 +60,7 @@ import styles from './styles/button.module.scss'
  
 export default function MyNewTabPage({ Component, pageProps }) {
   return (
-    <h1 className={{styles.primaryColor}}>Hello, extension-create.</h1>
+    <h1 className={{styles.primaryColor}}>Hello, Extension.</h1>
   )
 }
 ```
@@ -76,7 +76,7 @@ export default function MyNewTabPage({ Component, pageProps }) {
 import('./css/globals.css')
  
 export default function MyNewTabPage() {
-  return <h1 className="text-3xl font-bold underline">Hello, extension-create!</h1>
+  return <h1 className="text-3xl font-bold underline">Hello, Extension!</h1>
 }
 ```
 -->
@@ -100,7 +100,7 @@ import styles from './styles/button.module.scss'
  
 export default function MyNewTabPage({ Component, pageProps }) {
   return (
-    <h1 className={{styles.primaryColor}}>Hello, extension-create.</h1>
+    <h1 className={{styles.primaryColor}}>Hello, Extension.</h1>
   )
 }
 ```
@@ -113,4 +113,4 @@ Now, add `css/button.scss` as an import for the file you want Sass to work. For 
 
 ---
 
-**🧩 extension-create** • create cross-browser extensions with no build configuration.
+**🧩 Extension** • create cross-browser extensions with no build configuration.
