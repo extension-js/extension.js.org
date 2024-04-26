@@ -5,7 +5,7 @@ panel: false
 ---
 
 
-`Extension` is a development tool for browser extensions with built-in support for [[TypeScript]], [[WebAssembly]], [[React]], and [[modern JavaScript]].
+`Extension` is a plug-and-play, zero-config, cross-browser extension development tool for browser extensions with built-in support for [[TypeScript]], [[WebAssembly]], [[React]], and [[modern JavaScript]].
 
 
 Designed with practicity and fast prototyping in mind, running a single terminal command is enough to start developing your extension and requires no extra knowledge to get started.
