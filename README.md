@@ -1,4 +1,4 @@
-# extension.js.org
+# 🧩 extension.js.org
 > The Extension official documentation website.
 
 ## Installation
