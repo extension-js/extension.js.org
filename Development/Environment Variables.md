@@ -5,7 +5,7 @@ sort: 5
 `Extension` comes with built-in support for environment variables via `.env` file (and alikes).
 
 > [!warning]
-> This feature is not stable yet. You can track its development [here](https://github.com/cezaraugusto/Extension/issues/40).
+> This feature is not stable yet. You can track its development [here](https://github.com/cezaraugusto/extension/issues/40).
 
 Take for example, our ChatGPT [[Template]].
 
@@ -15,7 +15,7 @@ See that it expects the `EXTENSION_OPENAI_API_KEY` environment variable? Create 
 
 <!--
 print of the message saying the env file was loaded
-https://github.com/cezaraugusto/Extension/issues/41
+https://github.com/cezaraugusto/extension/issues/41
 -->
 
 The following file names are supported:

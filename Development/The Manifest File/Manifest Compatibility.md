@@ -15,7 +15,7 @@ It is a common standard across all browsers vendors that the minimum Manifest fi
 
 ## Check For Deprecated Fields
 
-Fields such as [`options_page`](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/options_page) are deprecated in current valid Manifest versions. ~~Using deprecated fields results in a runtime error~~. [This feature is being tracked for future implementation](https://github.com/cezaraugusto/Extension/issues/43).
+Fields such as [`options_page`](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/options_page) are deprecated in current valid Manifest versions. ~~Using deprecated fields results in a runtime error~~. [This feature is being tracked for future implementation](https://github.com/cezaraugusto/extension/issues/43).
 ## Check For Invalid Field Types
 
 ![Invalid Field](../assets/invalid_field.png)
@@ -25,11 +25,11 @@ While the [`action` page in Chrome](https://developer.chrome.com/docs/extensions
 <!-- 
 ## Check If Field is Supported By The Manifest Version
 
-While the [`web_accessible_resources`](https://developer.chrome.com/docs/extensions/develop/migrate/manifest) field accepts an array of strings in Manifest V2, in Manifest V3 it is set as an array of objects. ~~Using fields not supported by the current `manifest_version` results in an error message~~. [This feature is being tracked for future implementation](https://github.com/cezaraugusto/Extension/issues/42).
+While the [`web_accessible_resources`](https://developer.chrome.com/docs/extensions/develop/migrate/manifest) field accepts an array of strings in Manifest V2, in Manifest V3 it is set as an array of objects. ~~Using fields not supported by the current `manifest_version` results in an error message~~. [This feature is being tracked for future implementation](https://github.com/cezaraugusto/extension/issues/42).
 
 ## Check If Field is Supported By The Current Browser
 
-The property `theme_icons` of [`browser_action`](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/browser_action) enables you to specify different icons for themes depending on whether Firefox detects that the theme uses dark or light text, but it has no effect in Chrome. ~~Using fields not supported by the current browser results in a warning message~~. [This feature is being tracked for future implementation](https://github.com/cezaraugusto/Extension/issues/39).
+The property `theme_icons` of [`browser_action`](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/browser_action) enables you to specify different icons for themes depending on whether Firefox detects that the theme uses dark or light text, but it has no effect in Chrome. ~~Using fields not supported by the current browser results in a warning message~~. [This feature is being tracked for future implementation](https://github.com/cezaraugusto/extension/issues/39).
 -->
 ---
 

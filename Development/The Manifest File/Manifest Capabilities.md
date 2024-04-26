@@ -11,7 +11,7 @@ With that in mind, `Extension` is designed to ensure that most of `manifest.json
 
 ### Manifest Support
 
-Except for browser [Themes](https://developer.chrome.com/docs/extensions/develop/ui/themes#manifest), Extension offers full Chrome Manifest V2 and V3 support, and plans to cover all manifest features in a cross-browser way, following the [MDN compatibility table](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Browser_compatibility_for_manifest.json). If there is a feature that is not covered but should, [you are encouraged to open an issue](https://github.com/cezaraugusto/Extension/issues/new).
+Except for browser [Themes](https://developer.chrome.com/docs/extensions/develop/ui/themes#manifest), Extension offers full Chrome Manifest V2 and V3 support, and plans to cover all manifest features in a cross-browser way, following the [MDN compatibility table](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Browser_compatibility_for_manifest.json). If there is a feature that is not covered but should, [you are encouraged to open an issue](https://github.com/cezaraugusto/extension/issues/new).
 
 > By **_supports_**, we mean live-reload of changes in the browser chrome interface (outside of web ui context) and handling of all file paths in the manifest as entrypoints, allowing full asset handling and output organization of your extension.
 
