@@ -25,7 +25,7 @@ Our goal is to make GitHub project searches as easy as searching on Google. To a
 Let's use the `create` command to bootstrap a minimal extension for us using the "init" template. Let's call it: `github-search`
 
 ```
-npx extension@latest github-search --template=init
+npx extension@latest create github-search --template=init
 ```
 
 
