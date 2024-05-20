@@ -35,7 +35,7 @@ For scripts without the need of HTML files, add the file into a `scripts/` folde
 
 ## Handling Static Assets
 
-For files that you don't want Extension to parse, or if you want a predictable output path, add your files to the `public/` folder, like `<your-project>/public/icon/subfolder/icon.png`. Any file added to this folder will be copied to the output path as-is. 
+For files that you don't want Extension to parse, or if you want a predictable output path, add your files to the `public/` folder, like `<your-project>/public/icon/subfolder/icon.png`. Any file added to this folder will be copied to the output path as-is and reloaded automatically when changed. 
 
 See thee example below using the previous [sandbox sample from Chrome Samples repository](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox). `handlebars.js` is an external lib that we don't want to parse, so we add it to the `/public` path, and `Extension` will output the file as-is, skipping the compilation process.
 
