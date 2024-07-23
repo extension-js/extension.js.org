@@ -43,13 +43,6 @@ export default function NewTabPage() {
 }
 ```
 
-## Next Steps
-
-* Learn how to apply styles to the multiple extension contexts in [[Working With Stylesheets]].
-* Learn how to enable [[PostCSS]] capabilities in your extension.
-* Configure [[Tailwind]] in your extension.
-* Using [[Stylelint]] with Extension to lint your stylesheets.
-
 ---
 
 **🧩 Extension** • create cross-browser extensions with no build configuration.
