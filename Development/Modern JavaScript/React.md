@@ -32,7 +32,7 @@ npx extension create my-extension --template=react-typescript
 
 ## Usage With An Existing Extension 
 
-### Intallation
+### Installation
 
 ```sh
 # Install required dependencies
@@ -86,7 +86,7 @@ root.render(
 ```
 
 ```js
-// MyExtensionx
+// MyExtension.jsx
 
 export default function MyExtension() {
   return (
@@ -116,7 +116,7 @@ function initial() {
   rootDiv.id = 'extension-root'
   document.body.appendChild(rootDiv)
 
-  // Use `createRoot` to create a root, then render the <App /> component
+  // Use `createRoot` to create a root, then render the <MyExtension /> component
   // Note that `createRoot` takes the container DOM node, not the React element
   const root = ReactDOM.createRoot(rootDiv)
   root.render(<MyExtension />)
