@@ -6,7 +6,7 @@ module.exports = defineConfig({
   description:
     "Plug-and-play, zero-config, cross-browser extension development tool.",
   editThisNote: {
-    url: "https://github.com/cezaraugusto/extension/edit/{{branch}}/{{file}}",
+    url: "https://github.com/extension-js/extension.js.org/edit/{{branch}}/{{file}}",
   },
   customProperties: {
     properties: [
@@ -28,7 +28,7 @@ module.exports = defineConfig({
         icon: "user-check",
       },
       {
-        url: "https://github.com/cezaraugusto/extension/graphs/contributors",
+        url: "https://github.com/extension-js/extension.js/graphs/contributors",
         label: "Contributors Hall of Fame",
         icon: "users",
       },
