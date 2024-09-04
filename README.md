@@ -1,31 +1,26 @@
 # 🧩 extension.js.org
+
 > The Extension official documentation website.
+
+The Extension official documentation website. Built with [Rspress](https://rspress.dev/).
 
 ## Installation
 
-### Installing the dependencies 
+### Installing the dependencies
 
 Open your terminal and navigate to the project folder. Then run the following commands to install the dependencies:
 
 ```sh
-cd .app
-npm install
+pnpm install
 ```
 
-### Running the project 
-
-Make sure you are still inside the .app folder. Then run the following command to start the project:
+### Running the project
 
 ```sh
-npm start
-```
-
-After a few seconds you should see something like this:
-
-```sh
-[11ty] Server at http://localhost:8080/
+pnpm dev
 ```
 
 ## License
 
-MIT (c) Cezar Augusto.
+MIT (c) Cezar Augusto and the Extension.js authors.
+
