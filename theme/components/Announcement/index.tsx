@@ -19,6 +19,7 @@ function CloseIcon() {
       stroke-linejoin="round"
       className="lucide lucide-x text-background w-4 h-4"
     >
+      <title>Close icon</title>
       <path d="M18 6 6 18" />
       <path d="m6 6 12 12" />
     </svg>
@@ -27,7 +28,7 @@ function CloseIcon() {
 
 export function Announcement() {
   const [disable, setDisable] = useState(
-    window.localStorage.getItem(LOCAL_STORAGE_KEY) ?? false
+    window.localStorage.getItem(LOCAL_STORAGE_KEY) ?? false,
   );
   const { page } = usePageData();
   const lang = useLang();
@@ -66,10 +67,12 @@ export function Announcement() {
           stroke-linejoin="round"
           className="lucide lucide-chevron-right w-3 h-3 ml-1 opacity-70"
         >
+          <title>Chevron right</title>
           <path d="m9 18 6-6-6-6" />
         </svg>
       </a>
       <button
+        type="button"
         onClick={() => {
           setDisable(true);
           window.localStorage.setItem(LOCAL_STORAGE_KEY, "true");

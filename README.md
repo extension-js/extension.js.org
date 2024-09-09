@@ -23,4 +23,3 @@ pnpm dev
 ## License
 
 MIT (c) Cezar Augusto and the Extension.js authors.
-
