@@ -13,7 +13,7 @@ npx extension dev @Extension/templates/less
 #### In an HTML file
 
 ```html
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -24,10 +24,9 @@ npx extension dev @Extension/templates/less
   </head>
   <body>
     <!-- Add the styles you need -->
-   <h1 className="text-4xl font-bold">Hello, Extension.</h1>
+    <h1 className="text-4xl font-bold">Hello, Extension.</h1>
   </body>
 </html>
-
 ```
 
 #### In a JavaScript File
@@ -35,12 +34,10 @@ npx extension dev @Extension/templates/less
 ```js
 // ./NewTabApp.jsx
 
-import './css/globals.css'
- 
+import "./css/globals.css";
+
 export default function MyNewTabPage() {
-  return (
-    <h1 className="text-4xl font-bold">Hello, Extension.</h1>
-  )
+  return <h1 className="text-4xl font-bold">Hello, Extension.</h1>;
 }
 ```
 
@@ -50,20 +47,20 @@ export default function MyNewTabPage() {
 // ./content_script.jsx
 
 // There is no HTML in a content_script file, so
-// we import our global CSS file via dynamic import. 
-import('./css/globals.css')
- 
+// we import our global CSS file via dynamic import.
+import("./css/globals.css");
+
 export default function MyNewTabPage() {
-  return <h1 className="text-3xl font-bold underline">Hello, Extension!</h1>
+  return <h1 className="text-3xl font-bold underline">Hello, Extension!</h1>;
 }
 ```
 
 ## Next Steps
 
-* Learn how to apply styles to the multiple extension contexts in [[Working With Stylesheets]].
-* Learn how to enable [[PostCSS]] capabilities in your extension.
-* Configure [[Tailwind]] in your extension.
-* Using [[Stylelint]] with Extension to lint your stylesheets.
+- Learn how to apply styles to the multiple extension contexts in [[Working With Stylesheets]].
+- Learn how to enable [[PostCSS]] capabilities in your extension.
+- Configure [[Tailwind]] in your extension.
+- Using [[Stylelint]] with Extension to lint your stylesheets.
 
 ---
 

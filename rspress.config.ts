@@ -93,7 +93,7 @@ export default defineConfig({
           text: "📝 Edit this page on GitHub",
         },
         searchPlaceholderText: "Search Documentation",
-      }
+      },
     ],
   },
   plugins: [
