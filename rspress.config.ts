@@ -89,7 +89,7 @@ export default defineConfig({
         label: "English",
         editLink: {
           docRepoBaseUrl:
-            "https://github.com/extension-js/extension.js/tree/main/website/docs",
+            "https://github.com/extension-js/docs/tree/main/docs",
           text: "📝 Edit this page on GitHub",
         },
         searchPlaceholderText: "Search Documentation",
