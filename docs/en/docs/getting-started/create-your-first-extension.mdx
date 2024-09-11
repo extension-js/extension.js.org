@@ -8,13 +8,13 @@ Take a common task for some developers: searching on GitHub.
 
 **The problem:** I want to search on GitHub in the most convenient way. Imagine searching GitHub projects directly from your browser's URL bar.
 
-The solution? Meet `github_search`, a tool that makes this possible.
+The solution? Meet github_search, a tool that makes this possible.
 
 ![howiwant.png](../../../../assets/getting-started/howiwant.png)
 
 ## The Plan
 
-Our goal is to make searching GitHub projects as easy as searching on Google. To avoid irrelevant searches when the user decides to search something else, let's reserve a keyword for our extension: if the user types "gh", followed by a tab click, will activate our extension to trigger our search.
+Our goal is to make searching GitHub projects as easy as searching on Google. To avoid irrelevant searches when the user decides to search for something else, let's reserve a keyword for our extension: if the user types "gh," followed by a tab click, it will activate our extension to trigger the search.
 
 ![search.png](../../../../assets/getting-started/search.png)
 
@@ -32,12 +32,11 @@ Let's use the Extension.js `create` command to bootstrap a minimal extension for
   }}
 />
 
-## Step 1 - Create the manifest file
+## Step 2 - Create the manifest file
 
 <div style={{ position: "relative", paddingBottom: "62.5%", height: 0 }}>
   <iframe
     src="https://www.loom.com/embed/1193dc69f7b74a56a5f5d9e0324c255d?sid=99132929-4c05-40e7-b804-3f242daf95ea"
-    frameBorder="0"
     allowFullScreen
     style={{
       position: "absolute",
@@ -49,38 +48,38 @@ Let's use the Extension.js `create` command to bootstrap a minimal extension for
   ></iframe>
 </div>
 
-> Step 1 Demo
+> Step 2 Demo
 
-Every extension starts with a manifest file. It tells the browser information about the extension's metadata, permissions, and files that the extension needs to run properly. Based on the [plan above](#plan), we want a custom search shortcut "gh" that will link us to GitHub search. We are also adding a service_worker script to handle user events logic.
+Every extension starts with a manifest file. It tells the browser information about the extension's metadata, permissions, and files that the extension needs to run properly. Based on the [plan above](#plan), we want a custom search shortcut "gh" that will link us to GitHub search. We are also adding a service worker script to handle user events logic.
 
-```jsx
+```json
 {
   "manifest_version": 3,
   "name": "GitHub Search",
   "version": "1.0",
-  "omnibox": {"keyword" : "gh"},
+  "omnibox": { "keyword": "gh" },
   "background": {
     "service_worker": "service_worker.js"
   }
 }
 ```
 
-- `omnibox.keyword` when the keyword `gh` is set, an event will be fired.
-- `background.service_worker` will listen to the event that we just fired.
+- `omnibox.keyword`: When the keyword `gh` is set, an event will be fired.
+- `background.service_worker`: Will listen to the event that we just fired.
 
-## Step 2 - Create the Background Service Worker
+## Step 3 - Create the Background Service Worker
 
-In the context of a browser extension, the background service worker is where the extension can set listeners for all sorts of browser events.
+In the context of a browser extension, the background service worker is where the extension can set listeners for various browser events.
 
 In our case, we need to add a script that listens to input events in the omnibox, so once the user types what they want to search, GitHub can return the correct data.
 
 Let's create a `service_worker.js` file for this purpose:
 
 ```js
-// When the user has accepted what is typed into the omnibox.
+When the user has accepted what is typed into the omnibox.
 chrome.omnibox.onInputEntered.addListener((text) => {
-  // Convert any special character (spaces, &, ?, etc)
-  // into a valid character for the URL format.
+  Convert any special character (spaces, &, ?, etc)
+  into a valid character for the URL format.
   const encodedSearchText = encodeURIComponent(text);
   const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
 
@@ -90,13 +89,12 @@ chrome.omnibox.onInputEntered.addListener((text) => {
 
 The script above will open a new tab with GitHub search results whenever you enter something after "gh" in the URL bar.
 
-## Step 3 - Load Your Extension
+## Step 4 - Load Your Extension
 
 If you take a look at your `package.json` file now, it looks more or less like this:
 
 ```json
 {
-  // ...your extension metadata
   "scripts": {
     "dev": "extension@latest dev",
     "start": "extension start",
@@ -110,16 +108,19 @@ If you take a look at your `package.json` file now, it looks more or less like t
 
 These scripts are the main scripts used by Extension.js for development mode. To preview your extension, let's run it for the first time.
 
-```
-npm run dev
-```
+<PackageManagerTabs
+  command={{
+    npm: "npm run dev",
+    pnpm: "pnpm run dev",
+    yarn: "yarn run dev",
+  }}
+/>
 
 If all goes well, you should see a screen like the following:
 
 <div style={{ position: "relative", paddingBottom: "62.5%", height: 0 }}>
   <iframe
     src="https://www.loom.com/embed/777544977a32444ba6de4ff23bdaccbc?sid=360eb1b1-af3a-480b-9e71-41a7fb01ca6e"
-    frameBorder="0"
     allowFullScreen
     style={{
       position: "absolute",
@@ -133,18 +134,18 @@ If all goes well, you should see a screen like the following:
 
 That's it! You created your first browser extension that searches on GitHub!
 
-## Step 4 - Making It Better
+## Step 5 - Making It Better
 
-To make our search results even better, let's add search suggestions directly in the URL bar by listening to input changes in the omnibox.
+To improve our search results, let's add search suggestions directly in the URL bar by listening to input changes in the omnibox.
 
-Update the `service_worker.js` file to start fetching suggestions from GitHub and display them as you type.
+Update the `service_worker.js` file to fetch suggestions from GitHub and display them as you type.
 
 ```js
-// service_worker.js
+service_worker.js
 
-// Create a debounce function to avoid excessive
-// calls to the GitHub API while the user is still
-// typing the search query.
+Create a debounce function to avoid excessive
+calls to the GitHub API while the user is still
+typing the search query.
 function debounce(fn, delay) {
   let timeoutID;
   return function (...args) {
@@ -153,7 +154,7 @@ function debounce(fn, delay) {
   };
 }
 
-// When the user has changed what is typed into the omnibox.
+When the user has changed what is typed into the omnibox.
 chrome.omnibox.onInputChanged.addListener(
   debounce(async (text, suggest) => {
     const response = await fetch(
@@ -169,10 +170,10 @@ chrome.omnibox.onInputChanged.addListener(
   }, 250),
 );
 
-// When the user has accepted what is typed into the omnibox.
+When the user has accepted what is typed into the omnibox.
 chrome.omnibox.onInputEntered.addListener((text) => {
-  // Convert any special character (spaces, &, ?, etc)
-  // into a valid character for the URL format.
+  Convert any special character (spaces, &, ?, etc)
+  into a valid character for the URL format.
   const encodedSearchText = encodeURIComponent(text);
   const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
 
@@ -180,7 +181,7 @@ chrome.omnibox.onInputEntered.addListener((text) => {
 });
 ```
 
-Adding this code will let you see live search suggestions from GitHub right in your URL bar, making the search experience almost instant. Here is how it looks like when I type "undefined is not a function":
+Adding this code will let you see live search suggestions from GitHub right in your URL bar, making the search experience even smoother.
 
 ![Updated result](./../../../../assets/getting-started/updated-result.png)
 
@@ -192,5 +193,5 @@ Congratulations! You've built a GitHub search extension. Experiment with it, imp
 
 ## Next Steps
 
-- Learn how to load locally remotely hosted extensions in [Remote Extension Execution](../getting-started/remote-extension-execution).
-- Create an extension using one of `Extension` [Templates](../getting-started/templates).
+- Learn how to load remotely hosted extensions in [Remote Extension Execution](../getting-started/remote-extension-execution).
+- Create an extension using one of Extension.js [Templates](../getting-started/templates).

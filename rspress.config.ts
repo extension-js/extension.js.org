@@ -88,8 +88,7 @@ export default defineConfig({
           "Create cross-browser extensions with no build configuration",
         label: "English",
         editLink: {
-          docRepoBaseUrl:
-            "https://github.com/extension-js/docs/tree/main/docs",
+          docRepoBaseUrl: "https://github.com/extension-js/docs/tree/main/docs",
           text: "📝 Edit this page on GitHub",
         },
         searchPlaceholderText: "Search Documentation",
