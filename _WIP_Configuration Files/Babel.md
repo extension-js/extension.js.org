@@ -26,5 +26,3 @@ This comprehensive setup empowers developers to write modern, efficient, and cle
 - Learn about [[TypeScript]] in Extension.
 
 ---
-
-**🧩 Extension** • create cross-browser extensions with no build configuration.
