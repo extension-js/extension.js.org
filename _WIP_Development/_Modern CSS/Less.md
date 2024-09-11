@@ -63,5 +63,3 @@ export default function MyNewTabPage() {
 - Using [[Stylelint]] with Extension to lint your stylesheets.
 
 ---
-
-**🧩 Extension** • create cross-browser extensions with no build configuration.

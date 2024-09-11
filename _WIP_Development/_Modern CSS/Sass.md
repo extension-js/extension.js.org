@@ -111,5 +111,3 @@ Now, add `css/button.scss` as an import for the file you want Sass to work. For 
 - Ensure the semantics and code quality of your CSS files by using [[Stylelint]].
 
 ---
-
-**🧩 Extension** • create cross-browser extensions with no build configuration.
