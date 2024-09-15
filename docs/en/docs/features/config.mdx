@@ -1,0 +1,139 @@
+import { AvatarImage } from "../../../../theme/components/avatar-image";
+
+<AvatarImage icon="extension" />
+
+# Extension Config File (`extension.config.js`)
+
+> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+
+The `extension.config.js` file enables developers to adjust the behavior of Extension.js. This configuration file provides flexibility by enabling browser-specific configurations, command customization, and support for the massive ecosystem of webpack loaders and plugins.
+
+## How Does It Work?
+
+The `extension.config.js` file includes the following keys:
+
+- **`browser`**: Defines browser-specific configurations.
+- **`commands`**: Customizes the behavior of commands (`dev`, `preview`, `build`).
+- **`config`**: Modifies the webpack configuration for further flexibility.
+
+### Browser Configuration
+
+The `browser` key allows setting up browser-specific preferences, profiles, binaries, and flags. Below is an example configuration for Chrome and Firefox:
+
+```js
+browser: {
+  chrome: {
+    profile: 'path/to/profile',
+    preferences: { darkMode: true },
+    browserFlags: ['--disable-web-security'],
+    chromeBinary: 'path/to/custom/chrome',
+  },
+  firefox: {
+    geckoBinary: 'path/to/custom/firefox',
+  }
+}
+```
+
+- **profile:** Specifies the path to the browser profile.
+- **preferences:** Customizes preferences such as dark mode.
+- **browserFlags:** Adds flags to the browser launch process.
+- **chromeBinary:** Sets a custom Chrome binary.
+- **geckoBinary:** Sets a custom Firefox binary.
+
+### Commands Configuration
+
+Use the commands key to customize how Extension.js runs commands like dev, preview, and build. Here's an example:
+
+```js
+commands: {
+  dev: {
+    browser: 'chrome',
+    polyfill: true,
+  },
+  build: {
+    zipFilename: 'my-extension.zip',
+    zip: true,
+    zipSource: true,
+  }
+}
+```
+
+- **browser:** Specifies the browser to use during dev or preview mode.
+- **polyfill:** Enables polyfills for legacy browser compatibility.
+- **zipFilename:** Sets the filename for the output zip file during the build process.
+- **zip:** Enables zipping the extension during the build process.
+- **zipSource:** Includes the source code in the zip file.
+
+### Webpack Configuration
+
+The config key allows you to modify the default webpack configuration. This gives you the power to add additional loaders or plugins:
+
+```js
+config: (config) => {
+  config.module.rules.push({
+    test: /\.mdx$/,
+    use: ["babel-loader", "@mdx-js/loader"],
+  });
+  return config;
+};
+```
+
+This example adds MDX support by modifying webpack's module rules.
+
+## Example extension.config.js
+
+Here is a sample `extension.config.js` file that combines browser, command, and webpack customization:
+
+```js
+const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
+
+/** @type {import('extension').FileConfig} */
+module.exports = {
+  browser: {
+    chrome: {
+      profile: "path/to/chrome/profile",
+      preferences: { theme: "dark" },
+      browserFlags: ["--disable-extensions"],
+    },
+    firefox: {
+      geckoBinary: "path/to/custom/firefox",
+    },
+  },
+  commands: {
+    dev: {
+      browser: "firefox",
+      profile: "path/to/firefox/profile",
+      polyfill: true,
+    },
+    preview: {
+      browser: "chrome",
+    },
+    build: {
+      zipFilename: "extension.zip",
+      zip: true,
+    },
+  },
+  config: (config) => {
+    config.plugins = [
+      ...config.plugins,
+      new NodePolyfillPlugin({
+        additionalAliases: ['process']
+      })
+    ]
+
+    return config
+  }
+}
+
+};
+```
+
+## Best Practices
+
+- **Use the `extension.config.js` file**: Leverage the `extension.config.js` file to customize your extension's behavior.
+- **Separate browser-specific configurations**: Keep browser-specific configurations in the `browser` key.
+- **Customize commands**: Use the `commands` key to adjust the behavior of commands like `dev`, `preview`, and `build`.
+
+## Next Steps
+
+- Learn more about the [Browsers Available](#).

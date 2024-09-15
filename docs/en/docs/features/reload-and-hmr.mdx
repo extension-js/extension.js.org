@@ -1,0 +1,63 @@
+import { AvatarEmoji } from "../../../../theme/components/avatar-emoji";
+
+<AvatarEmoji emoji="speed" />
+
+# Page Reload and Hot Module Replacement (HMR)
+
+**Extension.js** provides powerful reloading capabilities during development, ensuring that code updates are automatically applied without needing to manually refresh the extension.
+
+Extension.js enables HMR for JavaScript and CSS files, while automatically handling more complex reloading scenarios for files like the `manifest.json`, `service_worker.js`, and locale files. This system helps maintain a fast development experience by avoiding manual reloading where possible.
+
+Below is an overview of how different parts of the extension are reloaded:
+
+## How Does It Work?
+
+The reloading behavior in Extension.js is designed to provide a great development experience by automatically updating the extension when changes are detected. The following features are supported:
+
+### Hot Reloaded Features
+
+Most parts of your extension can be hot-reloaded during development, allowing you to see the updates immediately without losing your extension's state. The following files support HMR:
+
+| Feature                  | Description                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| **Content scripts**      | JavaScript and CSS defined in `content_scripts` are hot-reloaded.               |
+| **Background scripts**   | Background files are hot-reloaded, except for the service worker.               |
+| **Injected scripts**     | Scripts injected into web pages via `scripting.executeScript` are hot-reloaded. |
+| **HTML files**           | HTML pages in the `/pages` folder are hot-reloaded.                             |
+| **Script files in HTML** | Scripts sourced from HTML pages are hot-reloaded.                               |
+| **CSS files in HTML**    | Stylesheets linked in HTML pages are hot-reloaded.                              |
+
+### Features That Require Hard Reload
+
+Some parts of your extension cannot be hot-reloaded, and a hard reload is required. The following updates will trigger a full browser extension reload:
+
+| Feature                      | Description                                                                               |
+| ---------------------------- | ----------------------------------------------------------------------------------------- |
+| **`manifest.json`**          | Any changes to the manifest file will trigger a full extension reload.                    |
+| **Service worker**           | Updating the `service_worker.js` file requires a full reload by the extension runtime.    |
+| **Locale files**             | Changes to localization files (inside `_locales`) also require a hard reload.             |
+| **HTML/Scripts in manifest** | Any HTML, script, or CSS files referenced directly in the manifest require a full reload. |
+
+## Reloading Scripts and HTML Outside the Manifest
+
+Extension.js also supports hot-reloading for scripts and HTML files not declared in the `manifest.json`. HTML files placed in the `/pages` directory and script files in the `/scripts` directory can be hot-reloaded during development. This ensures that even extra files not listed in the manifest are processed and updated dynamically.
+
+**Example:**
+
+```plaintext
+pages/
+└── extra-page.html
+scripts/
+└── extra-script.js
+```
+
+> Note: The `/pages` and `/scripts` folders are special folders recognized by Extension.js for hot-reloading. Each entry in these folders is treated as a separate page or script that can be reloaded independently.
+
+## Best Practices
+
+- Avoid modifying the `manifest.json` frequently to prevent unnecessary full reloads.
+- Use the `/pages` or `/scripts` folders for HTML and script files that need to be hot-reloaded and are not declared in the manifest.
+
+## Next Steps
+
+- Learn more about using special folders like `/pages` in the [Special Folders documentation](../features/special-folders.mdx).

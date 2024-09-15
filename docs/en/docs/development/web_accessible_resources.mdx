@@ -1,0 +1,99 @@
+import { PackageManagerTabs } from "@theme";
+import { AvatarImage } from "../../../../theme/components/avatar-image";
+
+<AvatarImage icon="extension" />
+
+# Web Accessible Resources
+
+Web-accessible resources are files within an extension that can be accessed by web pages or other extensions. These resources are often used for images, scripts, or stylesheets that are required by content scripts or pages embedded within an extension's context.
+
+Extension.js ensures proper handling of `web_accessible_resources` paths in your `manifest.json`, including assets imported in content scripts. This feature allows you to expose certain files from your extension to external web pages or make them available for other parts of the extension.
+
+## Web Accessible Resources Support
+
+The following manifest field is used to declare web-accessible resources:
+
+| Manifest Field             | File Type Expected | HMR Support |
+| -------------------------- | ------------------ | ----------- |
+| `web_accessible_resources` | Any file type      | Yes         |
+
+## Sample `manifest.json` File
+
+Here's an example of how to declare web-accessible resources in the `manifest.json` file:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0",
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*.png", "scripts/*.js", "styles/*.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://example.com/*"],
+      "css": ["styles/content.css"],
+      "js": ["scripts/content.js"]
+    }
+  ]
+}
+```
+
+In this example, the `web_accessible_resources` field exposes specific resources (images, scripts, styles) for web pages that match the pattern defined in `matches`.
+
+## Handling Web-Accessible Resources Not Declared in `manifest.json`
+
+If you need to include additional files as web-accessible resources but prefer not to declare them directly in the `manifest.json`, you can place these files in the `/public` folder. Extension.js will automatically process and make them accessible without needing to modify the manifest.
+
+**Example Usage:**
+Place your web-accessible files in the `/public` folder for automatic handling:
+
+```plaintext
+public/
+└── assets/
+    ├── images/
+    │   └── logo.png
+    ├── scripts/
+    │   └── external.js
+    └── styles/
+        └── global.css
+```
+
+For more information, refer to the [Special Folders documentation](../features/special-folders.mdx).
+
+## Output Path
+
+The output path for web-accessible resources will follow the structure defined in your manifest or the `/public` folder. The resulting files will look like this:
+
+```plaintext
+dist/
+└── images/
+    └── logo.png
+└── scripts/
+    └── external.js
+└── styles/
+    └── global.css
+```
+
+## How Extension.js Handles Web Accessible Resources
+
+The plugin responsible for handling web-accessible resources in Extension.js performs the following tasks:
+
+1. **Generate Manifest Patches:** It updates the `manifest.json` file with paths for web-accessible resources based on the content scripts and assets being used.
+2. **Add Resources to Compilation:** Assets used in content scripts or referenced in the manifest are added to the compilation process.
+3. **Emit Assets:** All assets declared as web-accessible are emitted to the output directory.
+4. **Support for Multiple Asset Types:** The plugin supports various file types including images, scripts, and stylesheets.
+5. **Error Handling:** It checks for missing assets and issues warnings if resources declared in the manifest are not found during the build process.
+
+## Best Practices
+
+- Always declare resources in `web_accessible_resources` if they are intended to be accessible by web pages or other external scripts.
+- Place additional resources that need to be web-accessible in the `/public` folder to keep your `manifest.json` clean and organized.
+- Ensure your content scripts correctly reference these assets, especially when working with external web pages.
+
+## Next Steps
+
+- Learn more about managing assets and resources with [Special Folders](../features/special-folders.mdx).
