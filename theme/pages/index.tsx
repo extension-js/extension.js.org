@@ -1,5 +1,6 @@
 import { usePageData } from "rspress/runtime";
-import LandingPage from "../components/Landingpage";
+// import LandingPage from "../components-home/home";
+import LandingPage from "../components-home/Landingpage";
 
 const CopyRight = () => {
   const { siteData } = usePageData();

@@ -1,0 +1,171 @@
+import { PackageManagerTabs } from "@theme";
+import { AvatarImage } from "../../../../theme/components/avatar-image";
+
+<AvatarImage icon="env" />
+
+# Environment Variables
+
+Extension.js offers first-class support for environment variables, allowing you to customize your extension to fit the needs of each browser and development environment. These variables help you configure behavior dynamically, making it easier to manage different browsers or build modes from the same codebase.
+
+## How Does It Work?
+
+Extension.js will read any of the following files in your project directory:
+
+- `.env`: Default environment variables.
+- `.env.local`: Local overrides for environment variables.
+- `.env.[browser]`: Browser-specific environment variables.
+- `.env.[browser].[mode]`: Browser-specific environment variables for a specific mode.
+- `.env.[mode]`: Environment variables for a specific mode.
+
+## Built-in Environment Variables
+
+Extension.js provides some built-in environment variables that are injected during the build process. These variables help you manage browser-specific settings, build modes, and other extension-specific information.
+
+| Variable Name              | Description                                                                         |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `EXTENSION_PUBLIC_BROWSER` | The current browser target for your extension (e.g., `chrome`, `firefox`, `edge`).  |
+| `EXTENSION_PUBLIC_MODE`    | The mode in which your extension is running, such as `development` or `production`. |
+
+These built-in environment variables ensure you can easily manage browser-specific or environment-based configurations in your code and extensions.
+
+## Browser-Specific Environment Files
+
+Extension.js allows you to create browser-specific environment files, such as `.env.chrome`, `.env.firefox`, etc. This is useful when you need different configurations for specific browsers. You can also combine browser-specific files with build modes, for instance:
+
+- `.env.chrome.development`: Applied only when running the extension in Chrome during development mode.
+- `.env.firefox.production`: Applied only when building the extension for Firefox in production mode.
+
+The environment files follow this priority order:
+
+- `.env.[browser]`
+- `.env.[browser].[mode]`
+- `.env.[mode]`
+- `.env`
+
+### Example Files:
+
+```ini
+# .env.chrome.development
+EXTENSION_PUBLIC_API_URL=https://api-dev.chrome.com
+```
+
+```ini
+# .env.firefox.production
+EXTENSION_PUBLIC_API_URL=https://api.firefox.com
+```
+
+## Custom Environment Variables
+
+You can define your custom environment variables in a `.env` file at the root of your project. Only variables prefixed with `EXTENSION_PUBLIC_` will be injected into the build and accessible in your extension's JavaScript, ensuring that private values are kept secure.
+
+```ini
+# .env
+EXTENSION_PUBLIC_API_KEY=your_api_key_here
+EXTENSION_PUBLIC_SITE_URL=https://example.com
+PRIVATE_KEY=abc123  # This will not be available in the extension
+```
+
+**Important:** Variables without the `EXTENSION_PUBLIC_` prefix are treated as private and are not exposed to the extension.
+
+## Using Environment Variables
+
+You can use environment variables in various parts of your extension, including the `manifest.json`, locales files, HTML, and your JSX components. Here’s how you can use them in each of these contexts:
+
+### 1. In `manifest.json`
+
+Although `manifest.json` does not natively support environment variables, Extension.js parses these variables during the build process, replacing them with their corresponding values from the `.env` file. For example:
+
+```json
+{
+  "name": "My Extension",
+  "version": "1.0",
+  "description": "This extension is connected to $EXTENSION_PUBLIC_API_KEY",
+  "background": {
+    "service_worker": "service_worker.js"
+  }
+}
+```
+
+During the build, `$EXTENSION_PUBLIC_API_KEY` will be replaced with the actual value defined in your `.env` file.
+
+### 2. In Locales Files
+
+You can also reference environment variables in your locales files to dynamically insert values for different languages or regions. Here's an example of a locale JSON file:
+
+```json
+{
+  "appName": {
+    "message": "My Extension - $EXTENSION_PUBLIC_SITE_URL"
+  },
+  "appDescription": {
+    "message": "Connected to API at $EXTENSION_PUBLIC_API_KEY"
+  }
+}
+```
+
+When the extension is built, the placeholders for `$EXTENSION_PUBLIC_SITE_URL` and `$EXTENSION_PUBLIC_API_KEY` will be replaced with the corresponding values from your `.env` file.
+
+### 3. In HTML Files
+
+You can also use environment variables in your static HTML files within the `pages/` folder. Here’s an example of how to insert an environment variable into an HTML file:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Extension</title>
+  </head>
+  <body>
+    <h1>Welcome to My Extension</h1>
+    <p>API Key: $EXTENSION_PUBLIC_API_KEY</p>
+  </body>
+</html>
+```
+
+When built, `$EXTENSION_PUBLIC_API_KEY` will be replaced with the actual value from the `.env` file, allowing you to securely manage sensitive information in static pages.
+
+### 4. In JSX Components
+
+In your React or JSX code, you can easily reference environment variables using `process.env`:
+
+```jsx
+const ApiInfo = () => {
+  const apiUrl = process.env.EXTENSION_PUBLIC_SITE_URL;
+  const apiKey = process.env.EXTENSION_PUBLIC_API_KEY;
+
+  return (
+    <div>
+      <h1>API Information</h1>
+      <p>URL: {apiUrl}</p>
+      <p>Key: {apiKey}</p>
+    </div>
+  );
+};
+
+export default ApiInfo;
+```
+
+This example dynamically renders the API URL and key based on the environment variables defined in the `.env` file. These values will be injected during the build process, making your component reusable across different environments.
+
+## Package `module` Support (import.meta)
+
+If your project uses ECMAScript Modules (ESM) and `"type": "module"` is set in your `package.json`, Extension.js also supports `import.meta.env` for environment variables. This allows ESM-style projects to access environment variables as follows:
+
+```js
+service_worker.mjs;
+const apiUrl = import.meta.env.EXTENSION_PUBLIC_API_URL;
+console.log(`API URL for the current environment: ${apiUrl}`);
+```
+
+By using `import.meta.env` in ESM projects, you maintain the same flexibility for accessing environment variables, just like you would with `process.env` in CommonJS projects.
+
+## Best Practices
+
+- **Keep Secrets Safe:** Never hardcode sensitive values like API keys or access tokens directly into your code. Use `.env` files and the `EXTENSION_PUBLIC_` prefix to inject these values securely into your project.
+- **Version Control:** Exclude `.env` and `.env.local` from version control to protect sensitive information. Use `.env.example` to document required environment variables, ensuring consistency across environments for your team.
+
+## Next Steps
+
+- Learn more about the [Browsers Available](../browsers/available.mdx).

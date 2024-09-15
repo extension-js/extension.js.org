@@ -1,0 +1,100 @@
+import { PackageManagerTabs } from "@theme";
+import { AvatarImage } from "../../../../theme/components/avatar-image";
+
+<AvatarImage icon="css" />
+
+# CSS
+
+In an extension, CSS files play a key role in defining the visual style of popups, options pages, new tab pages, and injected content. Extension.js ensures that CSS files defined in the `manifest.json` or included in HTML files are properly processed, supporting popular pre-processors like Sass, Less, and standard CSS.
+
+## CSS File Support
+
+Extension.js offers first-class support for CSS and its pre-processor variants (e.g., `.scss`, `.sass`, `.less`). These styles can be used in both `content_scripts` and HTML pages with their original extensions, making development flexible and modern. Additionally, hot-module replacement (HMR) is supported for CSS during development, ensuring rapid feedback and live updates.
+
+The following manifest fields are supported for CSS files:
+
+| Manifest Field                | File Type Expected        | HMR Support |
+| ----------------------------- | ------------------------- | ----------- |
+| `content_scripts.css`         | .css, .scss, .sass, .less | Yes         |
+| `background.page`             | .css, .scss, .sass, .less | Yes         |
+| `action.default_popup`        | .css, .scss, .sass, .less | Yes         |
+| `chrome_url_overrides.newtab` | .css, .scss, .sass, .less | Yes         |
+| `options_ui.page`             | .css, .scss, .sass, .less | Yes         |
+| `devtools_page`               | .css, .scss, .sass, .less | Yes         |
+
+## Sample CSS in `manifest.json`
+
+Here’s a basic example of adding CSS files to `content_scripts` in the `manifest.json`:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["./styles/content-style.less"],
+      "js": ["./scripts/content-script.js"]
+    }
+  ]
+}
+```
+
+## Sample CSS in HTML Files
+
+CSS can be directly imported in HTML files, with full support for pre-processors like Less and Sass. Simply include the styles with their original extensions, and Extension.js will handle the compilation and injection of these styles:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Extension Page</title>
+    <link rel="stylesheet" href="./styles/popup-style.sass" />
+  </head>
+  <body>
+    <h1>Welcome to My Extension</h1>
+    <p>This is a sample extension page.</p>
+  </body>
+</html>
+```
+
+## Output Path
+
+The output path for CSS files follows the same logic as scripts or HTML. The CSS will be bundled into `[feature]/index.css` for styles imported in HTML files, based on where it's used. For example, for a `newtab` override, the resulting files would look like this:
+
+```plaintext
+chrome_url_overrides/
+├── index.html
+├── index.js
+└── index.css
+```
+
+For the CSS that represents content scripts in the `manifest.json` file, the output path will be:
+
+```plaintext
+content_scripts/
+├── index.js
+└── index.css
+```
+
+## How Extension.js Handles CSS
+
+The plugin for CSS file support in Extension.js ensures that the following steps occur during compilation:
+
+1. **Add CSS Entries:** CSS entries from the manifest and additional styles from HTML or `/styles` folder are added to the compilation.
+2. **Inject Styles for Content Scripts:** During development, CSS files are dynamically injected into `content_scripts` to benefit from HMR.
+3. **Enable HMR for CSS:** HMR is enabled for CSS files across all relevant extension contexts.
+4. **Support for Pre-processors:** Files with `.scss`, `.sass`, and `.less` extensions are fully supported and compiled during the build process.
+5. **Support for PostCSS:** PostCSS is supported for additional transformations and optimizations on CSS files.
+
+## Best Practices
+
+- Ensure your manifest fields correctly reference CSS files to take advantage of live-reloading and asset handling.
+- Leverage the power of CSS pre-processors like Sass and Less for more organized and maintainable styles.
+
+## Next Steps
+
+- Learn more about handling additional CSS and static files via [Special Folders](../features/special-folders.mdx).

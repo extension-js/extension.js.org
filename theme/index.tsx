@@ -1,6 +1,6 @@
 import { NoSSR } from "rspress/runtime";
 import Theme from "rspress/theme";
-import { Announcement } from "./components/Announcement";
+import { Announcement } from "./components-home/announcement";
 import { HomeLayout } from "./pages";
 
 const Layout = () => (

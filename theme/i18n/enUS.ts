@@ -4,5 +4,5 @@ export const EN_US = {
   heroDescription:
     "Start building browser extensions that work across all major platforms, with support for TypeScript, WebAssembly, and next-generation JavaScript. No configuration required.",
   readTheDocs: "Read the Docs",
-  starOnGitHub: "Star us on GitHub",
+  starOnGitHub: "Star on GitHub",
 } as const;

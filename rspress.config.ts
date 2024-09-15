@@ -7,13 +7,13 @@ import { defineConfig } from "rspress/config";
 
 export default defineConfig({
   root: path.join(__dirname, "docs"),
-  title: "Extension • Make it very easy to develop cross-browser extensions",
+  title: "Extension.js • Make it very easy to develop cross-browser extensions",
   description: "Make it very easy to develop cross-browser extensions",
   lang: "en",
   logo: {
     light:
-      "https://github.com/user-attachments/assets/c35a8c33-77da-44f3-9ad0-1b44a9b7a151",
-    dark: "https://github.com/user-attachments/assets/91d4de96-07cd-44fc-a2ce-3da862fffdc1",
+      "https://github.com/user-attachments/assets/c51916f5-454b-4502-b171-ab1f26fc2dd2",
+    dark: "https://github.com/user-attachments/assets/5690527e-1981-43dd-b267-4a7fc3752bc3",
   },
   icon: "https://github.com/user-attachments/assets/58c169c3-03a5-4088-9bdb-61775917428f",
   markdown: {

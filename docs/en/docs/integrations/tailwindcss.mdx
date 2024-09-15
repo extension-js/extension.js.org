@@ -1,0 +1,151 @@
+import { PackageManagerTabs } from "@theme";
+import { AvatarImage } from "../../../../theme/components/avatar-image";
+
+<AvatarImage icon="tailwindcss" />
+
+# Tailwind CSS
+
+Extension.js offers built-in support for Tailwind CSS, a utility-first CSS framework that allows you to rapidly build modern extensions without leaving your HTML.
+
+## Starter Tailwind Templates
+
+The easiest way to get started with Tailwind CSS in Extension.js is by using one of the available templates. There are three templates that include Tailwind CSS as a dependency. Learn more in the [Templates](../getting-started/templates) section.
+
+## Usage With An Existing Extension
+
+### Installation
+
+Install the required dependencies:
+
+<PackageManagerTabs
+  command={{
+    npm: "npx install -D tailwindcss postcss autoprefixer",
+    pnpm: "pnpx install -D tailwindcss postcss autoprefixer",
+    yarn: "yarn dlx install -D tailwindcss postcss autoprefixer",
+  }}
+/>
+
+Generate Tailwind CSS config files:
+
+- `postcss.config.js`
+- `tailwind.config.js`
+
+<PackageManagerTabs
+  command={{
+    npm: "npx tailwindcss init -p",
+    pnpm: "pnpx tailwindcss init -p",
+    yarn: "yarn dlx tailwindcss init -p",
+  }}
+/>
+
+### Configuration
+
+In the `tailwind.config.js` file, add the paths to the files where you want Tailwind to be active:
+
+```js
+tailwind.config.js
+
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    Optional: Add the `pages` directory to include HTML pages.
+    "./pages/**/*.{html,js,ts,jsx,tsx,mdx}",
+
+    Include all relevant files for the extension.
+    "./**/*.{html,js,ts,jsx,tsx,mdx}",
+
+    For projects using a `src` directory:
+    "./src/**/*.{html,js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+};
+```
+
+### Usage
+
+Tailwind CSS-generated styles are injected into a global stylesheet for your extension. Ensure that you import this global CSS file wherever Tailwind styles should apply.
+
+#### Create the global CSS file:
+
+```css
+/* css/globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+#### In An HTML File
+
+Add the global stylesheet to an HTML file like this:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+    <!-- Import the Tailwind global stylesheet -->
+    <link rel="stylesheet" href="./css/globals.css" media="screen" />
+  </head>
+  <body>
+    <!-- Add Tailwind classes -->
+    <h1 class="text-4xl font-bold">Hello, Extension.</h1>
+  </body>
+</html>
+```
+
+#### In A JavaScript File
+
+Import the global CSS file for use in a React or Preact component:
+
+```js
+./NewTabApp.jsx
+
+import "./css/globals.css";
+
+export default function MyNewTabPage() {
+  return <h1 className="text-4xl font-bold">Hello, Extension.</h1>;
+}
+```
+
+#### In A `content_script` File
+
+For content scripts, dynamically import the global CSS file:
+
+```js
+./content_script.jsx
+
+Dynamically import the global CSS file
+import("./css/globals.css");
+
+export default function MyContentScript() {
+  return <h1 className="text-3xl font-bold underline">Hello, Extension!</h1>;
+}
+```
+
+#### In The `manifest.json` File
+
+Add the global CSS file to your `manifest.json` under `content_scripts`:
+
+```diff
+{
+  "manifest_version": 3,
+  "version": "1.0",
+  "name": "My Content Scripts Extension",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
++     "css": ["./css/global.css"]
+    }
+  ]
+}
+```
+
+## Next Steps
+
+- Ensure your CSS follows best practices by using [Stylelint](./stylelint.mdx).
