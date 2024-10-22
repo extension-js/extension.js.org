@@ -7,9 +7,14 @@ import { AvatarImage } from "../../../../theme/components/avatar-image";
 
 > **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
 
-The `dev` command in Extension.js is responsible for running your extension in development mode.
-This command will start a new browser instance with your extension bundled and ready to run,
-while also enabling live-reload as you modify the extension files during development.
+
+The `dev` command watches for changes in your extension's files, recompiles them, and reloads the extension in real time. If you provide a URL, Extension.js will download and run the extension as if it were local.
+
+## How it Works?
+
+For development frameworks, it's an industry-standard practice to have a development server that watches for changes in your files and recompiles them in real-time. Given the complex nature of browser extensions, the `dev` command in Extension.js handles the watch and recompile process for all the different contexts (HTML or not) of your extension.
+
+The `dev` command also provides a way to run remote extensions by providing a URL. This is useful when you want to test an extension from source without having to clone the repository.
 
 ## Usage
 
@@ -23,15 +28,6 @@ You can run the `dev` command with the following syntax:
   }}
 />
 
-## Description
-
-The `dev` command is essential for a fast development workflow. It watches for changes in your extension's files,
-recompiles them, and reloads the extension in real time. If you provide a URL, Extension.js will download and run the extension as if it were local.
-
-It supports multiple browsers, and you can specify which one to use by passing the `--browser` flag.
-Setting the `browser` to `"all"` will open the extension in all available browsers.
-If a browser is not installed, the command will throw a compiler error.
-
 ## Arguments and Flags
 
 Below is a breakdown of the available flags for the `dev` command:
@@ -39,12 +35,81 @@ Below is a breakdown of the available flags for the `dev` command:
 | Flag          | Argument                                       | What it does                                                                                                                                            | Defaults to     |
 | ------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
 | [path or url] | The extension path or the remote extension URL | If a path is defined, it loads the local extension. If a URL is provided, it pulls the extension from a remote source and loads it as a local extension | `process.cwd()` |
-| -b, --browser | The browser that will run the extension        | Changes the browser (`chrome`, `edge`, `all`)                                                                                                           | `"chrome"`      |
+| -b, --browser | The browser that will run the extension        | Changes the browser (`chrome`, `edge`, `firefox`, `all`)                                                                                                           | `"chrome"`      |
+| --chromium-binary | The path to the Chromium binary | The path to the Chromium binary. This is useful when you want to run the extension with Chromium-based browsers not supported by Extension.js. | `undefined` |
+| --gecko-binary | The path to the Gecko binary | The path to the Gecko binary. This is useful when you want to run the extension with Firefox-based browsers not supported by Extension.js. | `undefined` |
+| -o, --open    | True or false                                  | Opens the browser when the extension is ready                                                                                                           | `true`          |
+| --polyfill    | True or false     | Allow the `browser.*` API namespace to run with all Chromium-based browsers**.** | False |                                                                                           | `false`         |
+
+## Examples
+
+### Running a Local Extension
+
+![Demo Video](https://placehold.co/600x400)
+
+<PackageManagerTabs
+  command={{
+    npm: "npx extension@latest dev ./my-extension",
+    pnpm: "pnpx extension@latest dev ./my-extension",
+    yarn: "yarn dlx extension@latest dev ./my-extension",
+  }}
+/>
+
+### Running a Remote Extension
+
+![Demo Video](https://placehold.co/600x400)
+
+<PackageManagerTabs
+  command={{
+    npm: "npx extension@latest dev https://example.com/my-extension",
+    pnpm: "pnpx extension@latest dev https://example.com/my-extension",
+    yarn: "yarn dlx extension@latest dev https://example.com/my-extension",
+  }}
+/>
+
+### Running in Firefox
+
+![Demo Video](https://placehold.co/600x400)
+
+<PackageManagerTabs
+  command={{
+    npm: "npx extension@latest dev ./my-extension --browser firefox",
+    pnpm: "pnpx extension@latest dev ./my-extension --browser firefox",
+    yarn: "yarn dlx extension@latest dev ./my-extension --browser firefox",
+  }}  
+/>
+
+### Running in All Browsers at Once
+
+![Demo Video](https://placehold.co/600x400)
+
+<PackageManagerTabs
+  command={{
+    npm: "npx extension@latest dev ./my-extension --browser all",
+    pnpm: "pnpx extension@latest dev ./my-extension --browser all",
+    yarn: "yarn dlx extension@latest dev ./my-extension --browser all",
+  }}
+/>
+
+### Running in Brave as a Custom Binary
+
+![Demo Video](https://placehold.co/600x400)
+
+<PackageManagerTabs
+  command={{
+    npm: "npx extension@latest dev ./my-extension --gecko-binary /path/to/brave",
+    pnpm: "pnpx extension@latest dev ./my-extension --gecko-binary /path/to/brave",
+    yarn: "yarn dlx extension@latest dev ./my-extension --gecko-binary /path/to/brave",
+  }}
+/>
 
 ## Best Practices
 
 - **Browser Specific Configurations:** You can use the `--browser` flag to run your extension in different browsers during the development process.
+- **Remote Extensions:** Test them with the `--browser` flag to test your extension in different browsers without having to clone the repository.
 
 ## Next Steps
 
-- Learn more about the [Create Command](./create).
+- Once development is complete, it's time to [build your extension](/docs/commands/build).
+- Learn how to create features specific to a browser with the [browser-specific manifest fields](/docs/features/browser-fields).
+- For advanced browser usage, use the [extension.config.js](/docs/configuration) file to set up browser flags, preferences, and more.
