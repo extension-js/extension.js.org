@@ -5,22 +5,23 @@ import { AvatarImage } from "../../../../theme/components/avatar-image";
 
 # CSS
 
-In an extension, CSS files play a key role in defining the visual style of popups, options pages, new tab pages, and injected content. Extension.js ensures that CSS files defined in the `manifest.json` or included in HTML files are properly processed, supporting popular pre-processors like Sass, Less, and standard CSS.
+Extension.js ensures that CSS files defined in the `manifest.json` or included in HTML files are properly processed, supporting popular pre-processors like Sass, Less, and standard CSS. These styles can be used in both `content_scripts` and HTML pages with their original extensions, making development flexible and modern.
 
-## CSS File Support
+## How Does It Work?
 
-Extension.js offers first-class support for CSS and its pre-processor variants (e.g., `.scss`, `.sass`, `.less`). These styles can be used in both `content_scripts` and HTML pages with their original extensions, making development flexible and modern. Additionally, hot-module replacement (HMR) is supported for CSS during development, ensuring rapid feedback and live updates.
+1. **Add CSS Entries:** CSS entries from the manifest and additional styles from HTML or `/styles` folder are added to the compilation.
+2. **Inject Styles for Content Scripts:** During development, CSS files are dynamically injected into `content_scripts` to benefit from HMR.
+3. **Enable HMR for CSS:** HMR is enabled for CSS files across all relevant extension contexts.
+4. **Support for Pre-processors:** Files with `.scss`, `.sass`, and `.less` extensions are fully supported and compiled during the build process.
+5. **Support for PostCSS:** PostCSS is supported for additional transformations and optimizations on CSS files.
+
+## CSS Support
 
 The following manifest fields are supported for CSS files:
 
-| Manifest Field                | File Type Expected        | HMR Support |
-| ----------------------------- | ------------------------- | ----------- |
-| `content_scripts.css`         | .css, .scss, .sass, .less | Yes         |
-| `background.page`             | .css, .scss, .sass, .less | Yes         |
-| `action.default_popup`        | .css, .scss, .sass, .less | Yes         |
-| `chrome_url_overrides.newtab` | .css, .scss, .sass, .less | Yes         |
-| `options_ui.page`             | .css, .scss, .sass, .less | Yes         |
-| `devtools_page`               | .css, .scss, .sass, .less | Yes         |
+| Manifest Field        | File Type Expected        | HMR Support |
+| --------------------- | ------------------------- | ----------- |
+| `content_scripts.css` | .css, .scss, .sass, .less | Yes         |
 
 ## Sample CSS in `manifest.json`
 
@@ -45,6 +46,8 @@ Here’s a basic example of adding CSS files to `content_scripts` in the `manife
 
 CSS can be directly imported in HTML files, with full support for pre-processors like Less and Sass. Simply include the styles with their original extensions, and Extension.js will handle the compilation and injection of these styles:
 
+### Sample HTML File using Sass
+
 ```html
 <!doctype html>
 <html lang="en">
@@ -59,6 +62,14 @@ CSS can be directly imported in HTML files, with full support for pre-processors
     <p>This is a sample extension page.</p>
   </body>
 </html>
+```
+
+### Sample script File using Less
+
+```js
+import "./styles/content.less";
+
+console.log("Content script loaded");
 ```
 
 ## Output Path
@@ -79,16 +90,6 @@ content_scripts/
 ├── index.js
 └── index.css
 ```
-
-## How Extension.js Handles CSS
-
-The plugin for CSS file support in Extension.js ensures that the following steps occur during compilation:
-
-1. **Add CSS Entries:** CSS entries from the manifest and additional styles from HTML or `/styles` folder are added to the compilation.
-2. **Inject Styles for Content Scripts:** During development, CSS files are dynamically injected into `content_scripts` to benefit from HMR.
-3. **Enable HMR for CSS:** HMR is enabled for CSS files across all relevant extension contexts.
-4. **Support for Pre-processors:** Files with `.scss`, `.sass`, and `.less` extensions are fully supported and compiled during the build process.
-5. **Support for PostCSS:** PostCSS is supported for additional transformations and optimizations on CSS files.
 
 ## Best Practices
 

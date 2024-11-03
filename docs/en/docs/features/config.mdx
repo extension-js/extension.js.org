@@ -4,21 +4,29 @@ import { AvatarImage } from "../../../../theme/components/avatar-image";
 
 # Extension Config File (`extension.config.js`)
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+> **Warning**: This feature is a work in progress and may be incomplete or subject to change.
+> If you see an error or something that could be improved, please make a pull-request.
+> The link that documents this feature can be found at the bottom of the page.
 
-The `extension.config.js` file enables developers to adjust the behavior of Extension.js. This configuration file provides flexibility by enabling browser-specific configurations, command customization, and support for the massive ecosystem of webpack loaders and plugins.
+The `extension.config.js` file enables developers to adjust the behavior of Extension.js.
+This configuration file provides flexibility by enabling browser-specific configurations,
+command customization, and support for the massive ecosystem of webpack loaders and plugins.
 
 ## How Does It Work?
 
-The `extension.config.js` file includes the following keys:
+Adding a `extension.config.js` file at the same level as your `manifest.json` file will
+extend the capabilities of Extension.js. The config file includes the following keys:
 
-- **`browser`**: Defines browser-specific configurations.
-- **`commands`**: Customizes the behavior of commands (`dev`, `preview`, `build`).
-- **`config`**: Modifies the webpack configuration for further flexibility.
+| Key        | Description                                               |
+| ---------- | --------------------------------------------------------- |
+| `browser`  | Defines browser-specific configurations.                  |
+| `commands` | Customizes command behavior (`dev`, `preview`, `build`).  |
+| `config`   | Modifies the webpack configuration for added flexibility. |
 
 ### Browser Configuration
 
-The `browser` key allows setting up browser-specific preferences, profiles, binaries, and flags. Below is an example configuration for Chrome and Firefox:
+The `browser` key allows setting up browser-specific preferences, profiles, binaries,
+and flags. Below is an example configuration for Chrome and Firefox:
 
 ```js
 browser: {
@@ -34,15 +42,18 @@ browser: {
 }
 ```
 
-- **profile:** Specifies the path to the browser profile.
-- **preferences:** Customizes preferences such as dark mode.
-- **browserFlags:** Adds flags to the browser launch process.
-- **chromeBinary:** Sets a custom Chrome binary.
-- **geckoBinary:** Sets a custom Firefox binary.
+| Property       | Description                                | Example                      |
+| -------------- | ------------------------------------------ | ---------------------------- |
+| `profile`      | Specifies the path to the browser profile. | `'path/to/profile'`          |
+| `preferences`  | Customizes preferences such as dark mode.  | `{ darkMode: true }`         |
+| `browserFlags` | Adds flags to the browser launch process.  | `['--disable-web-security']` |
+| `chromeBinary` | Sets a custom Chrome binary path.          | `'path/to/custom/chrome'`    |
+| `geckoBinary`  | Sets a custom Firefox binary path.         | `'path/to/custom/firefox'`   |
 
 ### Commands Configuration
 
-Use the commands key to customize how Extension.js runs commands like dev, preview, and build. Here's an example:
+Use the `commands` key to customize how Extension.js runs commands like `dev`, `preview`,
+and `build`. Here's an example:
 
 ```js
 commands: {
@@ -58,15 +69,18 @@ commands: {
 }
 ```
 
-- **browser:** Specifies the browser to use during dev or preview mode.
-- **polyfill:** Enables polyfills for legacy browser compatibility.
-- **zipFilename:** Sets the filename for the output zip file during the build process.
-- **zip:** Enables zipping the extension during the build process.
-- **zipSource:** Includes the source code in the zip file.
+| Property      | Description                                             | Example              |
+| ------------- | ------------------------------------------------------- | -------------------- |
+| `browser`     | Specifies the browser for dev or preview mode.          | `'chrome'`           |
+| `polyfill`    | Enables polyfills for legacy browser compatibility.     | `true`               |
+| `zipFilename` | Sets the filename for the output zip file during build. | `'my-extension.zip'` |
+| `zip`         | Enables zipping the extension in build process.         | `true`               |
+| `zipSource`   | Includes the source code in the zip file.               | `true`               |
 
 ### Webpack Configuration
 
-The config key allows you to modify the default webpack configuration. This gives you the power to add additional loaders or plugins:
+The `config` key allows you to modify the default webpack configuration. This gives you
+the power to add additional loaders or plugins:
 
 ```js
 config: (config) => {
@@ -78,61 +92,84 @@ config: (config) => {
 };
 ```
 
-This example adds MDX support by modifying webpack's module rules.
+## Full Sample `extension.config.js`
 
-## Example extension.config.js
+Below are sample configurations for the different sections in `extension.config.js`.
 
-Here is a sample `extension.config.js` file that combines browser, command, and webpack customization:
+### Browser Configuration Sample
 
 ```js
-const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
-
-/** @type {import('extension').FileConfig} */
 module.exports = {
   browser: {
     chrome: {
       profile: "path/to/chrome/profile",
       preferences: { theme: "dark" },
       browserFlags: ["--disable-extensions"],
+      chromeBinary: "path/to/custom/chrome",
     },
     firefox: {
+      profile: "path/to/firefox/profile",
+      preferences: { darkMode: true },
       geckoBinary: "path/to/custom/firefox",
     },
   },
+};
+```
+
+### Commands Configuration Sample
+
+```js
+module.exports = {
   commands: {
     dev: {
-      browser: "firefox",
-      profile: "path/to/firefox/profile",
+      browser: "chrome",
+      profile: "path/to/chrome/profile",
       polyfill: true,
+      port: 8080,
+      noOpen: false,
     },
     preview: {
-      browser: "chrome",
+      browser: "firefox",
+      profile: "path/to/firefox/profile",
     },
     build: {
       zipFilename: "extension.zip",
       zip: true,
+      zipSource: true,
+      silent: true,
     },
   },
+};
+```
+
+### Webpack Configuration Sample
+
+```js
+const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
+
+module.exports = {
   config: (config) => {
     config.plugins = [
       ...config.plugins,
       new NodePolyfillPlugin({
-        additionalAliases: ['process']
-      })
-    ]
-
-    return config
-  }
-}
-
+        additionalAliases: ["process"],
+      }),
+    ];
+    return config;
+  },
 };
 ```
 
+The `extension.config.js` types [are defined here](https://github.com/extension-js/extension.js/blob/main/programs/develop/commands/commands-lib/config-types.ts).
+
 ## Best Practices
 
-- **Use the `extension.config.js` file**: Leverage the `extension.config.js` file to customize your extension's behavior.
-- **Separate browser-specific configurations**: Keep browser-specific configurations in the `browser` key.
-- **Customize commands**: Use the `commands` key to adjust the behavior of commands like `dev`, `preview`, and `build`.
+- **Use the `extension.config.js` file**: Leverage the `extension.config.js` file to
+  customize your extension's behavior.
+- **Separate browser-specific configurations**: Keep browser-specific configurations
+  in the `browser` key.
+- **Customize commands**: Use the `commands` key to adjust the behavior of commands
+  like `dev`, `preview`, and `build`.
 
 ## Next Steps
 
