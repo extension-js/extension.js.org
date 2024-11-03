@@ -1,99 +1,182 @@
-import { PackageManagerTabs } from "@theme";
 import { AvatarImage } from "../../../../theme/components/avatar-image";
 
 <AvatarImage icon="extension" />
 
-# Web Accessible Resources
+# Extension Config File (`extension.config.js`)
 
-Web-accessible resources are files within an extension that can be accessed by web pages or other extensions. These resources are often used for images, scripts, or stylesheets that are required by content scripts or pages embedded within an extension's context.
+> **Warning**: This feature is a work in progress and may be incomplete or subject to change.
+> If you see an error or something that could be improved, please make a pull-request.
+> The link that documents this feature can be found at the bottom of the page.
 
-Extension.js ensures proper handling of `web_accessible_resources` paths in your `manifest.json`, including assets imported in content scripts. This feature allows you to expose certain files from your extension to external web pages or make them available for other parts of the extension.
+The `extension.config.js` file enables developers to adjust the behavior of Extension.js.
+This configuration file provides flexibility by enabling browser-specific configurations,
+command customization, and support for the massive ecosystem of webpack loaders and plugins.
 
-## Web Accessible Resources Support
+## How Does It Work?
 
-The following manifest field is used to declare web-accessible resources:
+Adding a `extension.config.js` file at the same level as your `manifest.json` file will
+extend the capabilities of Extension.js. The config file includes the following keys:
 
-| Manifest Field             | File Type Expected | HMR Support |
-| -------------------------- | ------------------ | ----------- |
-| `web_accessible_resources` | Any file type      | Yes         |
+| Key        | Description                                               |
+| ---------- | --------------------------------------------------------- |
+| `browser`  | Defines browser-specific configurations.                  |
+| `commands` | Customizes command behavior (`dev`, `preview`, `build`).  |
+| `config`   | Modifies the webpack configuration for added flexibility. |
 
-## Sample `manifest.json` File
+### Browser Configuration
 
-Here's an example of how to declare web-accessible resources in the `manifest.json` file:
+The `browser` key allows setting up browser-specific preferences, profiles, binaries,
+and flags. Below is an example configuration for Chrome and Firefox:
 
-```json
-{
-  "manifest_version": 3,
-  "name": "My Extension",
-  "version": "1.0",
-  "web_accessible_resources": [
-    {
-      "resources": ["images/*.png", "scripts/*.js", "styles/*.css"],
-      "matches": ["<all_urls>"]
-    }
-  ],
-  "content_scripts": [
-    {
-      "matches": ["https://example.com/*"],
-      "css": ["styles/content.css"],
-      "js": ["scripts/content.js"]
-    }
-  ]
+```js
+browser: {
+  chrome: {
+    profile: 'path/to/profile',
+    preferences: { darkMode: true },
+    browserFlags: ['--disable-web-security'],
+    chromeBinary: 'path/to/custom/chrome',
+  },
+  firefox: {
+    geckoBinary: 'path/to/custom/firefox',
+  }
 }
 ```
 
-In this example, the `web_accessible_resources` field exposes specific resources (images, scripts, styles) for web pages that match the pattern defined in `matches`.
+| Property       | Description                                | Example                      |
+| -------------- | ------------------------------------------ | ---------------------------- |
+| `profile`      | Specifies the path to the browser profile. | `'path/to/profile'`          |
+| `preferences`  | Customizes preferences such as dark mode.  | `{ darkMode: true }`         |
+| `browserFlags` | Adds flags to the browser launch process.  | `['--disable-web-security']` |
+| `chromeBinary` | Sets a custom Chrome binary path.          | `'path/to/custom/chrome'`    |
+| `geckoBinary`  | Sets a custom Firefox binary path.         | `'path/to/custom/firefox'`   |
 
-## Handling Web-Accessible Resources Not Declared in `manifest.json`
+> **Additional Resources**:
+>
+> - For a list of available flags for Chrome, refer to the [Chrome Command Line Switches](https://peter.sh/experiments/chromium-command-line-switches/).
+> - For Edge flags, visit the [Microsoft Edge Command Line Options](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-command-line-options).
+> - For Firefox, check the [Firefox Developer Documentation](https://developer.mozilla.org/en-US/docs/Mozilla/Command_Line_Options).
 
-If you need to include additional files as web-accessible resources but prefer not to declare them directly in the `manifest.json`, you can place these files in the `/public` folder. Extension.js will automatically process and make them accessible without needing to modify the manifest.
+### Commands Configuration
 
-**Example Usage:**
-Place your web-accessible files in the `/public` folder for automatic handling:
+Use the `commands` key to customize how Extension.js runs commands like `dev`, `preview`,
+and `build`. Here's an example:
 
-```plaintext
-public/
-└── assets/
-    ├── images/
-    │   └── logo.png
-    ├── scripts/
-    │   └── external.js
-    └── styles/
-        └── global.css
+```js
+commands: {
+  dev: {
+    browser: 'chrome',
+    polyfill: true,
+  },
+  build: {
+    zipFilename: 'my-extension.zip',
+    zip: true,
+    zipSource: true,
+  }
+}
 ```
 
-For more information, refer to the [Special Folders documentation](../features/special-folders.mdx).
+| Property      | Description                                             | Example              |
+| ------------- | ------------------------------------------------------- | -------------------- |
+| `browser`     | Specifies the browser for dev or preview mode.          | `'chrome'`           |
+| `polyfill`    | Enables polyfills for legacy browser compatibility.     | `true`               |
+| `zipFilename` | Sets the filename for the output zip file during build. | `'my-extension.zip'` |
+| `zip`         | Enables zipping the extension in build process.         | `true`               |
+| `zipSource`   | Includes the source code in the zip file.               | `true`               |
 
-## Output Path
+### Webpack Configuration
 
-The output path for web-accessible resources will follow the structure defined in your manifest or the `/public` folder. The resulting files will look like this:
+The `config` key allows you to modify the default webpack configuration. This gives you
+the power to add additional loaders or plugins:
 
-```plaintext
-dist/
-└── images/
-    └── logo.png
-└── scripts/
-    └── external.js
-└── styles/
-    └── global.css
+```js
+config: (config) => {
+  config.module.rules.push({
+    test: /\.mdx$/,
+    use: ["babel-loader", "@mdx-js/loader"],
+  });
+  return config;
+};
 ```
 
-## How Extension.js Handles Web Accessible Resources
+## Full Sample `extension.config.js`
 
-The plugin responsible for handling web-accessible resources in Extension.js performs the following tasks:
+Below are sample configurations for the different sections in `extension.config.js`.
 
-1. **Generate Manifest Patches:** It updates the `manifest.json` file with paths for web-accessible resources based on the content scripts and assets being used.
-2. **Add Resources to Compilation:** Assets used in content scripts or referenced in the manifest are added to the compilation process.
-3. **Emit Assets:** All assets declared as web-accessible are emitted to the output directory.
-4. **Support for Multiple Asset Types:** The plugin supports various file types including images, scripts, and stylesheets.
-5. **Error Handling:** It checks for missing assets and issues warnings if resources declared in the manifest are not found during the build process.
+### Browser Configuration Sample
+
+```js
+module.exports = {
+  browser: {
+    chrome: {
+      profile: "path/to/chrome/profile",
+      preferences: { theme: "dark" },
+      browserFlags: ["--disable-extensions"],
+      chromeBinary: "path/to/custom/chrome",
+    },
+    firefox: {
+      profile: "path/to/firefox/profile",
+      preferences: { darkMode: true },
+      geckoBinary: "path/to/custom/firefox",
+    },
+  },
+};
+```
+
+### Commands Configuration Sample
+
+```js
+module.exports = {
+  commands: {
+    dev: {
+      browser: "chrome",
+      profile: "path/to/chrome/profile",
+      polyfill: true,
+      port: 8080,
+      noOpen: false,
+    },
+    preview: {
+      browser: "firefox",
+      profile: "path/to/firefox/profile",
+    },
+    build: {
+      zipFilename: "extension.zip",
+      zip: true,
+      zipSource: true,
+      silent: true,
+    },
+  },
+};
+```
+
+### Webpack Configuration Sample
+
+```js
+const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
+
+module.exports = {
+  config: (config) => {
+    config.plugins = [
+      ...config.plugins,
+      new NodePolyfillPlugin({
+        additionalAliases: ["process"],
+      }),
+    ];
+    return config;
+  },
+};
+```
+
+The `extension.config.js` types [are defined here](https://github.com/extension-js/extension.js/blob/main/programs/develop/commands/commands-lib/config-types.ts).
 
 ## Best Practices
 
-- Always declare resources in `web_accessible_resources` if they are intended to be accessible by web pages or other external scripts.
-- Place additional resources that need to be web-accessible in the `/public` folder to keep your `manifest.json` clean and organized.
-- Ensure your content scripts correctly reference these assets, especially when working with external web pages.
+- **Use the `extension.config.js` file**: Leverage the `extension.config.js` file to
+  customize your extension's behavior.
+- **Separate browser-specific configurations**: Keep browser-specific configurations
+  in the `browser` key.
+- **Customize commands**: Use the `commands` key to adjust the behavior of commands
+  like `dev`, `preview`, and `build`.
 
 ## Next Steps
 
-- Learn more about managing assets and resources with [Special Folders](../features/special-folders.mdx).
+- Learn more about the [Browsers Available](#).
