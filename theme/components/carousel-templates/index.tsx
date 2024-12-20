@@ -94,9 +94,9 @@ export function CarouselTemplates({
       {showCommands && (
         <TabsCommandLine
           command={{
-            npm: `extension dev --browser=${ALL_TEMPLATES[activeIndex != null ? activeIndex : localActiveIndex].name}`,
-            pnpm: `extension dev --browser=${ALL_TEMPLATES[activeIndex != null ? activeIndex : localActiveIndex].name}`,
-            yarn: `extension dev --browser=${ALL_TEMPLATES[activeIndex != null ? activeIndex : localActiveIndex].name}`,
+            npm: `extension create <your-extension-name> --template=${ALL_TEMPLATES[activeIndex != null ? activeIndex : localActiveIndex].name}`,
+            pnpm: `extension create <your-extension-name> --template=${ALL_TEMPLATES[activeIndex != null ? activeIndex : localActiveIndex].name}`,
+            yarn: `extension create <your-extension-name> --template=${ALL_TEMPLATES[activeIndex != null ? activeIndex : localActiveIndex].name}`,
           }}
         />
       )}
