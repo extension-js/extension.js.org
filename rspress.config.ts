@@ -7,8 +7,9 @@ import { defineConfig } from "rspress/config";
 
 export default defineConfig({
   root: path.join(__dirname, "docs"),
-  title: "Extension.js • Make it very easy to develop cross-browser extensions",
-  description: "Make it very easy to develop cross-browser extensions",
+  title: "The Cross-Browser Extension Framework • Extension.js",
+  description:
+    "Extension.js makes it very easy to create, develop, and distribute cross-browser extensions with no build configuration.",
   lang: "en",
   logo: {
     light:
@@ -36,7 +37,7 @@ export default defineConfig({
         image:
           "https://github.com/user-attachments/assets/410bc1bc-a2dd-4c89-97e7-dffc18a0d035",
         description:
-          "Create cross-browser extensions with no build configuration.",
+          "Extension.js makes it very easy to create, develop, and distribute cross-browser extensions with no build configuration.",
         twitter: {
           site: "@extensionjs",
           card: "summary_large_image",
@@ -83,9 +84,9 @@ export default defineConfig({
     locales: [
       {
         lang: "en",
-        title: "Extension",
+        title: "The Cross-Browser Extension Framework • Extension.js",
         description:
-          "Create cross-browser extensions with no build configuration",
+          "Extension.js makes it very easy to create, develop, and distribute cross-browser extensions with no build configuration.",
         label: "English",
         editLink: {
           docRepoBaseUrl: "https://github.com/extension-js/docs/tree/main/docs",
