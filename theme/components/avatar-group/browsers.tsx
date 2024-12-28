@@ -41,7 +41,7 @@ const AvatarBrowsers: React.FC<AvatarBrowsersProps> = ({
         <img
           key={browser.toLowerCase()}
           src={browserIcons[browser.toLowerCase()]}
-          alt={`${browser} icon`}
+          alt={`The ${browser} browser icon`}
           className={
             browser.toLowerCase() === "gecko" ||
             browser.toLowerCase() === "waterfox"

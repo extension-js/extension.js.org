@@ -17,7 +17,7 @@ const Hero = memo(() => {
         <picture className="flex lg:justify-end justify-center w-full">
           <img
             src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
-            alt="Green puzzle"
+            alt="The green puzzle that represents Extension.js logo"
             loading="eager"
             decoding="async"
           />

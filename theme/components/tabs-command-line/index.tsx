@@ -87,7 +87,7 @@ export function TabsCommandLine({ command }: TabsCommandLineProps) {
             >
               <img
                 src={tab.iconUrl || "https://placekitten.com/32/32"}
-                alt="The package manager iconUrl"
+                alt={`The package manager ${tab.label} icon`}
                 width="16"
                 className="mr-2"
               />
@@ -111,7 +111,7 @@ export function TabsCommandLine({ command }: TabsCommandLineProps) {
                       onClick={() =>
                         copyToClipboard(
                           getCommand(tab.key as "npm" | "pnpm" | "yarn"),
-                          tab.key,
+                          tab.key
                         )
                       }
                     >
