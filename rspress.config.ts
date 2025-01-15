@@ -8,9 +8,7 @@ import { defineConfig } from "rspress/config";
 export default defineConfig({
   root: path.join(__dirname, "docs"),
   head: ['<meta name="author" content="Cezar Augusto">'],
-  title: "The Cross-Browser Extension Framework • Extension.js",
-  // description:
-  //   "Extension.js makes it very easy to create, develop, and distribute cross-browser extensions with no build configuration.",
+  title: "Extension.js",
   lang: "en",
   logo: {
     light:

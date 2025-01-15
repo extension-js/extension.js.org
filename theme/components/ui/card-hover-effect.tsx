@@ -19,7 +19,7 @@ export const HoverEffect = ({
     <div
       className={cn(
         "grid grid-cols-1 md:grid-cols-2  lg:grid-cols-3  py-10",
-        className,
+        className
       )}
     >
       {items.map((item, idx) => (
@@ -29,6 +29,7 @@ export const HoverEffect = ({
           className="relative group  block p-2 h-full w-full"
           onMouseEnter={() => setHoveredIndex(idx)}
           onMouseLeave={() => setHoveredIndex(null)}
+          rel="noopener noreferrer"
         >
           <AnimatePresence>
             {hoveredIndex === idx && (
