@@ -47,6 +47,7 @@ export function Announcement() {
       <a
         href={lang === "en" ? ANNOUNCEMENT_URL : `/${lang}${ANNOUNCEMENT_URL}`}
         className="hover:underline text-sm text-[--rp-c-bg] flex items-center"
+        rel="noopener noreferrer"
       >
         <span>
           {lang === "en"

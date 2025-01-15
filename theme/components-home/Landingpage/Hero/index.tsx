@@ -91,7 +91,7 @@ const Hero = memo(() => {
               target="_blank"
               className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent text-accent-foreground hover:text-accent-foreground px-4 py-2 h-12"
               style={{ height: "52px" }}
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               <svg viewBox="0 0 438.549 438.549" className="mr-3 size-4">
                 <title>GitHub icon</title>
