@@ -83,9 +83,7 @@ export default defineConfig({
     locales: [
       {
         lang: "en",
-        title: "The Cross-Browser Extension Framework • Extension.js",
-        description:
-          "Extension.js makes it very easy to create, develop, and distribute cross-browser extensions with no build configuration.",
+        title: "Extension.js",
         label: "English",
         editLink: {
           docRepoBaseUrl: "https://github.com/extension-js/docs/tree/main/docs",
