@@ -111,7 +111,7 @@ export function TabsCommandLine({ command }: TabsCommandLineProps) {
                       onClick={() =>
                         copyToClipboard(
                           getCommand(tab.key as "npm" | "pnpm" | "yarn"),
-                          tab.key
+                          tab.key,
                         )
                       }
                     >

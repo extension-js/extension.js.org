@@ -15,8 +15,7 @@ const iconLinks: Record<string, string> = {
   env: "https://github.com/user-attachments/assets/75bd0de7-2b00-41db-8407-e06a96bf5b7c",
   eslint:
     "https://github.com/user-attachments/assets/7f1691f3-b94f-4204-90bc-6914af23b276",
-  extension:
-    "https://github.com/user-attachments/assets/cf9f43b8-9eac-470e-943f-a2e9e983fcb9",
+  extension: "https://avatars.githubusercontent.com/u/172809806",
   html5:
     "https://github.com/user-attachments/assets/4892720f-ddd3-4d89-9481-4a3db60ee2e2",
   javascript:

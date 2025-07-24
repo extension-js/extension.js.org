@@ -3,19 +3,21 @@ const path = require("path");
 
 function extractMetaDescription(mdxContent) {
   // Split content into lines
-  const lines = mdxContent.split('\n');
-  let firstParagraph = '';
+  const lines = mdxContent.split("\n");
+  let firstParagraph = "";
 
   // Find first valid paragraph
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    
+
     // Skip empty lines, imports, components, headers and warnings
-    if (!line || 
-        line.startsWith('import') || 
-        line.startsWith('<') ||
-        line.startsWith('#') ||
-        line.toLowerCase().includes('warning')) {
+    if (
+      !line ||
+      line.startsWith("import") ||
+      line.startsWith("<") ||
+      line.startsWith("#") ||
+      line.toLowerCase().includes("warning")
+    ) {
       continue;
     }
 
@@ -33,18 +35,18 @@ function addOrUpdateMetaTags(filePath) {
   const canonicalURL = "https://extension.js.org/blog/";
 
   // Check if this is a docs page
-  const isDocsPage = filePath.includes('/docs/');
-  
+  const isDocsPage = filePath.includes("/docs/");
+
   // If it's a docs page, find corresponding MDX file
   let metaDescription = metaDescriptionContent;
   if (isDocsPage) {
     // Convert HTML path to MDX path
     const mdxPath = filePath
-      .replace('doc_build', 'docs/en')
-      .replace('.html', '.mdx');
-    
+      .replace("doc_build", "docs/en")
+      .replace(".html", ".mdx");
+
     try {
-      const mdxContent = fs.readFileSync(mdxPath, 'utf8');
+      const mdxContent = fs.readFileSync(mdxPath, "utf8");
       const extractedDesc = extractMetaDescription(mdxContent);
       if (extractedDesc) {
         metaDescription = extractedDesc;
@@ -79,7 +81,7 @@ function addOrUpdateMetaTags(filePath) {
       // Update existing meta description
       data = data.replace(
         metaDescriptionRegex,
-        `<meta name="description" content="${metaDescription}">`
+        `<meta name="description" content="${metaDescription}">`,
       );
     } else {
       // Insert new meta description
@@ -96,7 +98,7 @@ function addOrUpdateMetaTags(filePath) {
       if (canonicalRegex.test(data)) {
         data = data.replace(
           canonicalRegex,
-          `<link rel="canonical" href="${canonicalURL}">`
+          `<link rel="canonical" href="${canonicalURL}">`,
         );
       } else {
         const newCanonicalTag = `<link rel="canonical" href="${canonicalURL}">\n`;
@@ -121,14 +123,14 @@ function addOrUpdateMetaTags(filePath) {
 // Process all files in doc_build directory
 function processDocBuild(dir) {
   const files = fs.readdirSync(dir);
-  
-  files.forEach(file => {
+
+  files.forEach((file) => {
     const fullPath = path.join(dir, file);
     const stat = fs.statSync(fullPath);
-    
+
     if (stat.isDirectory()) {
       processDocBuild(fullPath);
-    } else if (file.endsWith('.html')) {
+    } else if (file.endsWith(".html")) {
       addOrUpdateMetaTags(fullPath);
     }
   });

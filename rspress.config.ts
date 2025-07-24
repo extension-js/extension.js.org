@@ -11,11 +11,10 @@ export default defineConfig({
   title: "Extension.js",
   lang: "en",
   logo: {
-    light:
-      "https://github.com/user-attachments/assets/c51916f5-454b-4502-b171-ab1f26fc2dd2",
-    dark: "https://github.com/user-attachments/assets/5690527e-1981-43dd-b267-4a7fc3752bc3",
+    light: "logo-light.png",
+    dark: "logo-dark.png",
   },
-  icon: "https://github.com/user-attachments/assets/58c169c3-03a5-4088-9bdb-61775917428f",
+  icon: "https://avatars.githubusercontent.com/u/172809806",
   markdown: {
     checkDeadLinks: true,
   },
@@ -61,7 +60,7 @@ export default defineConfig({
   themeConfig: {
     hideNavbar: "never",
     footer: {
-      message: "MIT (c) 2024 Cezar Augusto and the Extension.js Authors.",
+      message: "MIT (c) Cezar Augusto and the Extension.js Authors.",
     },
     socialLinks: [
       {
