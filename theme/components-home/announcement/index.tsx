@@ -14,7 +14,7 @@ function CloseIcon() {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      stroke-width="2"
+      strokeWidth="2"
       stroke-linecap="round"
       stroke-linejoin="round"
       className="lucide lucide-x"
@@ -41,12 +41,12 @@ export function Announcement() {
   return (
     <div
       className={
-        "flex justify-center items-center bg-[#3d61ff] dark:bg-[#26ffb8] h-[52px]"
+        "flex justify-center items-center bg-[#3d61ff] dark:bg-[#0971fe] h-[52px]"
       }
     >
       <a
         href={lang === "en" ? ANNOUNCEMENT_URL : `/${lang}${ANNOUNCEMENT_URL}`}
-        className="hover:underline text-sm text-[--rp-c-bg] flex items-center"
+        className="hover:underline text-sm text-[--rp-c-bg] dark:text-white flex items-center"
         rel="noopener noreferrer"
       >
         <span>
@@ -63,7 +63,7 @@ export function Announcement() {
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          stroke-width="2"
+          strokeWidth="2"
           stroke-linecap="round"
           stroke-linejoin="round"
           className="lucide lucide-chevron-right w-3 h-3 ml-1 opacity-70"
@@ -78,7 +78,7 @@ export function Announcement() {
           setDisable(true);
           window.localStorage.setItem(LOCAL_STORAGE_KEY, "true");
         }}
-        className="absolute right-6 p-2 cursor-pointer text-sm text-[--rp-c-bg] hover:bg-[rgba(255,255,255,0.3)] rounded-full"
+        className="absolute right-6 p-2 cursor-pointer text-sm text-[--rp-c-bg] dark:text-white hover:bg-[rgba(255,255,255,0.3)] rounded-full"
       >
         <CloseIcon />
       </button>

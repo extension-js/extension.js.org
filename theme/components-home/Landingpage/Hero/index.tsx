@@ -14,9 +14,9 @@ const Hero = memo(() => {
   return (
     <header className="pt-16 pb-8 md:pt-12 md:pb-24 grid lg:grid-cols-2 place-items-center">
       <div className="py-6 md:order-1 hidden md:block w-full">
-        <picture className="flex lg:justify-end justify-center w-full">
+        <picture className="flex lg:justify-end justify-center w-full max-w-sm ml-auto">
           <img
-            src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
+            src="https://avatars.githubusercontent.com/u/172809806"
             alt="The green puzzle that represents Extension.js logo"
             loading="eager"
             decoding="async"
@@ -27,13 +27,13 @@ const Hero = memo(() => {
         <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold lg:tracking-tight xl:tracking-tighter">
           {t("heroTitle")}
         </h1>
-        <p className="text-lg mt-4 text-muted-foreground max-w-xl">
+        <p className="text-lg mt-3 text-muted-foreground max-w-xl">
           {t("heroDescription")}
         </p>
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <div className="grid h-12 w-full grid-cols-2 items-center justify-center gap-6">
             <button
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-[--rp-c-brand] text-[--rp-c-bg] shadow hover:[--rp-c-brand]/90 px-4 py-2 h-12"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-[--rp-c-brand] text-[--rp-c-bg] dark:text-white shadow hover:[--rp-c-brand]/90 px-4 py-2 h-12"
               type="button"
               onClick={handleClickGetStarted}
             >
@@ -46,10 +46,10 @@ const Hero = memo(() => {
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="2"
+                  strokeWidth="2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  className="lucide lucide-play ml-2 size-4 fill-[--rp-c-bg] stroke-[--rp-c-bg]"
+                  className="lucide lucide-play ml-2 size-4 fill-white stroke-white"
                 >
                   <title>Arrow right</title>
                   <polygon points="6 3 20 12 6 21 6 3" />
@@ -61,10 +61,10 @@ const Hero = memo(() => {
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="2"
+                  strokeWidth="2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  className="lucide lucide-play -ml-1 size-4 fill-[--rp-c-bg] stroke-[--rp-c-bg]"
+                  className="lucide lucide-play -ml-1 size-4 fill-white stroke-white"
                 >
                   <title>Arrow right</title>
                   <polygon points="6 3 20 12 6 21 6 3" />
@@ -76,10 +76,10 @@ const Hero = memo(() => {
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="2"
+                  strokeWidth="2"
                   stroke-linecap="round"
                   stroke-linejoin="round"
-                  className="lucide lucide-play -ml-1 size-4 fill-[--rp-c-bg] stroke-[--rp-c-bg]"
+                  className="lucide lucide-play -ml-1 size-4 fill-white stroke-white"
                 >
                   <title>Arrow right</title>
                   <polygon points="6 3 20 12 6 21 6 3" />
@@ -102,7 +102,7 @@ const Hero = memo(() => {
               </svg>{" "}
               {t("starOnGitHub")}
               <span className="ml-2 inline-flex items-center border border-muted rounded-md px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 text-foreground">
-                3.7k
+                4k+
               </span>
             </a>
           </div>
