@@ -33,12 +33,14 @@ function addOrUpdateMetaTags(filePath) {
   const metaDescriptionContent =
     "Extension.js makes it very easy to create, develop, and distribute cross-browser extensions with no build configuration.";
   const canonicalURL = "https://extension.js.org/blog/";
+  const gtmNoScript = `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-M82MQDWX"\nheight="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n`;
 
   // Check if this is a docs page
   const isDocsPage = filePath.includes("/docs/");
 
   // If it's a docs page, find corresponding MDX file
   let metaDescription = metaDescriptionContent;
+
   if (isDocsPage) {
     // Convert HTML path to MDX path
     const mdxPath = filePath
@@ -63,6 +65,26 @@ function addOrUpdateMetaTags(filePath) {
       return;
     }
 
+    // Insert GTM <noscript> iframe at the top of <body>
+    const bodyTagRegex = /<body[^>]*>/i;
+    let bodyMatch = data.match(bodyTagRegex);
+    if (bodyMatch) {
+      const bodyTag = bodyMatch[0];
+      const bodyTagIndex = data.indexOf(bodyTag) + bodyTag.length;
+      // Only insert if not already present
+      if (!data.includes(gtmNoScript.trim())) {
+        data =
+          data.slice(0, bodyTagIndex) +
+          "\n" +
+          gtmNoScript +
+          data.slice(bodyTagIndex);
+      }
+    } else {
+      console.warn(
+        `No <body> tag found in ${filePath}, skipping GTM <noscript> insertion.`,
+      );
+    }
+
     // Find the <title> tag
     const titleTagRegex = /<title\b[^>]*>(.*?)<\/title>/;
     const match = data.match(titleTagRegex);
@@ -76,9 +98,8 @@ function addOrUpdateMetaTags(filePath) {
     const afterTitleIndex = data.indexOf(titleTag) + titleTag.length;
 
     // Check if meta description already exists
-    const metaDescriptionRegex = /<meta\s+name=["']description["'].*?>/;
+    const metaDescriptionRegex = /<meta\s+name=["']description["'][^>]*?>/i;
     if (metaDescriptionRegex.test(data)) {
-      // Update existing meta description
       data = data.replace(
         metaDescriptionRegex,
         `<meta name="description" content="${metaDescription}">`,
@@ -94,7 +115,7 @@ function addOrUpdateMetaTags(filePath) {
 
     // Handle canonical URL for blog pages
     if (filePath.includes("blog/index")) {
-      const canonicalRegex = /<link\s+rel=["']canonical["'].*?>/;
+      const canonicalRegex = /<link\s+rel=["']canonical["'][^>]*?>/i;
       if (canonicalRegex.test(data)) {
         data = data.replace(
           canonicalRegex,
@@ -115,7 +136,9 @@ function addOrUpdateMetaTags(filePath) {
         console.error("Error writing to the file:", err);
         return;
       }
-      console.log(`Meta tags updated successfully for ${filePath}`);
+      console.log(
+        `Meta tags and GTM <noscript> updated successfully for ${filePath}`,
+      );
     });
   });
 }
