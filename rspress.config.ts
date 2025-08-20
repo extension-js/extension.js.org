@@ -7,7 +7,16 @@ import { defineConfig } from "rspress/config";
 
 export default defineConfig({
   root: path.join(__dirname, "docs"),
-  head: ['<meta name="author" content="Cezar Augusto">'],
+  head: [
+    '<meta name="author" content="Cezar Augusto">',
+    `<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-M82MQDWX');</script>
+<!-- End Google Tag Manager -->`,
+  ],
   title: "Extension.js",
   lang: "en",
   logo: {
@@ -27,7 +36,7 @@ export default defineConfig({
       lazyCompilation: true,
     },
     plugins: [
-      pluginGoogleAnalytics({ id: "G-0TTJ0PEKL2" }),
+      // pluginGoogleAnalytics({ id: "G-0TTJ0PEKL2" }),
       pluginOpenGraph({
         title: "Extension.js",
         type: "website",
