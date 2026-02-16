@@ -1,0 +1,146 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="extension" />
+
+# Start command
+
+Use `start` when you want a production build and immediate browser launch in one command.
+
+The `start` command runs a production build first, then launches the built extension through the preview runner.
+
+## When to use `start`
+
+- Manually validating production behavior right after compilation.
+- Reproducing runtime differences between watch mode and production output.
+- Running a production-like check locally without a separate `build` then `preview` step.
+
+## Start command capabilities
+
+| Capability                 | What it gives you                                         |
+| -------------------------- | --------------------------------------------------------- |
+| Build + launch workflow    | Run production compile and browser launch in one step     |
+| Target selection           | Start directly in selected browser or engine target       |
+| Runner control             | Skip browser launch when you only need build verification |
+| Production-like validation | Check real compiled output instead of watch-mode state    |
+
+## How it differs from other commands
+
+- `dev`: development server + HMR/watch loop
+- `build`: production build only
+- `preview`: launch an existing built extension without building
+- `start`: `build` + `preview` in sequence
+
+## Usage
+
+<PackageManagerTabs
+  command={{
+    npm: 'extension start [path-or-url] [options]',
+    pnpm: 'extension start [path-or-url] [options]',
+    yarn: 'extension start [path-or-url] [options]'
+  }}
+/>
+
+If no path is provided, the current working directory is used.
+
+## Core options
+
+| Flag                        | Alias              | What it does                                        | Default                  |
+| --------------------------- | ------------------ | --------------------------------------------------- | ------------------------ |
+| `[path or url]`             | -                  | Extension path or remote URL.                       | `process.cwd()`          |
+| `--browser <browser>`       | -                  | Browser/engine target.                              | `chromium`               |
+| `--profile <path\|boolean>` | -                  | Browser profile path or boolean profile mode.       | fresh profile            |
+| `--chromium-binary <path>`  | -                  | Custom Chromium-family binary path.                 | system default           |
+| `--gecko-binary <path>`     | `--firefox-binary` | Custom Gecko-family binary path.                    | system default           |
+| `--polyfill [boolean]`      | -                  | Enable compatibility polyfill behavior.             | `true`                   |
+| `--starting-url <url>`      | -                  | Starting URL in launched browser.                   | unset                    |
+| `--no-runner`               | -                  | Build but skip browser runner launch.               | runner enabled           |
+| `--port <port>`             | -                  | Runner/devtools port when runner is enabled.        | `8080`                   |
+| `--extensions <list>`       | -                  | Comma-separated companion extensions or store URLs. | unset                    |
+| `--install [boolean]`       | -                  | Install project dependencies when missing.          | command behavior default |
+| `--author`                  | `--author-mode`    | Enable maintainer diagnostics.                      | disabled                 |
+
+## Logging flags
+
+| Flag                                                 | What it does                                                                                 | Default            |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
+| `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | Minimum log level.                                                                           | `off`              |
+| `--log-context <list\|all>`                          | Context filter (`background`, `content`, `page`, `sidebar`, `popup`, `options`, `devtools`). | `all`              |
+| `--log-format <pretty\|json\|ndjson>`                | Logger output format.                                                                        | `pretty`           |
+| `--no-log-timestamps`                                | Disable timestamps in pretty mode.                                                           | timestamps enabled |
+| `--no-log-color`                                     | Disable color in pretty mode.                                                                | color enabled      |
+| `--log-url <pattern>`                                | Filter log events by URL substring/regex.                                                    | unset              |
+| `--log-tab <id>`                                     | Filter log events by tab ID.                                                                 | unset              |
+
+## Source inspection flags (not supported in `start`)
+
+`start` accepts these flags in parsing, but exits with an error if you use them. Use `dev --source ...` instead.
+
+| Flag                                            | Support in `start`                          |
+| ----------------------------------------------- | ------------------------------------------- |
+| `--source [url]`                                | not supported (command exits with guidance) |
+| `--watch-source [boolean]`                      | not supported (command exits with guidance) |
+| `--source-format <pretty\|json\|ndjson>`        | not supported (command exits with guidance) |
+| `--source-summary [boolean]`                    | not supported (command exits with guidance) |
+| `--source-meta [boolean]`                       | not supported (command exits with guidance) |
+| `--source-probe <selectors>`                    | not supported (command exits with guidance) |
+| `--source-tree <off\|root-only>`                | not supported (command exits with guidance) |
+| `--source-console [boolean]`                    | not supported (command exits with guidance) |
+| `--source-dom [boolean]`                        | not supported (command exits with guidance) |
+| `--source-max-bytes <bytes>`                    | not supported (command exits with guidance) |
+| `--source-redact <off\|safe\|strict>`           | not supported (command exits with guidance) |
+| `--source-include-shadow <off\|open-only\|all>` | not supported (command exits with guidance) |
+| `--source-diff [boolean]`                       | not supported (command exits with guidance) |
+
+## Shared global options
+
+Also supports [global flags](../workflows/global-flags.mdx).
+
+## Examples
+
+### Start with default browser
+
+{/* VIDEO_PLACEHOLDER: Show `start` building production output and launching the extension in the default browser target. */}
+![Video placeholder: start command default flow](https://placehold.co/960x540?text=Video+placeholder)
+
+<PackageManagerTabs
+  command={{
+    npm: 'extension start',
+    pnpm: 'extension start',
+    yarn: 'extension start'
+  }}
+/>
+
+### Start in Firefox
+
+<PackageManagerTabs
+  command={{
+    npm: 'extension start --browser firefox',
+    pnpm: 'extension start --browser firefox',
+    yarn: 'extension start --browser firefox'
+  }}
+/>
+
+### Build and skip browser launch
+
+{/* VIDEO_PLACEHOLDER: Show `start --no-runner` generating production output without launching a browser session. */}
+![Video placeholder: start no-runner flow](https://placehold.co/960x540?text=Video+placeholder)
+
+<PackageManagerTabs
+  command={{
+    npm: 'extension start --no-runner',
+    pnpm: 'extension start --no-runner',
+    yarn: 'extension start --no-runner'
+  }}
+/>
+
+## Important behavior notes
+
+- `start` does not run a dev server and does not provide HMR/watch mode.
+- `start` is production-mode oriented; use `dev` for iterative local development.
+- Source inspection options are not supported in `start`; use `dev --source ...` for that workflow.
+
+## Next steps
+
+- Iterate quickly with [`dev`](./dev.mdx).
+- Launch existing build output with [`preview`](./preview.mdx).

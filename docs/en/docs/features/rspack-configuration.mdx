@@ -1,0 +1,112 @@
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="extension" />
+
+# Rspack configuration via `extension.config.js`
+
+Customize bundling behavior without leaving the Extension.js workflow.
+
+Solve custom bundler needs (loaders, plugins, aliases) without forking the default setup. Extension.js builds with Rspack (`@rspack/core`) and lets you extend the generated config directly.
+
+## How it works
+
+Create one of these files at project root:
+
+- `extension.config.js`
+- `extension.config.mjs`
+- `extension.config.cjs`
+
+Use the `config` key to patch generated bundler config.
+
+### `config` capabilities
+
+| Capability                                   | What it does                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| Function hook (`config: (config) => config`) | Gives full control to read and modify generated Rspack config before build. |
+| Object merge (`config: { ... }`)             | Merges additional config into the generated base config.                    |
+| Rules (`config.module.rules`)                | Adds or changes loader rules for file types.                                |
+| Plugins (`config.plugins`)                   | Adds compile-time plugins and transformations.                              |
+| Resolve (`config.resolve`)                   | Adds aliases and module resolution behavior.                                |
+
+### Option 1: function hook (recommended)
+
+```js
+export default {
+  config: (config) => {
+    config.module.rules.push({
+      test: /\.mdx$/,
+      use: ['babel-loader', '@mdx-js/loader']
+    })
+    return config
+  }
+}
+```
+
+{/* VIDEO_PLACEHOLDER: Show adding a custom loader in `config` and seeing it applied during development build. */}
+![Video placeholder: function hook customization](https://placehold.co/960x540?text=Video+placeholder)
+
+### Option 2: object merge
+
+`config` can also be an object. Extension.js merges it into the base config.
+
+```js
+export default {
+  config: {
+    resolve: {
+      alias: {
+        '@ui': '/absolute/path/to/ui'
+      }
+    }
+  }
+}
+```
+
+{/* VIDEO_PLACEHOLDER: Show object merge adding a resolve alias and importing through the alias in extension code. */}
+![Video placeholder: object merge customization](https://placehold.co/960x540?text=Video+placeholder)
+
+## Rspack-first, webpack-compatible
+
+Extension.js is Rspack-native, but much of the webpack ecosystem is still usable.
+
+- Config type is based on `@rspack/core` `Configuration`.
+- Many webpack loaders/plugins work through compatibility layers.
+- Some webpack internals/plugins are not 1:1 compatible with Rspack.
+
+Example using a Rspack-native plugin:
+
+```js
+import {DefinePlugin} from '@rspack/core'
+
+export default {
+  config: (config) => {
+    config.plugins = [
+      ...config.plugins,
+      new DefinePlugin({
+        __FEATURE_FLAG__: JSON.stringify('enabled')
+      })
+    ]
+    return config
+  }
+}
+```
+
+{/* VIDEO_PLACEHOLDER: Show a Rspack-native plugin (DefinePlugin) injecting a compile-time flag. */}
+![Video placeholder: rspack plugin usage](https://placehold.co/960x540?text=Video+placeholder)
+
+## When to use this
+
+- Add custom loaders/rules for project-specific file types.
+- Add plugins for compile-time transforms and diagnostics.
+- Override resolve aliases and module behavior not exposed by first-class Extension.js options.
+
+## Best practices
+
+- **Prefer first-class options first**: Use `browser` / `commands` config keys before low-level bundler overrides.
+- **Patch minimally**: Change only the pieces you need, then return the config.
+- **Keep plugins Rspack-aware**: Prefer Rspack-native plugins when available.
+- **Verify on all targets**: Test `dev`, `start`, `preview`, and `build` for your browser matrix after config changes.
+
+## Next steps
+
+- Learn more about [Extension Config (`extension.config.js`)](./extension-configuration.mdx).
+- Learn more about [Multi-Platform Builds](./multi-platform-builds.mdx).

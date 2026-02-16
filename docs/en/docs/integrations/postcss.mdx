@@ -1,97 +1,110 @@
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="postcss" />
 
 # PostCSS
 
-PostCSS is a powerful tool for transforming CSS with JavaScript. It allows developers to use plugins for various tasks like autoprefixing, minifying, and using future CSS features today. By default, if you have a `postcss.config.js` file in your project root, `Extension.js` will automatically pick it up and apply the transformations defined there.
+Transform CSS consistently across extension pages and content scripts with one pipeline. PostCSS is ideal when you need plugins like Autoprefixer or modern CSS transforms.
 
-## Starter PostCSS Template
+Extension.js detects PostCSS config and applies `postcss-loader` when needed.
 
-`Extension.js` comes with a template that includes PostCSS, which you can use to get started with PostCSS quickly in your extension development. This template ensures that PostCSS is correctly integrated and ready to be used with common plugins like `autoprefixer` and `cssnano`.
+## When PostCSS is a good fit
 
-```plaintext
-npx extension@latest create my-extension --template=postcss
-```
+- You need autoprefixing or modern CSS transforms in extension styles.
+- You want one CSS transform pipeline across popup/options/sidebar/content scripts.
+- You are using Tailwind or plugin-based style processing.
 
-## Using PostCSS with an Existing Extension
+## PostCSS capabilities
 
-To use PostCSS with your existing extension, you need to install the necessary dependencies and create a `postcss.config.js` file at the root of your project.
+| Capability                | What it gives you                                                           |
+| ------------------------- | --------------------------------------------------------------------------- |
+| Shared CSS pipeline       | Use the same transforms across popup, options, new tab, and content scripts |
+| Flexible config discovery | Load PostCSS config from dedicated files or `package.json`                  |
+| Tailwind compatibility    | Works with Tailwind-based setups through PostCSS plugins                    |
+| Plugin-based transforms   | Add tools like `autoprefixer` and `postcss-preset-env`                      |
 
-### Step 1: Install Required Dependencies
+## Template examples
 
-```bash
-npm install -D postcss autoprefixer
-```
+### Tailwind + PostCSS starter
 
-### Step 2: Create a PostCSS Configuration File
+Use this template when you want a working PostCSS setup with Tailwind and component-driven UI.
 
-After installing the required dependencies, create a `postcss.config.js` file in the root of your project. Here’s an example configuration:
+![`sidebar-shadcn` screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/sidebar-shadcn/screenshot.png)
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=sidebar-shadcn',
+    pnpm: 'pnpx extension@latest create my-extension --template=sidebar-shadcn',
+    yarn: 'yarn dlx extension@latest create my-extension --template=sidebar-shadcn'
+  }}
+/>
+
+Repository: [`examples/sidebar-shadcn`](https://github.com/extension-js/examples/tree/main/examples/sidebar-shadcn)
+
+## Detection and config files
+
+Extension.js checks these PostCSS config files:
+
+- `.postcssrc`
+- `.postcssrc.json`
+- `.postcssrc.yaml`
+- `.postcssrc.yml`
+- `postcss.config.mjs`
+- `.postcssrc.js` / `.postcssrc.cjs`
+- `postcss.config.js` / `postcss.config.cjs`
+
+It also recognizes `postcss` config in `package.json`.
+
+## Using PostCSS with an existing extension
+
+Install PostCSS dependencies:
+
+<PackageManagerTabs command="install -D postcss postcss-loader autoprefixer" />
+
+### Step 2: Create `postcss.config.js`
 
 ```js
-postcss.config.js
-module.exports = {
-  plugins: [
-    require('autoprefixer'), Automatically adds vendor prefixes to your CSS
-    require('cssnano')({ preset: 'default' }) Minifies the CSS for production
-  ]
+export default {
+  plugins: {
+    autoprefixer: {}
+  }
 }
 ```
 
-This setup uses `autoprefixer` to add vendor prefixes for better cross-browser compatibility and `cssnano` to optimize and minify your CSS during production builds.
+## Usage
 
-## Usage with Manifest and HTML Files
+Import styles normally in extension pages:
 
-PostCSS can be applied to all CSS-like files in your extension, whether they are directly referenced in your `manifest.json` or in an HTML file within your project. You can use various CSS file formats (e.g., `.css`, `.less`, `.scss`) and apply PostCSS transformations to them during the build process.
-
-### 1. In `manifest.json`
-
-You can reference stylesheets that will be processed by PostCSS in your manifest like so:
-
-```json
-{
-  "name": "My Extension",
-  "version": "1.0",
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "css": ["./styles/content.css"]
-    }
-  ]
-}
+```ts
+import './styles/globals.css'
 ```
 
-Any CSS file referenced here will be processed by PostCSS if a configuration file exists. This ensures that your styles are optimized and compatible across different browsers.
+For content scripts, import the same way in your content-script entry:
 
-### 2. In HTML Files
-
-Similarly, if you are working with HTML files in your `/pages` folder or any other location, you can include PostCSS-processed CSS like this:
-
-```html
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Extension Page</title>
-    <link rel="stylesheet" href="./css/styles.css" />
-  </head>
-  <body>
-    <div id="content">
-      <h1>Welcome to My Extension</h1>
-    </div>
-  </body>
-</html>
+```ts
+import './styles/content.css'
 ```
 
-The CSS file referenced here (`./css/styles.css`) will be processed by PostCSS based on the rules defined in your `postcss.config.js` file.
+Extension.js applies PostCSS in both contexts; the output packaging differs (`css` pipeline for pages, asset pipeline for content scripts).
 
-## Best Practices
+{/* VIDEO_PLACEHOLDER: Show one CSS file processed by PostCSS for both a popup page and a content script entry. */}
+![Video placeholder: PostCSS in pages and content scripts](https://placehold.co/960x540?text=Video+placeholder)
 
-- **Keep CSS Modular**: Whenever possible, organize your CSS using smaller, reusable modules. This improves maintainability and scalability.
-- **Optimize for Production**: Use tools like `cssnano` to minimize the size of your CSS in production, reducing load times and improving performance.
-- **Leverage PostCSS Plugins**: There are many PostCSS plugins available for different use cases. For example, you can use `postcss-preset-env` to use future CSS features today or `postcss-import` to enable `@import` syntax for your stylesheets.
+## Tailwind interaction
 
-## Next Steps
+- Tailwind presence can trigger PostCSS setup automatically.
+- Tailwind v3 and v4 are both handled, with plugin selection based on detected version.
+- In ESM projects with incompatible CJS PostCSS config patterns, Extension.js may bypass user config and inject compatibility plugins.
 
-- Learn more about [PostCSS](https://postcss.org/) and its ecosystem of plugins.
+## Best practices
+
+- Keep plugin chains small and explicit (for example `autoprefixer`, `postcss-preset-env`).
+- Verify config format (`.mjs`/`.cjs`) matches your project module type.
+- Keep Tailwind and PostCSS versions aligned to avoid plugin resolution mismatches.
+- Prefer shared style entry files for predictable processing across extension surfaces.
+
+## Next steps
+
+- Configure [Tailwind CSS](./tailwindcss.mdx) with PostCSS.
+- Add stylesheet linting with [Stylelint](./stylelint.mdx).

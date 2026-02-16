@@ -1,30 +1,78 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="wasm" />
 
 # WebAssembly
 
-From the [WebAssembly website](https://webassembly.org/):
+Use WebAssembly in your extension without custom bundler setup.
 
-> WebAssembly (abbreviated Wasm) is a binary instruction format for a stack-based virtual machine. Wasm is designed as a portable compilation target for programming languages, enabling deployment on the web for client and server applications.
+Extension.js ships with built-in WebAssembly defaults in its Rspack pipeline, so common wasm workflows work out of the box.
 
-With WebAssembly, developers can write parts of the extension in languages like C, C++, Rust, or others. The compiled modules can be imported and executed from the extension's JavaScript context, improving the performance of the extension for tasks that are resource-intensive, like processing large amounts of data or compressing/converting audio and video files.
+## When WebAssembly is a good fit
 
-`Extension` offers built-in WebAssembly (WASM) support. You can play around with WASM in `Extension` by running the Chrome Sample [`cookbook.wasm-helloworld-print`](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print):
+- Your extension runs compute-heavy tasks (parsing, media, OCR, transforms).
+- You need near-native performance for hot code paths.
+- You are reusing existing wasm modules from web projects.
+
+## WebAssembly capabilities
+
+| Capability                      | What it gives you                                   |
+| ------------------------------- | --------------------------------------------------- |
+| Built-in wasm pipeline defaults | Run common wasm flows without manual bundler wiring |
+| Async wasm support              | Load `.wasm` modules in extension contexts          |
+| Runtime compatibility helpers   | Handle common wasm ecosystem asset patterns         |
+| Regular command workflow        | Use wasm with the same `dev` and `build` commands   |
+
+## What Extension.js enables
+
+The wasm plugin configures:
+
+- `experiments.asyncWebAssembly = true`
+- `.wasm` in module resolution extensions
+- runtime asset aliases for common wasm ecosystems (for example ffmpeg, imagemagick wasm, tesseract wasm)
+
+This reduces boilerplate when importing wasm modules from extension scripts/pages.
+
+## How to use
+
+Use wasm modules in your extension code as part of regular development/build flows:
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print",
-    pnpm: "pnpx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print",
-    yarn: "yarn dlx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print",
+    npm: 'npx extension dev ./my-extension',
+    pnpm: 'pnpx extension dev ./my-extension',
+    yarn: 'yarn dlx extension dev ./my-extension'
   }}
 />
 
-![WASM Sample Extension](../../../../assets/guides/development/wasm.png)
+You can also test against a known public sample:
 
-- Learn how `Extension` works with extensions using [ECMAScript Modules](./ecmascript-modules.mdx).
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print',
+    pnpm: 'pnpx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print',
+    yarn: 'yarn dlx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print'
+  }}
+/>
 
-## Next Steps
+{/* VIDEO_PLACEHOLDER: Show running a wasm sample extension, loading it in the browser, and verifying wasm-powered behavior. */}
+![Video placeholder: webassembly extension runtime flow](https://placehold.co/960x540?text=Video+placeholder)
+
+## Typical use cases
+
+- compute-heavy parsing/transforms
+- media processing pipelines
+- OCR / image processing workflows
+- performance-sensitive algorithms shared across web/runtime contexts
+
+## Best practices
+
+- Keep wasm modules focused on hot paths; keep orchestration logic in JavaScript/TypeScript.
+- Validate output size and load timing for extension contexts (background, content scripts, pages).
+- Test wasm-heavy flows across browser targets you ship (`chrome`, `edge`, `firefox`).
+
+## Next steps
 
 - Learn more about [WebAssembly](https://webassembly.org/).
+- Learn how Extension.js works with [ECMAScript Modules](./ecmascript-modules.mdx).

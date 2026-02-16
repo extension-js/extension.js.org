@@ -1,58 +1,115 @@
-import { AvatarEmoji } from "../../../../theme/components/avatar-emoji";
+import {AvatarEmoji} from '../../../../theme/components/avatar-emoji'
 
 <AvatarEmoji emoji="user" />
 
-# Browser Profile
+# Browser profile
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull request. The link that documents this feature can be found at the bottom of the page.
+Control browser state isolation during development with managed, persistent, or custom profiles.
 
-Browser profiles allow you to load a custom browser profile during extension development, which can be useful for replicating real-user behavior, settings, extensions, and session data. You can either use the default profile provided by Extension.js or define your own path using the `--profile` flag in the CLI.
+Keep browser sessions isolated or persistent based on your workflow. Extension.js launches browsers with profile-aware defaults so you can choose clean runs, reusable state, or an explicit local profile path.
 
-## How Does It Work?
+## How it works
 
-You can specify a custom browser profile to load during the browser launch process. Extension.js will hook into the browser's profile directory and load the specified profile, allowing you to test your extension in a real-world environment.
+Profile mode is selected in this order:
 
-## How to Use Browser Profiles
+1. Explicit `profile` path (if provided)
+2. Managed profile mode (default)
+   - ephemeral by default
+   - persistent when `persistProfile: true`
+3. System profile mode when `EXTENSION_USE_SYSTEM_PROFILE=true`
 
-### Using the Default Profile
+## Profile capabilities
 
-By default, **Extension.js** launches a browser with a fresh, clean profile. This ensures there are no session conflicts or unwanted settings during testing.
+| Config / option                     | What it does                                                    |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `browser.<target>.profile`          | Uses an explicit profile directory for that browser target.     |
+| `commands.dev.profile`              | Uses an explicit profile only for `dev`.                        |
+| `commands.start.profile`            | Uses an explicit profile only for `start`.                      |
+| `commands.preview.profile`          | Uses an explicit profile only for `preview`.                    |
+| `browser.<target>.persistProfile`   | Reuses managed profile state between runs for a target.         |
+| `commands.<name>.persistProfile`    | Reuses managed profile state in a command-specific context.     |
+| `--profile=/abs/path`               | CLI override for explicit profile path.                         |
+| `EXTENSION_USE_SYSTEM_PROFILE=true` | Uses the OS/browser system profile instead of managed profiles. |
 
-### Using a Custom Profile
+{/* VIDEO_PLACEHOLDER: Show switching between managed ephemeral, persistent, and explicit profile modes in development. */}
+![Video placeholder: profile mode selection](https://placehold.co/960x540?text=Video+placeholder)
 
-To use a custom browser profile, you can specify the profile path in the `extension.config.js` file or use the `--profile` flag during the development process.
+## Profile modes
 
-**Example in `extension.config.js`:**
+| Mode                    | How to enable                                   | Typical use                                   |
+| ----------------------- | ----------------------------------------------- | --------------------------------------------- |
+| Managed ephemeral       | default                                         | clean runs with isolated state                |
+| Managed persistent      | `persistProfile: true`                          | iterative debugging with stable browser state |
+| Explicit custom profile | `profile: "/abs/path"` or `--profile=/abs/path` | reuse an existing profile                     |
+| System profile          | `EXTENSION_USE_SYSTEM_PROFILE=true`             | launch with OS/browser default profile        |
+
+Managed profiles are created under:
+
+- `dist/extension-js/profiles/<browser>-profile/<...>`
+
+Persistent mode uses:
+
+- `dist/extension-js/profiles/<browser>-profile/dev`
+
+{/* VIDEO_PLACEHOLDER: Show profile directories created under `dist/extension-js/profiles` and reused when `persistProfile` is enabled. */}
+![Video placeholder: managed profile lifecycle](https://placehold.co/960x540?text=Video+placeholder)
+
+## Configure in `extension.config.*`
 
 ```js
-module.exports = {
+export default {
   browser: {
     chrome: {
-      profile: "path/to/custom/profile",
+      // Use your own profile directory:
+      profile: 'path/to/custom/profile'
     },
     firefox: {
-      profile: "path/to/custom/firefox-profile",
-    },
-  },
-};
+      // Keep a stable managed profile for repeated sessions:
+      persistProfile: true
+    }
+  }
+}
 ```
 
-### CLI Option: Specifying a Custom Profile Path
+You can also scope profile defaults by command:
 
-You can also define a profile path directly in the CLI using the `--profile` flag:
+```js
+export default {
+  commands: {
+    dev: {
+      persistProfile: true
+    }
+  }
+}
+```
+
+## CLI usage
+
+Use an explicit profile path directly:
 
 ```bash
 extension dev --browser=chrome --profile=/path/to/custom/profile
 ```
 
-In this case, the **Chrome** browser will launch with the specified profile from `/path/to/custom/profile`. This is useful for loading existing profiles with user-specific settings like extensions, bookmarks, or cookies.
+Works similarly with `start` and `preview`.
 
-## Best Practices
+{/* VIDEO_PLACEHOLDER: Show CLI `--profile` override applied in `dev`, then reused in `start`/`preview`. */}
+![Video placeholder: cli profile override](https://placehold.co/960x540?text=Video+placeholder)
 
-- **Separate Profiles for Different Browsers**: It's a good practice to maintain separate profiles for each browser to ensure clean, isolated testing environments.
-- **Real-World Testing**: Use real browser profiles from actual user sessions to test how your extension interacts with real-world data and settings.
-- **Automated Testing**: Define and automate the use of custom profiles to run tests in various user environments.
+## Lifecycle notes
 
-## Next Steps
+- Ephemeral managed profiles are created per run.
+- Persistent managed profile (`dev`) is reused across runs.
+- Managed profile directories are cleaned up with best-effort retention logic (`EXTENSION_TMP_PROFILE_MAX_AGE_HOURS`).
 
-- For more detailed documentation and to contribute to this feature, check the [Browser Profiles on GitHub](https://github.com/extension-js/extension.js/tree/main/docs/browser-profile).
+## Best practices
+
+- **Use managed ephemeral profiles for baseline testing**: Reduces hidden state and flaky reproductions.
+- **Use `persistProfile` for long-lived debug sessions**: Keep auth/session/devtools state between runs.
+- **Keep custom profiles per browser family**: Avoid cross-browser contamination.
+- **Use system profile mode intentionally**: Useful for reproduction, but less isolated than managed profiles.
+
+## Next steps
+
+- Learn more about [Browser preferences](./browser-preferences.mdx).
+- Learn more about [Browser flags](./browser-flags.mdx).

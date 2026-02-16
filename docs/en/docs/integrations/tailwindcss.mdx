@@ -1,17 +1,48 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="tailwindcss" />
 
 # Tailwind CSS
 
-Extension.js offers built-in support for Tailwind CSS, a utility-first CSS framework that allows you to rapidly build modern extensions without leaving your HTML.
+Build extension UI surfaces quickly with utility classes across popup, options, new tab, sidebar, and content-script entries.
 
-## Starter Tailwind Templates
+Extension.js integrates Tailwind through PostCSS and supports both Tailwind v3 and v4 setups.
 
-The easiest way to get started with Tailwind CSS in Extension.js is by using one of the available templates. There are three templates that include Tailwind CSS as a dependency. Learn more in the [Templates](../getting-started/templates) section.
+## When Tailwind CSS is a good fit
 
-## Usage With An Existing Extension
+- You need fast UI iteration across multiple extension surfaces.
+- You prefer utility-first styling with shared tokens.
+- You want consistent styling patterns across page and content-script entries.
+
+## Tailwind capabilities
+
+| Capability                | What it gives you                                                            |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| Multi-surface styling     | Reuse utility classes across extension pages and content scripts             |
+| PostCSS-based integration | Keep Tailwind in the same CSS transform pipeline as the rest of your project |
+| Version flexibility       | Support Tailwind v3 and Tailwind v4 plugin patterns                          |
+| Template onboarding       | Start from ready-made setups and adapt incrementally                         |
+
+## Template examples
+
+### Sidebar + Tailwind + shadcn/ui
+
+Use this template when you want a complete Tailwind setup in a real extension UI surface.
+
+![`sidebar-shadcn` screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/sidebar-shadcn/screenshot.png)
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=sidebar-shadcn',
+    pnpm: 'pnpx extension@latest create my-extension --template=sidebar-shadcn',
+    yarn: 'yarn dlx extension@latest create my-extension --template=sidebar-shadcn'
+  }}
+/>
+
+Repository: [`examples/sidebar-shadcn`](https://github.com/extension-js/examples/tree/main/examples/sidebar-shadcn)
+
+## Usage with an existing extension
 
 ### Installation
 
@@ -19,133 +50,108 @@ Install the required dependencies:
 
 <PackageManagerTabs
   command={{
-    npm: "npm install -D tailwindcss postcss autoprefixer",
-    pnpm: "pnpm install -D tailwindcss postcss autoprefixer",
-    yarn: "yarn add -D tailwindcss postcss autoprefixer",
-  }}
-/>
-
-Generate Tailwind CSS config files:
-
-- `postcss.config.js`
-- `tailwind.config.js`
-
-<PackageManagerTabs
-  command={{
-    npm: "npx tailwindcss init -p",
-    pnpm: "pnpx tailwindcss init -p",
-    yarn: "yarn dlx tailwindcss init -p",
+    npm: 'npm install -D tailwindcss @tailwindcss/postcss postcss',
+    pnpm: 'pnpm install -D tailwindcss @tailwindcss/postcss postcss',
+    yarn: 'yarn add -D tailwindcss @tailwindcss/postcss postcss'
   }}
 />
 
 ### Configuration
 
-In the `tailwind.config.js` file, add the paths to the files where you want Tailwind to be active:
+Create `postcss.config.js`:
 
 ```js
-tailwind.config.js
+export default {
+  plugins: {
+    '@tailwindcss/postcss': {}
+  }
+}
+```
 
+For Tailwind v3 projects, use `tailwindcss` as the PostCSS plugin and keep a `tailwind.config.js` content list.
+
+### Tailwind v4 vs v3 quick setup
+
+```js
+// Tailwind v4 postcss.config.js
+export default {
+  plugins: {
+    '@tailwindcss/postcss': {}
+  }
+}
+```
+
+```js
+// Tailwind v3 postcss.config.js
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {}
+  }
+}
+```
+
+### Tailwind content paths (v3 style)
+
+```js
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   content: [
-    Optional: Add the `pages` directory to include HTML pages.
-    "./pages/**/*.{html,js,ts,jsx,tsx,mdx}",
-
-    Include all relevant files for the extension.
-    "./**/*.{html,js,ts,jsx,tsx,mdx}",
-
-    For projects using a `src` directory:
-    "./src/**/*.{html,js,ts,jsx,tsx,mdx}",
+    './pages/**/*.{html,js,ts,jsx,tsx,mdx}',
+    './scripts/**/*.{js,ts,jsx,tsx}',
+    './src/**/*.{html,js,ts,jsx,tsx,mdx}'
   ],
   theme: {
-    extend: {},
+    extend: {}
   },
-  plugins: [],
-};
+  plugins: []
+}
 ```
 
 ### Usage
 
-Tailwind CSS-generated styles are injected into a global stylesheet for your extension. Ensure that you import this global CSS file wherever Tailwind styles should apply.
+Create a global stylesheet and import Tailwind:
 
 #### Create the global CSS file:
 
 ```css
-/* css/globals.css */
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* styles/globals.css */
+@import 'tailwindcss';
 ```
 
-#### In An HTML File
+Import this file in entry scripts where Tailwind classes are used.
 
-Add the global stylesheet to an HTML file like this:
+#### In a page script (popup/options/new-tab)
 
-```html
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>New Extension</title>
-    <!-- Import the Tailwind global stylesheet -->
-    <link rel="stylesheet" href="./css/globals.css" media="screen" />
-  </head>
-  <body>
-    <!-- Add Tailwind classes -->
-    <h1 class="text-4xl font-bold">Hello, Extension.</h1>
-  </body>
-</html>
-```
-
-#### In A JavaScript File
-
-Import the global CSS file for use in a React or Preact component:
-
-```js
-./NewTabApp.jsx
-
-import "./css/globals.css";
+```tsx
+import './styles/globals.css'
 
 export default function MyNewTabPage() {
-  return <h1 className="text-4xl font-bold">Hello, Extension.</h1>;
+  return <h1 className="text-4xl font-bold">Hello, Extension.</h1>
 }
 ```
 
-#### In A `content_script` File
+#### In a content script
 
-For content scripts, dynamically import the global CSS file:
+```ts
+import './styles/globals.css'
 
-```js
-./content_script.jsx
-
-Dynamically import the global CSS file
-import("./css/globals.css");
-
-export default function MyContentScript() {
-  return <h1 className="text-3xl font-bold underline">Hello, Extension!</h1>;
-}
+console.log('Tailwind styles loaded for content script')
 ```
 
-#### In The `manifest.json` File
+Extension.js routes content-script CSS through its content-script style pipeline and emits those assets under `content_scripts/`.
 
-Add the global CSS file to your `manifest.json` under `content_scripts`:
+{/* VIDEO_PLACEHOLDER: Show Tailwind classes rendering in a sidebar page and then in a content script entry. */}
+![Video placeholder: Tailwind across extension surfaces](https://placehold.co/960x540?text=Video+placeholder)
 
-```diff
-{
-  "manifest_version": 3,
-  "version": "1.0",
-  "name": "My Content Scripts Extension",
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-+     "css": ["./css/global.css"]
-    }
-  ]
-}
-```
+## Best practices
 
-## Next Steps
+- Keep Tailwind source imports in shared style entry files (`styles/globals.css`).
+- Ensure your content scanning includes `pages/`, `scripts/`, and `src/` when relevant.
+- In monorepos, verify Tailwind content paths resolve from the extension project root.
+- Use templates when possible to avoid config drift between PostCSS and Tailwind versions.
 
-- Ensure your CSS follows best practices by using [Stylelint](./stylelint.mdx).
+## Next steps
+
+- Configure [PostCSS](./postcss.mdx) for additional CSS transforms.
+- Ensure your CSS follows best practices with [Stylelint](./stylelint.mdx).

@@ -1,81 +1,106 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="node" />
 
-# Node APIs in Browser Extensions
+# Node APIs in browser extensions
 
-Extension.js enables the use of Node.js APIs in browser extension development,
-but requires some additional configuration due to the differences between Node.js and browser environments.
-By adding `node-polyfill-webpack-plugin` to your `extension.config.js` file,
-you can polyfill Node.js core modules, making them usable in your extension's JavaScript files.
+Use browser-native APIs first, then selectively polyfill Node modules only when you explicitly need them.
 
-## Setting Up Node Polyfills
+Extension.js targets the browser runtime by default, so Node core modules are not automatically polyfilled.
 
-To use Node.js APIs like `fs`, `path`, or `crypto` in a browser extension,
-you must configure webpack to include polyfills for the missing Node.js modules.
-This is done by adding the **`node-polyfill-webpack-plugin`** in your `extension.config.js` file.
+## When Node polyfills are a good fit
 
-## Example: `extension.config.js`
+- A required dependency needs Node core modules in browser runtime.
+- You are incrementally migrating code from Node-centric packages.
+- You can accept larger bundles for specific runtime capabilities.
 
-```js
-const NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
+## Template examples
 
-module.exports = {
-  config: (config) => {
-    config.plugins.push(new NodePolyfillPlugin());
-    return config;
-  },
-};
-```
+### `new-typescript`
 
-In this configuration file, we use NodePolyfillPlugin to inject polyfills for Node.js APIs. This allows Node.js modules to be imported and used directly in your browser extension.
+![new-typescript template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-typescript/screenshot.png)
 
-## Node APIs in Action
-
-Once the polyfills are set up, you can use Node.js APIs as you normally would in a Node.js environment. For example, you could use the path and fs modules to manage file paths or manipulate files:
-
-```js
-const path = require("path");
-const fs = require("fs");
-
-const filePath = path.join(__dirname, "example.txt");
-fs.readFile(filePath, "utf8", (err, data) => {
-  if (err) {
-    console.error("Error reading file:", err);
-    return;
-  }
-  console.log("File contents:", data);
-});
-```
-
-In this example, the fs module reads a file in the extension's directory. This would not be possible without polyfilling Node.js modules, as the browser environment does not natively support them.
-
-## Usage with Existing Extensions
-
-To add Node.js support to an existing extension, follow these steps:
-
-### 1. Install the Required Plugin
-
-Add the node-polyfill-webpack-plugin to your project:
+Start from a TypeScript baseline when your extension needs explicit bundler/polyfill tuning.
 
 <PackageManagerTabs
   command={{
-    npm: "npm install --save-dev node-polyfill-webpack-plugin",
-    pnpm: "pnpm install --save-dev node-polyfill-webpack-plugin",
-    yarn: "yarn add --dev node-polyfill-webpack-plugin",
+    npm: 'npx extension@latest create my-extension --template=new-typescript',
+    pnpm: 'pnpx extension@latest create my-extension --template=new-typescript',
+    yarn: 'yarn dlx extension@latest create my-extension --template=new-typescript'
   }}
 />
 
-### 2. Modify extension.config.js
+Repository: [extension-js/examples/new-typescript](https://github.com/extension-js/examples/tree/main/examples/new-typescript)
 
-Ensure your extension.config.js file includes the polyfill plugin, as shown in the example above. This will allow you to use Node.js APIs in your extension.
+### `content-typescript`
+
+![content-typescript template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-typescript/screenshot.png)
+
+Use a content-script TypeScript base when Node-dependent libraries run inside page-injected flows.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content-typescript',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-typescript',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-typescript'
+  }}
+/>
+
+Repository: [extension-js/examples/content-typescript](https://github.com/extension-js/examples/tree/main/examples/content-typescript)
+
+## Default behavior
+
+- Build target is browser-first (`web`).
+- Resolution prioritizes browser exports (`browser`, `module`, `main`).
+- Node core fallbacks such as `crypto`, `path`, and `fs` are disabled by default.
+
+This means importing Node APIs may fail unless you add explicit fallbacks.
+
+## Setting up Node polyfills
+
+Use `extension.config.js` (or `.mjs` / `.cjs`) to extend the Rspack config and define safe fallbacks.
+
+```js
+import NodePolyfillPlugin from 'node-polyfill-webpack-plugin'
+import {createRequire} from 'node:module'
+
+const require = createRequire(import.meta.url)
+
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {}
+    config.resolve.fallback = {
+      ...(config.resolve.fallback || {}),
+      crypto: require.resolve('crypto-browserify'),
+      path: require.resolve('path-browserify'),
+      fs: false
+    }
+    config.plugins = config.plugins || []
+    config.plugins.push(new NodePolyfillPlugin())
+    return config
+  }
+}
+```
+
+## Install optional polyfill packages
+
+<PackageManagerTabs command="install -D node-polyfill-webpack-plugin crypto-browserify path-browserify" />
+
+## Extension APIs vs Node APIs
+
+`polyfill: true` in CLI/config is for `webextension-polyfill` (`browser.*` API ergonomics), not Node core module polyfills.
+
+Use Node polyfills only for libraries that cannot run with standard Web APIs.
 
 ## Caveats
 
-Not all Node.js APIs are suitable for use in a browser context, as the browser environment has inherent limitations compared to Node.js. For example, you cannot access the file system on the user’s machine beyond the sandboxed areas allowed by the extension APIs.
+- Do not assume filesystem access in extension runtime; keep `fs: false` unless you have a very specific browser-safe strategy.
+- Prefer Web Crypto (`crypto.subtle`) over large Node crypto shims when possible.
+- Polyfills increase bundle size and can affect startup time in extension pages/content scripts.
+- Some packages using `node:` specifiers may need explicit fallback handling.
 
-## Next Steps
+## Next steps
 
-- Learn more about Webpack Configuration.
-- Explore how to extend your build process with custom webpack settings.
+- Learn how to customize [Rspack configuration](../features/rspack-configuration.mdx).
+- Learn how to manage [extension configuration](../features/extension-configuration.mdx).

@@ -1,48 +1,100 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="env" />
 
-# Environment Variables
+# Environment variables
 
-Extension.js offers first-class support for environment variables, allowing you to customize your extension to fit the needs of each browser and development environment. These variables help you configure behavior dynamically, making it easier to manage different browsers or build modes from the same codebase.
+Use one extension codebase across browsers and environments without hardcoding values.
 
-## How Does It Work?
+Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js resolves env files during compilation, injects public variables into JavaScript (`process.env` and `import.meta.env`), and replaces placeholders in emitted `.json` and `.html` assets.
 
-Extension.js will read any of the following files in your project directory:
+## How it works
 
-- `.env`: Default environment variables.
-- `.env.local`: Local overrides for environment variables.
-- `.env.[browser]`: Browser-specific environment variables.
+Extension.js checks environment files in priority order and uses the first matching file:
+
 - `.env.[browser].[mode]`: Browser-specific environment variables for a specific mode.
-- `.env.[mode]`: Environment variables for a specific mode.
+- `.env.[browser]`: Browser-specific environment variables.
+- `.env.[mode]`: Mode-specific environment variables.
+- `.env.local`: Local-only overrides.
+- `.env`: Default environment variables.
+- `.env.example`: Fallback when no env file above exists.
 
-## Built-in Environment Variables
+In addition, `.env.defaults` is loaded as default values, and system environment variables (`process.env`) take final precedence.
 
-Extension.js provides some built-in environment variables that are injected during the build process. These variables help you manage browser-specific settings, build modes, and other extension-specific information.
+> Note: File selection is single-file priority (plus `.env.defaults` + system env), not full cascading across all files.
+
+{/* VIDEO_PLACEHOLDER: Show env file resolution order for one build target and mode, then confirm selected values in output. */}
+![Video placeholder: env file priority resolution](https://placehold.co/960x540?text=Video+placeholder)
+
+## Built-in environment variables
+
+Extension.js injects built-in variables at compile time, so browser and mode are always available in your extension code.
 
 | Variable Name              | Description                                                                         |
 | -------------------------- | ----------------------------------------------------------------------------------- |
 | `EXTENSION_PUBLIC_BROWSER` | The current browser target for your extension (e.g., `chrome`, `firefox`, `edge`).  |
 | `EXTENSION_PUBLIC_MODE`    | The mode in which your extension is running, such as `development` or `production`. |
+| `EXTENSION_BROWSER`        | Browser target (non-legacy alias).                                                  |
+| `EXTENSION_MODE`           | Build mode (non-legacy alias).                                                      |
+| `BROWSER`                  | Short browser alias.                                                                |
+| `MODE`                     | Short mode alias.                                                                   |
+| `NODE_ENV`                 | Node environment aligned to compiler mode (`development` / `production`).           |
 
-These built-in environment variables ensure you can easily manage browser-specific or environment-based configurations in your code and extensions.
+All built-ins above are available through both `process.env.*` and `import.meta.env.*`.
 
-## Browser-Specific Environment Files
+## Environment variable inventory
 
-Extension.js allows you to create browser-specific environment files, such as `.env.chrome`, `.env.firefox`, etc. This is useful when you need different configurations for specific browsers. You can also combine browser-specific files with build modes, for instance:
+### Public/runtime variables (user-defined)
+
+| Variable pattern     | Purpose                                      | Available in JS runtime                 | Notes                    |
+| -------------------- | -------------------------------------------- | --------------------------------------- | ------------------------ |
+| `EXTENSION_PUBLIC_*` | Expose user-defined values to extension code | Yes (`process.env` + `import.meta.env`) | Safe-to-ship values only |
+
+### Static placeholder variables
+
+| Variable pattern                                   | Purpose                                             | Available in JS runtime | Notes                                   |
+| -------------------------------------------------- | --------------------------------------------------- | ----------------------- | --------------------------------------- |
+| `$EXTENSION_*` tokens in emitted `.html` / `.json` | Build-time placeholder replacement in static assets | Not as JS vars          | Avoid using secrets in static templates |
+
+### Built-in/alias variables
+
+| Variable                   | Type           | Notes              |
+| -------------------------- | -------------- | ------------------ |
+| `EXTENSION_PUBLIC_BROWSER` | built-in       | Browser target     |
+| `EXTENSION_PUBLIC_MODE`    | built-in       | Build mode         |
+| `EXTENSION_BROWSER`        | built-in alias | Browser target     |
+| `EXTENSION_MODE`           | built-in alias | Build mode         |
+| `BROWSER`                  | built-in alias | Short browser name |
+| `MODE`                     | built-in alias | Short mode name    |
+| `NODE_ENV`                 | built-in       | Compiler mode      |
+
+### CLI and dev-server operational variables
+
+| Variable                  | Purpose                               | Typical usage                    |
+| ------------------------- | ------------------------------------- | -------------------------------- |
+| `EXTENSION_AUTO_EXIT_MS`  | Auto-exit dev process after N ms      | CI hard-stop control             |
+| `EXTENSION_FORCE_KILL_MS` | Force-kill timeout fallback           | CI cleanup resilience            |
+| `EXTENSION_VERBOSE`       | Verbose diagnostics in selected flows | Debugging CLI behavior           |
+| `EXTENSION_AUTHOR_MODE`   | Maintainer/author diagnostics mode    | Internal diagnostics and tooling |
+
+## Browser-specific environment files
+
+Need different values per browser? Extension.js supports browser-scoped env files such as `.env.chrome` and `.env.firefox`. You can also combine browser and mode for a single build variant:
 
 - `.env.chrome.development`: Applied only when running the extension in Chrome during development mode.
 - `.env.firefox.production`: Applied only when building the extension for Firefox in production mode.
 
-The environment files follow this priority order:
+Priority order is:
 
-- `.env.[browser]`
 - `.env.[browser].[mode]`
+- `.env.[browser]`
 - `.env.[mode]`
+- `.env.local`
 - `.env`
+- `.env.example`
 
-### Example Files:
+### Example files:
 
 ```ini
 # .env.chrome.development
@@ -54,26 +106,31 @@ EXTENSION_PUBLIC_API_URL=https://api-dev.chrome.com
 EXTENSION_PUBLIC_API_URL=https://api.firefox.com
 ```
 
-## Custom Environment Variables
+{/* VIDEO_PLACEHOLDER: Show Chrome and Firefox runs picking different env files and producing different resolved values. */}
+![Video placeholder: browser-specific env variants](https://placehold.co/960x540?text=Video+placeholder)
 
-You can define your custom environment variables in a `.env` file at the root of your project. Only variables prefixed with `EXTENSION_PUBLIC_` will be injected into the build and accessible in your extension's JavaScript, ensuring that private values are kept secure.
+## Custom environment variables
+
+You can define custom variables in env files at project root.  
+Only variables prefixed with `EXTENSION_PUBLIC_` are injected into JavaScript bundles (`process.env` / `import.meta.env`).
 
 ```ini
 # .env
 EXTENSION_PUBLIC_API_KEY=your_api_key_here
 EXTENSION_PUBLIC_SITE_URL=https://example.com
-PRIVATE_KEY=abc123  # This will not be available in the extension
+PRIVATE_KEY=abc123  # Not injected into JS bundles
 ```
 
-**Important:** Variables without the `EXTENSION_PUBLIC_` prefix are treated as private and are not exposed to the extension.
+**Important:** Variables without `EXTENSION_PUBLIC_` are not injected into JS bundles.  
+However, placeholders in emitted `.json`/`.html` files can resolve `$EXTENSION_*` tokens, so avoid referencing secrets in static asset templates.
 
-## Using Environment Variables
+## Using environment variables
 
-You can use environment variables in various parts of your extension, including the `manifest.json`, locales files, HTML, and your JSX components. Here’s how you can use them in each of these contexts:
+You can use environment variables in `manifest.json`, locales, HTML, and JavaScript/TypeScript files.
 
 ### 1. In `manifest.json`
 
-Although `manifest.json` does not natively support environment variables, Extension.js parses these variables during the build process, replacing them with their corresponding values from the `.env` file. For example:
+`manifest.json` does not natively support environment variables, but Extension.js replaces supported placeholders during build. For example:
 
 ```json
 {
@@ -86,11 +143,11 @@ Although `manifest.json` does not natively support environment variables, Extens
 }
 ```
 
-During the build, `$EXTENSION_PUBLIC_API_KEY` will be replaced with the actual value defined in your `.env` file.
+During compilation, `$EXTENSION_PUBLIC_API_KEY` is replaced with the resolved env value.
 
-### 2. In Locales Files
+### 2. In locale files
 
-You can also reference environment variables in your locales files to dynamically insert values for different languages or regions. Here's an example of a locale JSON file:
+You can also use placeholders in locale files when values should change by environment. For example:
 
 ```json
 {
@@ -103,11 +160,11 @@ You can also reference environment variables in your locales files to dynamicall
 }
 ```
 
-When the extension is built, the placeholders for `$EXTENSION_PUBLIC_SITE_URL` and `$EXTENSION_PUBLIC_API_KEY` will be replaced with the corresponding values from your `.env` file.
+When assets are emitted, placeholders such as `$EXTENSION_PUBLIC_SITE_URL` are replaced with resolved values.
 
-### 3. In HTML Files
+### 3. In HTML files
 
-You can also use environment variables in your static HTML files within the `pages/` folder. Here’s an example of how to insert an environment variable into an HTML file:
+You can also use placeholders in static HTML files (for example, under `pages/`):
 
 ```html
 <!doctype html>
@@ -124,16 +181,16 @@ You can also use environment variables in your static HTML files within the `pag
 </html>
 ```
 
-When built, `$EXTENSION_PUBLIC_API_KEY` will be replaced with the actual value from the `.env` file, allowing you to securely manage sensitive information in static pages.
+When built, `$EXTENSION_PUBLIC_API_KEY` is replaced in the output HTML.
 
-### 4. In JSX Components
+### 4. In JSX components
 
-In your React or JSX code, you can easily reference environment variables using `process.env`:
+In React/JSX/TS files, read env values with `process.env`:
 
 ```jsx
 const ApiInfo = () => {
-  const apiUrl = process.env.EXTENSION_PUBLIC_SITE_URL;
-  const apiKey = process.env.EXTENSION_PUBLIC_API_KEY;
+  const apiUrl = process.env.EXTENSION_PUBLIC_SITE_URL
+  const apiKey = process.env.EXTENSION_PUBLIC_API_KEY
 
   return (
     <div>
@@ -141,31 +198,37 @@ const ApiInfo = () => {
       <p>URL: {apiUrl}</p>
       <p>Key: {apiKey}</p>
     </div>
-  );
-};
+  )
+}
 
-export default ApiInfo;
+export default ApiInfo
 ```
 
-This example dynamically renders the API URL and key based on the environment variables defined in the `.env` file. These values will be injected during the build process, making your component reusable across different environments.
+These values are inlined at compile time and can vary by browser/mode.
 
-## Package `module` Support (import.meta)
+## `import.meta` support
 
-If your project uses ECMAScript Modules (ESM) and `"type": "module"` is set in your `package.json`, Extension.js also supports `import.meta.env` for environment variables. This allows ESM-style projects to access environment variables as follows:
+For ESM workflows, Extension.js also supports `import.meta.env`:
 
 ```js
-service_worker.mjs;
-const apiUrl = import.meta.env.EXTENSION_PUBLIC_API_URL;
-console.log(`API URL for the current environment: ${apiUrl}`);
+service_worker.mjs
+const apiUrl = import.meta.env.EXTENSION_PUBLIC_API_URL
+console.log(`API URL for the current environment: ${apiUrl}`)
 ```
 
-By using `import.meta.env` in ESM projects, you maintain the same flexibility for accessing environment variables, just like you would with `process.env` in CommonJS projects.
+`import.meta.env` and `process.env` have parity for injected env keys.
 
-## Best Practices
+{/* VIDEO_PLACEHOLDER: Show one value consumed in `manifest.json`, HTML, and JS (`process.env` / `import.meta.env`) during a build. */}
+![Video placeholder: using env values across extension files](https://placehold.co/960x540?text=Video+placeholder)
 
-- **Keep Secrets Safe:** Never hardcode sensitive values like API keys or access tokens directly into your code. Use `.env` files and the `EXTENSION_PUBLIC_` prefix to inject these values securely into your project.
-- **Version Control:** Exclude `.env` and `.env.local` from version control to protect sensitive information. Use `.env.example` to document required environment variables, ensuring consistency across environments for your team.
+## Best practices
 
-## Next Steps
+- **Expose only what must ship:** Prefix only client-safe keys with `EXTENSION_PUBLIC_`.
+- **Use `.env.defaults` for shared defaults:** Keep predictable team defaults while allowing local/system overrides.
+- **Keep secrets out of static placeholders:** Avoid putting secret `$EXTENSION_*` tokens in HTML/JSON templates.
+- **Version control hygiene:** Commit `.env.example` and ignore real env files (`.env`, `.env.local`, browser/mode variants).
 
-- Learn more about the [Browsers Available](../browsers/browsers-available.mdx).
+## Next steps
+
+- Review browser targeting in [browsers available](../browsers/browsers-available.mdx).
+- Configure shared defaults in [`extension.config.js`](./extension-configuration.mdx).

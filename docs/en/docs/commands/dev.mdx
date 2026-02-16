@@ -1,131 +1,180 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="extension" />
 
-# Dev Command
+# Dev command
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+Use `dev` for day-to-day extension development with watch mode, browser launch, and runtime reload/HMR workflows.
 
-The `dev` command watches for changes in your extension's files, recompiles them, and reloads the extension in real-time. If you provide a URL, Extension.js will download and run the extension as if it were local.
+`dev` runs the development pipeline, watches project files, and applies context-specific update strategies (HMR, hard reload, or restart-required diagnostics).
 
-## How Does It Work?
+## When to use `dev`
 
-For development frameworks, it's an industry-standard practice to have a development server that watches for changes in your files and recompiles them in real time. Given the complex nature of browser extensions, the `dev` command in Extension.js handles the watch and recompile process for all the different contexts (HTML or not) of your extension.
+- Building features and validating changes in real time.
+- Debugging extension behavior in one or more browser targets.
+- Running source-inspection workflows with `--source`.
 
-The `dev` command also provides a way to run remote extensions by providing a URL. This is useful when you want to test an extension from source without having to clone the repository.
+Use `build` for production artifacts, `start` for production build + launch, and `preview` to run existing build output only.
+
+## Dev command capabilities
+
+| Capability             | What it gives you                                          |
+| ---------------------- | ---------------------------------------------------------- |
+| Watch mode iteration   | Rebuild and update quickly while editing files             |
+| Browser-target control | Run extension on specific browser targets and binaries     |
+| Profile-aware runs     | Use fresh or persisted browser profiles by workflow needs  |
+| Source inspection mode | Inspect source-oriented output with dedicated source flags |
 
 ## Usage
 
-You can run the `dev` command with the following syntax:
-
 <PackageManagerTabs
   command={{
-    npm: "extension dev [extension-path | extension-url] [options]",
-    pnpm: "extension dev [extension-path | extension-url] [options]",
-    yarn: "extension dev [extension-path | extension-url] [options]",
+    npm: 'extension dev [path-or-url] [options]',
+    pnpm: 'extension dev [path-or-url] [options]',
+    yarn: 'extension dev [path-or-url] [options]'
   }}
 />
 
-## Path Option
+If no path is provided, `process.cwd()` is used.
 
-The `dev` command can also accept a specific directory where you want to dev the extension.
-If no path is provided, it defaults to the current working directory.
+## Core options
 
-<PackageManagerTabs
-  command={{
-    npm: "extension dev path/to/my-extension --template=react",
-    pnpm: "extension dev path/to/my-extension --template=react",
-    yarn: "extension dev path/to/my-extension --template=react",
-  }}
-/>
+| Flag                        | Alias              | What it does                                                                                                | Default                  |
+| --------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `[path or url]`             | -                  | Extension path or remote URL.                                                                               | `process.cwd()`          |
+| `--browser <browser>`       | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values). | `chromium`               |
+| `--profile <path\|boolean>` | -                  | Browser profile path or boolean profile mode.                                                               | fresh profile            |
+| `--chromium-binary <path>`  | -                  | [Custom Chromium-family binary path](../browsers/running-other-browsers.mdx).                               | system default           |
+| `--gecko-binary <path>`     | `--firefox-binary` | [Custom Gecko-family binary path](../browsers/running-other-browsers.mdx).                                  | system default           |
+| `--polyfill [boolean]`      | -                  | Enable compatibility polyfill behavior.                                                                     | `false`                  |
+| `--starting-url <url>`      | -                  | Starting URL in launched browser.                                                                           | unset                    |
+| `--port <port>`             | -                  | Dev server port.                                                                                            | `8080`                   |
+| `--no-open`                 | -                  | Do not automatically open browser.                                                                          | browser opens by default |
+| `--no-runner`               | -                  | Do not launch browser runner.                                                                               | runner enabled           |
+| `--extensions <list>`       | -                  | Comma-separated companion extensions or store URLs.                                                         | unset                    |
+| `--install [boolean]`       | -                  | Install project dependencies when missing.                                                                  | command behavior default |
+| `--author`                  | `--author-mode`    | Enable maintainer diagnostics.                                                                              | disabled                 |
 
-In this example, the extension is developed in the `path/to/my-extension` directory.
+## Source inspection workflow
 
-## Arguments and Flags
+Use source options only with `dev`:
 
-Below is a breakdown of the available flags for the `dev` command:
+- `--source <url>` to run from a remote extension source
+- `--watch-source` / `--no-watch-source` to control remote polling behavior
 
-| Flag                | Argument                     | What it does                                                                                                                                            | Defaults to       |
-| ------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `[path or url]`     | Extension path or remote URL | If a path is defined, it loads the local extension. If a URL is provided, it pulls the extension from a remote source and loads it as a local extension | `process.cwd()`   |
-| `--polyfill`        | Boolean                      | Enables compatibility for the `browser.*` API in Chromium-based browsers                                                                                | `false`           |
-| `--profile`         | Profile path                 | Specifies a path to a browser profile for testing                                                                                                       | `default`         |
-| `-b, --browser`     | Browser to run the extension | Specifies the browser to run (`chrome`, `edge`, `firefox`, `all`)                                                                                       | `"chrome"`        |
-| `--chromium-binary` | Path to the Chromium binary  | [Provides the path to a custom Chromium-based browser binary](../browsers/running-other-browsers.mdx)                                                   | `undefined`       |
-| `--gecko-binary`    | Path to the Gecko binary     | [Provides the path to a custom Gecko-based browser binary](../browsers/running-other-browsers.mdx)                                                      | `undefined`       |
-| `--starting-url`    | URL                          | Starting URL for testing with the extension                                                                                                             | `chrome://newtab` |
-| `--open`            | Boolean                      | Whether or not to automatically open the browser upon starting dev                                                                                      | `true`            |
+`start` and `preview` do not support source-inspection flags.
+
+### Source flags
+
+| Flag                                            | What it does                               | Default behavior                   |
+| ----------------------------------------------- | ------------------------------------------ | ---------------------------------- |
+| `--source [url]`                                | Enable source inspection flow.             | disabled                           |
+| `--watch-source [boolean]`                      | Re-print source output on watched updates. | `true` when `--source` is enabled  |
+| `--source-format <pretty\|json\|ndjson>`        | Output format for source inspection.       | falls back to log format or `json` |
+| `--source-summary [boolean]`                    | Emit compact summary output.               | disabled                           |
+| `--source-meta [boolean]`                       | Include page metadata.                     | enabled when source is on          |
+| `--source-probe <selectors>`                    | Comma-separated CSS selectors to probe.    | unset                              |
+| `--source-tree <off\|root-only>`                | Include compact extension tree details.    | unset                              |
+| `--source-console [boolean]`                    | Include console summary.                   | disabled                           |
+| `--source-dom [boolean]`                        | Include DOM snapshots/diffs.               | enabled when watch-source is on    |
+| `--source-max-bytes <bytes>`                    | Cap output payload size.                   | unset                              |
+| `--source-redact <off\|safe\|strict>`           | Redaction strategy for source output.      | format-dependent                   |
+| `--source-include-shadow <off\|open-only\|all>` | Control Shadow DOM inclusion.              | `open-only` when source is on      |
+| `--source-diff [boolean]`                       | Include diff metadata on watch updates.    | enabled when watch-source is on    |
+
+## Logging flags
+
+| Flag                                                 | What it does                                                                                 | Default            |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
+| `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | Minimum log level.                                                                           | `off`              |
+| `--log-context <list\|all>`                          | Context filter (`background`, `content`, `page`, `sidebar`, `popup`, `options`, `devtools`). | `all`              |
+| `--log-format <pretty\|json\|ndjson>`                | Logger output format.                                                                        | `pretty`           |
+| `--no-log-timestamps`                                | Disable timestamps in pretty mode.                                                           | timestamps enabled |
+| `--no-log-color`                                     | Disable color in pretty mode.                                                                | color enabled      |
+| `--log-url <pattern>`                                | Filter log events by URL substring/regex.                                                    | unset              |
+| `--log-tab <id>`                                     | Filter log events by tab ID.                                                                 | unset              |
+
+## Shared global options
+
+Also supports [global flags](../workflows/global-flags.mdx).
 
 ## Examples
 
-### Running a Local Extension
+### Running a local extension
 
-![Demo Video](https://placehold.co/600x400)
+{/* VIDEO_PLACEHOLDER: Show local extension dev startup with watch mode and live update behavior after editing a UI file. */}
+![Video placeholder: local dev workflow](https://placehold.co/960x540?text=Video+placeholder)
 
 <PackageManagerTabs
   command={{
-    npm: "extension dev ./my-extension",
-    pnpm: "extension dev ./my-extension",
-    yarn: "extension dev ./my-extension",
+    npm: 'extension dev ./my-extension',
+    pnpm: 'extension dev ./my-extension',
+    yarn: 'extension dev ./my-extension'
   }}
 />
 
-### Running a Remote Extension
+### Running a remote extension
 
-![Demo Video](https://placehold.co/600x400)
+{/* VIDEO_PLACEHOLDER: Show `--source` flow for remote extension inspection and output updates while watching source changes. */}
+![Video placeholder: remote source dev workflow](https://placehold.co/960x540?text=Video+placeholder)
 
 <PackageManagerTabs
   command={{
-    npm: "extension dev https://example.com/my-extension",
-    pnpm: "extension dev https://example.com/my-extension",
-    yarn: "extension dev https://example.com/my-extension",
+    npm: 'extension dev --source https://example.com/my-extension.zip',
+    pnpm: 'extension dev --source https://example.com/my-extension.zip',
+    yarn: 'extension dev --source https://example.com/my-extension.zip'
   }}
 />
 
 ### Running in Firefox
 
-![Demo Video](https://placehold.co/600x400)
+{/* VIDEO_PLACEHOLDER: Show switching browser target to Firefox and validating extension behavior in that runtime. */}
+![Video placeholder: firefox target dev workflow](https://placehold.co/960x540?text=Video+placeholder)
 
 <PackageManagerTabs
   command={{
-    npm: "extension dev ./my-extension --browser firefox",
-    pnpm: "extension dev ./my-extension --browser firefox",
-    yarn: "extension dev ./my-extension --browser firefox",
+    npm: 'extension dev ./my-extension --browser firefox',
+    pnpm: 'extension dev ./my-extension --browser firefox',
+    yarn: 'extension dev ./my-extension --browser firefox'
   }}
 />
 
-### Running in All Browsers at Once
+### Running in multiple browsers in sequence
 
-![Demo Video](https://placehold.co/600x400)
+{/* VIDEO_PLACEHOLDER: Show running dev in Chrome then Firefox with explicit browser targets for cross-browser validation. */}
+![Video placeholder: multi-browser dev checks](https://placehold.co/960x540?text=Video+placeholder)
 
 <PackageManagerTabs
   command={{
-    npm: "extension dev ./my-extension --browser all",
-    pnpm: "extension dev ./my-extension --browser all",
-    yarn: "extension dev ./my-extension --browser all",
+    npm: 'extension dev ./my-extension --browser=chrome,firefox',
+    pnpm: 'extension dev ./my-extension --browser=chrome,firefox',
+    yarn: 'extension dev ./my-extension --browser=chrome,firefox'
   }}
 />
 
-### Running in Brave as a Custom Binary
+### Running in brave as a custom binary
 
-![Demo Video](https://placehold.co/600x400)
+{/* VIDEO_PLACEHOLDER: Show running `dev` with a custom Chromium binary and validating that the extension launches in that browser. */}
+![Video placeholder: custom binary dev workflow](https://placehold.co/960x540?text=Video+placeholder)
 
 <PackageManagerTabs
   command={{
-    npm: "extension dev ./my-extension --chromium-binary /path/to/brave",
-    pnpm: "extension dev ./my-extension --chromium-binary /path/to/brave",
-    yarn: "extension dev ./my-extension --chromium-binary /path/to/brave",
+    npm: 'extension dev ./my-extension --chromium-binary /path/to/brave',
+    pnpm: 'extension dev ./my-extension --chromium-binary /path/to/brave',
+    yarn: 'extension dev ./my-extension --chromium-binary /path/to/brave'
   }}
 />
 
-## Best Practices
+## Best practices
 
-- **Browser Compatibility:** Test your extension in different browsers to ensure compatibility with the target audience.
+- **Browser compatibility:** Test your extension in different browsers to ensure compatibility with the target audience.
 - **Polyfilling:** If Firefox or a Gecko-based browser is also a target, use the `--polyfill` flag to enable compatibility for the `browser.*` API in Chromium-based browsers.
+- **Source inspection workflows:** Use `dev` (not `start`/`preview`) when you need source inspection options.
 
-## Next Steps
+## Next steps
 
-- Once development is complete, it's time to [build your extension](/docs/commands/build).
-- Learn how to create features specific to a browser with the [browser-specific manifest fields](/docs/features/browser-specific-fields).
-- Use the `extension.config.js` file to [configure your extension](/docs/features/extension-configuration).
+- Build production artifacts with [`build`](/docs/commands/build).
+- Validate production launch flow with [`start`](/docs/commands/start).
+- Review browser targeting with [browser-specific manifest fields](/docs/features/browser-specific-fields).
+- Configure shared defaults in [`extension.config.js`](/docs/features/extension-configuration).

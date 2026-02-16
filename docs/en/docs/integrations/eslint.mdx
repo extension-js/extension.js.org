@@ -1,121 +1,94 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="eslint" />
 
 # ESLint
 
-ESLint is a static code analysis tool used to identify problematic patterns found in JavaScript code. It helps maintain consistent code quality and prevent bugs by enforcing coding standards.
+Keep extension code quality predictable before issues reach runtime. ESLint runs outside the build pipeline and is executed from your scripts or CI.
 
-Extension.js offers first-class support for ESLint to ensure your extension code adheres to best practices and runs smoothly across browsers.
+## When ESLint is a good fit
 
-## Starter ESLint Template
+- You want consistent code standards across team contributions.
+- You need CI checks that catch common JS/TS mistakes early.
+- You are enforcing extension-specific quality rules before release.
 
-Extension.js includes a **New Tab** ESLint template, providing an out-of-the-box configuration to lint your JavaScript and TypeScript code.
+## ESLint capabilities
 
-![ESLint Extension Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the ESLint template */}
+| Capability                        | What it gives you                                                        |
+| --------------------------------- | ------------------------------------------------------------------------ |
+| JavaScript and TypeScript linting | Catch common mistakes and enforce project standards                      |
+| Flat config support               | Use modern `eslint.config.mjs` in new projects                           |
+| CI-friendly execution             | Run lint checks in local scripts and pull request pipelines              |
+| Extension-specific rulesets       | Add browser-extension plugins/rules when your team needs stricter checks |
 
-### Try it yourself
+## Template examples
 
-<PackageManagerTabs
-  command={{
-    npm: "npx extension@latest create my-extension --template=new-eslint",
-    pnpm: "pnpx extension@latest create my-extension --template=new-eslint",
-    yarn: "yarn dlx extension@latest create my-extension --template=new-eslint",
-  }}
-/>
+### ESLint config template
 
-## Usage With An Existing Extension
+Preconfigured lint setup you can use immediately.
 
-You can integrate ESLint into your existing Extension.js project by installing the necessary dependencies and configuring ESLint.
-
-### Installation
-
-Install ESLint and the necessary plugins:
+![`new-config-eslint` screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-config-eslint/screenshot.png)
 
 <PackageManagerTabs
   command={{
-    npm: "npx install -D eslint",
-    pnpm: "pnpx install -D eslint",
-    yarn: "yarn dlx install -D eslint",
+    npm: 'npx extension@latest create my-extension --template=new-config-eslint',
+    pnpm: 'pnpx extension@latest create my-extension --template=new-config-eslint',
+    yarn: 'yarn dlx extension@latest create my-extension --template=new-config-eslint'
   }}
 />
 
-### ESLint Configuration
+Repository: [`examples/new-config-eslint`](https://github.com/extension-js/examples/tree/main/examples/new-config-eslint)
 
-Create an ESLint configuration file (`.eslintrc.json`) at the root of your project. This file defines the linting rules for your JavaScript and TypeScript code.
+## Usage with an existing extension
 
-Here's an example ESLint configuration:
+Install the core packages:
 
-```json
-{
-  "env": {
-    "browser": true,
-    "es2021": true
+<PackageManagerTabs command="install -D eslint @eslint/js globals typescript-eslint" />
+
+Create `eslint.config.mjs`:
+
+```js
+import globals from 'globals'
+import pluginJs from '@eslint/js'
+import tseslint from 'typescript-eslint'
+
+export default [
+  {files: ['**/*.{js,mjs,cjs,ts,tsx,jsx}']},
+  {
+    languageOptions: {
+      globals: globals.browser
+    }
   },
-  "extends": [
-    "eslint:recommended",
-    "plugin:react/recommended",
-    "plugin:@typescript-eslint/recommended"
-  ],
-  "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "ecmaFeatures": {
-      "jsx": true
-    },
-    "ecmaVersion": 12,
-    "sourceType": "module"
-  },
-  "plugins": ["react", "@typescript-eslint"],
-  "rules": {
-    "@typescript-eslint/no-unused-vars": "error",
-    "react/react-in-jsx-scope": "off"
-  }
-}
+  pluginJs.configs.recommended,
+  ...tseslint.configs.recommended
+]
 ```
 
-### Example Usage in a JavaScript File
-
-Once ESLint is set up, it will automatically check your JavaScript files for issues. For example, if you have an unused variable, ESLint will highlight it:
-
-```diff
-const unusedVar = "I am unused";
-+ ESLint will show an error here: 'unusedVar' is defined but never used.
-```
-
-You can also run ESLint manually by using the following command:
+Run lint commands from your scripts:
 
 <PackageManagerTabs
   command={{
-    npm: "eslint .",
-    pnpm: "eslint .",
-    yarn: "eslint .",
+    npm: 'npm run lint',
+    pnpm: 'pnpm lint',
+    yarn: 'yarn lint'
   }}
 />
 
-### Example Usage in a TypeScript File
+{/* VIDEO_PLACEHOLDER: Show lint errors in an extension project, then fix and rerun ESLint successfully. */}
+![Video placeholder: ESLint workflow](https://placehold.co/960x540?text=Video+placeholder)
 
-ESLint can also lint TypeScript files. Make sure `@typescript-eslint/parser` and `@typescript-eslint/eslint-plugin` are installed and configured in your `.eslintrc.json` file. Here's an example TypeScript file:
+If no script exists yet, run:
 
-```ts
-myComponent.tsx
+<PackageManagerTabs command="eslint ." />
 
-import React from "react";
+## Best practices
 
-interface Props {
-  name: string;
-}
+- Keep lint rules in source control and apply them in CI.
+- Use lint-staged or pre-commit hooks for faster local feedback.
+- Add framework-specific plugins (for example React) only when needed.
 
-const MyComponent: React.FC<Props> = ({ name }) => {
-  return <div>Hello, {name}!</div>;
-};
+## Next steps
 
-export default MyComponent;
-```
-
-ESLint will lint the above code and report any issues such as unused variables or inconsistent naming conventions.
-
-## Next Steps
-
-- Ensure your code quality further by integrating [Prettier](./prettier.mdx) with ESLint for automatic code formatting.
+- Integrate [Prettier](./prettier.mdx) to avoid formatting-rule conflicts.
+- Add [Stylelint](./stylelint.mdx) for stylesheet linting.

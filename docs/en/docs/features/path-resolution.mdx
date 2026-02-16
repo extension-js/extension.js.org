@@ -1,20 +1,58 @@
-import { AvatarEmoji } from "../../../../theme/components/avatar-emoji";
+import {AvatarEmoji} from '../../../../theme/components/avatar-emoji'
 
 <AvatarEmoji emoji="path" />
 
-# Predictable Path Resolution
+# Predictable path resolution
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+Write paths the way you naturally author them, and let Extension.js normalize them to runtime-safe output paths.
 
-In Extension.js, file paths defined in the `manifest.json` are automatically processed and compiled into the appropriate output paths. Whether you’re dealing with JavaScript, HTML, or static assets like images, understanding how these paths are resolved is key to ensuring that you know how to reference them correctly in your extension.
+Keep runtime paths working when files move, entries are renamed, or browser targets change. Extension.js rewrites supported paths consistently across manifest fields and extension API usage so compiled assets resolve correctly inside `dist/<browser>`.
 
-## How Does It Work?
+## How it works
 
-Every file path defined in the `manifest.json` (such as for scripts, icons, and HTML pages) is compiled and output based on the field where it's declared. Below is an overview of common manifest fields and their corresponding output paths.
+Path resolution runs in two places:
 
-Assuming the target browser is Chrome:
+- **Manifest compilation pipeline**: resolves manifest-declared paths to emitted assets.
+- **Resolve plugin for JS/TS**: rewrites static path literals passed to supported extension APIs (for example `runtime.getURL`, `tabs.update`, `scripting.*`, `action.*`, `sidePanel.*`).
 
-| Manifest Field                           | Input Path                  | Output Path                    |
+## Supported input styles
+
+Common path inputs are normalized as follows:
+
+| Input style                      | Example                                            | Normalized output                                                    |
+| -------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| Public root (absolute)           | `/public/icons/icon.png`                           | `icons/icon.png`                                                     |
+| Public root (relative)           | `public/icons/icon.png`, `./public/icons/icon.png` | `icons/icon.png`                                                     |
+| Root absolute                    | `/foo/bar.js`                                      | `foo/bar.js`                                                         |
+| Root special folder              | `/pages/popup.njk`                                 | `pages/popup.html`                                                   |
+| Special folders                  | `pages/popup.html`, `scripts/content.tsx`          | `pages/popup.html`, `scripts/content.js`                             |
+| Parent-relative from author file | `../scripts/content.ts`                            | `scripts/content.js` (when resolving to project root special folder) |
+
+Extension mapping for `pages/` and `scripts/` includes:
+
+- `.ts`, `.tsx`, `.js`, `.jsx` -> `.js`
+- `.njk`, `.nunjucks`, `.html` -> `.html`
+- `.scss`, `.sass`, `.less`, `.css` -> `.css`
+
+{/* VIDEO_PLACEHOLDER: Show the same authored path resolving correctly after build for Chrome and Firefox outputs. */}
+![Video placeholder: path normalization flow](https://placehold.co/960x540?text=Video+placeholder)
+
+## Cases intentionally not rewritten
+
+To avoid false positives, these inputs are intentionally skipped:
+
+- `http://` and `https://` URLs
+- `data:` URLs
+- `chrome://` URLs
+- `moz-extension://` URLs
+- Glob patterns (`*`, `?`, `{}`, `[]`)
+- Non-static/dynamic expressions that cannot be safely resolved at build time
+
+## Manifest output examples
+
+Assuming target browser `chrome`:
+
+| Manifest field                           | Input Path                  | Output Path                    |
 | ---------------------------------------- | --------------------------- | ------------------------------ |
 | `action.default_popup`                   | `/src/popup.html`           | `/pages/popup.html`            |
 | `background.page`                        | `/src/background.html`      | `/pages/background.html`       |
@@ -38,84 +76,38 @@ Assuming the target browser is Chrome:
 | `user_scripts.api_script`                | `/src/user_script.js`       | `/scripts/user_script.js`      |
 | `web_accessible_resources`               | `/src/resources/*`          | `/public/resources/*`          |
 
-Each file will be compiled and placed in the `dist/<browser>` folder, where `<browser>` refers to the target browser (e.g., `chrome`, `firefox`, `edge`).
+All compiled outputs are emitted under `dist/<browser>`.
 
-## Referencing Output Files
+{/* VIDEO_PLACEHOLDER: Show a manifest with source-style paths and the emitted manifest with normalized output paths. */}
+![Video placeholder: manifest path rewrite example](https://placehold.co/960x540?text=Video+placeholder)
 
-For browser APIs like `chrome.runtime.getURL()`, assets must be referenced using absolute paths. This ensures that the browser can correctly resolve the files during runtime:
+## Referencing output files
+
+For browser APIs like `chrome.runtime.getURL()`, prefer stable, output-root paths:
 
 ```javascript
-const iconUrl = chrome.runtime.getURL('/icons/icon.png');
-console.log(iconUrl);
- Output: chrome-extension:<extension-id>/icons/icon.png
+const iconUrl = chrome.runtime.getURL('/icons/icon.png')
+console.log(iconUrl)
 ```
 
-Without using absolute paths for browser APIs, assets may not load correctly in the extension context.
+Output: `chrome-extension:<extension-id>/icons/icon.png`
 
-## Output Path of the Entire Extension
+{/* VIDEO_PLACEHOLDER: Show `runtime.getURL('/icons/icon.png')` resolving to packaged output at runtime. */}
+![Video placeholder: runtime getURL path resolution](https://placehold.co/960x540?text=Video+placeholder)
 
-When your extension is built, the final output folder will be located at `dist/<browser>`, where `<browser>` corresponds to the target browser. All compiled files—scripts, stylesheets, HTML, icons, and other assets—will be placed in this folder.
+## Diagnostics and safety checks
 
-### Example Output Structure
+The resolver emits warnings when a referenced path cannot be resolved to a packaged asset (for example, nested `src/pages/...` or missing `public/` files after rewrite).  
+Warnings are de-duplicated per file transform pass to reduce noise.
 
-```plaintext
-Copy code
-dist/
-├── chrome/
-│   ├── background.js
-│   ├── content.js
-│   ├── popup.html
-│   └── icons/
-│       └── icon.png
-└── firefox/
-    ├── background.js
-    ├── content.js
-    ├── popup.html
-    └── icons/
-        └── icon.png
-```
+## Best practices
 
-The dist/ folder contains separate subfolders for each supported browser. For example, dist/chrome contains files specific to Chrome, while dist/firefox contains files for Firefox. This ensures cross-browser compatibility, allowing you to manage and test your extension in different environments.
+- Keep `pages/`, `scripts/`, and `public/` at project root for predictable rewrites.
+- Use static literals for extension API paths when possible; dynamic expressions may be skipped.
+- Treat `/public/...` as output-root assets and avoid source-relative assumptions at runtime.
+- Validate warnings during `dev` as they usually indicate path mismatches before packaging.
 
-## Build Artifacts
+## Next steps
 
-After the build process, Extension.js will create a zip file containing all the necessary assets for distribution. The default format for the build artifact is name-version.zip.
-
-### Example Build Artifacts
-
-- my-extension-1.0.0.zip for Chrome
-- my-extension-1.0.0.xpi for Firefox (compatible with .xpi packaging)
-- my-extension-1.0.0.zip for Edge
-
-These zip files are ready for submission to the respective browser's extension store, ensuring that all assets, scripts, and manifest fields are correctly included.
-
-## Handling Files Outside the Manifest Scope
-
-Extension.js allows for handling files outside the manifest.json by using special folders like the `/pages`, `/scripts`, and `/public` folder. These folders allow you to manage assets and HTML files that are not directly referenced in the manifest but still need to be processed during the build. Learn more about Special Folders.
-
-### Pages
-
-The `/pages` folder contains HTML files that can be hot-reloaded during development. These files are treated as separate pages that can be dynamically updated without requiring a full extension reload. This folder is useful for managing additional HTML pages that are not declared in the manifest.
-
-The output path for HTML files in the `/pages` folder is `dist/<browser>/pages/<filename>.html`.
-
-### Scripts
-
-The /scripts folder contains JavaScript files that can be hot-reloaded during development. These files are treated as separate scripts that can be dynamically updated without requiring a full extension reload. This folder is useful for managing additional scripts that are not declared in the manifest.
-
-The output path for JavaScript files in the /scripts folder is `dist/<browser>/scripts/<filename>`.js.
-
-### Public
-
-The /public folder contains static assets like images, stylesheets, and other files that need to be processed during the build. This folder is useful for managing assets that are not directly referenced in the manifest but are required for the extension to function correctly.
-
-The output path for files in the /public folder is the project root directory: `dist/<browser>/<filename>.<ext>`.
-
-## Best Practices
-
-- Use absolute paths when referencing assets in the manifest.json to ensure correct resolution during runtime.
-- Organize your files into special folders like /pages, /scripts, and /public to manage assets and scripts that are not directly referenced in the manifest.
-
-## Next Steps
-
-- Learn more about [Special Folders](/docs/features/special-folders).
+- Learn more about [Special Folders](./special-folders.mdx).
+- Learn more about [Web Accessible Resources](../implementation-guide/web-accessible-resources.mdx).

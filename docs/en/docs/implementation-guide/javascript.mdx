@@ -1,0 +1,90 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="javascript" />
+
+# Scripts
+
+Ship extension behavior across background, content scripts, and UI pages with one JavaScript/TypeScript pipeline.
+
+Extension.js collects script entrypoints from `manifest.json`, HTML pages, and special folders, then compiles them with the default SWC-based setup.
+
+## JavaScript capabilities
+
+| Capability            | What it gives you                                              |
+| --------------------- | -------------------------------------------------------------- |
+| Shared JS/TS pipeline | Compile extension scripts with one default transformer setup   |
+| Entrypoint discovery  | Load script entries from manifest, pages, and special folders  |
+| Runtime-safe outputs  | Emit predictable script artifacts for each extension context   |
+| Path normalization    | Rewrite supported extension-path literals to output-safe paths |
+
+## Supported script entrypoints
+
+| Manifest field              | File type expected           |
+| --------------------------- | ---------------------------- |
+| `background.service_worker` | `.js`, `.ts`, `.mjs`, `.tsx` |
+| `background.scripts`        | `.js`, `.ts`, `.mjs`, `.tsx` |
+| `content_scripts.js`        | `.js`, `.ts`, `.mjs`, `.tsx` |
+| `user_scripts.api_script`   | `.js`, `.ts`, `.mjs`, `.tsx` |
+
+## Sample script declaration in `manifest.json`
+
+Here's an example of defining JavaScript files in `manifest.json`:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./scripts/background.ts"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/content-script.ts"]
+    }
+  ]
+}
+```
+
+## Development behavior
+
+- **Content scripts:** HMR/remount flow is injected for fast updates.
+- **Extension pages:** Page scripts follow page HMR behavior.
+- **Background/service worker:** script updates can trigger hard extension reload depending on change type.
+- **Entrypoint list changes:** changing manifest script structure may require dev server restart.
+
+## Script locations and conventions
+
+- Use `scripts/` at project root for script-centric extension entries.
+- Use `pages/` for HTML entrypoints with their own scripts.
+- Keep manifest-referenced paths stable; avoid moving entry files without updating manifest.
+
+## Transform and bundling defaults
+
+- SWC is the default transformer for JS/TS/JSX/TSX.
+- Browser-first resolution (`browser`, `module`, `main`) is used.
+- Entries are emitted predictably without runtime chunk splitting by default.
+- Path resolution rewrites static extension-path literals in supported APIs.
+
+{/* VIDEO_PLACEHOLDER: Show one feature script reused across popup, content script, and background contexts with target-safe compiled output. */}
+![Video placeholder: JavaScript pipeline across extension contexts](https://placehold.co/960x540?text=Video+placeholder)
+
+## Dynamic import caveats
+
+- Content-script dynamic import has runtime constraints; extension loader fallbacks are used where possible.
+- Service worker lazy-loading has browser limitations; prefer predictable entry loading in extension runtime-critical code.
+
+## Best practices
+
+- Keep entry scripts thin and move feature logic into shared modules.
+- Prefer static import paths for extension APIs so path resolution can normalize them safely.
+- Avoid unnecessary dynamic import in content scripts and service workers.
+- Treat manifest script list edits as structural changes in development workflows.
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).
+- Learn how to structure files with [special folders](../features/special-folders.mdx).
+- Continue with [background scripts and service workers](./background.mdx).

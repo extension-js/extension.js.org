@@ -1,46 +1,88 @@
-import { AvatarEmoji } from "../../../../theme/components/avatar-emoji";
+import {AvatarEmoji} from '../../../../theme/components/avatar-emoji'
 
 <AvatarEmoji emoji="speed" />
 
-# Page Reload and Hot Module Replacement (HMR)
+# Page reload and hot module replacement (HMR)
 
-**Extension.js** provides powerful reloading capabilities during development, ensuring that code updates are automatically applied without needing to manually refresh the extension.
+Keep development fast by using the lightest update strategy for each file change.
 
-Extension.js enables HMR for JavaScript and CSS files, while automatically handling more complex reloading scenarios for files like the `manifest.json`, `service_worker.js`, and locale files. This system helps maintain a fast development experience by avoiding manual reloading where possible.
+Need fast feedback after each file change? Extension.js chooses the safest and fastest update path automatically:
 
-Below is an overview of how different parts of the extension are reloaded:
+- **HMR** when module updates are safe
+- **Hard extension reload** when runtime-critical assets change
+- **Restart-required errors/warnings** when entrypoint structure changes
 
-## How Does It Work?
+## Reload prerequisites (DevTools setup dialog)
 
-The reloading behavior in Extension.js is designed to provide a great development experience by automatically updating the extension when changes are detected. The following features are supported:
+Before evaluating reload behavior, confirm the same setup checks shown in the Extension.js DevTools **Confirm setup** dialog:
 
-### Hot Reloaded Features
+| Setup step                                            | Why it matters for reload/HMR                                                                        |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Turn on Developer mode in `chrome://extensions`       | Lets extension runtime updates (including service worker changes) apply reliably during development. |
+| Allow local network access prompt for content scripts | Required for reliable content-script reload workflows when the browser asks for permission.          |
 
-Most parts of your extension can be hot-reloaded during development, allowing you to see the updates immediately without losing your extension's state. The following files support HMR:
+If either step is missing, reload behavior can appear inconsistent even when the build pipeline is healthy.
 
-| Feature                  | Description                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------- |
-| **Content scripts**      | JavaScript and CSS defined in `content_scripts` are hot-reloaded.               |
-| **Background scripts**   | Background files are hot-reloaded, except for the service worker.               |
-| **Injected scripts**     | Scripts injected into web pages via `scripting.executeScript` are hot-reloaded. |
-| **HTML files**           | HTML pages in the `/pages` folder are hot-reloaded.                             |
-| **Script files in HTML** | Scripts sourced from HTML pages are hot-reloaded.                               |
-| **CSS files in HTML**    | Stylesheets linked in HTML pages are hot-reloaded.                              |
+## Reload tiers
 
-### Features That Require Hard Reload
+### 1) Hot module replacement (fastest path)
 
-Some parts of your extension cannot be hot-reloaded, and a hard reload is required. The following updates will trigger a full browser extension reload:
+HMR is used when code can update without restarting extension runtime wiring.
 
-| Feature                      | Description                                                                               |
-| ---------------------------- | ----------------------------------------------------------------------------------------- |
-| **`manifest.json`**          | Any changes to the manifest file will trigger a full extension reload.                    |
-| **Service worker**           | Updating the `service_worker.js` file requires a full reload by the extension runtime.    |
-| **Locale files**             | Changes to localization files (inside `_locales`) also require a hard reload.             |
-| **HTML/Scripts in manifest** | Any HTML, script, or CSS files referenced directly in the manifest require a full reload. |
+Common examples:
 
-## Reloading Scripts and HTML Outside the Manifest
+- Scripts attached to extension HTML pages (accept updates through injected HMR wrappers)
+- Background script modules in non-service-worker flows
+- User script API script flows
+- CSS updates in content-script/runtime wrappers where supported
 
-Extension.js also supports hot-reloading for scripts and HTML files not declared in the `manifest.json`. HTML files placed in the `/pages` directory and script files in the `/scripts` directory can be hot-reloaded during development. This ensures that even extra files not listed in the manifest are processed and updated dynamically.
+{/* VIDEO_PLACEHOLDER: Show a small JS/CSS change applied instantly through HMR without full extension reload. */}
+![Video placeholder: hmr update flow](https://placehold.co/960x540?text=Video+placeholder)
+
+### 2) Hard extension reload
+
+Some file changes require reloading the extension runtime itself.
+
+Typical hard-reload triggers:
+
+- `manifest.json`
+- `_locales/**.json`
+- Service worker/background runtime-critical changes
+- Content script output changes (browser runner enforces extension reload for consistency)
+
+Extension.js applies browser-specific hard reload mechanisms internally (Chromium and Firefox flows differ under the hood), but behavior is unified at the CLI/user level.
+
+{/* VIDEO_PLACEHOLDER: Show a manifest or locale change triggering full extension reload during development. */}
+![Video placeholder: hard reload trigger flow](https://placehold.co/960x540?text=Video+placeholder)
+
+### 3) Restart required (dev server)
+
+When extension entrypoint references change (instead of just module contents), Extension.js reports restart-required diagnostics so you do not continue with a stale graph.
+
+Typical restart-required scenarios:
+
+- Manifest script entrypoint list changes
+- HTML entrypoint script/style references change
+- `pages/` / `scripts/` file set changes in watch mode (especially removals)
+
+{/* VIDEO_PLACEHOLDER: Show a file-entry change that triggers restart-required guidance in dev output. */}
+![Video placeholder: restart required diagnostics](https://placehold.co/960x540?text=Video+placeholder)
+
+## Behavior matrix
+
+| Change type                                                           | Default behavior                    |
+| --------------------------------------------------------------------- | ----------------------------------- |
+| JS/CSS module updates in existing entries                             | HMR where supported                 |
+| `manifest.json` / locales / service-worker-critical updates           | Hard extension reload               |
+| Entrypoint structure updates (manifest lists, HTML script/style refs) | Restart required                    |
+| `pages/` or `scripts/` file add/remove during watch                   | Warning/error with restart guidance |
+
+## Reloading scripts and HTML outside the manifest
+
+`pages/` and `scripts/` follow the same reload strategy as manifest-declared assets.
+
+- Existing module updates can use hot-update paths.
+- Entrypoint set changes (add/remove or reference graph changes) may require restart.
 
 **Example:**
 
@@ -53,11 +95,17 @@ scripts/
 
 > Note: The `/pages` and `/scripts` folders are special folders recognized by Extension.js for hot-reloading. Each entry in these folders is treated as a separate page or script that can be reloaded independently.
 
-## Best Practices
+{/* VIDEO_PLACEHOLDER: Show `pages/` and `scripts/` updates using HMR vs restart-required behavior. */}
+![Video placeholder: off-manifest reload behavior](https://placehold.co/960x540?text=Video+placeholder)
 
-- Avoid modifying the `manifest.json` frequently to prevent unnecessary full reloads.
-- Use the `/pages` or `/scripts` folders for HTML and script files that need to be hot-reloaded and are not declared in the manifest.
+## Best practices
 
-## Next Steps
+- Keep entrypoint references stable during active dev sessions to maximize HMR.
+- Batch `manifest.json` and locale edits to avoid repeated hard extension reloads.
+- Use `pages/` and `scripts/` for off-manifest assets, then restart when file sets or entry wiring changes.
+- Treat restart-required diagnostics as intentional safety checks, not transient warnings.
 
-- Learn more about using special folders like `/pages` in the [Special Folders documentation](../features/special-folders.mdx).
+## Next steps
+
+- Review off-manifest asset flows in [special folders](../features/special-folders.mdx).
+- Understand structural update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).

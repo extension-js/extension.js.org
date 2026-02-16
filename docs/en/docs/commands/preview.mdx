@@ -1,98 +1,148 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="extension" />
 
-# Preview Command
+# Preview command
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+Launch an already-built extension output for production-like manual testing.
 
-**The `preview` command allows you to run your extension in a production-like environment without making a final build.** It simulates how the extension will behave in a production browser environment. This is helpful for testing before officially deploying or building the extension.
+`preview` does not compile your project. It loads extension files from build output (typically `dist/<browser>`) and runs the browser launcher flow.
 
-## How Does It Work?
+## When to use `preview`
 
-The `build` command compiles your extension and creates a production-ready package that the `preview` command can run. The `preview` command runs the production-ready package in a browser environment, allowing you to test the extension's functionality.
+- Running existing build output without rebuilding.
+- Comparing packaged behavior across browser targets quickly.
+- Debugging runtime issues tied to production artifacts rather than dev/watch mode.
+
+## Preview command capabilities
+
+| Capability              | What it gives you                                      |
+| ----------------------- | ------------------------------------------------------ |
+| Build-output validation | Test real production artifacts without rebuilding      |
+| Browser-target checks   | Run compiled output against selected browser targets   |
+| Runner control          | Launch or skip browser runner based on workflow needs  |
+| Fast manual QA          | Verify packaging-ready behavior quickly before release |
+
+> `preview` requires an existing built extension output. If `dist/<browser>` is missing, run `build` first.
 
 ## Usage
 
 <PackageManagerTabs
   command={{
-    npm: "extension preview [extension-path | extension-url] [options]",
-    pnpm: "extension preview [extension-path | extension-url] [options]",
-    yarn: "extension preview [extension-path | extension-url] [options]",
+    npm: 'extension preview [project-path] [options]',
+    pnpm: 'extension preview [project-path] [options]',
+    yarn: 'extension preview [project-path] [options]'
   }}
 />
 
-## Path Option
+If no path is provided, `process.cwd()` is used.
 
-The `preview` command can also accept a specific directory where you want to preview the extension.
-If no path is provided, it defaults to the current working directory.
+## Core options
 
-<PackageManagerTabs
-  command={{
-    npm: "extension preview path/to/my-extension --template=react",
-    pnpm: "extension preview path/to/my-extension --template=react",
-    yarn: "extension preview path/to/my-extension --template=react",
-  }}
-/>
+| Flag                        | Alias              | What it does                                                                  | Default         |
+| --------------------------- | ------------------ | ----------------------------------------------------------------------------- | --------------- |
+| `[path]`                    | -                  | Preview built extension from a project path.                                  | `process.cwd()` |
+| `--browser <browser>`       | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, etc.).        | `chromium`      |
+| `--profile <path\|boolean>` | -                  | Browser profile path or boolean profile mode.                                 | fresh profile   |
+| `--chromium-binary <path>`  | -                  | [Custom Chromium-family binary path](../browsers/running-other-browsers.mdx). | system default  |
+| `--gecko-binary <path>`     | `--firefox-binary` | [Custom Gecko-family binary path](../browsers/running-other-browsers.mdx).    | system default  |
+| `--starting-url <url>`      | -                  | Starting URL in launched browser.                                             | unset           |
+| `--no-runner`               | -                  | Skip browser launch.                                                          | runner enabled  |
+| `--port <port>`             | -                  | Runner/devtools port when runner is enabled.                                  | `8080`          |
+| `--extensions <list>`       | -                  | Comma-separated companion extensions or store URLs.                           | unset           |
+| `--author`                  | `--author-mode`    | Enable maintainer diagnostics.                                                | disabled        |
 
-In this example, the extension is created in the `path/to/my-extension` directory.
+## Logging flags
 
-## Arguments And Flags
+| Flag                                                 | What it does                                                                                 | Default            |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
+| `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | Minimum log level.                                                                           | `off`              |
+| `--log-context <list\|all>`                          | Context filter (`background`, `content`, `page`, `sidebar`, `popup`, `options`, `devtools`). | `all`              |
+| `--log-format <pretty\|json\|ndjson>`                | Logger output format.                                                                        | `pretty`           |
+| `--no-log-timestamps`                                | Disable timestamps in pretty mode.                                                           | timestamps enabled |
+| `--no-log-color`                                     | Disable color in pretty mode.                                                                | color enabled      |
+| `--log-url <pattern>`                                | Filter log events by URL substring/regex.                                                    | unset              |
+| `--log-tab <id>`                                     | Filter log events by tab ID.                                                                 | unset              |
 
-| Flag                | Argument                                       | What it does                                                                                                                                          | Defaults to       |
-| ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| [path or url]       | The extension path or the remote extension URL | If a path is defined, previews the local extension. If a URL is provided, pulls the extension from remote source and previews it as a local extension | `process.cwd()`   |
-| `--profile`         | Profile path                                   | Specifies a path to a browser profile for testing                                                                                                     | `default`         |
-| `-b, --browser`     | Browser to run the extension                   | Specifies the browser to run (`chrome`, `edge`, `firefox`, `all`)                                                                                     | `"chrome"`        |
-| `--chromium-binary` | Path to the Chromium binary                    | [Provides the path to a custom Chromium-based browser binary](../browsers/running-other-browsers.mdx)                                                 | `undefined`       |
-| `--gecko-binary`    | Path to the Gecko binary                       | [Provides the path to a custom Gecko-based browser binary](../browsers/running-other-browsers.mdx)                                                    | `undefined`       |
-| `--starting-url`    | URL                                            | Starting URL for testing with the extension                                                                                                           | `chrome://newtab` |
+## Source inspection flags (not supported in `preview`)
+
+`preview` accepts these flags in parsing, but exits with an error if you use them. Use `dev --source ...` instead.
+
+| Flag                                            | Support in `preview`                        |
+| ----------------------------------------------- | ------------------------------------------- |
+| `--source [url]`                                | not supported (command exits with guidance) |
+| `--watch-source [boolean]`                      | not supported (command exits with guidance) |
+| `--source-format <pretty\|json\|ndjson>`        | not supported (command exits with guidance) |
+| `--source-summary [boolean]`                    | not supported (command exits with guidance) |
+| `--source-meta [boolean]`                       | not supported (command exits with guidance) |
+| `--source-probe <selectors>`                    | not supported (command exits with guidance) |
+| `--source-tree <off\|root-only>`                | not supported (command exits with guidance) |
+| `--source-console [boolean]`                    | not supported (command exits with guidance) |
+| `--source-dom [boolean]`                        | not supported (command exits with guidance) |
+| `--source-max-bytes <bytes>`                    | not supported (command exits with guidance) |
+| `--source-redact <off\|safe\|strict>`           | not supported (command exits with guidance) |
+| `--source-include-shadow <off\|open-only\|all>` | not supported (command exits with guidance) |
+| `--source-diff [boolean]`                       | not supported (command exits with guidance) |
+
+## Shared global options
+
+Also supports [global flags](../workflows/global-flags.mdx).
 
 ## Examples
 
-### Previewing a Local Extension
+### Previewing a local extension
 
-![Demo Video](https://placehold.co/600x400)
-
-<PackageManagerTabs
-  command={{
-    npm: "extension preview ./my-extension",
-    pnpm: "extension preview ./my-extension",
-    yarn: "extension preview ./my-extension",
-  }}
-/>
-
-### Previewing a Remote Extension
-
-![Demo Video](https://placehold.co/600x400)
+{/* VIDEO_PLACEHOLDER: Show previewing an existing `dist/<browser>` output after build and validating runtime behavior manually. */}
+![Video placeholder: preview command local artifact flow](https://placehold.co/960x540?text=Video+placeholder)
 
 <PackageManagerTabs
   command={{
-    npm: "extension preview https://url-to-your-extension",
-    pnpm: "extension preview https://url-to-your-extension",
-    yarn: "extension preview https://url-to-your-extension",
+    npm: 'extension preview ./my-extension',
+    pnpm: 'extension preview ./my-extension',
+    yarn: 'extension preview ./my-extension'
   }}
 />
 
 ### Previewing in Edge and Chrome
 
-![Demo Video](https://placehold.co/600x400)
+{/* VIDEO_PLACEHOLDER: Show previewing one built artifact across two explicit browser targets for release checks. */}
+![Video placeholder: preview multi-browser validation](https://placehold.co/960x540?text=Video+placeholder)
 
 <PackageManagerTabs
   command={{
-    npm: "extension preview ./my-extension --browser=edge,chrome",
-    pnpm: "extension preview ./my-extension --browser=edge,chrome",
-    yarn: "extension preview ./my-extension --browser=edge,chrome",
+    npm: 'extension preview ./my-extension --browser=edge,chrome',
+    pnpm: 'extension preview ./my-extension --browser=edge,chrome',
+    yarn: 'extension preview ./my-extension --browser=edge,chrome'
   }}
 />
 
-## Best Practices
+### Preview without launching browser
 
-- **Test Before Building:** Always use `preview` to test how your extension will behave in production before using the `build` command for the final package.
-- **Cross-Browser Testing:** Use the `--browser` flag to test your extension in different browsers.
+{/* VIDEO_PLACEHOLDER: Show preview with `--no-runner` for CI/local verification when browser launch is not needed. */}
+![Video placeholder: preview no-runner flow](https://placehold.co/960x540?text=Video+placeholder)
 
-## Next Steps
+<PackageManagerTabs
+  command={{
+    npm: 'extension preview ./my-extension --no-runner',
+    pnpm: 'extension preview ./my-extension --no-runner',
+    yarn: 'extension preview ./my-extension --no-runner'
+  }}
+/>
 
-- Learn how to [build](/docs/commands/build) your extension.
-- Use the `extension.config.js` file to [configure your extension](/docs/features/extension-configuration).
+## Important behavior notes
+
+- `preview` expects an existing build output (`dist/<browser>` by default).
+- `preview` does not run watch/HMR.
+- Source inspection flags are not supported in `preview`; use `dev` for that workflow.
+
+## Best practices
+
+- Run `build` before `preview` when testing a fresh production artifact.
+- Use `--browser` to verify behavior across targets before packaging.
+
+## Next steps
+
+- Build and launch in one step with [`start`](/docs/commands/start).
+- Generate production artifacts with [`build`](/docs/commands/build).
+- Configure shared defaults in [`extension.config.js`](/docs/features/extension-configuration).

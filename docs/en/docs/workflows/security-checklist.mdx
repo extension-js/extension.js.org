@@ -1,0 +1,75 @@
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="extension" />
+
+# Security checklist
+
+Reduce extension attack surface before release with a repeatable review pass. Focus on least privilege, constrained runtime access, and strict input handling.
+
+## Security review capabilities
+
+| Area                  | What this helps you verify                             |
+| --------------------- | ------------------------------------------------------ |
+| Permissions scope     | Requested capabilities are minimal and intentional     |
+| Content-script safety | Page-context behavior avoids unsafe injection patterns |
+| WAR exposure          | Only required assets are externally readable           |
+| Message boundaries    | Privileged actions are validated and sender-aware      |
+| Release hygiene       | CI and dependency checks catch regressions early       |
+
+## Manifest and permissions
+
+- Request only permissions you need.
+- Avoid broad host permissions unless required.
+- Prefer optional permissions for non-core capabilities.
+- Re-check `web_accessible_resources` scope after feature changes.
+
+{/* VIDEO_PLACEHOLDER: Show a pre-release security pass that trims permissions and narrows web_accessible_resources before packaging. */}
+![Video placeholder: extension security review pass](https://placehold.co/960x540?text=Video+placeholder)
+
+## Content scripts
+
+- Default to isolated world unless MAIN world is strictly required.
+- Keep selectors and DOM mutations scoped to known targets.
+- Sanitize untrusted page data before rendering or storing.
+- Avoid injecting executable strings into page contexts.
+
+## Web-accessible resources
+
+- Keep WAR entries explicit and minimal.
+- Avoid wildcard `resources: ["*"]` patterns.
+- Restrict `matches` to required domains.
+- Use runtime URL helpers (`runtime.getURL`) for asset access.
+
+## Messaging and data flow
+
+- Validate message payload shape before processing.
+- Verify sender context for privileged operations.
+- Avoid exposing privileged operations directly to page scripts.
+- Keep boundary modules for content/background communication.
+
+## Build and release hygiene
+
+- Run lint, type checks, and tests in CI.
+- Review production bundle output for unexpected artifacts.
+- Keep dependencies updated and remove unused packages.
+- Rotate secrets and keep sensitive values out of client-exposed env vars.
+
+## Common high-risk anti-patterns
+
+- `host_permissions` with broad wildcards that are not feature-critical
+- `web_accessible_resources` exposing broad globs to `<all_urls>`
+- message handlers that trust payloads without sender or schema checks
+- MAIN-world script usage when isolated world would be sufficient
+
+## Quick pre-release pass
+
+1. permission review
+2. WAR review
+3. content script world review
+4. messaging validation review
+5. CI green on target browser matrix
+
+## Next steps
+
+- Review [web-accessible resources](../implementation-guide/web-accessible-resources.mdx).
+- Review [troubleshooting](./troubleshooting.mdx).

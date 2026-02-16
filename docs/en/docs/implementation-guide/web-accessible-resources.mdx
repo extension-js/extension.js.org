@@ -1,0 +1,126 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="extension" />
+
+# Web accessible resources
+
+Expose only the extension assets that web pages or external extension contexts must access.
+
+Extension.js merges user-declared `web_accessible_resources` with build-discovered requirements and applies target-specific manifest normalization.
+
+## WAR capabilities
+
+| Capability               | What it gives you                                              |
+| ------------------------ | -------------------------------------------------------------- |
+| MV2/MV3 schema handling  | Support both array and object WAR shapes by manifest version   |
+| Build-aware merging      | Combine declared resources with required build/runtime entries |
+| Path normalization       | Resolve manifest WAR paths to target-safe output references    |
+| Security control surface | Keep access rules explicit by `resources` and `matches`        |
+
+## Manifest schema
+
+### MV3
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*.png", "fonts/*.woff2"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+```
+
+### MV2
+
+```json
+{
+  "web_accessible_resources": ["images/*.png", "scripts/*.js", "styles/*.css"]
+}
+```
+
+## Sample `manifest.json` file
+
+If assets are already imported through supported content-script/build paths, Extension.js can add the required WAR entries automatically. For explicit external access, declare resources manually.
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*.png", "scripts/*.js", "styles/*.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://example.com/*"],
+      "css": ["styles/content.css"],
+      "js": ["scripts/content.js"]
+    }
+  ]
+}
+```
+
+## Development behavior
+
+- In development, Extension.js patches WAR entries to support reload/HMR-related asset access.
+- Content-script related assets can be auto-included in WAR when needed.
+- Path normalization removes `public/` and leading `/` conventions into extension output-safe paths.
+
+{/* VIDEO_PLACEHOLDER: Show tightening WAR from broad to minimal resource/match patterns and validating runtime access still works. */}
+![Video placeholder: web accessible resources hardening flow](https://placehold.co/960x540?text=Video+placeholder)
+
+## Output and resolution notes
+
+- Resources in `public/` are copied by the public-asset flow and can be declared from extension root paths.
+- Relative WAR resource paths resolve from manifest directory.
+- Globs are supported, but match patterns must be valid for target browser constraints.
+
+## Best practices
+
+- Keep WAR entries minimal; expose only what external contexts must read.
+- Prefer explicit resource paths over broad globs for tighter security posture.
+- Validate WAR match patterns and resource paths across Chromium and Firefox targets.
+- Use `chrome.runtime.getURL()`/`browser.runtime.getURL()` for runtime-safe URL creation.
+
+### Security checklist
+
+- Limit `matches` scope to domains that actually require access.
+- Avoid broad wildcard resource globs when a small explicit list is sufficient.
+- Keep WAR entries focused on non-sensitive assets.
+- Re-audit WAR when adding new content script imports or runtime asset lookups.
+
+### Good vs risky examples
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["images/logo.png", "fonts/inter.woff2"],
+      "matches": ["https://example.com/*"]
+    }
+  ]
+}
+```
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+```
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).
+- Learn more about [special folders](../features/special-folders.mdx).
+- Continue with [commands reference](../commands/dev.mdx).

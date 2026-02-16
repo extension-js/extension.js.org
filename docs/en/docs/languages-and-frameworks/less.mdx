@@ -1,32 +1,39 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="less" />
 
-# LESS / LESS Modules
+# LESS / LESS modules
 
-LESS is a CSS pre-processor that extends the capabilities of CSS with features like variables, mixins, and nested rules.
+Use LESS across extension pages and UI components with a single pipeline that also supports module-scoped styles.
 
-Extension.js offers built-in support for LESS, making it easy to use modern CSS tooling in your extension.
+Extension.js detects LESS usage, wires the preprocessors in the Rspack build, and supports both `.less` and `.module.less`.
 
-## Starter LESS Template
+## When LESS is a good fit
 
-Extension.js includes a **New Tab** LESS template, which provides a starting point for building an extension with LESS.
+- You are migrating an existing LESS-based web codebase.
+- You want variables and nesting with low migration cost.
+- You need module-scoped styles while keeping LESS conventions.
 
-![LESS Extension Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the LESS template */}
+## Template examples
 
-### Try it yourself
+### `new-less`
+
+![new-less template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-less/screenshot.png)
+
+Start a new-tab extension with LESS support already configured.
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension@latest create my-extension --template=new-less",
-    pnpm: "pnpx extension@latest create my-extension --template=new-less",
-    yarn: "yarn dlx extension@latest create my-extension --template=new-less",
+    npm: 'npx extension@latest create my-extension --template=new-less',
+    pnpm: 'pnpx extension@latest create my-extension --template=new-less',
+    yarn: 'yarn dlx extension@latest create my-extension --template=new-less'
   }}
 />
 
-## Usage With an Existing Extension
+Repository: [extension-js/examples/new-less](https://github.com/extension-js/examples/tree/main/examples/new-less)
+
+## Usage with an existing extension
 
 You can add LESS support to an existing Extension.js project. Simply install the necessary dependencies and start using LESS in your extension.
 
@@ -34,17 +41,11 @@ You can add LESS support to an existing Extension.js project. Simply install the
 
 Install the required dependencies:
 
-<PackageManagerTabs
-  command={{
-    npm: "npx install -D less",
-    pnpm: "pnpx install -D less",
-    yarn: "yarn dlx install -D less",
-  }}
-/>
+<PackageManagerTabs command="install -D less less-loader" />
 
-### Example Usage in an HTML File
+### Example usage in an HTML file
 
-To include LESS in an HTML file, compile your LESS files into CSS and add them to your HTML file:
+In extension pages (popup/options/new tab), import LESS through your script entry:
 
 ```html
 <!doctype html>
@@ -53,58 +54,49 @@ To include LESS in an HTML file, compile your LESS files into CSS and add them t
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>New Extension</title>
-    <!-- Include the compiled CSS file -->
-    <link rel="stylesheet" href="./css/globals.css" media="screen" />
+    <script src="./main.ts"></script>
   </head>
   <body>
-    <!-- Use your LESS-based styles -->
-    <h1 class="text-4xl font-bold">Hello, Extension.</h1>
+    <h1 class="title">Hello, Extension.</h1>
   </body>
 </html>
 ```
 
-### Example Usage in a JavaScript File
+```ts
+import './styles/globals.less'
 
-```js
-./newTabApp.js
-
-import "./css/globals.css";
-
-console.log("Hello, Extension");
+console.log('LESS loaded')
 ```
 
-### Example Usage in a `content_script` File
+### Example usage in a `content_script` file
 
-```js
-./content_script.js
+```ts
+import './styles/content.less'
 
-import("./css/globals.css").then(() => {
-  console.log("Styles loaded!");
-});
+console.log('Content styles loaded')
 ```
 
-## LESS Modules
+## LESS modules
 
 LESS Modules work similarly to CSS Modules, allowing you to scope class names locally by default, preventing global style conflicts.
 
-### Starter LESS Module Template
+### `content-less-modules`
 
-Extension.js includes a **New Tab** LESS Module template. This template allows you to take full advantage of LESS Modules to scope your styles locally.
+![content-less-modules template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-less-modules/screenshot.png)
 
-![LESS Module Extension Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the LESS Modules template */}
-
-### Try it yourself
+Use LESS Modules in content scripts when you need scoped styles on injected UI.
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension@latest create my-extension --template=new-less-modules",
-    pnpm: "pnpx extension@latest create my-extension --template=new-less-modules",
-    yarn: "yarn dlx extension@latest create my-extension --template=new-less-modules",
+    npm: 'npx extension@latest create my-extension --template=content-less-modules',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-less-modules',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-less-modules'
   }}
 />
 
-## Using LESS Modules in an Existing Extension
+Repository: [extension-js/examples/content-less-modules](https://github.com/extension-js/examples/tree/main/examples/content-less-modules)
+
+## Using LESS modules in an existing extension
 
 To enable LESS Modules, rename your `.less` files to include `.module.less`. This will activate automatic local scoping of class names.
 
@@ -113,71 +105,64 @@ To enable LESS Modules, rename your `.less` files to include `.module.less`. Thi
 + myStyles.module.less
 ```
 
-### Example Usage
+### Example usage
 
 After renaming your LESS file, you can import it into your scripts:
 
-```js
-import styles from "./styles/myStyles.module.less";
+```ts
+import styles from './styles/myStyles.module.less'
 
-const element = document.createElement("h1");
-element.className = styles.primary;
-element.innerText = "Hello, Extension!";
-document.body.appendChild(element);
+const element = document.createElement('h1')
+element.className = styles.primary
+element.innerText = 'Hello, Extension!'
+document.body.appendChild(element)
 ```
 
-## React/Preact Example Usage
+## React/Preact example usage
 
 To use LESS Modules in React or Preact, import your LESS module and apply styles as you would in any React component:
 
 ```jsx
-import styles from "./styles/myStyles.module.less";
+import styles from './styles/myStyles.module.less'
 
 export default function MyComponent() {
-  return <h1 className={styles.primary}>Hello, Extension!</h1>;
+  return <h1 className={styles.primary}>Hello, Extension!</h1>
 }
 ```
 
-## Vue Example Usage
+## Vue example usage
 
-In Vue, you can also use LESS and LESS Modules by importing the LESS file directly or in a `<style>` block:
+In Vue, prefer SFC styles with `lang="less"` and `module`:
 
 ```vue
 <template>
   <h1 :class="$style.primary">Hello, Extension!</h1>
 </template>
 
-<script>
-import styles from "./styles/myStyles.module.less";
-export default {
-  data() {
-    return { styles };
-  },
-};
-</script>
-
 <style lang="less" module>
-@import "./styles/myStyles.module.less";
+@import './styles/myStyles.module.less';
 </style>
 ```
 
-## Svelte Example Usage
+## Svelte example usage
 
-In Svelte, you can import LESS files and use them within the component like this:
+In Svelte, import LESS module mappings and apply classes:
 
 ```svelte
 <script>
-  import styles from './styles/myStyles.module.less';
+  import styles from "./styles/myStyles.module.less";
 </script>
 
 <h1 class={styles.primary}>Hello, Extension!</h1>
-
-<style lang="less" module>
-  @import './styles/myStyles.module.less';
-</style>
 ```
 
-## Next Steps
+## Behavior notes
 
+- In extension page contexts, `.module.less` exports class maps as expected.
+- In content scripts, styles are emitted as CSS assets and injected through the content-script style flow.
+- If LESS tooling is missing, Extension.js can install optional dependencies and ask for a restart.
+
+## Next steps
+
+- Learn more about [CSS modules](./css-modules.mdx).
 - Configure [PostCSS](../integrations/postcss.mdx) in your extension.
-- Set up [Stylelint](../integrations/stylelint.mdx) to lint your stylesheets.

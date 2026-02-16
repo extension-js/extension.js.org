@@ -1,13 +1,29 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarBrowsers } from "../../../../theme/components/avatar-group/browsers";
+import {PackageManagerTabs} from '@theme'
+import {AvatarBrowsers} from '../../../../theme/components/avatar-group/browsers'
 
-<AvatarBrowsers browsers={["chromium", "firefox"]} />
+<AvatarBrowsers browsers={['chromium', 'firefox']} />
 
-# Browser-Specific Manifest Fields
+# Browser-specific manifest fields
 
-In some cases during the development of a cross-browser extension, certain manifest fields or API configurations are only relevant to specific browsers. With Extension.js, you can prefix the manifest field with the browser name to ensure that the field is only compiled for that browser.
+Avoid maintaining separate manifest files for every browser.
 
-## How Does It Work?
+Extension.js lets you define browser-specific values inline with prefixes, then emits only the fields that match the active target at compile time.
+
+## Why this matters
+
+Browsers still differ in key manifest areas, like background configuration and vendor metadata. Prefixed fields let you keep one source `manifest.json` while producing browser-correct output for Chromium and Firefox families.
+
+## How it works
+
+Extension.js scans manifest keys and resolves prefixed entries for the selected browser:
+
+- Chromium family targets (`chrome`, `edge`, `chromium-based`) resolve: `chromium:`, `chrome:`, `edge:`
+- Gecko family targets (`firefox`, `gecko-based`) resolve: `firefox:`, `gecko:`
+
+When a prefixed key matches the active target, Extension.js rewrites it to the unprefixed key in the emitted manifest.
+
+{/* VIDEO_PLACEHOLDER: Show one prefixed manifest being compiled for Chrome and Firefox, then compare generated outputs. */}
+![Video placeholder: resolving browser-prefixed manifest fields](https://placehold.co/960x540?text=Video+placeholder)
 
 ### For Chromium-based browsers (Chrome, Edge, ...)
 
@@ -29,27 +45,44 @@ In some cases during the development of a cross-browser extension, certain manif
 }
 ```
 
-This approach ensures that the `service_worker` field is only applied when targeting Chromium-based browsers, while the `scripts` field works exclusively for Firefox. Below is a list of supported prefixes and their corresponding target browsers:
+You can also target vendor-specific variants inside the same browser family:
 
-| Browser  | Prefix      | Target browser              |
-| -------- | ----------- | --------------------------- |
-| Chromium | `chromium:` | All Chromium-based browsers |
-| Chrome   | `chrome:`   | Chrome browser              |
-| Edge     | `edge:`     | Edge browser                |
-| Firefox  | `firefox:`  | Firefox browser             |
-| Gecko    | `gecko:`    | All Gecko-based browsers    |
-| Safari   | Coming soon | Safari browser              |
-| WebKit   | Coming soon | All WebKit-based browsers   |
-| Desktop  | Coming soon | All desktop browsers        |
-| Mobile   | Coming soon | All mobile browsers         |
+```json
+{
+  "chrome:action": {
+    "default_title": "Chrome variant"
+  },
+  "edge:action": {
+    "default_title": "Edge variant"
+  }
+}
+```
 
-This feature works for any manifest field at any level, including `permissions`, `content_scripts`, `background`, and more.
+This makes `service_worker` available only for Chromium-family outputs while keeping `background.scripts` for Firefox outputs.
 
-## Best Practices
+Supported prefix map:
 
-- **Use browser-specific fields**: When developing a cross-browser extension, use browser-specific fields to ensure that the manifest is correctly compiled for each target browser.
-- **Check the compatibility**: Before using browser-specific fields, check the compatibility of the field with the target browser to avoid any issues during the build process. A good place is the [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions) for the WebExtensions API.
+| Prefix      | Included for target browser        |
+| ----------- | ---------------------------------- |
+| `chromium:` | `chrome`, `edge`, `chromium-based` |
+| `chrome:`   | `chrome`, `chromium-based`         |
+| `edge:`     | `edge`, `chromium-based`           |
+| `firefox:`  | `firefox`, `gecko-based`           |
+| `gecko:`    | `firefox`, `gecko-based`           |
 
-## Next Steps
+This works for any manifest field at any level, including `permissions`, `content_scripts`, and `background`.
+
+{/* VIDEO_PLACEHOLDER: Show adding vendor-specific `chrome:` and `edge:` fields and validating the generated target manifest. */}
+![Video placeholder: vendor-specific manifest variants](https://placehold.co/960x540?text=Video+placeholder)
+
+## Best practices
+
+- **Keep shared defaults unprefixed**: Put common fields in regular manifest keys, then prefix only browser-specific differences.
+- **Prefix only when behavior diverges**: Use browser prefixes when runtime requirements differ.
+- **Build per target in CI**: Generate and verify each browser output (`dist/<browser>`) to catch compatibility regressions early.
+- **Validate with MDN**: Use [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions) to confirm support before adding browser-only settings.
+
+## Next steps
 
 - Learn more about the [Browsers Available](../browsers/browsers-available.mdx).
+- Learn more about [Cross-Browser Compatibility](./cross-browser-compatibility.mdx).

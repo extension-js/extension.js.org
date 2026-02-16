@@ -1,0 +1,104 @@
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="extension" />
+
+# Troubleshooting
+
+Unblock local development quickly by checking the highest-signal failures first. Use this page as a practical triage path before deeper debugging.
+
+## Troubleshooting capabilities
+
+| Area                | What this helps you verify                                |
+| ------------------- | --------------------------------------------------------- |
+| Restart diagnostics | Whether a restart is required for structural changes      |
+| Dependency setup    | Whether optional tooling is missing for the current stack |
+| Browser launch      | Whether target/browser binary config is valid             |
+| Build/preview flow  | Whether output exists for preview and matches target      |
+| Manifest paths      | Whether referenced files resolve correctly                |
+
+## Fast triage flow
+
+1. Reproduce with one target (`--browser=chromium`).
+2. Remove custom profile and binary flags.
+3. Confirm whether the issue happens in `dev`, `build`, or both.
+4. Fix one error class at a time (restart, dependency, path, or launch).
+
+## Quick diagnosis decision tree
+
+| If this fails...         | Check first                           | Next action                                                                       |
+| ------------------------ | ------------------------------------- | --------------------------------------------------------------------------------- |
+| Extension does not load  | Build and manifest errors             | Verify referenced files and rerun `dev`                                           |
+| Browser does not launch  | `--browser` + binary path             | Remove custom binary/profile flags and retry                                      |
+| Changes are not updating | Update type (HMR vs restart-required) | Review [Dev update behavior](./dev-update-behavior.mdx) and restart when required |
+| `preview` fails          | Existing `dist/<browser>` output      | Run `extension build --browser=<target>` first                                    |
+| Runtime still broken     | Minimal reproducible setup            | Reduce scope and capture exact command + error                                    |
+
+{/* VIDEO_PLACEHOLDER: Show a failing dev run, identify the error class, apply one fix, and rerun successfully. */}
+![Video placeholder: troubleshooting triage flow](https://placehold.co/960x540?text=Video+placeholder)
+
+## Common issues
+
+### Restart required diagnostics
+
+If you see a restart-required error, stop and rerun `extension dev`.
+
+Typical triggers:
+
+- manifest entrypoint list changes
+- adding/removing files in `pages/` or `scripts/`
+- structural HTML script/style entry changes
+
+See [dev update behavior](./dev-update-behavior.mdx) for the full matrix.
+
+### Missing optional dependencies
+
+Some integrations are installed on demand (for example Vue/Preact refresh tooling, style preprocessors).
+
+If the CLI prompts for optional dependency installation:
+
+1. allow install
+2. restart `extension dev`
+3. rerun after dependencies finish installing
+
+### Browser binary problems
+
+If target browser launch fails:
+
+- verify custom binary path (`--chromium-binary` / `--gecko-binary`)
+- confirm browser target is compatible with the provided binary
+- fallback to default `chromium` target to isolate config issues
+
+### Build runs but preview fails
+
+`preview` expects existing build output.
+
+- run `extension build --browser=<target>`
+- then run `extension preview --browser=<target>`
+
+### Manifest reference errors
+
+If build reports missing manifest files:
+
+- verify paths are relative to manifest location
+- verify leading `/` usage (public-root semantics)
+- ensure files actually exist in source/public locations
+
+### Still blocked after fixes
+
+If the issue persists:
+
+- clear temporary assumptions and reproduce from a clean terminal session
+- reduce to the smallest manifest/entrypoint case that still fails
+- capture the exact command + error output for issue reporting
+
+## Debugging checklist
+
+- Reproduce with a single browser target first (`--browser=chromium`).
+- Reproduce without custom profile/binary flags.
+- Check whether the issue appears in `dev` and `build` both.
+- Keep one change at a time when touching manifest + entrypoint files.
+
+## Next steps
+
+- Review [security checklist](./security-checklist.mdx).
+- Review [performance playbook](./performance-playbook.mdx).

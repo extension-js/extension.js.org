@@ -1,49 +1,55 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="vue" />
 
 # Vue.js
 
-Vue.js is a progressive JavaScript framework for building user interfaces. It is designed to be incrementally adoptable, with a core library that focuses on the view layer only.
+Build extension UIs with Vue single-file components (SFCs) without maintaining custom bundler wiring.
 
-Extension.js offers built-in support for Vue.js and its single-file component system. To use Vue.js in your extension, make sure you have [Vue](#) added as a `dependency` or `devDependency` in your `package.json`. Once added, you are ready to start building your extension with Vue.js!
+Extension.js detects Vue from your dependencies and configures SFC compilation, framework aliases, and development behavior automatically.
 
-## Starter Vue.js Template
+## When Vue is a good fit
 
-Extension.js includes a **New Tab** Vue.js template, ideal for creating new tab pages using Vue. This template provides everything you need to get started with Vue.js in your extension.
+- Your team already ships production Vue apps.
+- You prefer SFC ergonomics with scoped styles and composition APIs.
+- You want extension UI surfaces that mirror existing Vue architecture.
 
-![Vue.js Extension Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the New Tab Vue.js template */}
+## Template examples
 
-### Try it yourself
+### `new-vue`
 
-<PackageManagerTabs
-  command={{
-    npm: "npx extension@latest create my-extension --template=new-vue",
-    pnpm: "pnpx extension@latest create my-extension --template=new-vue",
-    yarn: "yarn dlx extension@latest create my-extension --template=new-vue",
-  }}
-/>
+![new-vue template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-vue/screenshot.png)
 
-## Vue.js + Content Script Template
-
-Alternatively, Extension.js supports a **Content Script** Vue.js template, enabling you to inject Vue components into web pages via content scripts. This template is useful for extensions that interact directly with page content.
-
-![Vue.js + Content Script Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the Vue.js Content Script template */}
-
-### Try it yourself
+Build a Vue new-tab experience with SFC support from day one.
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension@latest create my-extension --template=content-vue",
-    pnpm: "pnpx extension@latest create my-extension --template=content-vue",
-    yarn: "yarn dlx extension@latest create my-extension --template=content-vue",
+    npm: 'npx extension@latest create my-extension --template=new-vue',
+    pnpm: 'pnpx extension@latest create my-extension --template=new-vue',
+    yarn: 'yarn dlx extension@latest create my-extension --template=new-vue'
   }}
 />
 
-## Usage With an Existing Extension
+Repository: [extension-js/examples/new-vue](https://github.com/extension-js/examples/tree/main/examples/new-vue)
+
+### `content-vue`
+
+![content-vue template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-vue/screenshot.png)
+
+Inject Vue components directly into web pages with a content-script setup.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content-vue',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-vue',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-vue'
+  }}
+/>
+
+Repository: [extension-js/examples/content-vue](https://github.com/extension-js/examples/tree/main/examples/content-vue)
+
+## Usage with an existing extension
 
 To integrate Vue.js into an existing extension, follow these steps:
 
@@ -51,17 +57,37 @@ To integrate Vue.js into an existing extension, follow these steps:
 
 Install the required dependencies:
 
-<PackageManagerTabs command="install vue @vue/compiler-sfc --save-dev" />
+<PackageManagerTabs command="install vue" />
+
+For explicit setup in existing projects, install the Vue SFC toolchain too:
+
+<PackageManagerTabs command="install -D vue-loader @vue/compiler-sfc" />
 
 ### Configuration
 
-Extension.js expects Vue components to be in the `.vue` format, using Vue’s single-file components (SFC). These files contain the HTML, JavaScript, and CSS for a component all in one file, which is compiled during the build process.
+Extension.js expects Vue components in `.vue` files. It wires `vue-loader`, `VueLoaderPlugin`, and Vue-related define flags in the Rspack pipeline.
 
-## Usage Examples
+## Development behavior
 
-### In a New Tab Extension
+When Vue is detected, Extension.js:
 
-To use Vue.js in a new tab extension, include it in your HTML file as a `<script>`:
+- enables `.vue` compilation in the framework plugin
+- applies Vue runtime aliases (for consistent runtime resolution)
+- supports content script updates by remounting after relevant Vue SFC changes
+
+If optional Vue tooling is missing, Extension.js installs it and asks for a restart.
+
+### Troubleshooting
+
+- **Missing Vue tooling warning:** install `vue-loader` and `@vue/compiler-sfc`.
+- **Prompt to restart after install:** stop and rerun `extension dev` so the newly installed loader/plugin is picked up.
+- **Unexpected `.vue` handling issues:** verify `vue` is present in project dependencies so Vue integration is detected.
+
+## Usage examples
+
+### In a new tab extension
+
+To use Vue.js in a new tab extension, include your entry file in HTML:
 
 ```html
 <!doctype html>
@@ -75,28 +101,25 @@ To use Vue.js in a new tab extension, include it in your HTML file as a `<script
     <noscript>You need to enable JavaScript to run this extension.</noscript>
     <div id="app"></div>
   </body>
-  <script src="./main.js"></script>
+  <script src="./main.ts"></script>
 </html>
 ```
 
-```js
-// main.js;
-import { createApp } from "vue";
-import MyExtension from "./MyExtension.vue";
+```ts
+import {createApp} from 'vue'
+import App from './App.vue'
 
-createApp(MyExtension).mount("#app");
+createApp(App).mount('#app')
 ```
 
 ```vue
-<!-- MyExtension.vue -->
+<!-- App.vue -->
 <template>
   <h1>Hello, Vue.js Extension!</h1>
 </template>
 
-<script>
-export default {
-  name: "MyExtension",
-};
+<script setup lang="ts">
+// Component logic goes here.
 </script>
 
 <style scoped>
@@ -106,28 +129,29 @@ h1 {
 </style>
 ```
 
-### In a `content_script` File
+### In a `content_script` file
 
-For content scripts, you can inject Vue.js into the page by dynamically creating an HTML element and mounting a Vue component into it:
+For content scripts, mount a Vue app into an injected root node:
 
-```js
-import { createApp } from "vue";
-import MyExtension from "./MyExtension.vue";
+```ts
+import {createApp} from 'vue'
+import App from './App.vue'
+import './content.css'
 
-setTimeout(initial, 1000);
+const rootDiv = document.createElement('div')
+rootDiv.id = 'extension-root'
+document.body.appendChild(rootDiv)
 
-function initial() {
-  // Create a new div element and append it to the document body
-  const rootDiv = document.createElement("div");
-  rootDiv.id = "extension-root";
-  document.body.appendChild(rootDiv);
-
-  // Mount the Vue component
-  createApp(MyExtension).mount("#extension-root");
-}
+createApp(App).mount('#extension-root')
 ```
 
-## Next Steps
+## Best practices
 
-- Learn more about [TypeScript](./typescript) support.
-- Explore how Extension.js handles [Sass Modules](./sass).
+- Keep UI entrypoints framework-first (`main.ts`, `App.vue`) and keep extension APIs in dedicated modules.
+- Use scoped styles in SFCs when possible to reduce style leaks in extension pages.
+- For large UIs, split components and shared composables to keep content scripts small.
+
+## Next steps
+
+- Learn more about [TypeScript support](./typescript.mdx).
+- Explore [Sass and Sass modules](./sass.mdx).
