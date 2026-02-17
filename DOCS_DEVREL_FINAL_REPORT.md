@@ -20,11 +20,27 @@ Also improve discoverability and search intent alignment.
 - Replaced generic homepage template messaging with Extension.js-specific positioning.
 - Aligned homepage copy to extension workflows, cross-browser value, and documentation-first CTA paths.
 - Updated global metadata description for stronger search/social context.
+- Added front-page social proof + video preview flow directly after hero.
+- Reframed homepage feature section as a focused template gallery.
 
 Primary files:
 
 - `theme/components-home/Landingpage/index.tsx`
 - `rspress.config.ts`
+
+### Homepage final adjustments requested and applied
+
+- Inserted testimonial/social-proof block between hero and next section.
+- Inserted video preview block immediately after testimonial.
+- Updated template gallery to six stacks only:
+  - React
+  - TypeScript
+  - Preact
+  - JavaScript
+  - Vue
+  - Svelte
+- Kept current UI section structure intact and updated content within existing layout primitives.
+- Updated top-nav labels to match updated homepage section semantics.
 
 ## 2) Information architecture and navigation
 
