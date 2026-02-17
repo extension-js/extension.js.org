@@ -1,13 +1,13 @@
-import { usePageData } from "rspress/runtime";
+import {usePageData} from 'rspress/runtime'
 // import LandingPage from "../components-home/home";
-import LandingPage from "../components-home/Landingpage";
+import LandingPage from '../components-home/Landingpage'
 
 const CopyRight = () => {
-  const { siteData } = usePageData();
-  const { message } = siteData.themeConfig.footer || {};
+  const {siteData} = usePageData()
+  const {message} = siteData.themeConfig.footer || {}
 
   if (!message) {
-    return null;
+    return null
   }
 
   return (
@@ -16,8 +16,8 @@ const CopyRight = () => {
         <div className="font-medium text-sm text-text-2">{message}</div>
       </div>
     </footer>
-  );
-};
+  )
+}
 
 export function HomeLayout() {
   return (
@@ -25,5 +25,5 @@ export function HomeLayout() {
       <LandingPage />
       <CopyRight />
     </>
-  );
+  )
 }

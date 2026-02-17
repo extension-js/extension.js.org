@@ -1,17 +1,17 @@
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { TemplateDetailsCard } from "./details";
-import { TemplateCard } from "./template";
-import type { Template } from "./types";
+import {Card, CardContent, CardHeader, CardTitle} from '../ui/card'
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '../ui/tabs'
+import {TemplateDetailsCard} from './details'
+import {TemplateCard} from './template'
+import type {Template} from './types'
 
 export function TemplateTabs({
   template,
   className,
-  setActiveTemplate,
+  setActiveTemplate
 }: {
-  template: Template;
-  className?: string;
-  setActiveTemplate: () => void;
+  template: Template
+  className?: string
+  setActiveTemplate: () => void
 }) {
   return (
     <Tabs defaultValue="overview" className={className}>
@@ -31,5 +31,5 @@ export function TemplateTabs({
         </TabsContent>
       </Card>
     </Tabs>
-  );
+  )
 }

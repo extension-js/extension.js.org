@@ -1,80 +1,78 @@
-import { Check, Copy } from "lucide-react";
-import React, { useState } from "react";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent } from "../../components/ui/card";
+import {Check, Copy} from 'lucide-react'
+import React, {useState} from 'react'
+import {Button} from '../../components/ui/button'
+import {Card, CardContent} from '../../components/ui/card'
 import {
   Tabs,
   TabsContent,
   TabsList,
-  TabsTrigger,
-} from "../../components/ui/tabs";
+  TabsTrigger
+} from '../../components/ui/tabs'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
-} from "../../components/ui/tooltip";
+  TooltipTrigger
+} from '../../components/ui/tooltip'
 
 interface TabsCommandLineProps {
   command: {
-    npm: string;
-    pnpm: string;
-    yarn: string;
-  };
+    npm: string
+    pnpm: string
+    yarn: string
+  }
 }
 
-export function TabsCommandLine({ command }: TabsCommandLineProps) {
-  const [selectedTab, setSelectedTab] = useState<"npm" | "pnpm" | "yarn">(
-    "npm",
-  );
-  const [copiedTab, setCopiedTab] = useState<string | null>(null);
+export function TabsCommandLine({command}: TabsCommandLineProps) {
+  const [selectedTab, setSelectedTab] = useState<'npm' | 'pnpm' | 'yarn'>('npm')
+  const [copiedTab, setCopiedTab] = useState<string | null>(null)
 
-  const getCommand = (packageManager: "npm" | "pnpm" | "yarn"): string => {
+  const getCommand = (packageManager: 'npm' | 'pnpm' | 'yarn'): string => {
     switch (packageManager) {
-      case "npm":
-        return `npx ${command.npm}`;
-      case "pnpm":
-        return `pnpm dlx ${command.pnpm}`;
-      case "yarn":
-        return `yarn dlx ${command.yarn}`;
+      case 'npm':
+        return `npx ${command.npm}`
+      case 'pnpm':
+        return `pnpm dlx ${command.pnpm}`
+      case 'yarn':
+        return `yarn dlx ${command.yarn}`
       default:
-        return `npx ${command.npm}`;
+        return `npx ${command.npm}`
     }
-  };
+  }
 
   const copyToClipboard = (text: string, tab: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedTab(tab);
-    setTimeout(() => setCopiedTab(null), 2000);
-  };
+    navigator.clipboard.writeText(text)
+    setCopiedTab(tab)
+    setTimeout(() => setCopiedTab(null), 2000)
+  }
 
   const tabs = [
     {
-      key: "npm",
-      label: "npm",
+      key: 'npm',
+      label: 'npm',
       iconUrl:
-        "https://github.com/user-attachments/assets/135f149f-ce5e-4ce2-9fee-3eb529b5481a",
+        'https://github.com/user-attachments/assets/135f149f-ce5e-4ce2-9fee-3eb529b5481a'
     },
     {
-      key: "pnpm",
-      label: "pnpm",
+      key: 'pnpm',
+      label: 'pnpm',
       iconUrl:
-        "https://github.com/user-attachments/assets/42ed278a-12da-4816-b7e3-da867144fc62",
+        'https://github.com/user-attachments/assets/42ed278a-12da-4816-b7e3-da867144fc62'
     },
     {
-      key: "yarn",
-      label: "Yarn",
+      key: 'yarn',
+      label: 'Yarn',
       iconUrl:
-        "https://github.com/user-attachments/assets/461cee19-7d40-4d25-b70e-42501cf5fc0f",
-    },
-  ];
+        'https://github.com/user-attachments/assets/461cee19-7d40-4d25-b70e-42501cf5fc0f'
+    }
+  ]
 
   return (
     <Card className="max-w-4xl w-full m-auto p-4">
       <Tabs
         value={selectedTab}
         onValueChange={(value) =>
-          setSelectedTab(value as "npm" | "pnpm" | "yarn")
+          setSelectedTab(value as 'npm' | 'pnpm' | 'yarn')
         }
         className="w-full"
       >
@@ -86,7 +84,7 @@ export function TabsCommandLine({ command }: TabsCommandLineProps) {
               className="bg-[var(--rp-c-bg-mute)]"
             >
               <img
-                src={tab.iconUrl || "https://placekitten.com/32/32"}
+                src={tab.iconUrl || 'https://placekitten.com/32/32'}
                 alt={`The package manager ${tab.label} icon`}
                 width="16"
                 className="mr-2"
@@ -99,7 +97,7 @@ export function TabsCommandLine({ command }: TabsCommandLineProps) {
           <TabsContent key={tab.key} value={tab.key}>
             <div className="relative">
               <pre className="rounded-md px-4 pb-4 pr-16 overflow-x-auto text-left">
-                <code>{getCommand(tab.key as "npm" | "pnpm" | "yarn")}</code>
+                <code>{getCommand(tab.key as 'npm' | 'pnpm' | 'yarn')}</code>
               </pre>
               <TooltipProvider>
                 <Tooltip>
@@ -110,8 +108,8 @@ export function TabsCommandLine({ command }: TabsCommandLineProps) {
                       className="absolute -top-2 right-2"
                       onClick={() =>
                         copyToClipboard(
-                          getCommand(tab.key as "npm" | "pnpm" | "yarn"),
-                          tab.key,
+                          getCommand(tab.key as 'npm' | 'pnpm' | 'yarn'),
+                          tab.key
                         )
                       }
                     >
@@ -123,7 +121,7 @@ export function TabsCommandLine({ command }: TabsCommandLineProps) {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {copiedTab === tab.key ? "Copied!" : "Copy to clipboard"}
+                    {copiedTab === tab.key ? 'Copied!' : 'Copy to clipboard'}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -132,5 +130,5 @@ export function TabsCommandLine({ command }: TabsCommandLineProps) {
         ))}
       </Tabs>
     </Card>
-  );
+  )
 }

@@ -15,7 +15,7 @@ const Sponsors = () => {
         />
       </a>
     </p>
-  );
-};
+  )
+}
 
-export default Sponsors;
+export default Sponsors

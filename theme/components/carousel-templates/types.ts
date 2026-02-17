@@ -1,27 +1,22 @@
-export type UIContext =
-  | "sidebar"
-  | "newTab"
-  | "content"
-  | "action"
-  | "devTools";
+export type UIContext = 'sidebar' | 'newTab' | 'content' | 'action' | 'devTools'
 export type ConfigFiles =
-  | "postcss.config.js"
-  | "tailwind.config.js"
-  | "tsconfig.json"
-  | ".stylelintrc.json"
-  | "extension.config.js"
-  | "babel.config.json"
-  | ".prettierrc"
-  | "eslint.config.mjs";
+  | 'postcss.config.js'
+  | 'tailwind.config.js'
+  | 'tsconfig.json'
+  | '.stylelintrc.json'
+  | 'extension.config.js'
+  | 'babel.config.json'
+  | '.prettierrc'
+  | 'eslint.config.mjs'
 
 export interface Template {
-  name: string;
-  description: string;
-  screenshot: string;
-  uiContext: UIContext[] | undefined;
-  uiFramework: "react" | "preact" | "vue" | "svelte" | undefined;
-  css: "css" | "sass" | "less" | "stylus";
-  hasBackground: boolean;
-  hasEnv: boolean;
-  configFiles: ConfigFiles[] | undefined;
+  name: string
+  description: string
+  screenshot: string
+  uiContext: UIContext[] | undefined
+  uiFramework: 'react' | 'preact' | 'vue' | 'svelte' | undefined
+  css: 'css' | 'sass' | 'less' | 'stylus'
+  hasBackground: boolean
+  hasEnv: boolean
+  configFiles: ConfigFiles[] | undefined
 }

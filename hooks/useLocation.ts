@@ -1,10 +1,10 @@
-import { useLocation as useNativeLocation } from "rspress/runtime";
+import {useLocation as useNativeLocation} from 'rspress/runtime'
 
 function useLocation() {
-  const location = useNativeLocation();
+  const location = useNativeLocation()
   return Object.assign(location, {
-    query: new URLSearchParams(location.search),
-  });
+    query: new URLSearchParams(location.search)
+  })
 }
 
-export { useLocation };
+export {useLocation}

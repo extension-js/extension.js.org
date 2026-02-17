@@ -46,6 +46,6 @@ const ThreeArrows = () => (
       <polygon points="6 3 20 12 6 21 6 3" />
     </svg>
   </div>
-);
+)
 
-export { ThreeArrows };
+export {ThreeArrows}

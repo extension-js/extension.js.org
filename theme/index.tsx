@@ -1,7 +1,7 @@
-import { NoSSR } from "rspress/runtime";
-import Theme from "rspress/theme";
-import { Announcement } from "./components-home/announcement";
-import { HomeLayout } from "./pages";
+import {NoSSR} from 'rspress/runtime'
+import Theme from 'rspress/theme'
+import {Announcement} from './components-home/announcement'
+import {HomeLayout} from './pages'
 
 const Layout = () => (
   <Theme.Layout
@@ -11,14 +11,14 @@ const Layout = () => (
       </NoSSR>
     }
   />
-);
+)
 
 const ExtensionTheme = {
   ...Theme,
   Layout,
-  HomeLayout,
-};
+  HomeLayout
+}
 
-export * from "rspress/theme";
+export * from 'rspress/theme'
 
-export default ExtensionTheme;
+export default ExtensionTheme
