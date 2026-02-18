@@ -73,12 +73,12 @@ export function TemplateCardsGrid() {
                 className="h-12 w-12 rounded-xl bg-white p-2 object-contain ring-1 ring-[--rp-c-border]"
               />
               <div className="min-w-0">
-                <CardTitle className="text-base">{template.title}</CardTitle>
-                <CardDescription className="mt-2">
+                <CardTitle className="text-lg">{template.title}</CardTitle>
+                <CardDescription className="mt-2 text-base">
                   {template.description}
                 </CardDescription>
                 <a
-                  className="mt-3 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  className="mt-3 inline-flex text-base font-medium text-primary underline-offset-4 hover:underline"
                   href={`https://templates.extension.dev/${template.slug}`}
                   rel="noreferrer"
                   target="_blank"

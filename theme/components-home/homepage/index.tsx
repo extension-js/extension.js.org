@@ -14,7 +14,7 @@ const homepageStructuredData = {
   url: "https://extension.js.org",
   codeRepository: "https://github.com/extension-js/extension.js",
   description:
-    "Extension.js is an open source framework and CLI for building, testing, and shipping cross-browser extensions for Chrome, Edge, and Firefox.",
+    "Build browser extensions for Chrome, Edge, and Firefox with one modern workflow. Extension.js handles manifest compilation, browser-specific output, reload behavior, and packaging so you can focus on product features.",
 };
 
 export default function Homepage() {

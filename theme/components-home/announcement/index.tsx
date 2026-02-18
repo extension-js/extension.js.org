@@ -2,8 +2,8 @@ import { useState } from "react";
 import { usePageData } from "rspress/runtime";
 import { useLang } from "rspress/runtime";
 
-const LOCAL_STORAGE_KEY = "extensionjs-announcement-closed";
-const ANNOUNCEMENT_URL = "/blog/announcing-2-0-0-beta";
+const LOCAL_STORAGE_KEY = "extensionjs-announcement-closed-v3";
+const ANNOUNCEMENT_URL = "/blog/announcing-3-0-0";
 
 function CloseIcon() {
   return (
@@ -51,8 +51,8 @@ export function Announcement() {
       >
         <span>
           {lang === "en"
-            ? "Announcing Extension.js 2.0.0-beta"
-            : "Announcing Extension.js 2.0.0-beta"}
+            ? "Announcing Extension.js 3.0.0"
+            : "Announcing Extension.js 3.0.0"}
         </span>
         <svg
           role="img"

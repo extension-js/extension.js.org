@@ -8,11 +8,10 @@ export default function TestimonialsSection() {
       <div className="w-full p-4 sm:p-6 md:p-8 lg:p-8">
         <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
           <h2 className="text-foreground mx-auto mb-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-            Built by developers, trusted in production
+            From developers worldwide
           </h2>
-          <p className="text-muted-foreground mb-12 max-w-xl text-sm leading-relaxed sm:text-base">
-            Real feedback from teams shipping browser extensions with
-            Extension.js.
+          <p className="text-muted-foreground mb-12 max-w-xl text-lg leading-relaxed sm:text-lg">
+            Real feedback from developers and teams experimenting with Extension.js.
           </p>
           <div className="w-full max-w-xl text-left [&_article]:mx-0 [&_article]:text-left [&_article_*]:text-left mt-6">
             <Tweet
