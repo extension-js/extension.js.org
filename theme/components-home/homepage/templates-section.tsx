@@ -14,7 +14,7 @@ export default function TemplatesSection() {
             workflow.
           </h2>
 
-          <p className="text-muted-foreground mx-auto mb-20 max-w-xl text-base leading-relaxed sm:text-lg mb-10">
+          <p className="text-muted-foreground mx-auto mb-20 max-w-xl text-lg leading-relaxed sm:text-lg mb-10">
             Start with production-ready templates for React, Vue, Svelte,
             TypeScript, or JavaScript.
           </p>

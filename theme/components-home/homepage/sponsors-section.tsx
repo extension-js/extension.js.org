@@ -7,8 +7,8 @@ export default function SponsorsSection() {
         <h2 className="text-foreground mx-auto mb-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
           Backing the open source core
         </h2>
-        <p className="text-muted-foreground mx-auto mb-16 max-w-xl text-base leading-relaxed sm:text-lg">
-          Sponsors help us ship faster releases, better DX, and long-term
+        <p className="text-muted-foreground mx-auto mb-16 max-w-xl text-lg leading-relaxed sm:text-lg">
+          Sponsors help us ship faster releases, better developer experience, and long-term
           reliability for extension teams.
         </p>
         <a

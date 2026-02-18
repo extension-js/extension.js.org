@@ -10,7 +10,7 @@ export default function WorkflowVideoSection() {
           <p className="text-foreground mx-auto mb-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
             Watch the full developer workflow
           </p>
-          <p className="text-muted-foreground text-sm sm:text-base">
+          <p className="text-muted-foreground text-lg sm:text-lg">
             From scaffold to running extension, in one modern toolchain.
           </p>
         </div>

@@ -37,7 +37,7 @@ export default function FaqSection() {
             <h2 className="text-foreground mb-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
               Developer <span className="text-primary">FAQ</span>
             </h2>
-            <p className="text-muted-foreground mb-8 max-w-xl text-base leading-relaxed sm:text-lg">
+            <p className="text-muted-foreground mb-8 max-w-xl text-lg leading-relaxed sm:text-lg">
               Practical answers for setup, cross-browser support, and production
               delivery.
             </p>
@@ -46,13 +46,13 @@ export default function FaqSection() {
           <div className="bg-card/20 overflow-hidden rounded-xl p-2">
             {faqItems.map((item) => (
               <details className="group px-3 py-1" key={item.question}>
-                <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-left font-medium">
+                <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-left text-base font-medium">
                   {item.question}
                   <span className="text-muted-foreground transition-transform group-open:rotate-45">
                     +
                   </span>
                 </summary>
-                <p className="text-muted-foreground pb-3 text-sm leading-relaxed">
+                <p className="text-muted-foreground pb-3 text-base leading-relaxed">
                   {item.answer}
                 </p>
               </details>
