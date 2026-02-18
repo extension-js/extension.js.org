@@ -6,6 +6,8 @@ interface AvatarEmojiProps {
   altText?: string; // Optional prop for the alt text
 }
 
+const DEFAULT_DOC_ICON = "https://avatars.githubusercontent.com/u/172809806";
+
 const emojiLinks: Record<string, string> = {
   fire: "🔥",
   folder: "🗂️",
@@ -31,11 +33,21 @@ const AvatarEmoji: React.FC<AvatarEmojiProps> = ({
   const emojiSymbol = emojiLinks[emoji] || ""; // Retrieve the emoji from the emojiLinks object
 
   if (!emojiSymbol) {
-    return <p>Emoji not found</p>; // Return a fallback if the emoji doesn't exist
+    return (
+      <img
+        data-doc-avatar="true"
+        className="logo"
+        src={DEFAULT_DOC_ICON}
+        alt={altText || "The extension logo"}
+        width={size}
+        style={{ marginBottom: size ? `${size / 50}rem` : "2.5rem" }}
+      />
+    );
   }
 
   return (
     <div
+      data-doc-avatar="true"
       className={`flex items-center w-[${size}px] h-[${size}px] shadow-sm text-5xl`}
       style={{ marginBottom: size ? `${size / 50}rem` : "2.5rem" }}
     >

@@ -91,14 +91,13 @@ export default function HeroVideoDialog({
           height={1080}
           className="w-full transition-all duration-200 group-hover:brightness-[0.8] ease-out rounded-md"
         />
-        <div className="absolute inset-0 flex items-center justify-center group-hover:scale-100 scale-[0.9] transition-all duration-200 ease-out rounded-2xl">
-          <div className="bg-primary/10 flex items-center justify-center rounded-full backdrop-blur-md size-28">
-            <div className="flex items-center justify-center bg-gradient-to-b from-primary/30 to-primary shadow-md rounded-full size-20 transition-all ease-out duration-200 relative group-hover:scale-[1.2] scale-100">
+        <div className="absolute inset-0 flex items-center justify-center scale-[0.95] rounded-2xl transition-all duration-200 ease-out group-hover:scale-100">
+          <div className="flex size-24 items-center justify-center rounded-full border border-white/50 bg-white/15 shadow-[0_20px_40px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+            <div className="relative flex size-16 items-center justify-center rounded-full border border-black/80 bg-black/85 shadow-[0_8px_20px_rgba(0,0,0,0.4)] transition-all duration-200 ease-out group-hover:scale-110">
               <Play
-                className="size-8 text-white fill-white group-hover:scale-105 scale-100 transition-transform duration-200 ease-out"
+                className="size-6 fill-white text-white transition-transform duration-200 ease-out group-hover:scale-105"
                 style={{
-                  filter:
-                    "drop-shadow(0 4px 3px rgb(0 0 0 / 0.07)) drop-shadow(0 2px 2px rgb(0 0 0 / 0.06))",
+                  filter: "drop-shadow(0 2px 2px rgb(0 0 0 / 0.35))",
                 }}
               />
             </div>
