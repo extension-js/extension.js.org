@@ -20,8 +20,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   title: "Extension.js",
   lang: "en",
   logo: {
-    light: "logo-light.png",
-    dark: "logo-dark.png",
+    light: "https://extension.js.org/logo-light.png",
+    dark: "https://extension.js.org/logo-dark.png",
   },
   icon: "https://avatars.githubusercontent.com/u/172809806",
   markdown: {
