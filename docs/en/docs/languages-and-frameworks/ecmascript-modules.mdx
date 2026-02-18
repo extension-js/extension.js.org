@@ -1,121 +1,138 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="javascript" />
 
-# ECMAScript Modules
+# ECMAScript modules
 
-ECMAScript Modules (ESM) are the official standard format for packaging JavaScript code for reuse. They allow developers to modularize their code using various `import` and `export` statements.
+Author extension code with modern `import`/`export` syntax across all extension contexts.
 
-## Templates for ECMAScript Modules
+Extension.js supports ECMAScript Modules (ESM) in background scripts, content scripts, extension pages, and regular application modules through its default Rspack pipeline.
 
-Extension.js offers two ECMAScript Module templates:
+## When ESM is a good fit
 
-- **New ESM Template**: For creating a new tab page extension using ECMAScript Modules.
-- **Content ESM Template**: For creating content script-based extensions using ECMAScript Modules.
+- You want consistent module syntax across extension and web code.
+- You are sharing code with modern ESM-first packages.
+- You need cleaner tree-shaking and explicit dependency boundaries.
 
-### New ECMAScript Module Template
+## Template examples
 
-The New ESM template is ideal for extensions that need a new tab page and are built using ECMAScript Modules. This template includes everything needed to get started quickly with ESM.
+### `new`
 
-![New ESM Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the New ECMAScript Module template */}
+![new template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new/screenshot.png)
 
-#### Try it yourself
-
-<PackageManagerTabs
-  command={{
-    npm: "npx extension@latest create my-extension --template=new-esm",
-    pnpm: "pnpx extension@latest create my-extension --template=new-esm",
-    yarn: "yarn dlx extension@latest create my-extension --template=new-esm",
-  }}
-/>
-
-### Content ECMAScript Module Template
-
-The Content ESM template is designed for creating content scripts using ECMAScript Modules, allowing you to inject JavaScript directly into web pages.
-
-![Content ESM Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the Content ECMAScript Module template */}
-
-#### Try it yourself
+Start a new-tab extension with modern module syntax and minimal setup.
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension@latest create my-extension --template=content-esm",
-    pnpm: "pnpx extension@latest create my-extension --template=content-esm",
-    yarn: "yarn dlx extension@latest create my-extension --template=content-esm",
+    npm: 'npx extension@latest create my-extension --template=new',
+    pnpm: 'pnpx extension@latest create my-extension --template=new',
+    yarn: 'yarn dlx extension@latest create my-extension --template=new'
   }}
 />
 
-## Usage With An Existing Extension
+Repository: [extension-js/examples/new](https://github.com/extension-js/examples/tree/main/examples/new)
 
-To enable ECMAScript Modules in an existing extension, add `"type": "module"` to your `package.json` file. This tells Node.js and Extension.js to treat all JavaScript files as modules.
+### `content`
+
+![content template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content/screenshot.png)
+
+Inject script logic into page content while keeping ESM-style authoring.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content',
+    pnpm: 'pnpx extension@latest create my-extension --template=content',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content'
+  }}
+/>
+
+Repository: [extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+## Using ESM in existing projects
+
+You can use ESM syntax directly in extension source files (`.js`, `.mjs`, `.ts`, `.tsx`, etc.) without custom bundler setup.
+
+If your Node-side project files should also run as ESM (for example custom scripts or config conventions), set `"type": "module"` in `package.json`:
 
 ```json
 {
   "name": "my-extension",
   "version": "1.0",
   "description": "My Extension Example",
-  "type": "module", // Added to enable ESM support
+  "type": "module",
   "devDependencies": {
     "extension": "latest"
   },
   "scripts": {
-    "dev": "extension@latest dev",
+    "dev": "extension dev",
     "start": "extension start",
-    "build": "extension@latest build"
+    "build": "extension build"
   }
 }
 ```
 
-## Key Differences Between ECMAScript Modules and CommonJS
+## Manifest and service worker notes
 
-When working with ECMAScript Modules, there are some important differences compared to CommonJS modules.
+For Manifest V3 background workers:
 
-### 1. **Relative Imports Must Include File Extensions**
+- Set `background.type` to `"module"` when you want native module worker semantics.
+- Without module worker type, Extension.js uses classic worker chunk loading behavior.
 
-When importing local files, you must include the file extension (e.g., `.js`, `.mjs`).
+```json
+{
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  }
+}
+```
+
+## ESM vs CommonJS reminders
+
+When writing ESM modules:
+
+### 1) Relative imports should include file extensions in authoring/runtime-aware code paths
 
 ```diff
 // my-file.mjs
-
-React does not need a file extension since it's imported from package.json
 import React from 'react'
 
-myImport requires a file extension since it's a local module
+// local imports
 - import myImport from './myImport'
 + import myImport from './myImport.js'
 ```
 
-### 2. **Named Exports Are Not Available From Non-ESM**
+### 2) Interop with non-ESM modules can differ
 
-If you are working with a non-ESM file, only the `"default"` export can be imported. Named exports are not supported.
+When importing CommonJS packages from ESM, prefer documented interop patterns from each package.
 
-```diff
-// my-file.js (CommonJS)
+### 3) CommonJS globals are not available in strict ESM contexts
 
-// myImport is an ESM, and it can only be imported via default export.
-- import {myExportedMethod} from './myImport.mjs'
-+ import myDefaultExport from './myImport.mjs'
-```
+Avoid relying on `require`, `module.exports`, `__filename`, and `__dirname` inside ESM modules.
 
-### 3. **CommonJS Syntax Is Not Supported**
+## Handling environment variables in ECMAScript modules
 
-CommonJS syntax such as `require`, `module.exports`, `__filename`, and `__dirname` is not available in ECMAScript Modules. Attempting to use these will result in an error.
+Extension.js supports both:
 
-## Handling Environment Variables in ECMAScript Modules
+- `process.env.EXTENSION_PUBLIC_*`
+- `import.meta.env.EXTENSION_PUBLIC_*`
 
-Extension.js provides support for environment variables in ECMAScript modules. You can access environment variables using `process.env` in any module. Ensure that your environment variables are prefixed with `EXTENSION_PUBLIC_` to be available in the client-side code.
+Use `EXTENSION_PUBLIC_` for variables that should be available in extension code.
 
 ```js
 // example.mjs
 
-console.log(process.env.EXTENSION_PUBLIC_API_KEY);
-// Output: The value of EXTENSION_PUBLIC_API_KEY
+console.log(import.meta.env.EXTENSION_PUBLIC_API_KEY)
+console.log(process.env.EXTENSION_PUBLIC_API_KEY)
 ```
 
-## Next Steps
+## Next steps
 
-- Learn more about [TypeScript](./typescript) support.
-- Explore how Extension.js handles [CSS Modules](./css-modules).
+- Learn more about [TypeScript](./typescript.mdx).
+- Explore how Extension.js handles [CSS modules](./css-modules.mdx).
+
+## Video walkthrough
+
+{/* VIDEO_DEMO_SOON: Show authoring ESM modules across background, content, and page contexts with a successful dev run. */}
+![Video demo soon: ecmascript modules extension workflow](https://placehold.co/960x540?text=Video+demo+soon)

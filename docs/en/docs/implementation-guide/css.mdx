@@ -1,0 +1,94 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="css" />
+
+# CSS
+
+Style extension pages and content scripts with a single pipeline while Extension.js handles context-specific output and reload behavior.
+
+Extension.js supports plain CSS plus Sass/Less preprocessors, and routes styles differently for page contexts vs content-script contexts.
+
+## CSS capabilities
+
+| Capability            | What it gives you
+| --------------------- | -------------------------------------------------------
+| Multi-context styling | Use one authoring model for pages and content scripts
+| Preprocessor support  | Compile Sass/Less when dependencies are present
+| Context-aware output  | Emit page CSS and content-script CSS to correct targets
+| Dev update flow       | Apply style updates through HMR/remount when supported
+
+## Where CSS can be referenced
+
+- `manifest.json` (`content_scripts[].css`)
+- HTML files (`<link rel="stylesheet" href="...">`)
+- script imports (`import "./styles.css"`, including Sass/Less when enabled)
+
+## CSS support
+
+Manifest CSS entries:
+
+| Manifest field        | File type expected
+| --------------------- | ---------------------------------
+| `content_scripts.css` | `.css`, `.scss`, `.sass`, `.less`
+
+## Example: CSS in `manifest.json`
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["./styles/content.css"],
+      "js": ["./scripts/content.ts"]
+    }
+  ]
+}
+```
+
+## Example: CSS in extension page scripts
+
+```ts
+import './styles/popup.scss'
+```
+
+## Output behavior by context
+
+| Context            | Output behavior
+| ------------------ | ---------------------------------------------------------------------
+| HTML/page contexts | CSS is bundled with page entries (`feature.css`)
+| Content scripts    | CSS is emitted as `content_scripts/[name].[contenthash:8].css` assets
+
+This context split is automatic and based on the entrypoint issuer.
+
+{/* VIDEO_DEMO_SOON: Show CSS changes in a popup page and a content script, highlighting different output/update behavior for each context. */}
+![Video demo soon: CSS behavior by extension context](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Development behavior
+
+- Content script CSS imports participate in the content-script HMR/remount flow.
+- CSS-only content script entries get a dev helper script so updates can propagate.
+- Page CSS follows normal page HMR pipeline behavior.
+- Structural manifest/content-script changes can still require full extension reload or restart.
+
+## Modules and preprocessors
+
+- CSS Modules are best suited for extension page contexts.
+- Sass/Less support is enabled when related dependencies are present.
+- PostCSS applies on top of the style pipeline when configured/detected.
+
+## Best practices
+
+- Keep content-script styles intentionally scoped to reduce host-page collisions.
+- Prefer component-local module styles for extension page UIs.
+- Keep preprocessors/PostCSS configs explicit to avoid implicit toolchain drift.
+- Validate CSS paths referenced by manifest fields in CI.
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).
+- Learn more about [CSS modules](../languages-and-frameworks/css-modules.mdx).
+- Learn more about [PostCSS integration](../integrations/postcss.mdx).

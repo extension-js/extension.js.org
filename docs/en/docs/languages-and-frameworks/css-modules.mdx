@@ -1,106 +1,133 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="cssModules" />
 
-# CSS Modules
+# CSS modules
 
-CSS Modules allow for locally scoped class names and animation names by default, helping to prevent naming collisions in your extension's styling.
+Scope styles by default and avoid naming collisions across extension pages, options UIs, and popups.
 
-Extension.js offers built-in support for CSS Modules, including support for Sass modules (`*.module.sass`, `*.module.scss`).
+Extension.js supports CSS Modules with zero configuration for module-style filenames and uses the Rspack CSS pipeline under the hood.
 
-## Starter CSS Module Template
+## When CSS modules are a good fit
 
-Extension.js includes a **New Tab** CSS Module template that provides a great starting point for using CSS Modules in your extension. This is the simplest way to integrate CSS Modules into your project.
+- You need local class scoping without adopting a full CSS-in-JS stack.
+- You share components across popup/options/new-tab surfaces.
+- You want predictable style ownership in larger extension codebases.
 
-![CSS Module Extension Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the CSS Modules template */}
+## Template examples
 
-### Try it yourself
+### `content-css-modules`
+
+![content-css-modules template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-css-modules/screenshot.png)
+
+Add locally scoped styles to content-script UI with minimal setup.
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension@latest create my-extension --template=new-css-modules",
-    pnpm: "pnpx extension@latest create my-extension --template=new-css-modules",
-    yarn: "yarn dlx extension@latest create my-extension --template=new-css-modules",
+    npm: 'npx extension@latest create my-extension --template=content-css-modules',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-css-modules',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-css-modules'
   }}
 />
 
-## Usage With An Existing Extension
+Repository: [extension-js/examples/content-css-modules](https://github.com/extension-js/examples/tree/main/examples/content-css-modules)
 
-Extension.js offers zero-config support for CSS Modules. To use CSS Modules in your existing extension, rename your CSS file with the `.module.css` suffix. This automatically enables CSS Modules for that file.
+## Usage with an existing extension
+
+To use CSS Modules, name files with a module suffix:
+
+- `*.module.css`
+- `*.module.scss`
+- `*.module.sass`
+- `*.module.less`
+
+Use the related language pages for Sass and Less setup requirements.
 
 ```diff
 - myComponentCss.css
 + myComponentCss.module.css
 ```
 
-### Usage Example
+### Usage example
 
-After renaming your CSS file, import and use it in your component:
+After renaming your stylesheet, import and use it in your component:
 
-```js
-import buttonStyles from "./styles/myComponent.module.css";
+```ts
+import styles from './styles/myComponent.module.css'
 
-const button = document.createElement("button");
-button.className = buttonStyles.primary;
-button.innerText = "Click here";
-document.body.appendChild(button);
+const button = document.createElement('button')
+button.className = styles.primary
+button.innerText = 'Click here'
+document.body.appendChild(button)
 ```
 
-This approach ensures that the `primary` class is scoped locally to your component, preventing any global style collisions.
+## How it works
 
-## React/Preact Example Usage
+Extension.js enables Rspack CSS support and handles module imports through the CSS module pipeline:
+
+- default import style maps (`import styles from "./x.module.css"`)
+- class names are generated through Rspack CSS module generation
+- module class exports are designed for direct use in JS/TS/TSX files
+
+In extension page contexts (for example popup/options/new tab), module imports behave as expected with hashed/localized class mapping.
+
+## Content script note
+
+Content script styles use an asset-based CSS flow. In that context, CSS is emitted and injected as stylesheet content rather than consumed as CSS Module JS exports.
+
+Use component-level local class naming in content scripts, and avoid assuming module export maps there unless your setup explicitly verifies that path.
+
+## React/Preact example usage
 
 For React or Preact, you can import and use the CSS Module in the component like this:
 
 ```jsx
-import styles from "./styles/myComponent.module.css";
+import styles from './styles/myComponent.module.css'
 
 export default function NewTabPage() {
-  return <button className={styles.primary}>Click here</button>;
+  return <button className={styles.primary}>Click here</button>
 }
 ```
 
-## Vue Example Usage
+## Vue example usage
 
-In Vue, you can import CSS Modules and use scoped styles like this:
+In Vue, you can use module classes from SFC styles:
 
 ```vue
 <template>
   <button :class="$style.primary">Click here</button>
 </template>
 
-<script>
-import styles from "./styles/myComponent.module.css";
-export default {
-  data() {
-    return { styles };
-  },
-};
-</script>
-
 <style module>
-@import "./styles/myComponent.module.css";
+@import './styles/myComponent.module.css';
 </style>
 ```
 
-## Svelte Example Usage
+## Svelte example usage
 
-In Svelte, you can import and use CSS Modules as follows:
+In Svelte, import module mappings and apply class names:
 
 ```svelte
 <script>
-  import styles from './styles/myComponent.module.css';
+  import styles from "./styles/myComponent.module.css";
 </script>
 
 <button class={styles.primary}>Click here</button>
-
-<style module>
-  @import './styles/myComponent.module.css';
-</style>
 ```
 
-## Next Steps
+## Best practices
 
-- Learn more about [Sass Modules](./sass.mdx).
+- Keep module styles close to components (`Component.module.css`) for easier ownership.
+- Use `:global(...)` sparingly and only for intentional global overrides.
+- Prefer module styles for extension pages and framework components where class mapping is explicit.
+
+## Next steps
+
+- Learn more about [Sass and Sass modules](./sass.mdx).
+- Learn more about [LESS and LESS modules](./less.mdx).
+
+## Video walkthrough
+
+{/* VIDEO_DEMO_SOON: Show CSS Module class mapping in extension UI and content-script style injection behavior. */}
+![Video demo soon: css modules extension workflow](https://placehold.co/960x540?text=Video+demo+soon)

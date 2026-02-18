@@ -1,0 +1,122 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="locale" />
+
+# Locales
+
+Ship localized extension metadata and UI strings with predictable `_locales` handling in both development and production builds.
+
+Extension.js discovers locale files next to your manifest, validates locale requirements, emits locale JSON assets, and watches them for updates.
+
+## Locale capabilities
+
+| Capability           | What it gives you
+| -------------------- | ------------------------------------------------------------------
+| Locale discovery     | Detect `_locales/<locale>/messages.json` from manifest location
+| Validation           | Catch missing default locale files and unresolved `__MSG_*__` keys
+| Build output mapping | Emit locale files in the expected extension output structure
+| Dev watch support    | Reload on locale file changes during development
+
+## Expected structure
+
+```plaintext
+manifest.json
+_locales/
+  en/
+    messages.json
+  fr/
+    messages.json
+```
+
+`default_locale` in `manifest.json` should map to an existing `_locales/<default>/messages.json`.
+
+## Sample locales declaration in `manifest.json`
+
+Here's how to declare locales in your `manifest.json`:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "default_locale": "en",
+  "description": "__MSG_extension_description__"
+}
+```
+
+You would then include JSON files for each locale inside the `_locales` folder:
+
+```plaintext
+_locales/
+└── en/
+    └── messages.json
+```
+
+## Sample `messages.json` file
+
+Here's an example of a `messages.json` file used for translations:
+
+```json
+{
+  "extension_name": {
+    "message": "My Extension"
+  },
+  "extension_description": {
+    "message": "This is a localized description of my extension."
+  }
+}
+```
+
+## Output path
+
+Locale JSON files are emitted under:
+
+```plaintext
+_locales/<locale>/messages.json
+```
+
+## Development behavior
+
+- Locale JSON files are added to compilation dependencies and watched.
+- Locale changes trigger extension reload behavior (hard reload path), not component-style HMR.
+- Invalid/missing required locale files fail validation with actionable diagnostics.
+
+{/* VIDEO_DEMO_SOON: Show adding a new locale key, updating manifest `__MSG_*__` usage, and validating locale output across builds. */}
+![Video demo soon: locale workflow and validation](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Validation behavior
+
+Extension.js validates:
+
+- `default_locale` presence when `_locales` is used
+- existence of `_locales/<default>/messages.json`
+- JSON validity for locale files
+- `__MSG_*__` references in manifest against default locale keys
+
+### Troubleshooting missing locale keys
+
+If your manifest uses `__MSG_extension_description__`, ensure the default locale file contains `extension_description`:
+
+```json
+{
+  "extension_description": {
+    "message": "Localized extension description"
+  }
+}
+```
+
+If the key is missing in the default locale, build/validation diagnostics will surface the mismatch.
+
+## Best practices
+
+- Keep `messages.json` keys consistent across locales.
+- Update default locale first, then propagate keys to other locales.
+- Validate locale JSON in CI to catch malformed files before packaging.
+- Keep locale files close to manifest (`manifestDir/_locales`) for predictable resolution.
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).
+- Continue with [JSON in development](./json.mdx).
+- Learn about [manifest development behavior](./manifest-json.mdx).

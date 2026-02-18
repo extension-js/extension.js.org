@@ -1,0 +1,94 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="json" />
+
+# JSON
+
+Use JSON resources for extension features like rulesets and managed schemas with validation and predictable output handling.
+
+Extension.js processes manifest-referenced JSON resources, validates them for known feature types, watches them during development, and emits output assets when needed.
+
+## JSON capabilities
+
+| Capability                | What it gives you
+| ------------------------- | -------------------------------------------------------------
+| Manifest resource support | Handle DNR rulesets and managed schema files cleanly
+| JSON validation           | Fail early on malformed JSON and invalid resource shape
+| Dev dependency tracking   | Recompile when referenced JSON resources change
+| Placeholder replacement   | Resolve supported `$EXTENSION_*` placeholders in emitted JSON
+
+## JSON support
+
+Common manifest fields:
+
+| Manifest field                           | File type expected
+| ---------------------------------------- | ------------------
+| `declarative_net_request.rule_resources` | .json
+| `storage.managed_schema`                 | .json
+
+## Sample JSON declaration in `manifest.json`
+
+Here's an example of how to declare a JSON file in your `manifest.json`:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules/ruleset.json"
+      }
+    ]
+  },
+  "storage": {
+    "managed_schema": "schema/storage-schema.json"
+  }
+}
+```
+
+## Output path
+
+JSON resources are emitted by feature context (for example DNR and storage schema outputs):
+
+```plaintext
+declarative_net_request/<ruleset-id>.json
+storage/managed_schema.json
+```
+
+## Development behavior
+
+- Manifest-referenced JSON files are tracked as file dependencies.
+- JSON edits trigger recompilation.
+- Some JSON-related structural manifest changes can require restart diagnostics.
+
+## Validation behavior
+
+Extension.js validates:
+
+- JSON syntax for referenced resources
+- DNR ruleset shape (array-based ruleset expectations)
+- managed storage schema shape (object-based expectations)
+
+{/* VIDEO_DEMO_SOON: Show editing a DNR ruleset JSON file, catching validation errors, then rebuilding with corrected output. */}
+![Video demo soon: JSON resource validation flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Environment placeholders
+
+Emitted `.json` assets can receive `$EXTENSION_*` placeholder replacement during compilation (same pass used for static HTML placeholder replacement).
+
+## Best practices
+
+- Keep manifest-referenced JSON focused on browser-required resource formats.
+- Validate JSON resources in CI before packaging.
+- Prefer stable file paths in manifest to reduce restart-required structural changes in development.
+- For app data consumed by code, consider JSON imports in JS/TS modules separately from manifest resource JSON.
+
+## Next steps
+
+- Continue with [icons in development](./icons.mdx).
+- Learn about [manifest development behavior](./manifest-json.mdx).

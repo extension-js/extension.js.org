@@ -1,90 +1,121 @@
-import { AvatarBrowsers } from "../../../../theme/components/avatar-group/browsers";
+import {AvatarBrowsers} from '../../../../theme/components/avatar-group/browsers'
 
-<AvatarBrowsers browsers={["waterfox", "opera", "brave"]} />
+<AvatarBrowsers browsers={['waterfox', 'opera', 'brave']} />
 
-# Running Other Browsers From Binary Path
+# Running other browsers from binary path
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull request. The link that documents this feature can be found at the bottom of the page.
+Run Chromium- and Gecko-family browsers beyond the default named targets by providing explicit binary paths.
 
-While Extension.js natively supports browsers like Chrome, Edge, and Firefox, you can also run unsupported browsers by specifying the path to the browser binary using the `--chromium-binary` or `--gecko-binary` flags. Additionally, you can add custom binary paths via the `extension.config.js` file for persistent configuration across runs.
+Test custom browser binaries (for example Brave, Vivaldi, or Waterfox) from the same Extension.js workflow. Extension.js supports custom browser executables through binary flags and `extension.config.*` in `dev`, `start`, and `preview`.
 
-## How Does It Work?
+## How it works
 
-If you need to run a browser that is not fully supported by Extension.js, you can specify the path to a custom browser binary using the `--chromium-binary` or `--gecko-binary` flags. Extension.js will launch the specified browser binary with your extension loaded, allowing you to test your extension in a custom browser environment.
+Use one of these flags:
 
-**Example Using CLI Flags:**
+- `--chromium-binary <path>`
+- `--gecko-binary <path>` (alias: `--firefox-binary <path>`)
+
+These binary flags override named browser selection at runner level.
+
+## Binary capabilities
+
+| Option / key                      | What it does
+| --------------------------------- | -------------------------------------------------
+| `--chromium-binary <path>`        | Launches a custom Chromium-family browser binary.
+| `--gecko-binary <path>`           | Launches a custom Gecko-family browser binary.
+| `--firefox-binary <path>`         | Alias of `--gecko-binary`.
+| `browser.<target>.chromiumBinary` | Sets default custom Chromium binary in config.
+| `browser.<target>.geckoBinary`    | Sets default custom Gecko binary in config.
+| `commands.<name>.chromiumBinary`  | Sets command-specific custom Chromium binary.
+| `commands.<name>.geckoBinary`     | Sets command-specific custom Gecko binary.
+
+### CLI examples
 
 ```bash
-extension dev --chromiumBinary=/path/to/custom-browser
+extension dev --browser=chromium-based --chromium-binary="/path/to/brave"
 ```
-
-or for Gecko-based browsers like Firefox:
 
 ```bash
-extension dev --geckoBinary=/path/to/custom-firefox
+extension dev --browser=firefox --gecko-binary="/path/to/firefox-developer-edition"
 ```
 
-**Example Using `extension.config.js`:**
+You can also use them with `start` and `preview`.
+
+{/* VIDEO_DEMO_SOON: Show launching the same extension in Brave and Firefox Developer Edition using binary flags. */}
+![Video demo soon: custom browser binary launch](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Configure in `extension.config.*`
 
 ```js
-module.exports = {
+export default {
   browser: {
-    firefox: {
-      geckoBinary: "/path/to/custom-firefox",
+    'chromium-based': {
+      chromiumBinary: '/path/to/custom-chromium-browser'
     },
-    "chromium-based": {
-      chromiumBinary: "/path/to/custom-browser",
-    },
-  },
-};
+    'gecko-based': {
+      geckoBinary: '/path/to/custom-gecko-browser'
+    }
+  }
+}
 ```
 
-In these scenarios, the browser specified in the `--chromiumBinary` or `--geckoBinary` flag (or in `extension.config.js`) will be launched instead of the default Chrome, Edge, or Firefox binaries.
-
-## Available Browsers
-
-Here is a short list of browsers you can run using these binary flags, along with their official websites for reference:
-
-| **Browser Name**              | **Type**               | **CLI Flag**        | **Official Website**                                      |
-| ----------------------------- | ---------------------- | ------------------- | --------------------------------------------------------- |
-| **Brave**                     | Chromium-Based Browser | `--chromium-binary` | [brave.com](https://brave.com)                            |
-| **Opera**                     | Chromium-Based Browser | `--chromium-binary` | [opera.com](https://www.opera.com)                        |
-| **Vivaldi**                   | Chromium-Based Browser | `--chromium-binary` | [vivaldi.com](https://vivaldi.com)                        |
-| **Waterfox**                  | Gecko-Based Browser    | `--gecko-binary`    | [waterfox.net](https://www.waterfox.net)                  |
-| **Firefox Developer Edition** | Gecko-Based Browser    | `--gecko-binary`    | [firefox.com](https://www.mozilla.org/firefox/developer/) |
-
-## Example Configuration
-
-Below is an example configuration using the `--gecko-binary` flag to run a custom Firefox instance with specific preferences and flags:
-
-```bash
-extension dev --gecko-binary=/path/to/custom-firefox --profile=/path/to/firefox/profile
-```
-
-Or via `extension.config.js`:
+You can also place binary paths in command blocks:
 
 ```js
-module.exports = {
-  browser: {
-    firefox: {
-      geckoBinary: "/path/to/custom-firefox",
-      profile: "/path/to/firefox/profile",
-      preferences: {
-        homepage: "https://example.com",
-      },
-      browserFlags: ["--safe-mode"],
+export default {
+  commands: {
+    dev: {
+      chromiumBinary: '/path/to/custom-chromium-browser'
     },
-  },
-};
+    preview: {
+      geckoBinary: '/path/to/custom-gecko-browser'
+    }
+  }
+}
 ```
 
-## Best Practices
+{/* VIDEO_DEMO_SOON: Show config-based binary defaults applied automatically in `dev` and `preview`. */}
+![Video demo soon: config-driven binary defaults](https://placehold.co/960x540?text=Video+demo+soon)
 
-- **Set Up Profiles**: Utilize custom profiles for different users or configurations.
-- **Preferences**: Use the `preferences` option to customize browser settings.
-- **Flags**: Leverage browser flags for specialized environments or behaviors.
-- **Binary Paths**: Run custom or unsupported browsers by specifying their binary paths.
+## Target mapping behavior
 
-## Next Steps
+Binary hints map to engine targets:
+
+- `chromiumBinary` -> `chromium-based`
+- `geckoBinary` / `firefoxBinary` -> `gecko-based`
+
+If both are provided, Chromium binary resolution is applied first.
+
+## Available browsers
+
+Common browsers you can run with binary flags:
+
+| **Browser Name**              | **Type**               | **CLI Flag**        | **Official Website**
+| ----------------------------- | ---------------------- | ------------------- | ---------------------------------------------------------
+| **Brave**                     | Chromium-Based Browser | `--chromium-binary` | [brave.com](https://brave.com)
+| **Opera**                     | Chromium-Based Browser | `--chromium-binary` | [opera.com](https://www.opera.com)
+| **Vivaldi**                   | Chromium-Based Browser | `--chromium-binary` | [vivaldi.com](https://vivaldi.com)
+| **Waterfox**                  | Gecko-Based Browser    | `--gecko-binary`    | [waterfox.net](https://www.waterfox.net)
+| **Firefox Developer Edition** | Gecko-Based Browser    | `--gecko-binary`    | [firefox.com](https://www.mozilla.org/firefox/developer/)
+
+## Important constraints
+
+- `chromium-based` requires a valid `chromiumBinary` path.
+- `gecko-based` / `firefox-based` require a valid `geckoBinary` path.
+- Invalid paths fail fast with a clear CLI/runtime error.
+- `build` does not accept binary flags; binary-based launching applies to `dev`, `start`, and `preview`.
+
+{/* VIDEO_DEMO_SOON: Show invalid binary path error handling and then successful launch after fixing the path. */}
+![Video demo soon: binary path validation flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Best practices
+
+- **Pair binaries with explicit browser target**: Use `--browser=chromium-based` or `--browser=gecko-based` for predictable intent.
+- **Use absolute paths**: Avoid shell-dependent path resolution issues.
+- **Version-pin in CI runners**: Keep browser binary paths deterministic for automated checks.
+- **Combine with profile/flags carefully**: Reuse the same profile and flag strategy used for named browser targets.
+
+## Next steps
 
 - Check out the [browser preferences](./browser-preferences.mdx) to further configure your environment.
+- Learn more about [Browser profile](./browser-profile.mdx).

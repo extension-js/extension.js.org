@@ -1,0 +1,73 @@
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="extension" />
+
+# Performance playbook
+
+Keep extension startup fast and runtime overhead low across content scripts, service worker, and UI surfaces. Use this playbook to prevent common regressions as features grow.
+
+## Performance optimization capabilities
+
+| Area            | What this helps you optimize
+| --------------- | ----------------------------------------------------------
+| Content scripts | Injection cost, DOM work timing, and remount overhead
+| Service worker  | Startup path, event handling cost, and cold-start behavior
+| UI surfaces     | Initial render size and optional feature loading
+| Assets          | Bundle size, icon/media weight, and WAR footprint
+| Operations      | CI checks and runtime regression tracking
+
+## Fast optimization pass
+
+1. Measure first-run behavior on one target browser.
+2. Trim synchronous startup work in content scripts and background handlers.
+3. Defer optional UI features until after initial render.
+4. Re-check build output size and smoke-test critical flows.
+
+{/* VIDEO_DEMO_SOON: Show profiling a slow extension startup, applying focused optimizations, and validating improved runtime behavior. */}
+![Video demo soon: extension performance optimization flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Content scripts
+
+- Keep entry files small and defer non-critical work.
+- Avoid heavy synchronous DOM scans at `document_start`.
+- Scope observers and event listeners; clean up on remount/dispose.
+- Split reusable logic into shared modules, but avoid fragile dynamic import patterns.
+
+## Background/service worker
+
+- Minimize work at startup; initialize lazily when events arrive.
+- Cache stable computed state where safe.
+- Avoid long-running synchronous tasks in event handlers.
+- Watch service worker dependency churn during active development.
+
+## UI pages (popup/options/new tab/sidebar)
+
+- Keep initial render path lightweight.
+- Load large optional UI features on demand.
+- Use framework dev tools only when needed in local debugging sessions.
+- Keep styles modular and avoid large global CSS payloads.
+
+## Assets and resources
+
+- Optimize icon/image sizes by target use.
+- Limit WAR exposure to required assets.
+- Keep public assets intentional; remove stale files.
+- Verify generated `dist/<browser>` output size regularly.
+
+## Operational checks
+
+- Run multi-browser build checks in CI.
+- Track regression signals in E2E runtime duration over time.
+- Add smoke tests for critical extension flows (install, open UI, content script activation).
+
+## Common performance pitfalls
+
+- large content-script bundles loaded on every matched page
+- heavy work at `document_start` without guard conditions
+- service worker handlers doing synchronous, non-essential initialization
+- UI pages shipping large global CSS/JS when only partial features are used
+
+## Next steps
+
+- Review [Playwright E2E](./playwright-e2e.mdx).
+- Review [security checklist](./security-checklist.mdx).

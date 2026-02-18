@@ -1,52 +1,55 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="typescript" />
 
 # TypeScript
 
-TypeScript adds static types to JavaScript, helping to prevent errors and improve code quality.
+Build TypeScript browser extensions with zero custom bundler wiring.
 
-Extension.js offers built-in support for TypeScript, making it easy to integrate TypeScript into your browser extension projects.
+Extension.js supports TypeScript across extension contexts (background, content scripts, and page scripts) using the default Rspack + SWC pipeline.
 
-## Templates for TypeScript Extensions
+## When TypeScript is a good fit
 
-Extension.js provides two TypeScript templates to get started with:
+- You want safer refactors and clearer contracts across extension contexts.
+- You share logic between background scripts, content scripts, and UI surfaces.
+- You need predictable API usage when working with AI-generated code.
 
-- **New TypeScript Template**: For creating a new tab page extension using TypeScript.
-- **Content TypeScript Template**: For creating a content script-based extension using TypeScript.
+## Template examples
 
-### New TypeScript Template
+### `new-typescript`
 
-The new TypeScript template is ideal for creating browser extensions that need a new tab page. This template includes everything you need to start building an extension with TypeScript right out of the box.
+![new-typescript template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-typescript/screenshot.png)
 
-![TypeScript Extension Template](../../../../assets/guides/development/ts-template.png)
-
-#### Try it yourself
-
-<PackageManagerTabs
-  command={{
-    npm: "npx extension@latest create my-extension --template=new-typescript",
-    pnpm: "pnpx extension@latest create my-extension --template=new-typescript",
-    yarn: "yarn dlx extension@latest create my-extension --template=new-typescript",
-  }}
-/>
-
-### Content TypeScript Template
-
-The content TypeScript template is designed for extensions that need content scripts. This template enables you to inject TypeScript-based scripts directly into web pages.
-
-#### Try it yourself
+Best for building a new-tab extension with TypeScript defaults already configured.
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension@latest create my-extension --template=content-typescript",
-    pnpm: "pnpx extension@latest create my-extension --template=content-typescript",
-    yarn: "yarn dlx extension@latest create my-extension --template=content-typescript",
+    npm: 'npx extension@latest create my-extension --template=new-typescript',
+    pnpm: 'pnpx extension@latest create my-extension --template=new-typescript',
+    yarn: 'yarn dlx extension@latest create my-extension --template=new-typescript'
   }}
 />
 
-## Using TypeScript with an Existing Extension
+Repository: [extension-js/examples/new-typescript](https://github.com/extension-js/examples/tree/main/examples/new-typescript)
+
+### `content-typescript`
+
+![content-typescript template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-typescript/screenshot.png)
+
+Best for injecting TypeScript-powered content scripts into existing pages.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content-typescript',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-typescript',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-typescript'
+  }}
+/>
+
+Repository: [extension-js/examples/content-typescript](https://github.com/extension-js/examples/tree/main/examples/content-typescript)
+
+## Using TypeScript with an existing extension
 
 If you want to add TypeScript support to an existing extension, follow these steps.
 
@@ -62,9 +65,14 @@ If you want to add TypeScript support to an existing extension, follow these ste
 
 ### Configuration
 
-#### Automatic TypeScript Support
+#### TypeScript detection and requirements
 
-If your extension includes TypeScript but lacks a `tsconfig.json`, Extension.js will automatically generate one with these default settings:
+Extension.js looks for `tsconfig.json` next to your `package.json`.
+
+- If TypeScript source files are present and `tsconfig.json` is missing, Extension.js throws an error and asks you to create one.
+- If TypeScript is detected through dependencies/config flow without source files, Extension.js can scaffold a baseline `tsconfig.json`.
+
+Example baseline config:
 
 ```json5
 {
@@ -73,27 +81,24 @@ If your extension includes TypeScript but lacks a `tsconfig.json`, Extension.js 
     allowSyntheticDefaultImports: true,
     esModuleInterop: true,
     forceConsistentCasingInFileNames: true,
-    isolatedModules: true,
-    jsx: "react-jsx",
-    lib: ["dom", "dom.iterable", "esnext"],
-    moduleResolution: "node",
-    module: "esnext",
+    isolatedModules: false,
+    jsx: 'react-jsx',
+    lib: ['dom', 'dom.iterable', 'esnext'],
+    moduleResolution: 'node',
+    module: 'esnext',
     noEmit: true,
     resolveJsonModule: true,
     strict: true,
-    target: "esnext",
-    verbatimModuleSyntax: true,
-    useDefineForClassFields: true,
-    skipLibCheck: true,
+    target: 'esnext',
+    skipLibCheck: true
   },
-  include: ["./"],
-  exclude: ["node_modules", "dist"],
+  exclude: ['node_modules', 'dist']
 }
 ```
 
-#### Automatic Types
+#### Automatic types
 
-If your extension uses TypeScript, Extension.js will automatically install the necessary types for common libraries like `chrome`, `webextension-polyfill`, and `node` in a `extension-env.d.ts` file, which is auto-generated in the project root directory.
+Extension.js generates `extension-env.d.ts` in your project root (dev flow) with references to Extension.js ambient types and polyfill types.
 
 ```ts
 // Required Extension.js types for TypeScript projects.
@@ -101,12 +106,33 @@ If your extension uses TypeScript, Extension.js will automatically install the n
 // If you need additional types, consider creating a new *.d.ts file and
 // referencing it in the "include" array of your tsconfig.json file.
 // See https://www.typescriptlang.org/tsconfig#include for more information.
-/// <reference types="extension/dist/types/index.d.ts" />
+/// <reference types="extension/types" />
 
 // Polyfill types for browser.* APIs.
-/// <reference types="extension/dist/types/polyfill.d.ts" />
+/// <reference types="extension/types/polyfill" />
 ```
 
-## Next Steps
+#### Transpilation vs type-checking
 
-- Explore how Extension.js handles [Sass Modules](./sass.mdx).
+The default bundler pipeline transpiles TypeScript but does not run full `tsc` type-checking as part of bundling.
+
+Recommended scripts:
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "typecheck": "tsc --noEmit"
+  }
+}
+```
+
+## Next steps
+
+- Learn how Extension.js handles [ECMAScript Modules](./ecmascript-modules.mdx).
+- Explore styling options like [Sass modules](./sass.mdx).
+
+## Video walkthrough
+
+{/* VIDEO_DEMO_SOON: Show TypeScript template setup, generated type env file, and a successful typecheck run. */}
+![Video demo soon: typescript extension setup flow](https://placehold.co/960x540?text=Video+demo+soon)

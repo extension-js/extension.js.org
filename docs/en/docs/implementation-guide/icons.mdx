@@ -1,0 +1,86 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarEmoji} from '../../../../theme/components/avatar-emoji'
+
+<AvatarEmoji emoji="icons" />
+
+# Icons
+
+Keep extension branding and action UI consistent by declaring icons in manifest fields that Extension.js can validate, rewrite, and emit predictably.
+
+Extension.js processes icon paths from `manifest.json`, resolves public/relative paths, emits icon assets, and watches icon files during development.
+
+## Icon capabilities
+
+| Capability                  | What it gives you
+| --------------------------- | -----------------------------------------------------------
+| Manifest icon field support | Validate and compile icons for supported extension surfaces
+| Path resolution             | Handle relative and public-root icon paths consistently
+| Dev watch updates           | Recompile icon changes during local development
+| Browser-safe output         | Emit icon assets in extension output with stable references
+
+## Supported icon fields
+
+| Manifest field                | File type expected
+| ----------------------------- | ---------------------
+| `action.default_icon`         | .png, .jpg, .svg
+| `browser_action.default_icon` | .png, .jpg, .svg
+| `icons`                       | .png, .jpg, .svg
+| `page_action.default_icon`    | .png, .jpg, .svg
+| `sidebar_action.default_icon` | .png, .jpg, .svg (\*)
+| `browser_action.theme_icons`  | .png, .jpg, .svg
+
+> **Note:** Support for `.svg` is currently partial in some browsers for `sidebar_action.default_icon`. Review browser compatibility before using SVGs in this context.
+
+## Sample icon declaration in `manifest.json`
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_icon": "icons/action-icon.png"
+  }
+}
+```
+
+## Output path
+
+Typical icon outputs:
+
+```plaintext
+icons/<filename>
+browser_action/<theme-icon-filename>   # for theme_icons
+```
+
+## Path behavior
+
+- Relative icon paths are resolved from the manifest directory.
+- Leading `/` and `public/...` resolve to extension public-root semantics.
+- Public-folder assets can be watched without always being re-emitted by the icon feature itself.
+
+## Development behavior
+
+- Changing existing icon files triggers recompilation.
+- Changing manifest icon entrypoint references can require restarting the dev server.
+- Missing required icon files produce build errors (some optional icon groups can warn instead).
+
+{/* VIDEO_DEMO_SOON: Show replacing manifest icon files and verifying updated assets in extension UI surfaces across build output. */}
+![Video demo soon: icon declaration and output flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Best practices
+
+- Declare manifest icon fields explicitly instead of relying on incidental asset imports.
+- Provide multiple icon sizes (`16`, `32`, `48`, `128`) for sharper UI across browser surfaces.
+- Keep icon filenames stable to reduce manifest churn during development.
+- Use public-root paths intentionally and test resulting manifest output paths.
+
+## Next steps
+
+- Continue with [web-accessible resources](./web-accessible-resources.mdx).
+- Learn more about [special folders](../features/special-folders.mdx).
