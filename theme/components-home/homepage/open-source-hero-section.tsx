@@ -130,11 +130,10 @@ export default function OpenSourceHeroSection() {
             <p
               className={`${businessCoreDescriptionSizeClass} max-w-xl text-center`}
             >
-              Use Extension.js to scaffold robust browser extensions, manage
-              cross-browser builds, and streamline development across Chrome,
-              Edge, and Firefox with modern tooling, predictable outputs, and
-              a shared workflow that helps teams collaborate, move faster, and
-              stay consistent.
+              Build browser extensions for Chrome, Edge, and Firefox with one
+              modern workflow. Extension.js handles manifest compilation,
+              browser-specific output, reload behavior, and packaging so you can
+              focus on product features.
             </p>
             <div className="mt-6 inline-flex w-fit items-center gap-2 rounded-lg bg-zinc-950 px-3 py-2 font-mono text-xs text-white shadow-[0_1px_0_rgba(0,0,0,0.4)]">
               <span aria-hidden="true" className="text-zinc-400">
