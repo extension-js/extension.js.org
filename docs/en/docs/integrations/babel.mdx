@@ -1,50 +1,34 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="babel" />
 
 # Babel
 
-Babel is a popular JavaScript compiler that allows you to write modern JavaScript while ensuring compatibility with older browsers by transforming your code.
+Add Babel only when you need transforms or plugins that SWC does not cover. Keep SWC as the default pipeline, then scope Babel to the files that need it.
 
-Extension.js supports Babel for transforming your JavaScript code, making it easier to use the latest JavaScript features in your extensions.
+## When Babel is a good fit
 
-## Starter Babel Template
+- You depend on Babel-only plugins or presets.
+- You are migrating an existing Babel-heavy project incrementally.
+- You want targeted transforms for specific file types (for example MDX).
 
-Extension.js includes a **New Tab** Babel template, which provides an out-of-the-box configuration to integrate Babel into your extension.
+## Babel capabilities
 
-![Babel Extension Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the Babel template */}
+| Capability              | What it gives you
+| ----------------------- | ---------------------------------------------------------------------------------------------
+| Targeted transforms     | Run Babel for specific file types (for example MDX) without replacing the full build pipeline
+| Plugin ecosystem access | Use Babel-only presets/plugins from existing web projects
+| Incremental migration   | Move legacy Babel extension projects to Extension.js in smaller steps
+| Rspack integration hook | Configure Babel through `extension.config.*` `config` hook
 
-### Try it yourself
+## Example setup
 
-<PackageManagerTabs
-  command={{
-    npm: "npx extension@latest create my-extension --template=new-babel",
-    pnpm: "pnpx extension@latest create my-extension --template=new-babel",
-    yarn: "yarn dlx extension@latest create my-extension --template=new-babel",
-  }}
-/>
+Install Babel dependencies:
 
-## Usage With An Existing Extension
+<PackageManagerTabs command="install -D @babel/core @babel/preset-env babel-loader" />
 
-You can add Babel to your existing Extension.js project by installing the necessary dependencies and configuring the Babel environment.
-
-### Installation
-
-Install Babel and its required dependencies:
-
-<PackageManagerTabs
-  command={{
-    npm: "npx install -D @babel/core @babel/preset-env babel-loader",
-    pnpm: "pnpx install -D @babel/core @babel/preset-env babel-loader",
-    yarn: "yarn dlx install -D @babel/core @babel/preset-env babel-loader",
-  }}
-/>
-
-### Babel Configuration
-
-Create a Babel configuration file (`babel.config.json`) at the root of your project. This file will define the transformation rules for your JavaScript code.
+Create `babel.config.json`:
 
 ```json
 {
@@ -52,40 +36,52 @@ Create a Babel configuration file (`babel.config.json`) at the root of your proj
 }
 ```
 
-This basic configuration ensures that your JavaScript will be transpiled to a version that is compatible with a wide range of browsers, based on your target environments.
-
-### Example Usage in a JavaScript File
-
-Once Babel is set up, you can start writing modern JavaScript. Here's an example of using ES6 features in your code:
+Wire Babel into `extension.config.js` for MDX only:
 
 ```js
-./NewTabApp.jsx
-
-const helloWorld = () => {
-  console.log("Hello, Extension!");
-};
-
-helloWorld();
-```
-
-Babel will transform this modern syntax to ensure compatibility with older browsers.
-
-## Example Babel Configuration for More Advanced Usage
-
-Babel allows you to extend the configuration to use plugins and more advanced features:
-
-```json
-{
-  "presets": ["@babel/preset-env"],
-  "plugins": [
-    ["@babel/plugin-proposal-class-properties", { "loose": true }],
-    ["@babel/plugin-transform-runtime"]
-  ]
+export default {
+  config: (config) => {
+    config.module.rules.push({
+      test: /\.mdx$/,
+      use: ['babel-loader', '@mdx-js/loader']
+    })
+    return config
+  }
 }
 ```
 
-This configuration adds support for class properties and runtime transformations, allowing you to use additional JavaScript features.
+{/* VIDEO_DEMO_SOON: Show enabling Babel for MDX only while keeping SWC for JS/TS in the same extension build. */}
+![Video demo soon: targeted Babel integration](https://placehold.co/960x540?text=Video+demo+soon)
 
-## Next Steps
+## Replace SWC for JS/TS only if required
 
-- Ensure your codebase is consistent by using [ESLint](./eslint.mdx) with Babel.
+Use this pattern only when you need Babel to process JS/TS entry files directly:
+
+```js
+export default {
+  config: (config) => {
+    config.module.rules = [
+      {
+        test: /\.[jt]sx?$/,
+        exclude: /node_modules/,
+        use: [{loader: 'babel-loader'}]
+      },
+      ...config.module.rules.filter(
+        (rule) => !String(rule?.test || '').includes('[jt]sx')
+      )
+    ]
+    return config
+  }
+}
+```
+
+## Best practices
+
+- Prefer targeted Babel usage before replacing the default JS/TS pipeline.
+- Keep Babel rules explicit so loader ordering stays predictable.
+- Reuse Babel only where migration or plugin compatibility requires it.
+
+## Next steps
+
+- Learn how to customize [Rspack configuration](../features/rspack-configuration.mdx).
+- Keep code quality high with [ESLint](./eslint.mdx).

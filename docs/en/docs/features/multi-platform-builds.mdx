@@ -1,80 +1,164 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarEmoji } from "../../../../theme/components/avatar-emoji";
+import {PackageManagerTabs} from '@theme'
+import {AvatarEmoji} from '../../../../theme/components/avatar-emoji'
 
 <AvatarEmoji emoji="package" />
 
-# Multi-Platform Builds
+# Multi-platform builds
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+Build and package the same extension for multiple browsers with predictable outputs.
 
-Building a production-ready extension with Extension.js is straightforward,
-allowing you to bundle your code, optimize assets, and generate ready-to-deploy zip files
-for all supported browsers. This guide covers the key features and capabilities
-that help you create optimized builds that are ready for the Chrome, Edge, and Firefox stores.
+Ship the same extension to Chrome, Edge, and Firefox without maintaining separate build scripts. Extension.js can run production builds per target, write artifacts to `dist/<browser>`, and optionally generate zip packages for distribution.
 
-## How Does It Work?
+## How it works
 
-Each browser has its own set of requirements and configurations for extensions. To create a production-ready build of your extension, run the following command:
+Run a production build:
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension build",
-    pnpm: "pnpx extension build",
-    yarn: "yarn dlx extension build",
+    npm: 'npx extension build',
+    pnpm: 'pnpx extension build',
+    yarn: 'yarn dlx extension build'
   }}
 />
 
-This will create a production build in the `dist/` folder for the default browser (Chrome).
-The output includes optimized JavaScript, CSS, and other assets.
+Default browser target is `chromium` unless overridden.
 
-## Building for Specific Browsers
+{/* VIDEO_DEMO_SOON: Show a default production build and where output appears under `dist/`. */}
+![Video demo soon: default multi-platform build](https://placehold.co/960x540?text=Video+demo+soon)
 
-You can also target specific browsers using the `--browser` flag:
+## Browser selection
+
+You can target a specific browser/engine:
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension build --browser=firefox",
-    pnpm: "pnpx extension build --browser=firefox",
-    yarn: "yarn dlx extension build --browser=firefox",
+    npm: 'npx extension build --browser=chrome',
+    pnpm: 'pnpx extension build --browser=chrome',
+    yarn: 'yarn dlx extension build --browser=chrome'
   }}
 />
-
-The resulting build will be placed in `dist/firefox`, including any necessary browser-specific configurations.
-
-## Generating a Zip File
-
-To automatically generate a zip file for distribution, use the `--zip` flag. The zip file will include
-all necessary assets and manifest files for the specified browser:
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension build --zip",
-    pnpm: "pnpx extension build --zip",
-    yarn: "yarn dlx extension build --zip",
+    npm: 'npx extension build --browser=firefox',
+    pnpm: 'pnpx extension build --browser=firefox',
+    yarn: 'yarn dlx extension build --browser=firefox'
   }}
 />
 
-The zip file will be named according to the extension's `name` and `version` in `manifest.json`
-(e.g., `my-extension-1.0.0.zip` for Chrome).
+Supported values include:
 
-## Polyfill Support
+- `chrome`
+- `edge`
+- `firefox`
+- `chromium`
+- `chromium-based`
+- `gecko-based` / `firefox-based` (aliases)
 
-Ensure compatibility with older browsers by adding the `--polyfill` flag.
-This includes necessary polyfills during the build process to ensure your extension runs on older versions of the browser:
+You can also run a build matrix in one command:
 
 <PackageManagerTabs
   command={{
-    npm: "npx extension build --polyfill",
-    pnpm: "pnpx extension build --polyfill",
-    yarn: "yarn dlx extension build --polyfill",
+    npm: 'npx extension build --browser=chrome,edge,firefox',
+    pnpm: 'pnpx extension build --browser=chrome,edge,firefox',
+    yarn: 'yarn dlx extension build --browser=chrome,edge,firefox'
   }}
 />
 
-## Best Practices
+This builds sequentially for `chrome`, `edge`, and `firefox`.
 
-- **Test Builds**: Test your extension in different browsers to ensure compatibility.
+{/* VIDEO_DEMO_SOON: Show one command building `chrome`, `edge`, and `firefox` with separate outputs. */}
+![Video demo soon: browser matrix build flow](https://placehold.co/960x540?text=Video+demo+soon)
 
-## Next Steps
+## Output layout
+
+Each target writes to its own folder:
+
+- `dist/chrome`
+- `dist/edge`
+- `dist/firefox`
+- `dist/chromium`
+- `dist/chromium-based`
+- `dist/gecko-based`
+
+### Build capabilities
+
+| Option                  | What it does
+| ----------------------- | ------------------------------------------------------------------------------------
+| `--browser=<target>`    | Builds for a specific browser or engine family.
+| `--zip`                 | Creates a distribution zip per target output.
+| `--zip-filename=<name>` | Overrides the default zip file name.
+| `--zip-source`          | Creates a source archive alongside output.
+| `--polyfill`            | Enables compatibility behavior for `browser.*` API usage in Chromium-family targets.
+
+{/* VIDEO_DEMO_SOON: Show final `dist/<browser>` folder layout after a matrix build. */}
+![Video demo soon: output layout by browser](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Generating a zip file
+
+Generate a distribution zip from each target output with `--zip`:
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension build --zip',
+    pnpm: 'pnpx extension build --zip',
+    yarn: 'yarn dlx extension build --zip'
+  }}
+/>
+
+By default, the zip name uses sanitized manifest `name` + `version`, for example:
+
+- `my-extension-1.0.0.zip`
+
+Customize filename:
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension build --zip --zip-filename=my-release',
+    pnpm: 'pnpx extension build --zip --zip-filename=my-release',
+    yarn: 'yarn dlx extension build --zip --zip-filename=my-release'
+  }}
+/>
+
+This creates `my-release.zip` inside the target `dist/<browser>` folder.
+
+{/* VIDEO_DEMO_SOON: Show zip output generation with default and custom `--zip-filename` values. */}
+![Video demo soon: zip packaging workflow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Include source archive
+
+Use `--zip-source` to generate a source archive alongside distribution output.
+
+`--zip-source` produces:
+
+- `dist/<name>-<version>-source.zip`
+
+{/* VIDEO_DEMO_SOON: Show source archive generation and where `-source.zip` is written. */}
+![Video demo soon: source archive output](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Polyfill support
+
+If your code relies on Gecko-style `browser.*` APIs and you need Chromium compatibility, enable `--polyfill`:
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension build --polyfill',
+    pnpm: 'pnpx extension build --polyfill',
+    yarn: 'yarn dlx extension build --polyfill'
+  }}
+/>
+
+{/* VIDEO_DEMO_SOON: Show `--polyfill` build output for Chromium target when using `browser.*` in code. */}
+![Video demo soon: polyfill build behavior](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Best practices
+
+- **Build per target in CI**: Treat each browser output as an independent artifact.
+- **Use a browser matrix command for parity checks**: Catch target-specific issues early in one pipeline step.
+- **Package intentionally**: Use `--zip` for store uploads and `--zip-source` for traceable source artifacts.
+- **Keep target config explicit**: Use `extension.config.*` command/browser defaults for reproducible builds.
+
+## Next steps
 
 - Learn more about the [Browsers Available](../browsers/browsers-available.mdx).
-- Explore the [Path Resolution](../features/path-resolution.mdx) guide for handling output files and build artifacts.
+- Explore [Path Resolution](./path-resolution.mdx) for asset/output mapping details.

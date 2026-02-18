@@ -1,44 +1,44 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="extension" />
 
-# Build Command
+# Build command
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+Create production extension artifacts for one or more browser targets.
 
-The `build` command in Extension.js is responsible for compiling your extension for production.
-This command creates optimized builds for different browsers, ensuring compatibility and performance.
-The `build/` folder will contain subfolders for each targeted browser, each with the necessary code transforms and optimizations.
+`build` compiles your extension in production mode and writes output to `dist/<browser>`.
 
-## How Does It Work?
+## When to use `build`
 
-During the build process, the following steps take place:
+- Preparing extension packages for Chrome Web Store, Edge Add-ons, or Firefox Add-ons.
+- Running CI jobs that produce deterministic release artifacts.
+- Validating production bundle output and browser-target differences before submission.
 
-- **Manifest Handling:** The manifest file is processed, ensuring that all required fields for the targeted browser are present.
-- **Asset Bundling:** JavaScript, CSS, and other assets are bundled and minified for optimal performance.
-- **Browser-Specific Transforms:** Depending on the target browser, Extension.js applies the necessary code transformations.
-- **Zip Generation:** If the `--zip` flag is passed, the build output will be packaged into a zip file for easy distribution to the browser’s extension store.
+## Build command capabilities
+
+| Capability             | What it gives you
+| ---------------------- | -------------------------------------------------------------
+| Production compilation | Generate optimized extension artifacts per target
+| Multi-target output    | Build multiple browser targets in one command
+| Packaging support      | Create distribution zip artifacts with optional source bundle
+| CI-friendly behavior   | Keep build outputs and naming predictable in automation
 
 ## Usage
 
-To use the `build` command, run:
-
 <PackageManagerTabs
   command={{
-    npm: "extension build [extension-path | extension-url] [options]",
-    pnpm: "extension build [extension-path | extension-url] [options]",
-    yarn: "extension build [extension-path | extension-url] [options]",
+    npm: 'extension build [project-path] [options]',
+    pnpm: 'extension build [project-path] [options]',
+    yarn: 'extension build [project-path] [options]'
   }}
 />
 
-## Build Output
+## Build output
 
-After running the `build` command, Extension.js generates optimized files for the specified browser.
-You will find the output inside the `build/` folder, with separate subfolders for each browser (Chrome, Edge, etc.).
-These folders contain the bundled JavaScript, CSS, HTML, and other necessary assets for the extension to work in the targeted environment.
+After running `build`, Extension.js generates optimized files for the selected browser targets. Output is written to `dist/` with one subfolder per target. Each folder contains bundled JavaScript, CSS, HTML, and required runtime assets.
 
-**Example Output Structure:**
+**Example output structure:**
 
 ```plaintext
 dist/
@@ -52,69 +52,90 @@ dist/
 │   ├── content_scripts/content-0.js
 ```
 
-## Arguments And Flags
+## Browser target matrix
 
-| Flag             | Argument                                       | What it does                                                                                                                                      | Defaults to     |
-| ---------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| `[path or url]`  | The extension path or the remote extension URL | If a path is defined, builds the local extension. If a URL is provided, pulls the extension from remote source and builds it as a local extension | `process.cwd()` |
-| `-b, --browser`  | The browser that will run the extension        | Specifies the browser to build for (`chrome`, `edge`, `all`)                                                                                      | `"chrome"`      |
-| `--zip-filename` | String                                         | Sets a custom filename for the output zip file                                                                                                    | `extension.zip` |
-| `--zip`          | Boolean                                        | Enables zipping of the build output                                                                                                               | `false`         |
-| `--zip-source`   | Boolean                                        | Zips the source code alongside the build artifacts                                                                                                | `false`         |
-| `--polyfill`     | Boolean                                        | Enables polyfill for older browsers                                                                                                               | `false`         |
-| `--silent`       | Boolean                                        | Suppresses build logs for cleaner output                                                                                                          | `false`         |
+| Target style   | Examples                                         | Notes
+| -------------- | ------------------------------------------------ | ----------------------------------
+| Named targets  | `chromium`, `chrome`, `edge`, `firefox`          | Build one specific browser target
+| Engine targets | `chromium-based`, `gecko-based`, `firefox-based` | Useful for engine-family workflows
+| Multi-target   | `chrome,firefox`                                 | Comma-separated targets
+
+## Arguments and flags
+
+| Flag                     | Alias           | What it does                                                                                         | Default
+| ------------------------ | --------------- | ---------------------------------------------------------------------------------------------------- | ------------------------
+| `[path]`                 | -               | Builds a local extension project.                                                                    | `process.cwd()`
+| `--browser <browser>`    | `-b`            | Browser target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values). | `chromium`
+| `--polyfill [boolean]`   | -               | Enables compatibility polyfill behavior where relevant.                                              | `false`
+| `--zip [boolean]`        | -               | Creates a packaged zip artifact.                                                                     | `false`
+| `--zip-source [boolean]` | -               | Includes source files in zip output.                                                                 | `false`
+| `--zip-filename <name>`  | -               | Sets custom zip filename.                                                                            | extension name + version
+| `--silent [boolean]`     | -               | Suppresses build logs.                                                                               | `false`
+| `--extensions <list>`    | -               | Comma-separated companion extensions or store URLs.                                                  | unset
+| `--install [boolean]`    | -               | Install project dependencies when missing.                                                           | command behavior default
+| `--author`               | `--author-mode` | Enable maintainer diagnostics.                                                                       | disabled
+
+## Shared global options
+
+Also supports [global flags](../workflows/global-flags.mdx).
+
+## Zip behavior
+
+| Option           | Effect                                  | Typical use
+| ---------------- | --------------------------------------- | ------------------------------------
+| `--zip`          | Creates a packaged artifact zip         | Store submission/manual distribution
+| `--zip-filename` | Sets custom zip name                    | CI naming conventions
+| `--zip-source`   | Adds source archive alongside artifacts | Compliance/review pipelines
 
 ## Examples
 
-### Building with Zip Output and Custom Filename
+### Building with zip output and custom filename
 
-![Demo Video](https://placehold.co/600x400)
+{/* VIDEO_DEMO_SOON: Show build for multiple browser targets with zip artifacts and custom artifact naming in output. */}
+![Video demo soon: build and zip artifact workflow](https://placehold.co/960x540?text=Video+demo+soon)
 
 <PackageManagerTabs
   command={{
-    npm: "extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip",
-    pnpm: "extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip",
-    yarn: "extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip",
+    npm: 'extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip',
+    pnpm: 'extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip',
+    yarn: 'extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip'
   }}
 />
 
 In this example, the build will target Edge and Chrome, with the output zipped and saved as `my-extension.zip`.
 
-### Building with Silent Output
-
-![Demo Video](https://placehold.co/600x400)
+### Building with polyfill support
 
 <PackageManagerTabs
   command={{
-    npm: "extension build ./my-extension --browser=chrome --silent",
-    pnpm: "extension build ./my-extension --browser=chrome --silent",
-    yarn: "extension build ./my-extension --browser=chrome --silent",
+    npm: 'extension build ./my-extension --browser=chrome,firefox --polyfill',
+    pnpm: 'extension build ./my-extension --browser=chrome,firefox --polyfill',
+    yarn: 'extension build ./my-extension --browser=chrome,firefox --polyfill'
   }}
 />
 
-Here, the build is for Chrome, and the `--silent` flag is used to suppress logs for a clean output.
+In this example, the build targets Chrome and Firefox and includes polyfill support where relevant.
 
-### Building with Polyfill Support
-
-![Demo Video](https://placehold.co/600x400)
+### Building source and artifact zip
 
 <PackageManagerTabs
   command={{
-    npm: "extension build ./my-extension --browser=all --polyfill",
-    pnpm: "extension build ./my-extension --browser=all --polyfill",
-    yarn: "extension build ./my-extension --browser=all --polyfill",
+    npm: 'extension build ./my-extension --zip --zip-source',
+    pnpm: 'extension build ./my-extension --zip --zip-source',
+    yarn: 'extension build ./my-extension --zip --zip-source'
   }}
 />
 
-In this example, the build targets all supported browsers and includes polyfills for legacy compatibility.
+## Best practices
 
-## Best Practices
+- **Check build logs:** Review logs for warnings and missing assets after each build.
+- **Optimize your manifest:** Keep `manifest.json` compatible with every target browser.
+- **Name artifacts intentionally:** Use `--zip-filename` for stable CI artifact naming.
+- **Validate target output:** Check each `dist/<browser>` folder before publishing.
 
-- **Check Build Logs:** After the build, review the logs to ensure there are no warnings or errors. The build logs will highlight any issues with missing assets.
-- **Optimize Your Manifest:** Ensure that your `manifest.json` is optimized and fully compatible with all targeted browsers to avoid build issues.
-- **Custom Build Artifacts:** You can define custom names for your build artifacts using the `--zip-filename` option, which is useful for organizing builds.
+## Next steps
 
-## Next Steps
-
-- Use the `extension.config.js` file to [configure your extension](https://github.com/extension-js/extension.js/tree/main/examples).
-- Learn more about the [browsers available](../browsers/browsers-available.mdx).
+- Run existing build output with [`preview`](/docs/commands/preview).
+- Build and launch in one command with [`start`](/docs/commands/start).
+- Configure shared defaults in [`extension.config.js`](../features/extension-configuration.mdx).
+- Review supported targets in [browsers available](../browsers/browsers-available.mdx).

@@ -1,96 +1,119 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="shadcnui" />
 
-# shadcn/ui
+# Shadcn/ui
 
-Extension.js offers support for using **shadcn/ui**, a component library that works seamlessly with Tailwind CSS to build user interfaces with minimal setup.
+Build extension UI with accessible, composable components using the same shadcn/ui workflow used in web apps. This is useful when your team wants reusable design primitives instead of custom ad-hoc UI per surface.
 
-## Getting Started with shadcn/ui
+Extension.js supports shadcn/ui best through a Tailwind-enabled React setup.
 
-The easiest way to get started with **shadcn/ui** in Extension.js is by integrating it directly into your extension project, alongside Tailwind CSS. This allows you to take advantage of ready-to-use components while leveraging the utility-first CSS approach of Tailwind.
+## When shadcn/ui is a good fit
 
-## Installation
+- You need reusable UI primitives across sidebar, popup, and options surfaces.
+- You already use React + Tailwind in product code.
+- You want source-owned components that your team can fully customize.
 
-To install shadcn/ui and its required dependencies, run:
+## shadcn/ui capabilities
+
+| Capability                 | What it gives you
+| -------------------------- | -------------------------------------------------------------------
+| Source-owned UI components | Keep generated `components/ui/*` files versioned in your project
+| React + Tailwind alignment | Use the same authoring model as modern web app stacks
+| Extension-surface reuse    | Share component primitives across sidebar, popup, and options pages
+| Gradual adoption           | Start from a template, then scale component coverage over time
+
+## Template examples
+
+### Sidebar + shadcn/ui template
+
+Use the `sidebar-shadcn` template as the default starting point:
+
+![`sidebar-shadcn` screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/sidebar-shadcn/screenshot.png)
 
 <PackageManagerTabs
   command={{
-    npm: "npx install shadcn-ui tailwindcss postcss autoprefixer",
-    pnpm: "pnpx install shadcn-ui tailwindcss postcss autoprefixer",
-    yarn: "yarn dlx install shadcn-ui tailwindcss postcss autoprefixer",
+    npm: 'npx extension@latest create my-extension --template=sidebar-shadcn',
+    pnpm: 'pnpx extension@latest create my-extension --template=sidebar-shadcn',
+    yarn: 'yarn dlx extension@latest create my-extension --template=sidebar-shadcn'
   }}
 />
 
-## Configuration
+This template includes a working React sidebar UI with Tailwind + shadcn-style component structure.
 
-Once installed, make sure you configure Tailwind and shadcn/ui properly. Add `tailwindcss` and **shadcn/ui** to your Tailwind configuration file:
+Repository: [`examples/sidebar-shadcn`](https://github.com/extension-js/examples/tree/main/examples/sidebar-shadcn)
+
+## Stack assumptions
+
+- React + TypeScript
+- Tailwind CSS
+- PostCSS (`@tailwindcss/postcss`)
+- Local `components/ui/*` component files (shadcn-style structure)
+
+## Manual setup in an existing project
+
+1. Set up Tailwind and PostCSS (see [Tailwind CSS](./tailwindcss.mdx)).
+2. Initialize shadcn in your project and generate components.
+3. Keep generated UI components inside your extension source (for example `src/components/ui/`).
+4. Import your Tailwind stylesheet in the extension entry where UI renders.
+
+### PostCSS example (Tailwind v4)
 
 ```js
-// tailwind.config.js;
+export default {
+  plugins: {
+    '@tailwindcss/postcss': {}
+  }
+}
+```
 
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    "./pages/**/*.{html,js,ts,jsx,tsx,mdx}",
-    "./**/*.{html,js,ts,jsx,tsx,mdx}",
-    "./src/**/*.{html,js,ts,jsx,tsx,mdx}",
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [require("shadcn-ui/tailwind")],
-};
+### Example `components.json`
+
+```json
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "tsx": true,
+  "tailwind": {
+    "css": "sidebar/styles.css",
+    "cssVariables": true
+  }
+}
 ```
 
 ## Usage
 
-shadcn/ui components are fully customizable through Tailwind classes. To use shadcn/ui components in your extension, simply import the components you need and style them with Tailwind classes.
+Use generated components from local imports:
 
-```js
-// MyComponent.jsx
-
-import { Button } from "shadcn-ui";
-import "./css/globals.css";
+```tsx
+import {Button} from '@/components/ui/button'
+import './styles.css'
 
 export default function MyComponent() {
-  return <Button className="text-lg font-semibold">Click Me</Button>;
+  return <Button className="text-lg font-semibold">Click Me</Button>
 }
 ```
 
-## Usage in Content Scripts
+{/* VIDEO_DEMO_SOON: Show generating a shadcn component and using it in a sidebar extension UI. */}
+![Video demo soon: shadcn component workflow](https://placehold.co/960x540?text=Video+demo+soon)
 
-For content_scripts, dynamically import the global CSS file:
+## Content script notes
 
-```js
-// ./content_script.jsx
+- Extension pages (popup/options/sidebar/new tab) are the easiest place to start with shadcn/ui.
+- For content scripts, ensure your style entry is imported in the content-script entrypoint.
+- Content-script styles are emitted through Extension.js content-script CSS pipeline and can still conflict with host page styles.
 
-import("./css/globals.css");
-import { Button } from 'shadcn-ui';
+If you need stronger isolation for content scripts, prefer mounting inside an isolated root strategy and keep class scopes intentional.
 
-export default function MyContentScript() {
-  return <Button className="text-3xl font-bold">Action</Button>;
-}
-```
-## Updating manifest.json
+## Best practices
 
-If you are using content_scripts, don’t forget to update your manifest.json:
+- Treat shadcn/ui as source-owned components, not a runtime UI package import.
+- Keep Tailwind config/content paths aligned with your extension folders (`pages`, `scripts`, `src`).
+- Start with one surface (like sidebar or popup) before adding content-script rendering complexity.
+- Keep shared tokens and utility helpers in dedicated files (`lib/utils`, design tokens, theme variables).
 
-```diff
-{
-  "manifest_version": 3,
-  "version": "1.0",
-  "name": "My Content Script Extension",
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-+     "css": ["./css/globals.css"]
-    }
-  ]
-}
-````
+## Next steps
 
-## Next Steps
-
-- To take your shadcn/ui and Tailwind CSS setup to the next level, make sure you follow best practices for component-based architecture during the extension development.
+- Set up [Tailwind CSS](./tailwindcss.mdx) if you have not already.
+- Add linting and formatting with [ESLint](./eslint.mdx) and [Prettier](./prettier.mdx).

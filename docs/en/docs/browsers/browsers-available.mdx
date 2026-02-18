@@ -1,38 +1,85 @@
-import { AvatarBrowsers } from "../../../../theme/components/avatar-group/browsers";
+import {AvatarBrowsers} from '../../../../theme/components/avatar-group/browsers'
 
-<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
+<AvatarBrowsers browsers={['chrome', 'firefox', 'edge']} />
 
-# Browsers Available
+# Browsers available
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+Run and test your extension across major browsers from one CLI workflow.
 
-Extension.js provides support for a variety of browsers, enabling you to easily develop and test your extensions across multiple platforms, detecting browser binaries and launching the selected browser with your extension loaded. The plugin also supports custom profiles, browser preferences, flags, and more.
+Validate one extension across Chrome, Edge, Firefox, and custom browser binaries from one command surface.
 
-## How Does It Work?
+## Choose the right target
 
-To launch your extension in a specific browser, Extension.js uses the browser's binary path to open a new instance with your extension loaded. For supported browsers (Chrome, Edge, Firefox) you can specify the browser to use by passing the `--browser` flag with the desired browser name. For other browsers, you can specify the absolute path to the browser binary using the `--chromium-binary` or `--gecko-binary` flags, depending on the engine used by the browser.
+| Target           | Use when                                            | Example
+| ---------------- | --------------------------------------------------- | ---------------------------------------------------------------------------
+| `chromium`       | Fast default local development                      | `extension dev --browser=chromium`
+| `chrome`         | Validating Chrome-specific behavior                 | `extension dev --browser=chrome`
+| `edge`           | Validating Edge distribution behavior               | `extension dev --browser=edge`
+| `firefox`        | Validating Gecko compatibility and APIs             | `extension dev --browser=firefox`
+| `chrome,firefox` | Release checks across both major engines            | `extension build --browser=chrome,firefox`
+| `chromium-based` | Running custom Chromium binaries (Brave, Arc, etc.) | `extension dev --browser=chromium-based --chromium-binary=/path/to/browser`
+| `gecko-based`    | Running custom Firefox-family binaries              | `extension dev --browser=gecko-based --gecko-binary=/path/to/browser`
 
-## Supported Browsers
+## How it works
 
-The following browsers are officially supported by Extension.js:
+Use `--browser` to select a target in `dev`, `start`, `preview`, and `build`.
 
-| Browser            | Usage                                                                 |
-| ------------------ | --------------------------------------------------------------------- |
-| **Chrome**         | `npx extension dev --browser=chrome`                                  |
-| **Edge**           | `npx extension dev --browser=edge`                                    |
-| **Firefox**        | `npx extension dev --browser=firefox`                                 |
-| **Chromium-based** | `npx extension dev --chromium-binary=/path/to/chromium-based-browser` |
-| **Gecko-based**    | `npx extension dev --gecko-binary=/path/to/gecko-based-browser`       |
+If no browser is provided, CLI defaults to `chromium`.
 
-Any browser based on the Chromium engine (e.g., Brave or Opera) is supported with the same configuration options as Chrome.
+{/* VIDEO_DEMO_SOON: Show switching the same extension run between `chrome`, `edge`, and `firefox` with `--browser`. */}
+![Video demo soon: named browser targets](https://placehold.co/960x540?text=Video+demo+soon)
 
-## Best Practices
+## Supported browsers
 
-- **Use Custom Profiles**: Keep separate profiles for each browser during development for isolated testing.
-- **Polyfill for Compatibility**: Ensure your extension works across older browsers by using the `--polyfill` flag.
-- **Browser Flags**: Use browser flags to enable or disable features for specific testing scenarios, like `--disable-extensions` for clean testing environments.
+Named browser targets:
 
-## Next Steps
+| Browser      | Usage
+| ------------ | --------------------------------------
+| **Chrome**   | `npx extension dev --browser=chrome`
+| **Edge**     | `npx extension dev --browser=edge`
+| **Firefox**  | `npx extension dev --browser=firefox`
+| **Chromium** | `npx extension dev --browser=chromium`
 
-- [Customize your browser configuration](./browser-flags.mdx) using the `--browser-args` flag.
-- [Learn more about unsupported browsers](./running-other-browsers.mdx) and how to run your extension on them.
+Engine-based targets (custom binary required):
+
+| Engine target                     | Usage
+| --------------------------------- | -------------------------------------------------------------------------------
+| **Chromium-based**                | `npx extension dev --browser=chromium-based --chromium-binary=/path/to/browser`
+| **Gecko-based** (`firefox-based`) | `npx extension dev --browser=gecko-based --gecko-binary=/path/to/browser`
+
+`firefox-based` is treated as a Gecko engine target internally.
+
+{/* VIDEO_DEMO_SOON: Show using custom Chromium and Gecko binaries with engine-based browser targets. */}
+![Video demo soon: engine-based target binaries](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Multi-browser selection
+
+You can run multiple named browsers in one command:
+
+```bash
+npx extension dev --browser=chrome,firefox
+```
+
+Use comma-separated values to run multiple named targets in sequence (for example `--browser=chrome,edge,firefox`).
+
+{/* VIDEO_DEMO_SOON: Show sequential multi-browser run using comma-separated browser targets. */}
+![Video demo soon: multi-browser selection flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Constraints and behavior
+
+- `chromium-based` requires `--chromium-binary`.
+- `gecko-based` / `firefox-based` require `--gecko-binary`.
+- Engine-based targets route to the same Chromium/Firefox runners with engine-aware behavior.
+
+## Best practices
+
+- **Use named browsers for daily iteration**: `chrome`, `edge`, and `firefox` are the fastest path for regular testing.
+- **Use engine-based mode intentionally**: Prefer `chromium-based` / `gecko-based` only when validating custom binaries.
+- **Keep profiles isolated per browser**: Reduce cross-browser state leakage while debugging.
+- **Pair with browser-specific fields**: Use browser-prefixed manifest keys for true behavior differences.
+
+## Next steps
+
+- [Customize browser flags](./browser-flags.mdx).
+- [Customize browser preferences](./browser-preferences.mdx).
+- [Run other browsers from custom binaries](./running-other-browsers.mdx).

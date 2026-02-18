@@ -1,59 +1,93 @@
-import { AvatarEmoji } from "../../../../theme/components/avatar-emoji";
+import {AvatarEmoji} from '../../../../theme/components/avatar-emoji'
 
 <AvatarEmoji emoji="folder" />
 
-# Special Folders
+# Special folders
 
-Extension.js uses the manifest to generate assets, and by default, files outside its scope are not bundled - unless they are in a special folder.
+Use special folders when your extension needs entrypoints or assets that do not fit cleanly in `manifest.json`.
 
-The need for special folders could be using iframes in sandboxed pages or scripts executed via the `executeScript` API, for example. Since these files can be a requirement to your development process, they need the same support as any other file handled by the manifest, including support for TypeScript, pre-processors, and other features provided by Extension.js.
+Handle extra pages, runtime-injected scripts, static assets with exact paths, and companion extensions for local development without splitting your project structure.
 
-## How Does It Work?
+## Why this matters
 
-Each special folder serves a unique purpose:
+Many extension files are not declared directly in the manifest: iframe pages, scripts injected with `scripting.executeScript`, static vendor assets, and companion extensions used in development. Special folders make these first-class in the build pipeline.
 
-| Folder Name | **Description**                                                                                                                     |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `pages/`    | Adds complementary HTML pages to the compilation process, treating them the same as any other HTML file referenced in the manifest. |
-| `scripts/`  | Allows script files not declared in the manifest or HTML pages to be compiled.                                                      |
-| `public/`   | Adds static assets to the output directory without being processed by Extension.js.                                                 |
+## How it works
 
-## Handling HTML Pages
+Each special folder has a specific role:
 
-To work with additional HTML files (like internal pages or `<iframe>` elements), place them in the `pages/` folder. This ensures that these files are integrated into the build process like any other HTML file defined in the manifest.
+| Folder name   | **Description**
+| ------------- | -------------------------------------------------------------------------------------------------------------
+| `pages/`      | Adds HTML pages to compilation as entry points, even when they are not listed in the manifest.
+| `scripts/`    | Adds script files to compilation as entry points, even when they are not referenced by manifest/HTML entries.
+| `public/`     | Copies static assets to the output root as-is (`public/**` -> `dist/**`) without bundling or transformation.
+| `extensions/` | Provides a conventional location for load-only companion extensions in dev/preview/start workflows.
 
-> Important: Every HTML file within the `pages/` folder is treated as a valid entry point and is compiled by Extension.js.
+## `pages/`: additional HTML entry points
 
-![Pages Folder](../../../../assets/guides/development/pages-folder2.png)
+Use `pages/` for extra extension pages such as sandbox iframes, diagnostics pages, or internal tools.
 
-> Consider an iframe used in a sandboxed page. Since this file may be edited frequently during development, adding it inside the `pages/` folder ensures it benefits from hot-reload and pre/post-processors like JavaScript and CSS tools. For an example, see the [Chrome Sandbox Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox)
+Each `.html` file in `pages/` is treated as an entry point and compiled like manifest-declared pages.
 
-## Handling Script Files
+{/* VIDEO_DEMO_SOON: Show a page added under `pages/` and then loaded in the running extension build. */}
+![Video demo soon: pages folder workflow](https://placehold.co/960x540?text=Video+demo+soon)
 
-For JavaScript-like files that don’t require an HTML file, use the `scripts/` folder. Any script file added here is treated as a valid entry point and integrated into the compilation process, just like scripts defined in `manifest.json`.
+For a sandboxed iframe example, see the [Chrome Sandbox Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox).
 
-> Important: Every script file within the `scripts/` folder is compiled by Extension.js.
+## `scripts/`: standalone script entry points
 
-![Scripts Folder](../../../../assets/guides/development/scripts-folder.png)
+Use `scripts/` for executable scripts that are loaded dynamically and are not tied to an HTML page entry.
 
-> If you're using scripts injected via `chrome.scripting.executeScript`, you can place them in the `scripts/` folder. The `scripts/` folder ensures they get hot-reload support and full integration with JavaScript and CSS tools. For an example, see the [Chrome Scripting Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/scripting) where scripts not declared in the manifest are loaded.
+Files in `scripts/` are compiled as entry points using the same extension resolution pipeline as the rest of your project.
 
-## Handling Static Assets
+{/* VIDEO_DEMO_SOON: Show a script added under `scripts/` and injected at runtime with `scripting.executeScript`. */}
+![Video demo soon: scripts folder workflow](https://placehold.co/960x540?text=Video+demo+soon)
 
-For static assets that you don’t want Extension.js to process or when you need a predictable output path, use the `public/` folder. Files here, such as images or external libraries, are copied to the output directory as-is. You can reference them directly using absolute paths from the root, and they will not be bundled or optimized by Extension.js.
+For dynamic injection examples, see the [Chrome Scripting Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/scripting).
 
-> Important: Every file within the `public/` folder is copied to the output directory without being processed by Extension.js.
+## `public/`: copy-only static assets
 
-![Public Folder](../../../../assets/guides/development/public-folder.png)
+Use `public/` when you need stable file paths and no bundling/transformation.
 
-> Suppose you’re using `handlebars.js` and don’t want it processed by Extension.js. You can place it in the `public/` folder, and Extension.js will output the file as-is, skipping compilation or bundling steps. For an example, see the [Chrome Sandbox Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox) as well.
+Everything under `public/` is copied to output root 1:1.
 
-## Best Practices
+{/* VIDEO_DEMO_SOON: Show a static file in `public/` copied directly to `dist/` with unchanged path. */}
+![Video demo soon: public folder workflow](https://placehold.co/960x540?text=Video+demo+soon)
 
-- **Use the `pages/` folder for HTML files**: For internal pages or iframes, place them in the `pages/` folder to benefit from hot-reload and pre/post-processors.
-- **Use the `scripts/` folder for script files**: For scripts injected via `chrome.scripting.executeScript`, place them in the `scripts/` folder to benefit from hot-reload and full integration with JavaScript and CSS tools.
-- **Use the `public/` folder for static assets**: For static assets that you don't want processed by Extension.js, place them in the `public/` folder to ensure they are copied to the output directory as-is.
+### Important `public/` guard
 
-## Next Steps
+Do not place `manifest.json` at `public/manifest.json`. Extension.js prevents this to avoid overwriting the generated manifest during compilation.
 
+## `extensions/`: companion extensions (load-only)
+
+When using companion extensions (for example, devtools helpers), Extension.js supports an `extensions/` folder as a load-only source in dev/preview/start flows.
+
+At a high level:
+
+- It can scan subfolders under `extensions/` for unpacked extension roots (`manifest.json` present).
+- Companion extensions are loaded alongside your main extension.
+- This is for loading, not building those companion extensions into your main artifact.
+
+{/* VIDEO_DEMO_SOON: Show a companion extension inside `extensions/` loading together with the main extension in dev mode. */}
+![Video demo soon: extensions folder workflow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Development behavior (watch mode)
+
+In development watch mode, Extension.js monitors `pages/` and `scripts/` for file set changes:
+
+- Adding supported files triggers a warning (you can keep working).
+- Removing supported files triggers a compilation error and requires restarting the dev server.
+
+This protects the running compilation graph from stale or broken entry points.
+
+## Best practices
+
+- **Keep shared runtime assets in `public/`**: Use it for files that must keep exact names and paths in output.
+- **Use `pages/` and `scripts/` for true entry points**: Keep off-manifest execution paths explicit.
+- **Restart dev server after entry set changes**: Especially after removing files under `pages/` or `scripts/`.
+- **Keep companion extensions isolated**: Treat `extensions/` as load-only dependencies for local workflows.
+
+## Next steps
+
+- Learn more about [Reload and Hot-Module Replacement](./reload-and-hmr.mdx).
 - Check out the different [Templates](../getting-started/templates) to bootstrap your next extension.

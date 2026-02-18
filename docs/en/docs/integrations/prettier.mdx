@@ -1,138 +1,96 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="prettier" />
 
 # Prettier
 
-Prettier is an opinionated code formatter that automatically formats your code to ensure consistent style throughout your project. It helps in maintaining code readability and uniformity across your extension codebase.
+Keep formatting consistent across the extension codebase with minimal manual effort. Prettier runs from scripts, editor integration, and CI rather than inside the Extension.js build pipeline.
 
-Extension.js offers first-class support for Prettier, allowing you to easily integrate it into your extension development workflow.
+## When Prettier is a good fit
 
-## Starter Prettier Template
+- You want deterministic formatting in local and CI workflows.
+- You are onboarding contributors and need low-friction style consistency.
+- You want ESLint to focus on correctness while Prettier handles formatting.
 
-Extension.js includes a **New Tab** Prettier template, providing an out-of-the-box configuration to automatically format your JavaScript, TypeScript, and JSX code.
+## Prettier capabilities
 
-![Prettier Extension Template](https://placehold.co/600x400)
-{/* TODO: Replace with a relevant image showcasing the Prettier template */}
+| Capability                 | What it gives you
+| -------------------------- | --------------------------------------------------------
+| Consistent formatting      | One shared style for JS, TS, JSON, CSS, and Markdown
+| Script and editor workflow | Format on save locally and enforce in CI
+| Lint conflict reduction    | Pair with `eslint-config-prettier` to avoid rule overlap
+| Low-maintenance defaults   | Adopt a stable baseline with minimal config
 
-### Try it yourself
+## Template examples
 
-<PackageManagerTabs
-  command={{
-    npm: "npx extension@latest create my-extension --template=new-prettier",
-    pnpm: "pnpx extension@latest create my-extension --template=new-prettier",
-    yarn: "yarn dlx extension@latest create my-extension --template=new-prettier",
-  }}
-/>
+### Prettier config template
 
-## Usage With An Existing Extension
+Preconfigured formatter setup for new projects.
 
-To use Prettier in your existing Extension.js project, you need to install the necessary dependencies and configure Prettier.
-
-### Installation
-
-Install Prettier as a development dependency:
+![`new-config-prettier` screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-config-prettier/screenshot.png)
 
 <PackageManagerTabs
   command={{
-    npm: "npx install -D prettier",
-    pnpm: "pnpx install -D prettier",
-    yarn: "yarn dlx install -D prettier",
+    npm: 'npx extension@latest create my-extension --template=new-config-prettier',
+    pnpm: 'pnpx extension@latest create my-extension --template=new-config-prettier',
+    yarn: 'yarn dlx extension@latest create my-extension --template=new-config-prettier'
   }}
 />
 
-### Prettier Configuration
+Repository: [`examples/new-config-prettier`](https://github.com/extension-js/examples/tree/main/examples/new-config-prettier)
 
-Create a Prettier configuration file (`.prettierrc.json`) at the root of your project to customize the formatting rules. Here's an example configuration:
+## Usage with an existing extension
+
+Install Prettier:
+
+<PackageManagerTabs command="install -D prettier" />
+
+Create a config file (for example `.prettierrc`):
 
 ```json
 {
-  "semi": true,
+  "semi": false,
   "singleQuote": true,
-  "trailingComma": "es5",
+  "trailingComma": "none",
   "printWidth": 80,
-  "tabWidth": 2
+  "tabWidth": 2,
+  "arrowParens": "always"
 }
 ```
 
-### Example Usage in a JavaScript File
-
-Once Prettier is configured, it will automatically format your JavaScript files based on the rules defined in `.prettierrc.json`. Here’s an example of how Prettier formats code:
-
-```diff
-function sayHello() {
-    console.log("Hello, Extension.js")
-}
-
-+ After Prettier runs:
-function sayHello() {
-  console.log('Hello, Extension.js');
-}
-```
-
-### Example Usage in a TypeScript File
-
-Prettier also works with TypeScript files to ensure consistent formatting. Here’s an example TypeScript file before and after Prettier formatting:
-
-```ts
-Before Prettier:
-interface Props { name:string;age:number}
-
-function sayHello({name, age}:Props) {return `${name} is ${age} years old`}
-
-After Prettier:
-interface Props {
-  name: string;
-  age: number;
-}
-
-function sayHello({ name, age }: Props) {
-  return `${name} is ${age} years old`;
-}
-```
-
-### Running Prettier
-
-To manually run Prettier on your project, use the following command:
+Run Prettier from scripts or manually:
 
 <PackageManagerTabs
   command={{
-    npm: "prettier --write .",
-    pnpm: "prettier --write .",
-    yarn: "prettier --write .",
+    npm: 'npm run format',
+    pnpm: 'pnpm format',
+    yarn: 'yarn format'
   }}
 />
 
-This will format all files in your project according to your `.prettierrc.json` configuration.
+If no format script exists yet:
+
+<PackageManagerTabs command="prettier --write ." />
+
+{/* VIDEO_DEMO_SOON: Show formatting drift in files, then run Prettier to normalize output. */}
+![Video demo soon: Prettier formatting workflow](https://placehold.co/960x540?text=Video+demo+soon)
 
 ## Integration with ESLint
 
-Prettier can be integrated with ESLint to automatically fix formatting issues as part of the linting process. To do this, install the required plugins:
+To avoid formatting-rule conflicts in ESLint, install:
 
-<PackageManagerTabs
-  command={{
-    npm: "npx install -D eslint-config-prettier eslint-plugin-prettier",
-    pnpm: "pnpx install -D eslint-config-prettier eslint-plugin-prettier",
-    yarn: "yarn dlx install -D eslint-config-prettier eslint-plugin-prettier",
-  }}
-/>
+<PackageManagerTabs command="install -D eslint-config-prettier" />
 
-Then, update your ESLint configuration to use Prettier:
+Then add `eslint-config-prettier` in your ESLint config chain so ESLint defers formatting concerns to Prettier.
 
-```json
-{
-  "extends": ["eslint:recommended", "plugin:react/recommended", "prettier"],
-  "plugins": ["react", "prettier"],
-  "rules": {
-    "prettier/prettier": "error"
-  }
-}
-```
+## Best practices
 
-Now, ESLint will report and automatically fix formatting issues based on Prettier’s rules.
+- Keep formatting automatic in editor and CI, not manual.
+- Use `--check` in CI and `--write` locally.
+- Format staged files pre-commit in larger repos.
 
-## Next Steps
+## Next steps
 
-- Learn how to integrate [ESLint](./eslint.mdx) with your extension.
-- Ensure consistent code formatting across your extension with Prettier.
+- Learn how to configure [ESLint](./eslint.mdx).
+- Add stylesheet linting with [Stylelint](./stylelint.mdx).
