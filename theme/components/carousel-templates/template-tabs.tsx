@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { TemplateDetailsCard } from "./details";
 import { TemplateCard } from "./template";
@@ -7,11 +7,9 @@ import type { Template } from "./types";
 export function TemplateTabs({
   template,
   className,
-  setActiveTemplate,
 }: {
   template: Template;
   className?: string;
-  setActiveTemplate: () => void;
 }) {
   return (
     <Tabs defaultValue="overview" className={className}>
@@ -21,10 +19,7 @@ export function TemplateTabs({
           <TabsTrigger value="details">Details</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
-          <TemplateCard
-            template={template}
-            setActiveTemplate={setActiveTemplate}
-          />
+          <TemplateCard template={template} />
         </TabsContent>
         <TabsContent value="details">
           <TemplateDetailsCard template={template} />

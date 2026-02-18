@@ -1,172 +1,172 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs')
+const path = require('path')
 
 function extractMetaDescription(mdxContent) {
   // Split content into lines
-  const lines = mdxContent.split("\n");
-  let firstParagraph = "";
+  const lines = mdxContent.split('\n')
+  let firstParagraph = ''
 
   // Find first valid paragraph
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+    const line = lines[i].trim()
 
     // Skip empty lines, imports, components, headers and warnings
     if (
       !line ||
-      line.startsWith("import") ||
-      line.startsWith("<") ||
-      line.startsWith("#") ||
-      line.toLowerCase().includes("warning")
+      line.startsWith('import') ||
+      line.startsWith('<') ||
+      line.startsWith('#') ||
+      line.toLowerCase().includes('warning')
     ) {
-      continue;
+      continue
     }
 
-    firstParagraph = line;
-    break;
+    firstParagraph = line
+    break
   }
 
-  return firstParagraph;
+  return firstParagraph
 }
 
 function addOrUpdateMetaTags(filePath) {
   // Original meta description for non-docs pages
   const metaDescriptionContent =
-    "Extension.js makes it very easy to create, develop, and distribute cross-browser extensions with no build configuration.";
-  const canonicalURL = "https://extension.js.org/blog/";
-  const gtmNoScript = `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-M82MQDWX"\nheight="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n`;
+    'Extension.js makes it very easy to create, develop, and distribute cross-browser extensions with no build configuration.'
+  const canonicalURL = 'https://extension.js.org/blog/'
+  const gtmNoScript = `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-M82MQDWX"\nheight="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n`
 
   // Check if this is a docs page
-  const isDocsPage = filePath.includes("/docs/");
+  const isDocsPage = filePath.includes('/docs/')
 
   // If it's a docs page, find corresponding MDX file
-  let metaDescription = metaDescriptionContent;
+  let metaDescription = metaDescriptionContent
 
   if (isDocsPage) {
     // Convert HTML path to MDX path
     const mdxPath = filePath
-      .replace("doc_build", "docs/en")
-      .replace(".html", ".mdx");
+      .replace('doc_build', 'docs/en')
+      .replace('.html', '.mdx')
 
     try {
-      const mdxContent = fs.readFileSync(mdxPath, "utf8");
-      const extractedDesc = extractMetaDescription(mdxContent);
+      const mdxContent = fs.readFileSync(mdxPath, 'utf8')
+      const extractedDesc = extractMetaDescription(mdxContent)
       if (extractedDesc) {
-        metaDescription = extractedDesc;
+        metaDescription = extractedDesc
       }
     } catch (err) {
-      console.warn(`Could not find MDX file for ${filePath}`);
+      console.warn(`Could not find MDX file for ${filePath}`)
     }
   }
 
   // Read the HTML file
-  fs.readFile(filePath, "utf8", (err, data) => {
+  fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) {
-      console.error("Error reading the file:", err);
-      return;
+      console.error('Error reading the file:', err)
+      return
     }
 
     // Insert GTM <noscript> iframe at the top of <body>
-    const bodyTagRegex = /<body[^>]*>/i;
-    let bodyMatch = data.match(bodyTagRegex);
+    const bodyTagRegex = /<body[^>]*>/i
+    let bodyMatch = data.match(bodyTagRegex)
     if (bodyMatch) {
-      const bodyTag = bodyMatch[0];
-      const bodyTagIndex = data.indexOf(bodyTag) + bodyTag.length;
+      const bodyTag = bodyMatch[0]
+      const bodyTagIndex = data.indexOf(bodyTag) + bodyTag.length
       // Only insert if not already present
       if (!data.includes(gtmNoScript.trim())) {
         data =
           data.slice(0, bodyTagIndex) +
-          "\n" +
+          '\n' +
           gtmNoScript +
-          data.slice(bodyTagIndex);
+          data.slice(bodyTagIndex)
       }
     } else {
       console.warn(
-        `No <body> tag found in ${filePath}, skipping GTM <noscript> insertion.`,
-      );
+        `No <body> tag found in ${filePath}, skipping GTM <noscript> insertion.`
+      )
     }
 
     // Find the <title> tag
-    const titleTagRegex = /<title\b[^>]*>(.*?)<\/title>/;
-    const match = data.match(titleTagRegex);
+    const titleTagRegex = /<title\b[^>]*>(.*?)<\/title>/
+    const match = data.match(titleTagRegex)
 
     if (!match) {
-      console.error("No <title> tag found in the file.");
-      return;
+      console.error('No <title> tag found in the file.')
+      return
     }
 
-    const titleTag = match[0];
-    const afterTitleIndex = data.indexOf(titleTag) + titleTag.length;
+    const titleTag = match[0]
+    const afterTitleIndex = data.indexOf(titleTag) + titleTag.length
 
     // Check if meta description already exists
-    const metaDescriptionRegex = /<meta\s+name=["']description["'][^>]*?>/i;
+    const metaDescriptionRegex = /<meta\s+name=["']description["'][^>]*?>/i
     if (metaDescriptionRegex.test(data)) {
       data = data.replace(
         metaDescriptionRegex,
-        `<meta name="description" content="${metaDescription}">`,
-      );
+        `<meta name="description" content="${metaDescription}">`
+      )
     } else {
       // Insert new meta description
-      const newMetaTag = `<meta name="description" content="${metaDescription}">\n`;
+      const newMetaTag = `<meta name="description" content="${metaDescription}">\n`
       data =
         data.slice(0, afterTitleIndex) +
         newMetaTag +
-        data.slice(afterTitleIndex);
+        data.slice(afterTitleIndex)
     }
 
     // Handle canonical URL for blog pages
-    if (filePath.includes("blog/index")) {
-      const canonicalRegex = /<link\s+rel=["']canonical["'][^>]*?>/i;
+    if (filePath.includes('blog/index')) {
+      const canonicalRegex = /<link\s+rel=["']canonical["'][^>]*?>/i
       if (canonicalRegex.test(data)) {
         data = data.replace(
           canonicalRegex,
-          `<link rel="canonical" href="${canonicalURL}">`,
-        );
+          `<link rel="canonical" href="${canonicalURL}">`
+        )
       } else {
-        const newCanonicalTag = `<link rel="canonical" href="${canonicalURL}">\n`;
+        const newCanonicalTag = `<link rel="canonical" href="${canonicalURL}">\n`
         data =
           data.slice(0, afterTitleIndex) +
           newCanonicalTag +
-          data.slice(afterTitleIndex);
+          data.slice(afterTitleIndex)
       }
     }
 
     // Write updated HTML back to file
-    fs.writeFile(filePath, data, "utf8", (err) => {
+    fs.writeFile(filePath, data, 'utf8', (err) => {
       if (err) {
-        console.error("Error writing to the file:", err);
-        return;
+        console.error('Error writing to the file:', err)
+        return
       }
       console.log(
-        `Meta tags and GTM <noscript> updated successfully for ${filePath}`,
-      );
-    });
-  });
+        `Meta tags and GTM <noscript> updated successfully for ${filePath}`
+      )
+    })
+  })
 }
 
 // Process all files in doc_build directory
 function processDocBuild(dir) {
-  const files = fs.readdirSync(dir);
+  const files = fs.readdirSync(dir)
 
   files.forEach((file) => {
-    const fullPath = path.join(dir, file);
-    const stat = fs.statSync(fullPath);
+    const fullPath = path.join(dir, file)
+    const stat = fs.statSync(fullPath)
 
     if (stat.isDirectory()) {
-      processDocBuild(fullPath);
-    } else if (file.endsWith(".html")) {
-      addOrUpdateMetaTags(fullPath);
+      processDocBuild(fullPath)
+    } else if (file.endsWith('.html')) {
+      addOrUpdateMetaTags(fullPath)
     }
-  });
+  })
 }
 
 // Paths to process
-const docBuildDir = path.join(__dirname, "doc_build");
-const indexFilePath = path.join(docBuildDir, "index.html");
-const blogIndexPath = path.join(docBuildDir, "blog/index.html");
+const docBuildDir = path.join(__dirname, 'doc_build')
+const indexFilePath = path.join(docBuildDir, 'index.html')
+const blogIndexPath = path.join(docBuildDir, 'blog/index.html')
 
 // Process main index and blog index
-addOrUpdateMetaTags(indexFilePath);
-addOrUpdateMetaTags(blogIndexPath);
+addOrUpdateMetaTags(indexFilePath)
+addOrUpdateMetaTags(blogIndexPath)
 
 // Process all docs pages
-processDocBuild(path.join(docBuildDir, "docs"));
+processDocBuild(path.join(docBuildDir, 'docs'))
