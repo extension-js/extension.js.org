@@ -8,6 +8,7 @@ import {
   CarouselPrevious,
 } from "../ui/carousel";
 import { ALL_TEMPLATES } from "./data";
+import type { Template } from "./types";
 import { TemplateTabs } from "./template-tabs";
 
 interface CarouselTemplates {
@@ -16,6 +17,7 @@ interface CarouselTemplates {
   single?: boolean;
   showControls?: boolean;
   showCommands?: boolean;
+  templates?: Template[];
 }
 
 export function CarouselTemplatesControls({
@@ -40,8 +42,11 @@ export function CarouselTemplates({
   single,
   showControls = true,
   showCommands = true,
+  templates,
 }: CarouselTemplates) {
   const [localActiveIndex, localSetActiveIndex] = useState(0);
+  const visibleTemplates =
+    templates && templates.length > 0 ? templates : ALL_TEMPLATES;
 
   const handleSlideClick = (index: number) => {
     if (!setActiveIndex) {
@@ -61,7 +66,7 @@ export function CarouselTemplates({
     >
       <div className="inset-y-0 w-20 bg-gradient-to-l from-background to-transparent h-full pointer-events-none" />
       <CarouselContent className="mb-0">
-        {ALL_TEMPLATES.map((template, index) => {
+        {visibleTemplates.map((template, index) => {
           const isActive =
             (activeIndex != null ? activeIndex : localActiveIndex) === index;
           const activeClass = isActive
@@ -71,17 +76,14 @@ export function CarouselTemplates({
           return (
             <CarouselItem
               key={`template-${template.name}`}
+              onClick={() => handleSlideClick(index)}
               className={
                 single
                   ? "md:w-full lg:w-full max-w-sm cursor-pointer"
                   : "md:basis-1/2 lg:basis-1/2 cursor-pointer"
               }
             >
-              <TemplateTabs
-                className={`${activeClass}`}
-                template={template}
-                setActiveTemplate={() => handleSlideClick(index)}
-              />
+              <TemplateTabs className={`${activeClass}`} template={template} />
             </CarouselItem>
           );
         })}
@@ -94,9 +96,9 @@ export function CarouselTemplates({
       {showCommands && (
         <TabsCommandLine
           command={{
-            npm: `extension create <your-extension-name> --template=${ALL_TEMPLATES[activeIndex != null ? activeIndex : localActiveIndex].name}`,
-            pnpm: `extension create <your-extension-name> --template=${ALL_TEMPLATES[activeIndex != null ? activeIndex : localActiveIndex].name}`,
-            yarn: `extension create <your-extension-name> --template=${ALL_TEMPLATES[activeIndex != null ? activeIndex : localActiveIndex].name}`,
+            npm: `extension create <your-extension-name> --template=${visibleTemplates[activeIndex != null ? activeIndex : localActiveIndex].name}`,
+            pnpm: `extension create <your-extension-name> --template=${visibleTemplates[activeIndex != null ? activeIndex : localActiveIndex].name}`,
+            yarn: `extension create <your-extension-name> --template=${visibleTemplates[activeIndex != null ? activeIndex : localActiveIndex].name}`,
           }}
         />
       )}

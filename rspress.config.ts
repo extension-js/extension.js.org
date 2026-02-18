@@ -9,6 +9,7 @@ export default defineConfig({
   root: path.join(__dirname, "docs"),
   head: [
     '<meta name="author" content="Cezar Augusto">',
+    '<meta name="description" content="Extension.js is an open source framework and CLI to build, test, and ship cross-browser extensions for Chrome, Edge, and Firefox using modern web tooling.">',
     `<!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -17,12 +18,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-M82MQDWX');</script>
 <!-- End Google Tag Manager -->`,
   ],
-  title: "Extension.js",
+  title: "Extension.js — Open Source Framework for Browser Extensions",
   lang: "en",
-  logo: {
-    light: "https://extension.js.org/logo-light.png",
-    dark: "https://extension.js.org/logo-dark.png",
-  },
+  logo: "logo-dark.png",
   icon: "https://avatars.githubusercontent.com/u/172809806",
   markdown: {
     checkDeadLinks: true,
@@ -32,19 +30,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   },
   globalStyles: path.join(__dirname, "theme", "index.css"),
   builderConfig: {
-    dev: {
-      lazyCompilation: true,
+    html: {
+      tags: [
+        {
+          tag: "script",
+          children: "window.RSPRESS_THEME = 'dark';",
+        },
+      ],
     },
+    dev: {},
     plugins: [
       // pluginGoogleAnalytics({ id: "G-0TTJ0PEKL2" }),
       pluginOpenGraph({
-        title: "Extension.js",
+        title: "Extension.js — Open Source Framework for Browser Extensions",
         type: "website",
         url: "https://extension.js.org",
         image:
           "https://github.com/user-attachments/assets/410bc1bc-a2dd-4c89-97e7-dffc18a0d035",
         description:
-          "Extension.js makes it very easy to create, develop, and distribute cross-browser extensions with no build configuration.",
+          "Extension.js is an open source framework and CLI for building, testing, and shipping cross-browser extensions for Chrome, Edge, and Firefox with modern web tooling.",
         twitter: {
           site: "@extensionjs",
           card: "summary_large_image",
@@ -53,6 +57,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     ],
     source: {
       preEntry: ["./theme/tailwind.css"],
+    },
+    resolve: {
       alias: {
         "@builtIns": path.join(__dirname, "components", "builtIns"),
         "@components": path.join(__dirname, "components"),
@@ -60,13 +66,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       },
     },
     server: {
-      open: true,
+      open: "http://localhost:3005",
+      port: 3005,
+      strictPort: true,
     },
   },
   route: {
     cleanUrls: true,
   },
   themeConfig: {
+    darkMode: false,
     hideNavbar: "never",
     footer: {
       message: "MIT (c) Cezar Augusto and the Extension.js Authors.",

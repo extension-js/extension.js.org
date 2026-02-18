@@ -6,6 +6,8 @@ interface AvatarImageProps {
   altText?: string; // Optional prop for the alt text
 }
 
+const DEFAULT_DOC_ICON = "https://avatars.githubusercontent.com/u/172809806";
+
 const iconLinks: Record<string, string> = {
   babel:
     "https://github.com/user-attachments/assets/73fc8a2c-6562-483d-83f3-4b690ddb2d63",
@@ -65,14 +67,11 @@ const AvatarImage: React.FC<AvatarImageProps> = ({
   size = 120,
   altText,
 }) => {
-  const imagePath = iconLinks[icon] || ""; // Retrieve the icon path from the iconLinks object
-
-  if (!imagePath) {
-    return <p>Icon not found</p>; // Return a fallback if the icon doesn't exist
-  }
+  const imagePath = iconLinks[icon] || DEFAULT_DOC_ICON;
 
   return (
     <img
+      data-doc-avatar="true"
       className="logo"
       src={imagePath}
       alt={altText || `The ${icon} logo`}

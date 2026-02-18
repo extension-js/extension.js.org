@@ -1,3 +1,3 @@
 export default {
-  "*": () => "pnpm run check",
-};
+  '*': () => 'pnpm run check'
+}

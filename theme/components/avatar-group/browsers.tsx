@@ -5,6 +5,8 @@ interface AvatarBrowsersProps {
   size?: number;
 }
 
+const DEFAULT_DOC_ICON = "https://avatars.githubusercontent.com/u/172809806";
+
 const browserIcons: Record<string, string> = {
   arc: "https://github.com/cezaraugusto/extension.js/assets/4672033/6ce53a31-c6f6-4a1c-b927-e9ec7fd2df78",
   brave:
@@ -32,11 +34,30 @@ const AvatarBrowsers: React.FC<AvatarBrowsersProps> = ({
   browsers,
   size = 120,
 }) => {
-  const displayedBrowsers = browsers.slice(0, 3); // Display up to 3 browsers
+  const displayedBrowsers = browsers
+    .filter((browser) => Boolean(browserIcons[browser.toLowerCase()]))
+    .slice(0, 3); // Display up to 3 browsers
   const remainingCount = browsers.length - displayedBrowsers.length; // Remaining browsers count
 
+  if (displayedBrowsers.length === 0) {
+    return (
+      <img
+        data-doc-avatar="true"
+        className="logo"
+        src={DEFAULT_DOC_ICON}
+        alt="The extension logo"
+        width={size}
+        style={{ marginBottom: "2.5rem" }}
+      />
+    );
+  }
+
   return (
-    <div className="flex -space-x-10" style={{ marginBottom: "2.5rem" }}>
+    <div
+      data-doc-avatar="true"
+      className="flex -space-x-10"
+      style={{ marginBottom: "2.5rem" }}
+    >
       {displayedBrowsers.map((browser) => (
         <img
           key={browser.toLowerCase()}
