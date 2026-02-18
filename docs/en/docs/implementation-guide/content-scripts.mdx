@@ -1,0 +1,111 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="content" />
+
+# Content scripts
+
+Build page-integrated extension features with content scripts while keeping a reliable dev loop for JS and CSS updates.
+
+Extension.js compiles content script entries from `manifest.json`, wraps them for runtime mounting/HMR behavior, and emits predictable `content_scripts/*` outputs.
+
+## Content script capabilities
+
+| Capability                     | What it gives you
+| ------------------------------ | -------------------------------------------------------------
+| Manifest-driven entries        | Compile JS/CSS content script lists directly from manifest
+| Dev remount flow               | Update scripts/styles quickly through wrapper-driven behavior
+| MAIN vs isolated world support | Use advanced page-context mode when required
+| Predictable output layout      | Emit normalized `content_scripts/*` artifacts
+
+## Supported manifest fields
+
+| Manifest field        | File type expected
+| --------------------- | ------------------------------------
+| `content_scripts.js`  | `.js`, `.jsx`, `.ts`, `.tsx`, `.mjs`
+| `content_scripts.css` | `.css`, `.scss`, `.sass`, `.less`
+
+## Sample content script declaration
+
+Below is an example of how to declare content scripts within the `manifest.json` file:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/content-script.ts"],
+      "css": ["./styles/content-style.css"]
+    }
+  ]
+}
+```
+
+## Runtime wrapper behavior
+
+- Content script modules are wrapped with mount/runtime helpers.
+- Dev mode adds HMR accept/dispose behavior and remount flow.
+- CSS updates trigger remount events (`__EXTENSIONJS_CSS_UPDATE__`) in development.
+- `run_at` timing is respected from manifest values.
+
+{/* VIDEO_DEMO_SOON: Show isolated-world and MAIN-world content script behavior differences, plus live update flow for JS and CSS changes. */}
+![Video demo soon: content script runtime and update flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Output path
+
+Content script entries are normalized per manifest index:
+
+```plaintext
+content_scripts/
+├── content-0.js
+├── content-0.css
+└── ...
+```
+
+## Main world notes
+
+- `world: "MAIN"` has dedicated bridge/runtime behavior and different extension API limitations.
+- MAIN-world scripts use bridge-based chunk loading/public-path handling in development.
+- Treat MAIN world as an advanced path and validate behavior on target browsers early.
+
+### Isolated vs MAIN quick example
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/main-world.ts"],
+      "world": "MAIN"
+    }
+  ]
+}
+```
+
+Use isolated world by default. Use `MAIN` only when page-context access is required and account for extension API/runtime constraints.
+
+## Development behavior
+
+- Editing content script code usually updates through wrapper-driven HMR/remount flow.
+- CSS-only entries receive dev helper behavior so style updates can propagate.
+- If content script entrypoint lists change in manifest, Extension.js can require dev server restart.
+
+## Best practices
+
+- Keep content script entry files small and delegate logic to shared modules.
+- Scope selectors/styles carefully to avoid host-page collisions.
+- Prefer explicit `run_at` and `world` values when behavior depends on timing/context.
+- Treat manifest content-script list changes as structural development changes.
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).
+- Learn about [web-accessible resources](./web-accessible-resources.mdx).
+- Continue with [locales in development](./locales.mdx).

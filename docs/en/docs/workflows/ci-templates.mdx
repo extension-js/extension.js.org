@@ -1,0 +1,93 @@
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="extension" />
+
+# CI templates
+
+Automate lint, build, and E2E checks so extension changes stay releasable.
+
+Use CI to run the same quality gates on every pull request and release branch.
+
+## CI capabilities
+
+| Capability                | What it gives you
+| ------------------------- | --------------------------------------------------------
+| Quality gates             | Enforce lint, build, and test checks before merge
+| Browser-target confidence | Build and validate multiple browser targets consistently
+| Reproducible environments | Lock toolchain versions across local and CI runs
+| Debuggable failures       | Publish test reports and artifacts for investigation
+
+## Core pipeline stages
+
+1. install dependencies
+2. run lint/check commands
+3. build browser targets
+4. run automated tests (including Playwright where applicable)
+5. upload artifacts/reports
+
+{/* VIDEO_DEMO_SOON: Show a pull request CI run executing lint, multi-browser build, and Playwright checks with uploaded failure artifacts. */}
+![Video demo soon: CI pipeline validation flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Minimal GitHub Actions example
+
+```yaml
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm extension build --browser=chromium
+```
+
+## Build matrix example
+
+```yaml
+strategy:
+  matrix:
+    browser: [chromium, firefox]
+steps:
+  - run: pnpm extension build --browser=${{ matrix.browser }}
+```
+
+## Playwright in CI
+
+- install browsers in CI job (`playwright install` or equivalent)
+- keep retries slightly higher on CI than local
+- publish Playwright reports/artifacts for failed runs
+
+## Common pitfalls
+
+- CI scripts diverging from local scripts over time
+- building only one browser target while shipping to multiple engines
+- missing artifact upload for failed E2E jobs
+- mixing unpinned Node/package manager versions across workflows
+
+This repository includes an E2E workflow example at:
+
+- `.github/workflows/e2e.yml`
+
+## Best practices
+
+- Keep CI commands close to local scripts to reduce drift.
+- Fail fast on lint/config errors before expensive browser jobs.
+- Cache dependencies and browser binaries when possible.
+- Version lock CI Node and package manager versions for reproducibility.
+
+## Next steps
+
+- Add or refine [Playwright E2E tests](./playwright-e2e.mdx).
+- Review [commands reference](../commands/dev.mdx) for script alignment.

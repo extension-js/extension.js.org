@@ -1,0 +1,103 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="html" />
+
+# HTML
+
+Build extension UIs with plain HTML entrypoints while Extension.js handles asset wiring, script/style bundling, and dev-time update behavior.
+
+Extension.js processes HTML entrypoints from manifest fields and from the special `pages/` folder.
+
+## HTML capabilities
+
+| Capability           | What it gives you
+| -------------------- | ------------------------------------------------------------
+| Entrypoint discovery | Compile HTML declared in manifest and `pages/` with one flow
+| Asset wiring         | Bundle referenced scripts and styles from HTML tags
+| Public path handling | Keep intentional public-root assets stable
+| Dev tracking         | Recompile on HTML and referenced asset edits
+
+## Supported HTML entrypoints
+
+The following manifest fields use HTML files as entrypoints:
+
+| Manifest field                     | File type expected
+| ---------------------------------- | ------------------
+| `action.default_popup`             | `.html`
+| `background.page`                  | `.html`
+| `chrome_url_overrides.*`           | `.html`
+| `devtools_page`                    | `.html`
+| `options_ui.page` / `options_page` | `.html`
+| `page_action.default_popup`        | `.html`
+| `sandbox.pages`                    | `.html`
+| `side_panel.default_path`          | `.html`
+| `sidebar_action.default_panel`     | `.html`
+
+You can also add standalone pages under `pages/` without expanding manifest entrypoint fields for every file.
+
+## Sample HTML entry
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Extension Page</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="./main.ts"></script>
+  </body>
+</html>
+```
+
+## How Extension.js processes HTML
+
+For each HTML entrypoint, Extension.js:
+
+1. emits the HTML file into compilation
+2. discovers local scripts/styles/static assets from tags
+3. bundles scripts/styles as proper extension outputs
+4. patches HTML to inject compiled bundle references
+5. keeps public-root references (like `/icon.png`) as public assets
+
+{/* VIDEO_DEMO_SOON: Show an HTML entrypoint importing a script and stylesheet, then inspect emitted compiled HTML and bundled assets. */}
+![Video demo soon: HTML entrypoint processing](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Development behavior
+
+- HTML and referenced assets are tracked in file dependencies, so edits trigger recompilation.
+- Script changes use HMR where supported in the injected script flow.
+- If the HTML script/style entry list changes (add/remove entries), Extension.js can require a dev server restart.
+- Manifest HTML entrypoint changes can also trigger restart-required diagnostics.
+
+## Paths and environment variables
+
+- Relative paths are resolved from the HTML file location.
+- Leading `/` paths are treated as extension public-root paths.
+- `$EXTENSION_PUBLIC_*` and related placeholders can be replaced in emitted HTML during compilation.
+
+## Using extra pages
+
+Place extra files in `pages/`:
+
+```plaintext
+pages/
+└── extra-page.html
+```
+
+## Best practices
+
+- Keep entry HTML minimal and import app code through scripts.
+- Use relative paths for project assets and `/` paths only for intentional public assets.
+- Use `pages/` for additional extension pages that are not primary manifest UI entrypoints.
+- Treat script/link add/remove changes as structural changes that may require restart.
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).
+- Learn more about [special folders](../features/special-folders.mdx).
+- Continue with [CSS in development](./css.mdx).

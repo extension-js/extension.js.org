@@ -1,35 +1,118 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarBrowsers } from "../../../../theme/components/avatar-group/browsers";
+import {PackageManagerTabs} from '@theme'
+import {AvatarBrowsers} from '../../../../theme/components/avatar-group/browsers'
 
-<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
+<AvatarBrowsers browsers={['chrome', 'firefox', 'edge']} />
 
-# Cross-Browser Compatibility
+# Cross-browser compatibility
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+Extension.js handles browser-specific setup during development and build, so the same project can produce runtime-correct outputs across Chromium and Gecko targets.
 
-Extension.js provides a unified API for interacting with the browser across different browsers. This API is based on the [WebExtensions API](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions) and is supported by Chrome, Firefox, and Edge. By passing the `--polyfill` flag to the `extension` package in your `npm` script for `dev`, `start`, or `build` commands, Extension.js will automatically include necessary polyfills for handling the Gecko-specific `browser.*` API across all Chromium-based browsers.
+Use one `manifest.json`, target specific browsers or custom binaries, and enable polyfills when needed for `browser.*` API compatibility in Chromium-family targets.
 
-## How Does It Work?
+## How it works
+
+### 1) Select a browser target
+
+Choose where you want to run your extension.
+
+Use `--browser` for common targets, or pass a custom browser binary.
+
+<PackageManagerTabs
+  command={{
+    npm: 'extension dev --browser firefox',
+    pnpm: 'extension dev --browser firefox',
+    yarn: 'extension dev --browser firefox'
+  }}
+/>
+
+<PackageManagerTabs
+  command={{
+    npm: 'extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser',
+    pnpm: 'extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser',
+    yarn: 'extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser'
+  }}
+/>
+
+Use a binary path that matches your OS:
+
+- **macOS**: `/Applications/Brave Browser.app/Contents/MacOS/Brave Browser`
+- **Linux**: `/usr/bin/brave-browser` (or another Chromium-based browser binary)
+- **Windows**: `"C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"`
+
+{/* VIDEO_DEMO_SOON: Show switching targets with `--browser` and with a custom Chromium binary. */}
+![Video demo soon: selecting a browser target](https://placehold.co/960x540?text=Video+demo+soon)
+
+When you pass a binary, Extension.js maps it to a browser engine target:
+
+- `chromium-based` for `--chromium-binary`
+- `gecko-based` for `--gecko-binary`
+
+### 2) Compile with browser-specific manifest filtering
+
+During compilation, only manifest fields for the selected browser are included.
+
+For example:
 
 ```json
 {
-  "scripts": {
-    "dev": "extension@latest dev --polyfill",
-    "start": "extension@latest start --polyfill",
-    "build": "extension@latest build --polyfill"
+  "chromium:background": {
+    "service_worker": "sw.js"
+  },
+  "firefox:background": {
+    "scripts": ["sw.js"]
   }
 }
 ```
 
-This command ensures that the namespaced API calls are correctly polyfilled for each browser.
+{/* VIDEO_DEMO_SOON: Show one manifest with prefixed fields being compiled for Chrome vs Firefox. */}
+![Video demo soon: manifest filtering by target](https://placehold.co/960x540?text=Video+demo+soon)
 
-> Note: By default, the `--polyfill` flag is not applied when running `--browser=firefox` or `--browser=gecko` as the polyfill is only necessary for Chromium-based browsers.
+For Chromium-family targets, Extension.js uses prefixes like `chromium:`, `chrome:`, and `edge:`.  
+For Firefox-family targets, Extension.js uses `firefox:` and `gecko:`.
 
-## Best Practices
+> Note: Browser-prefixed manifest fields are covered in detail in [Browser-Specific Manifest Fields](./browser-specific-fields.mdx).
 
-- **Use the polyfill when needed**: If you're developing a cross-browser extension and need to use the Gecko-specific `browser.*` API, apply the `--polyfill` flag to ensure the API is correctly polyfilled for all Chromium-based browsers.
-- **Check the compatibility**: Before using the Gecko-specific `browser.*` API, check the compatibility of the API with the target browser to avoid any issues during the build process. A good place to start is the [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions) for the WebExtensions API.
+### 3) Output per browser target
 
-## Next Steps
+Each target is written to its own build folder:
+
+- `dist/chrome`
+- `dist/edge`
+- `dist/firefox`
+- `dist/chromium-based` (custom Chromium engines)
+- `dist/gecko-based` (custom Gecko engines)
+
+{/* VIDEO_DEMO_SOON: Show build output folders changing by target in `dist/<browser>`. */}
+![Video demo soon: browser-specific build output](https://placehold.co/960x540?text=Video+demo+soon)
+
+This keeps builds organized and easier to ship in CI.
+
+### 4) Optional `browser.*` polyfill for Chromium targets
+
+If your code uses `browser.*`, enable `--polyfill` for Chromium-family targets:
+
+<PackageManagerTabs
+  command={{
+    npm: 'extension build --browser chrome --polyfill',
+    pnpm: 'extension build --browser chrome --polyfill',
+    yarn: 'extension build --browser chrome --polyfill'
+  }}
+/>
+
+{/* VIDEO_DEMO_SOON: Show a `browser.*` API working in Chromium with `--polyfill` enabled. */}
+![Video demo soon: polyfill flow on Chromium](https://placehold.co/960x540?text=Video+demo+soon)
+
+When enabled, Extension.js uses `webextension-polyfill` for non-Firefox targets.  
+For Firefox, this step is skipped because `browser.*` is already built in.
+
+## Best practices
+
+- **Keep one codebase**: Put browser differences in prefixed manifest fields when possible.
+- **Build one target at a time**: Generate dedicated artifacts (`dist/<browser>`) for each browser in CI.
+- **Use `--polyfill` when needed**: Enable it only when your code depends on `browser.*` in Chromium-family targets.
+- **Check API support early**: Use [MDN WebExtensions docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions) before relying on browser-specific APIs.
+
+## Next steps
 
 - Learn more about the [Browsers Available](../browsers/browsers-available.mdx).
+- Learn more about [Browser-Specific Manifest Fields](./browser-specific-fields.mdx).

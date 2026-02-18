@@ -1,89 +1,130 @@
-import { AvatarBrowsers } from "../../../../theme/components/avatar-group/browsers";
+import {AvatarBrowsers} from '../../../../theme/components/avatar-group/browsers'
 
-<AvatarBrowsers browsers={["firefox", "gecko"]} />
+<AvatarBrowsers browsers={['firefox', 'gecko']} />
 
-# Browser Preferences
+# Browser preferences
 
-> **Warning**: This feature is a work in progress and may be incomplete or subject to change. If you see an error or something that could be improved, please make a pull-request. The link that documents this feature can be found at the bottom of the page.
+Tune browser runtime behavior for development without changing your extension source.
 
-Extension.js allows you to customize browser preferences for Firefox and other Gecko-based browsers. These preferences can be configured through the `preferences` property in the `extension.config.js` file,
-which then adds the custom preferences to the browser's user profile during development.
+Get repeatable browser behavior during development (for example, homepage defaults, devtools settings, or notification behavior) without editing extension code.
 
-## How Does It Work?
+Extension.js reads `preferences` from `extension.config.*` and applies them in browser launch flows where supported.
 
-Browser preferences are settings that can be configured to customize the behavior of the browser. Extension.js will hook into the browser's profile directory and modify the preferences file to set the custom preferences you define in the configuration file.
+## How it works
 
-## How to Set Custom Preferences
+Preferences are configured in `extension.config.js` (or `.mjs` / `.cjs`) under:
 
-To set custom preferences, add a `preferences` key to the browser configuration in your `extension.config.js`.
-These preferences will be passed to the browser during the development process, modifying its behavior according to your configuration.
+- `browser.<target>.preferences`
+- `commands.dev|start|preview.preferences`
 
-### Example Configuration
+Command-level values can override browser defaults.
 
-Here is an example of how you can set custom preferences for Firefox and Gecko-based browsers in your `extension.config.js`:
+## Preference capabilities
+
+| Config key                     | What it does
+| ------------------------------ | -------------------------------------------------------
+| `browser.<target>.preferences` | Sets default preferences for a specific browser target.
+| `commands.dev.preferences`     | Sets or overrides preferences for `dev` runs.
+| `commands.start.preferences`   | Sets or overrides preferences for `start` runs.
+| `commands.preview.preferences` | Sets or overrides preferences for `preview` runs.
+
+{/* VIDEO_DEMO_SOON: Show default browser preferences in config, then command-level override taking precedence in a dev run. */}
+![Video demo soon: preference precedence flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Firefox and Gecko-based behavior
+
+### Example configuration
 
 ```js
-module.exports = {
+export default {
   browser: {
     firefox: {
       preferences: {
-        "browser.startup.homepage": "https://developer.mozilla.org",
-        "devtools.theme": "dark",
-        "dom.webnotifications.enabled": false,
-      },
-    },
-  },
-};
-```
-
-In this example:
-
-- `browser.startup.homepage` sets the default homepage for Firefox.
-- `devtools.theme` sets the theme of the developer tools to dark mode.
-- `dom.webnotifications.enabled` disables web notifications.
-
-## Using Preferences in the Configuration File
-
-Below is the interface for configuring browser preferences within your `extension.config.js`:
-
-```ts
-interface DevOptions {
-  browser: "firefox" | "gecko-based";
-  preferences?: Record<string, any>;
+        'browser.startup.homepage': 'https://developer.mozilla.org',
+        'devtools.theme': 'dark',
+        'dom.webnotifications.enabled': false
+      }
+    }
+  }
 }
 ```
 
-> Note from the Author: The `preferences` object can contain any key-value pair that is valid for the browser's preferences. While it is theoretically possible to set any preference on Chromium-based browsers, there is no guarantee that all preferences will work as expected.
+In Firefox/Gecko flows, Extension.js writes a `user.js` file into the active profile (managed or explicit profile) and merges:
 
-This allows you to customize preferences like the homepage, DevTools configuration, or disable certain browser features like web notifications.
+- internal baseline preferences required for dev/runtime behavior
+- your custom `preferences` values (your values win on key conflicts)
 
-### Example with Custom Profile
+If system profile mode is enabled (`EXTENSION_USE_SYSTEM_PROFILE=true`), no managed profile file is written.
 
-You can also specify a custom profile for Firefox using the `profile` option along with `preferences`:
+{/* VIDEO_DEMO_SOON: Show Firefox preferences written to `user.js` in managed profile and applied on launch. */}
+![Video demo soon: firefox user.js preference flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Chromium-family behavior
+
+Chromium-family launches (`chrome`, `edge`, `chromium`, `chromium-based`) primarily use **browser flags**.
+
+`preferences` can still exist in merged config objects, but Chromium launch behavior is controlled by flags/profile args, not a Firefox-style `user.js` preference file.
+
+For Chromium customization, prefer:
+
+- `browserFlags`
+- `excludeBrowserFlags`
+- `profile` / `persistProfile`
+
+{/* VIDEO_DEMO_SOON: Show Chromium behavior tuned with flags/profile instead of Firefox-style preference file. */}
+![Video demo soon: chromium preference alternatives](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Dark mode defaults
+
+Extension.js injects dark-mode defaults unless you already define those keys:
+
+- Chromium family: dark-mode launch flags
+- Firefox/Gecko family: dark-mode preference keys (for UI + content color scheme)
+
+Your explicit `preferences`/flags override these defaults.
+
+## Interface example
 
 ```js
-module.exports = {
-  browser: {
-    firefox: {
-      profile: "path/to/custom-profile",
+export default {
+  commands: {
+    dev: {
+      browser: 'firefox',
       preferences: {
-        "browser.startup.homepage": "https://example.com",
-      },
-    },
-  },
-};
+        'devtools.theme': 'dark'
+      }
+    }
+  }
+}
 ```
 
-## More Detailed Preferences
+### Example with custom profile
+
+```js
+export default {
+  browser: {
+    firefox: {
+      profile: 'path/to/custom-profile',
+      preferences: {
+        'browser.startup.homepage': 'https://example.com'
+      }
+    }
+  }
+}
+```
+
+## More detailed preference references
 
 For a comprehensive list of available Firefox preferences, you can explore the [Firefox source code](https://searchfox.org/mozilla-central/source/) where many default preferences are defined in `all.js` or `firefox.js`.
 
-## Best Practices
+## Best practices
 
-- **Use Custom Profiles**: It is a good idea to use separate profiles for different browsers during development to keep testing environments isolated.
-- **Set Browser-Specific Preferences**: Customize browser preferences to optimize your development environment, such as disabling web notifications or setting custom homepages.
+- **Prefer browser-scoped preferences**: Keep Firefox/Gecko preference keys under browser-targeted config blocks.
+- **Use command overrides for temporary experiments**: Put short-lived preference tweaks in `commands.dev`.
+- **Keep profiles isolated**: Use separate profiles for reproducible debugging.
+- **Use flags for Chromium tuning**: Treat flags as the primary configuration surface on Chromium-family targets.
 
-## Next Steps
+## Next steps
 
-- Learn more about [browser-specific environment files](../features/environment-variables.mdx).
-- Explore how to [configure other browser preferences](./browsers-available.mdx).
+- Learn more about [Browser flags](./browser-flags.mdx).
+- Learn more about [Browser profile](./browser-profile.mdx).

@@ -1,0 +1,83 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="background" />
+
+# Background scripts
+
+Run extension-wide logic in background contexts with clear support for both MV2-style background scripts and MV3 service workers.
+
+Extension.js reads background entries from `manifest.json`, compiles them into dedicated background outputs, and applies browser-specific reload behavior during development.
+
+## Background capabilities
+
+| Capability                   | What it gives you
+| ---------------------------- | --------------------------------------------------------------------
+| MV2/MV3 compatibility        | Support `background.scripts` and `background.service_worker` entries
+| Dedicated background outputs | Emit background runtime files per active manifest shape
+| Reload-aware development     | Apply hard reload/restart behavior for structural changes
+| Worker mode control          | Respect `background.type` module/classic runtime behavior
+
+## Background script support
+
+The following fields in `manifest.json` are used to declare background scripts:
+
+| Manifest field              | File type expected           | Dev behavior
+| --------------------------- | ---------------------------- | -------------------
+| `background.service_worker` | `.js`, `.ts`, `.mjs`, `.tsx` | hard reload flow
+| `background.scripts`        | `.js`, `.ts`, `.mjs`, `.tsx` | HMR-compatible path
+
+`background.type` can also affect runtime mode (`module` vs classic service worker behavior).
+
+## Sample background script declaration
+
+Below is an example of how to declare a background script within the `manifest.json` file:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./scripts/background.ts"
+  }
+}
+```
+
+## Development behavior
+
+- Service worker/source changes are tracked and can trigger hard extension reload.
+- Manifest changes affecting background entries can trigger restart-required diagnostics.
+- Browser launch plugins apply target-specific hard reload strategies (Chromium/Firefox).
+- Structural entrypoint changes are treated more strictly than regular module edits.
+
+{/* VIDEO_DEMO_SOON: Show background service worker edit flow, including hard reload behavior and restart-required when background entry structure changes. */}
+![Video demo soon: background script dev behavior](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Output behavior
+
+Common outputs include:
+
+- `background/service_worker.js`
+- `background/scripts.js`
+
+Exact output depends on which manifest field is active after browser filtering.
+
+## Module and classic notes
+
+- `background.type: "module"` uses module worker semantics.
+- Classic service worker mode uses import-scripts chunk loading behavior.
+- Keep dynamic import usage conservative in background runtime-critical paths.
+
+## Best practices
+
+- Prefer `background.service_worker` for MV3-first extensions.
+- Keep background entry files small and delegate logic to shared modules.
+- Avoid expensive startup work in service workers; initialize lazily where safe.
+- Treat manifest background field edits as structural changes in dev flow.
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).
+- Learn more about [JavaScript in development](./javascript.mdx).
+- Continue with [content scripts](./content-scripts.mdx).

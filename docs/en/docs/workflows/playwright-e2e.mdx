@@ -1,0 +1,87 @@
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="extension" />
+
+# Playwright E2E
+
+Validate extension behavior across browsers with repeatable end-to-end tests.
+
+Extension.js projects can use Playwright to test extension flows, UI rendering, and integration behavior in CI and local environments.
+
+## Playwright testing capabilities
+
+| Capability                   | What it gives you
+| ---------------------------- | ---------------------------------------------------------------------
+| Cross-browser runtime checks | Validate core flows on Chromium and Firefox engines
+| UI and interaction coverage  | Test popup/options/content-script behavior with real browser contexts
+| CI-ready reports             | Capture traces/screenshots/videos for failed tests
+| Regression safety            | Catch integration bugs that unit tests usually miss
+
+## Why use it
+
+- catch runtime regressions that unit tests miss
+- validate extension behavior on real browser engines
+- verify multi-browser changes before release
+
+## Typical setup
+
+Install Playwright test dependencies in your project:
+
+<PackageManagerTabs command="install -D @playwright/test" />
+
+Create a `playwright.config.ts` and define browser projects and reporting.
+
+## Recommended baseline
+
+```ts
+import {defineConfig, devices} from '@playwright/test'
+
+export default defineConfig({
+  testDir: 'e2e',
+  retries: process.env.CI ? 2 : 0,
+  reporter: [['html'], ['list']],
+  projects: [
+    {name: 'chromium', use: {...devices['Desktop Chrome']}},
+    {name: 'firefox', use: {...devices['Desktop Firefox']}}
+  ]
+})
+```
+
+{/* VIDEO_DEMO_SOON: Show running one Playwright E2E test that opens the extension UI, validates behavior, and captures trace on failure. */}
+![Video demo soon: Playwright E2E extension flow](https://placehold.co/960x540?text=Video+demo+soon)
+
+## Running tests
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx playwright test',
+    pnpm: 'pnpm playwright test',
+    yarn: 'yarn playwright test'
+  }}
+/>
+
+## Practical guidance for extensions
+
+- Keep test fixtures deterministic; extension startup can be sensitive to profile state.
+- Prefer explicit waits on extension UI conditions over fixed sleeps.
+- Run Chromium and Firefox projects in CI for cross-engine confidence.
+- Capture traces/screenshots/videos on failure for faster debugging.
+
+## Common pitfalls
+
+- relying on fixed timeouts instead of state-based waits
+- running only one browser target in CI
+- skipping artifact upload for failed runs
+- coupling tests to local-only profile or environment assumptions
+
+## Repository reference
+
+This repository includes a Playwright config at:
+
+- `playwright.config.ts`
+
+## Next steps
+
+- Set up [CI templates](./ci-templates.mdx).
+- Keep command workflows aligned with [dev](../commands/dev.mdx) and [build](../commands/build.mdx).
