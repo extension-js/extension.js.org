@@ -6,7 +6,7 @@ import { Button } from "../../components/ui/button";
 const businessCoreTitleSizeClass =
   "text-foreground text-3xl font-semibold leading-tight tracking-tight sm:text-4xl";
 const businessCoreDescriptionSizeClass =
-  "text-muted-foreground text-base leading-relaxed sm:text-lg";
+  "text-muted-foreground text-lg leading-relaxed sm:text-lg";
 
 const heroLogoTopRow = [
   {
@@ -122,8 +122,7 @@ export default function OpenSourceHeroSection() {
           <div className="flex flex-col items-center justify-center">
             <h2
               className={`${businessCoreTitleSizeClass} mb-2 max-w-2xl text-center text-[4rem]`}
-              style={{ fontSize: '4rem'}}
-
+              style={{ fontSize: "4rem" }}
             >
               The cross-browser extension framework
             </h2>

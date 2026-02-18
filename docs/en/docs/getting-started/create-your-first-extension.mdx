@@ -1,5 +1,5 @@
-import {PackageManagerTabs} from '@theme'
-import {AvatarEmoji} from '../../../../theme/components/avatar-emoji'
+import { PackageManagerTabs } from "@theme";
+import { AvatarEmoji } from "../../../../theme/components/avatar-emoji";
 
 <AvatarEmoji emoji="first" />
 
@@ -9,12 +9,12 @@ Build your first browser extension end-to-end with a practical workflow. Create 
 
 ## What you will build
 
-| Capability                | What you get
-| ------------------------- | -------------------------------------------------------------
-| Omnibox keyword flow      | Trigger extension behavior with `gh` from the browser URL bar
-| Background event handling | Handle user input through a service worker
-| Local dev loop            | Run, load, and validate extension behavior quickly
-| Progressive enhancement   | Add live GitHub suggestions after baseline flow works
+| Capability                | What you get                                                  |
+| ------------------------- | ------------------------------------------------------------- |
+| Omnibox keyword flow      | Trigger extension behavior with `gh` from the browser URL bar |
+| Background event handling | Handle user input through a service worker                    |
+| Local dev loop            | Run, load, and validate extension behavior quickly            |
+| Progressive enhancement   | Add live GitHub suggestions after baseline flow works         |
 
 {/* VIDEO_DEMO_SOON: Show the final UX first: type `gh` in the browser omnibox, enter a query, and open GitHub results in a new tab. */}
 ![Video demo soon: final omnibox GitHub search flow](https://placehold.co/960x540?text=Video+demo+soon)
@@ -34,9 +34,9 @@ Use the Extension.js `create` command to bootstrap a minimal extension named `gi
 
 <PackageManagerTabs
   command={{
-    npm: 'npx extension@latest create github-search --template=init',
-    pnpm: 'pnpx extension@latest create github-search --template=init',
-    yarn: 'yarn dlx extension@latest create github-search --template=init'
+    npm: "npx extension@latest create github-search --template=init",
+    pnpm: "pnpx extension@latest create github-search --template=init",
+    yarn: "yarn dlx extension@latest create github-search --template=init",
   }}
 />
 
@@ -44,16 +44,16 @@ Use the Extension.js `create` command to bootstrap a minimal extension named `gi
 
 {/* VIDEO_DEMO_SOON: Existing Loom embed for manifest setup. Keep this embed and replace only if explicitly requested. */}
 
-<div style={{position: 'relative', paddingBottom: '62.5%', height: 0}}>
+<div style={{ position: "relative", paddingBottom: "62.5%", height: 0 }}>
   <iframe
     src="https://www.loom.com/embed/1193dc69f7b74a56a5f5d9e0324c255d?sid=99132929-4c05-40e7-b804-3f242daf95ea"
     allowFullScreen
     style={{
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
-      width: '100%',
-      height: '100%'
+      width: "100%",
+      height: "100%",
     }}
   ></iframe>
 </div>
@@ -67,7 +67,7 @@ Every extension starts with a manifest file. It defines metadata, permissions, a
   "manifest_version": 3,
   "name": "GitHub Search",
   "version": "1.0",
-  "omnibox": {"keyword": "gh"},
+  "omnibox": { "keyword": "gh" },
   "background": {
     "service_worker": "service_worker.js"
   }
@@ -90,11 +90,11 @@ Create `service_worker.js`:
 chrome.omnibox.onInputEntered.addListener((text) => {
   // Convert any special character (spaces, &, ?, etc)
   // into a valid character for the URL format.
-  const encodedSearchText = encodeURIComponent(text)
-  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`
+  const encodedSearchText = encodeURIComponent(text);
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
 
-  chrome.tabs.create({url})
-})
+  chrome.tabs.create({ url });
+});
 ```
 
 The script above will open a new tab with GitHub search results whenever you enter something after "gh" in the URL bar.
@@ -120,9 +120,9 @@ These scripts are the default Extension.js commands. Run the extension for the f
 
 <PackageManagerTabs
   command={{
-    npm: 'npm run dev',
-    pnpm: 'pnpm run dev',
-    yarn: 'yarn run dev'
+    npm: "npm run dev",
+    pnpm: "pnpm run dev",
+    yarn: "yarn run dev",
   }}
 />
 
@@ -130,16 +130,16 @@ If everything is configured correctly, you should see the following:
 
 {/* VIDEO_DEMO_SOON: Existing Loom embed for first `dev` run and loading the extension in the browser. Keep this embed and replace only if explicitly requested. */}
 
-<div style={{position: 'relative', paddingBottom: '62.5%', height: 0}}>
+<div style={{ position: "relative", paddingBottom: "62.5%", height: 0 }}>
   <iframe
     src="https://www.loom.com/embed/777544977a32444ba6de4ff23bdaccbc?sid=360eb1b1-af3a-480b-9e71-41a7fb01ca6e"
     allowFullScreen
     style={{
-      position: 'absolute',
+      position: "absolute",
       top: 0,
       left: 0,
-      width: '100%',
-      height: '100%'
+      width: "100%",
+      height: "100%",
     }}
   ></iframe>
 </div>
@@ -153,44 +153,44 @@ Improve the search experience by adding suggestions directly in the URL bar with
 Update `service_worker.js` to fetch GitHub suggestions and display them while typing.
 
 ```js
-service_worker.js
+service_worker.js;
 
 // Create a debounce function to avoid excessive
 // calls to the GitHub API while the user is still
 // typing the search query.
 function debounce(fn, delay) {
-  let timeoutID
+  let timeoutID;
   return function (...args) {
-    if (timeoutID) clearTimeout(timeoutID)
-    timeoutID = setTimeout(() => fn(...args), delay)
-  }
+    if (timeoutID) clearTimeout(timeoutID);
+    timeoutID = setTimeout(() => fn(...args), delay);
+  };
 }
 
 // When the user has changed what is typed into the omnibox.
 chrome.omnibox.onInputChanged.addListener(
   debounce(async (text, suggest) => {
     const response = await fetch(
-      `https://api.github.com/search/issues?q=${text}`
-    )
-    const data = await response.json()
+      `https://api.github.com/search/issues?q=${text}`,
+    );
+    const data = await response.json();
     const suggestions = data.items.map((issue) => ({
       content: issue.html_url,
-      description: issue.title
-    }))
+      description: issue.title,
+    }));
 
-    suggest(suggestions)
-  }, 250)
-)
+    suggest(suggestions);
+  }, 250),
+);
 
 // When the user has accepted what is typed into the omnibox.
 chrome.omnibox.onInputEntered.addListener((text) => {
   // Convert any special character (spaces, &, ?, etc)
   // into a valid character for the URL format.
-  const encodedSearchText = encodeURIComponent(text)
-  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`
+  const encodedSearchText = encodeURIComponent(text);
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
 
-  chrome.tabs.create({url})
-})
+  chrome.tabs.create({ url });
+});
 ```
 
 This code adds live GitHub suggestions directly in the URL bar.
