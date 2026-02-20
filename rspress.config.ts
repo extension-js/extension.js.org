@@ -15,7 +15,7 @@ export default defineConfig({
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-M82MQDWX');</script>
+})(window,document,'script','dataLayer','GTM-NJD6VVD4');</script>
 <!-- End Google Tag Manager -->`,
   ],
   title: "The cross-browser extension framework",
@@ -35,6 +35,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         {
           tag: "script",
           children: "window.RSPRESS_THEME = 'dark';",
+        },
+        {
+          tag: "noscript",
+          head: false,
+          children:
+            '<iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NJD6VVD4" height="0" width="0" style="display:none;visibility:hidden"></iframe>',
         },
       ],
     },
