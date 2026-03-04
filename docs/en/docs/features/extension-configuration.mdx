@@ -1,4 +1,4 @@
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="extension" />
 
@@ -28,6 +28,15 @@ Top-level keys:
 | `transpilePackages` | Default package transpile allowlist (monorepo/workspace support). |
 | `config`            | Hook to extend/override generated webpack/rspack config.          |
 
+### Environment loading for config files
+
+`extension.config.*` runs in Node and should read values from `process.env.*`.
+
+- Extension.js preloads env files before evaluating `extension.config.*`.
+- It first checks the project directory.
+- In monorepos, if no project-local `.env*` file is found, it falls back to the nearest workspace root (directory containing `pnpm-workspace.yaml`) and applies the same order there.
+- Prefer built-in env preload over importing `dotenv` in your config file.
+
 {/* VIDEO_DEMO_SOON: Show creating `extension.config.js` and running `extension dev` with defaults applied automatically. */}
 ![Video demo soon: extension config basics](https://placehold.co/960x540?text=Video+demo+soon)
 
@@ -39,19 +48,19 @@ Need different browser defaults per target? Use `browser`:
 export default {
   browser: {
     chrome: {
-      profile: "path/to/profile",
-      preferences: { darkMode: true },
-      browserFlags: ["--disable-web-security"],
-      excludeBrowserFlags: ["--mute-audio"],
+      profile: 'path/to/profile',
+      preferences: {darkMode: true},
+      browserFlags: ['--disable-web-security'],
+      excludeBrowserFlags: ['--mute-audio']
     },
-    "chromium-based": {
-      chromiumBinary: "/path/to/brave-or-other-chromium-binary",
+    'chromium-based': {
+      chromiumBinary: '/path/to/brave-or-other-chromium-binary'
     },
     firefox: {
-      geckoBinary: "/path/to/firefox",
-    },
-  },
-};
+      geckoBinary: '/path/to/firefox'
+    }
+  }
+}
 ```
 
 Supported browser keys include: `chrome`, `edge`, `firefox`, `chromium`, `chromium-based`, `gecko-based`.
@@ -86,33 +95,33 @@ Use `commands` to define defaults per command:
 
 ```js
 export default {
-  transpilePackages: ["@workspace/ui"],
+  transpilePackages: ['@workspace/ui'],
   commands: {
     dev: {
-      browser: "chrome",
+      browser: 'chrome',
       polyfill: true,
-      logLevel: "info",
+      logLevel: 'info',
       persistProfile: true,
-      browserFlags: ["--headless=new"],
-      extensions: { dir: "./extensions" },
+      browserFlags: ['--headless=new'],
+      extensions: {dir: './extensions'}
     },
     start: {
-      browser: "firefox",
-      source: "https://example.com",
+      browser: 'firefox',
+      source: 'https://example.com'
     },
     preview: {
-      browser: "edge",
-      noRunner: false,
+      browser: 'edge',
+      noBrowser: false
     },
     build: {
-      browser: "chrome",
+      browser: 'chrome',
       zip: true,
       zipSource: true,
-      zipFilename: "my-extension.zip",
-      transpilePackages: ["@workspace/ui", "@workspace/icons"],
-    },
-  },
-};
+      zipFilename: 'my-extension.zip',
+      transpilePackages: ['@workspace/ui', '@workspace/icons']
+    }
+  }
+}
 ```
 
 Notes:
@@ -133,7 +142,7 @@ Notes:
 | `polyfill`          | `dev`, `start`, `build`            | Enables compatibility polyfill behavior where relevant. |
 | `startingUrl`       | `dev`, `start`, `preview`          | Opens a specific URL on browser launch.                 |
 | `port`              | `dev`, `start`, `preview`          | Sets runner/devtools port.                              |
-| `noRunner`          | `dev`, `start`, `preview`          | Disables browser runner launch.                         |
+| `noBrowser`         | `dev`, `start`, `preview`          | Disables browser launch.                                |
 | `extensions`        | `dev`, `start`, `preview`, `build` | Loads companion extensions (or extension list).         |
 | `install`           | `dev`, `start`, `build`            | Installs missing dependencies before running.           |
 | `transpilePackages` | `dev`, `start`, `preview`, `build` | Transpiles listed workspace/external packages.          |
@@ -188,11 +197,11 @@ export default {
   config: (config) => {
     config.module.rules.push({
       test: /\.mdx$/,
-      use: ["babel-loader", "@mdx-js/loader"],
-    });
-    return config;
-  },
-};
+      use: ['babel-loader', '@mdx-js/loader']
+    })
+    return config
+  }
+}
 ```
 
 `config` may also be an object, which is merged on top of the generated config.
@@ -205,32 +214,32 @@ export default {
 ```js
 export default {
   browser: {
-    chrome: { browser: "chrome", profile: "default" },
-    firefox: { browser: "firefox", persistProfile: true },
-    "chromium-based": {
-      browser: "chromium-based",
+    chrome: {browser: 'chrome', profile: 'default'},
+    firefox: {browser: 'firefox', persistProfile: true},
+    'chromium-based': {
+      browser: 'chromium-based',
       chromiumBinary:
-        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-    },
+        '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'
+    }
   },
   commands: {
     dev: {
-      browser: "chrome",
+      browser: 'chrome',
       polyfill: true,
-      extensions: { dir: "./extensions" },
+      extensions: {dir: './extensions'}
     },
-    start: { browser: "edge" },
-    preview: { browser: "firefox" },
+    start: {browser: 'edge'},
+    preview: {browser: 'firefox'},
     build: {
-      zipFilename: "extension.zip",
+      zipFilename: 'extension.zip',
       zip: true,
-      zipSource: true,
-    },
+      zipSource: true
+    }
   },
-  extensions: { dir: "./extensions" },
-  transpilePackages: ["@workspace/ui"],
-  config: (config) => config,
-};
+  extensions: {dir: './extensions'},
+  transpilePackages: ['@workspace/ui'],
+  config: (config) => config
+}
 ```
 
 ## Best practices
