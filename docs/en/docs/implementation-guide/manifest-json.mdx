@@ -1,5 +1,5 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="json" />
 
@@ -25,6 +25,8 @@ Extension.js compiles your manifest, filters browser-prefixed fields, rewrites r
 
 `public/manifest.json` is not used as the source manifest.
 
+If a project has a `package.json`, Extension.js does not treat `public/manifest.json` as a valid fallback. This guard prevents the generated manifest from being overwritten by a copied static asset.
+
 ## What Extension.js does with it
 
 During dev/build, the manifest pipeline:
@@ -34,8 +36,22 @@ During dev/build, the manifest pipeline:
 3. applies manifest overrides/path normalization for extension outputs
 4. validates referenced files (HTML/scripts/CSS/icons/JSON) and fails early when missing
 
-{/* VIDEO_DEMO_SOON: Show editing one manifest file, running different browser targets, and inspecting target-specific emitted manifest output. */}
-![Video demo soon: manifest compile and target filtering](https://placehold.co/960x540?text=Video+demo+soon)
+## One manifest, multiple browsers
+
+Browser-prefixed keys let you keep one manifest file while still targeting browser-specific behavior:
+
+- `chromium:*`, `chrome:*`, `edge:*`
+- `firefox:*`, `gecko:*`
+
+These prefixes can apply to top-level keys and nested manifest fields.
+
+Examples:
+
+- `chromium:key`
+- `background.firefox:scripts`
+- `background.chromium:service_worker`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show editing one manifest file, running different browser targets, and inspecting target-specific emitted manifest output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 ### Supported manifest fields
 
@@ -56,23 +72,40 @@ Common entrypoint-related fields include:
 | `devtools_page`                          | .html                              |
 | `icons`                                  | .png, .jpg, ...Other image formats |
 | `options_ui.page`                        | .html                              |
+| `options_page`                           | .html                              |
 | `page_action.default_popup`              | .html                              |
 | `sandbox.pages`                          | .html                              |
-| `sidepanel`                              | .html                              |
+| `side_panel.default_path`                | .html                              |
 | `sidebar_action.default_panel`           | .html                              |
 | `storage.managed_schema`                 | .json                              |
 | `theme_icons`                            | .png, .jpg, ...Other image formats |
 | `user_scripts.api_script`                | .js, .jsx, .ts, .tsx, .mjs         |
 | `web_accessible_resources`               | .png, .jpg, .css, .js              |
 
-### Cross-browser compatibility
+## Permissions design
 
-Use browser-prefixed fields directly in `manifest.json`:
+The manifest is also where your extension declares what it is allowed to do. Extension.js will compile the manifest, but it does not reduce the importance of good permission design.
 
-- `chromium:*`, `chrome:*`, `edge:*`
-- `firefox:*`, `gecko:*`
+- keep `permissions` small and intentional
+- keep `host_permissions` as narrow as the feature allows
+- move non-core capabilities into `optional_permissions` or `optional_host_permissions` where possible
+- review permission scope whenever content-script matches or background capabilities change
 
-Extension.js keeps only the keys that match the current browser target and drops the rest.
+For permission strategy, see [Permissions and host permissions](./permissions-and-host-permissions.mdx).
+
+## Output behavior
+
+Manifest paths are rewritten to canonical output locations when needed. Two important examples:
+
+- `background.service_worker` becomes `background/service_worker.js`
+- `side_panel.default_path` becomes `sidebar/index.html`
+
+Content scripts are also normalized by manifest entry index:
+
+- `content_scripts/content-0.js`
+- `content_scripts/content-0.css`
+
+Those emitted paths are the browser-facing contract. Use source paths in authoring, then let Extension.js rewrite them for output.
 
 ## Development behavior
 
@@ -91,13 +124,15 @@ Extension.js keeps only the keys that match the current browser target and drops
 
 ## Best practices
 
-- Keep manifest paths relative to the extension source/output model and avoid ambiguous leading slash usage unless intentional.
+- Keep manifest paths relative to the extension source/output model and use leading `/` only when you mean extension output root.
 - Use browser-prefixed keys instead of maintaining separate manifest files per browser.
 - Keep entrypoint changes deliberate; adding/removing manifest scripts often changes reload semantics in dev.
 - Validate icons, JSON resources, and content script assets as part of CI to catch path regressions early.
+- Do not place `manifest.json` under `public/`.
 
 ## Next steps
 
 - Understand update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).
+- Design least-privilege access in [Permissions and host permissions](./permissions-and-host-permissions.mdx).
 - Learn how Extension.js handles [browser-specific fields](../features/browser-specific-fields.mdx).
 - Understand dev update flow in [page reload and HMR](../features/reload-and-hmr.mdx).

@@ -1,25 +1,39 @@
-# 🧩 extension.js.org
+# Extension.js Docs
 
-> The Extension official documentation website.
+> The documentation website for Extension.js
 
-The Extension official documentation website. Built with [Rspress](https://rspress.dev/).
+Extension.js Docs is the documentation site for the cross-browser extension framework. It is built with [Rspress](https://rspress.dev/) and publishes the guides, references, workflows, and implementation notes for [Extension.js](https://extension.js.org).
 
-## Installation
+- Read the docs: [extension.js.org](https://extension.js.org)
+- Explore the framework: [extension-js/extension.js](https://github.com/extension-js/extension.js)
+- Contribute to the framework: [CONTRIBUTING.md](https://github.com/extension-js/extension.js/blob/main/CONTRIBUTING.md)
 
-### Installing the dependencies
+## Run locally
 
-Open your terminal and navigate to the project folder. Then run the following commands to install the dependencies:
+Install dependencies:
 
 ```sh
 pnpm install
 ```
 
-### Running the project
+Start the docs dev server:
 
 ```sh
 pnpm dev
 ```
 
+Build the site:
+
+```sh
+pnpm build
+```
+
+Preview the production build:
+
+```sh
+pnpm preview
+```
+
 ## License
 
-MIT (c) Cezar Augusto and the Extension.js authors.
+MIT (c) Cezar Augusto and the Extension.js Authors.

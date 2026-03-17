@@ -7,7 +7,7 @@ import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 Launch an already-built extension output for production-like manual testing.
 
-`preview` does not compile your project. It loads extension files from build output (typically `dist/<browser>`) and runs the browser launcher flow.
+`preview` does not compile your project. It loads an existing unpacked extension root and runs the browser launcher flow.
 
 ## When to use `preview`
 
@@ -24,7 +24,7 @@ Launch an already-built extension output for production-like manual testing.
 | Runner control          | Launch or skip browser runner based on workflow needs  |
 | Fast manual QA          | Verify packaging-ready behavior quickly before release |
 
-> `preview` requires an existing built extension output. If `dist/<browser>` is missing, run `build` first.
+> `preview` is run-only. It prefers `dist/<browser>` when that output exists, but it can also run from another unpacked extension directory if that directory already contains a `manifest.json`.
 
 ## Usage
 
@@ -38,20 +38,45 @@ Launch an already-built extension output for production-like manual testing.
 
 If no path is provided, `process.cwd()` is used.
 
+## How `preview` chooses what to run
+
+`preview` checks these locations in order:
+
+1. `dist/<browser>` for the selected browser target
+2. the provided project path or current working directory
+3. `--output-path` when you explicitly point to an unpacked extension root
+
+What matters is not whether a build happened in the same command. What matters is whether the chosen directory already contains an unpacked extension with a `manifest.json`.
+
 ## Core options
 
-| Flag                        | Alias              | What it does                                                                  | Default         |
-| --------------------------- | ------------------ | ----------------------------------------------------------------------------- | --------------- |
-| `[path]`                    | -                  | Preview built extension from a project path.                                  | `process.cwd()` |
-| `--browser <browser>`       | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, etc.).        | `chromium`      |
-| `--profile <path\|boolean>` | -                  | Browser profile path or boolean profile mode.                                 | fresh profile   |
-| `--chromium-binary <path>`  | -                  | [Custom Chromium-family binary path](../browsers/running-other-browsers.mdx). | system default  |
-| `--gecko-binary <path>`     | `--firefox-binary` | [Custom Gecko-family binary path](../browsers/running-other-browsers.mdx).    | system default  |
-| `--starting-url <url>`      | -                  | Starting URL in launched browser.                                             | unset           |
-| `--no-browser`              | -                  | Skip browser launch.                                                          | browser launch enabled  |
-| `--port <port>`             | -                  | Runner/devtools port when runner is enabled.                                  | `8080`          |
-| `--extensions <list>`       | -                  | Comma-separated companion extensions or store URLs.                           | unset           |
-| `--author`                  | `--author-mode`    | Enable maintainer diagnostics.                                                | disabled        |
+| Flag                        | Alias              | What it does                                                                  | Default                |
+| --------------------------- | ------------------ | ----------------------------------------------------------------------------- | ---------------------- |
+| `[path]`                    | -                  | Preview built extension from a project path.                                  | `process.cwd()`        |
+| `--browser <browser>`       | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, etc.).        | `chromium`             |
+| `--profile <path\|boolean>` | -                  | Browser profile path or boolean profile mode.                                 | fresh profile          |
+| `--chromium-binary <path>`  | -                  | [Custom Chromium-family binary path](../browsers/running-other-browsers.mdx). | system default         |
+| `--gecko-binary <path>`     | `--firefox-binary` | [Custom Gecko-family binary path](../browsers/running-other-browsers.mdx).    | system default         |
+| `--starting-url <url>`      | -                  | Starting URL in launched browser.                                             | unset                  |
+| `--no-browser`              | -                  | Skip browser launch.                                                          | browser launch enabled |
+| `--port <port>`             | -                  | Runner/devtools port when runner is enabled.                                  | `8080`                 |
+| `--extensions <list>`       | -                  | Comma-separated companion extensions or store URLs.                           | unset                  |
+| `--author`                  | `--author-mode`    | Enable maintainer diagnostics.                                                | disabled               |
+
+## Automation metadata
+
+`preview` writes readiness metadata to:
+
+- `dist/extension-js/<browser>/ready.json`
+
+For `--no-browser` flows, this provides deterministic command state:
+
+- `starting` while command initializes
+- `ready` when run-only validation is complete
+- `error` when required output is missing or startup fails
+- `runId` and `startedAt` for session correlation in scripts/agents
+
+`preview` does not provide a `--wait` gate flag. For `preview` automation, consume `ready.json` directly.
 
 ## Logging flags
 
@@ -93,8 +118,7 @@ Also supports [global flags](../workflows/global-flags.mdx).
 
 ### Previewing a local extension
 
-{/* VIDEO_DEMO_SOON: Show previewing an existing `dist/<browser>` output after build and validating runtime behavior manually. */}
-![Video demo soon: preview command local artifact flow](https://placehold.co/960x540?text=Video+demo+soon)
+{/* VIDEO_PLACEHOLDER_TODO: Show previewing an existing `dist/<browser>` output after build and validating runtime behavior manually. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <PackageManagerTabs
   command={{
@@ -106,8 +130,7 @@ Also supports [global flags](../workflows/global-flags.mdx).
 
 ### Previewing in Edge and Chrome
 
-{/* VIDEO_DEMO_SOON: Show previewing one built artifact across two explicit browser targets for release checks. */}
-![Video demo soon: preview multi-browser validation](https://placehold.co/960x540?text=Video+demo+soon)
+{/* VIDEO_PLACEHOLDER_TODO: Show previewing one built artifact across two explicit browser targets for release checks. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <PackageManagerTabs
   command={{
@@ -119,8 +142,7 @@ Also supports [global flags](../workflows/global-flags.mdx).
 
 ### Preview without launching browser
 
-{/* VIDEO_DEMO_SOON: Show preview with `--no-browser` for CI/local verification when browser launch is not needed. */}
-![Video demo soon: preview no-browser flow](https://placehold.co/960x540?text=Video+demo+soon)
+{/* VIDEO_PLACEHOLDER_TODO: Show preview with `--no-browser` for CI/local verification when browser launch is not needed. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <PackageManagerTabs
   command={{
@@ -132,13 +154,16 @@ Also supports [global flags](../workflows/global-flags.mdx).
 
 ## Important behavior notes
 
-- `preview` expects an existing build output (`dist/<browser>` by default).
+- `preview` is run-only and never compiles the project.
+- `preview` prefers existing build output (`dist/<browser>`) but can fall back to another unpacked extension root.
 - `preview` does not run watch/HMR.
 - Source inspection flags are not supported in `preview`; use `dev` for that workflow.
+- For scripts/agents, rely on `ready.json` and avoid parsing terminal output.
 
 ## Best practices
 
 - Run `build` before `preview` when testing a fresh production artifact.
+- Pass `--output-path` when your unpacked extension lives outside the default project output.
 - Use `--browser` to verify behavior across targets before packaging.
 
 ## Next steps

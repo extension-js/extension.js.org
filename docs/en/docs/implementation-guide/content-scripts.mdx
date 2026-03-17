@@ -1,5 +1,5 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="content" />
 
@@ -44,6 +44,57 @@ Below is an example of how to declare content scripts within the `manifest.json`
 }
 ```
 
+## Authoring contract
+
+For every content-script-like entry, Extension.js expects a mount-style default export:
+
+- The module should `export default` a synchronous function.
+- That function should perform setup work.
+- It may return a synchronous cleanup callback.
+- Classes are not supported as the default export.
+
+This applies to:
+
+- files referenced by `manifest.json > content_scripts[*].js`
+- files placed under the project `scripts/` folder when they are used as script entrypoints
+
+### Valid shapes
+
+```ts
+export default function main() {
+  return () => {}
+}
+```
+
+```ts
+const main = () => {}
+export default main
+```
+
+### Invalid shapes
+
+```ts
+export default class App {}
+```
+
+```ts
+export default {}
+```
+
+### Async guidance
+
+Keep the default export synchronous even when the feature does async work internally. Start async work inside the function and return a synchronous cleanup.
+
+Why this matters: Extension.js remounts content scripts during development. Without a cleanup contract, it is easy to duplicate UI, event listeners, observers, and timers.
+
+## What happens on contract violations
+
+- No default export: Extension.js warns during development and skips mounting.
+- Default export is not a function: Extension.js warns during development and skips mounting.
+- Async default export: the module still runs, but the returned `Promise` is not treated as cleanup.
+
+If your content script appears to compile but never mounts, check the default export first.
+
 ## Runtime wrapper behavior
 
 - Content script modules are wrapped with mount/runtime helpers.
@@ -51,8 +102,17 @@ Below is an example of how to declare content scripts within the `manifest.json`
 - CSS updates trigger remount events (`__EXTENSIONJS_CSS_UPDATE__`) in development.
 - `run_at` timing is respected from manifest values.
 
-{/* VIDEO_DEMO_SOON: Show isolated-world and MAIN-world content script behavior differences, plus live update flow for JS and CSS changes. */}
-![Video demo soon: content script runtime and update flow](https://placehold.co/960x540?text=Video+demo+soon)
+## `scripts/` folder behavior
+
+The `scripts/` folder is for script entrypoints that are not declared by an HTML page entry. In practice, these entries follow the same mount-style runtime expectations as content scripts.
+
+That means `scripts/` is not just a generic folder for loose JavaScript files:
+
+- script entry files should still have a default export function when they are meant to mount behavior
+- adding or removing supported files under `scripts/` is treated as a structural change in watch mode
+- Extension.js may require a dev-server restart when that entry set changes
+
+{/* VIDEO_PLACEHOLDER_TODO: Show isolated-world and MAIN-world content script behavior differences, plus live update flow for JS and CSS changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 ## Output path
 
@@ -91,6 +151,15 @@ content_scripts/
 
 Use isolated world by default. Use `MAIN` only when page-context access is required and account for extension API/runtime constraints.
 
+## Matching and execution guidance
+
+The browser still controls where a content script runs. Extension.js bundles the file, but the matching contract still comes from the manifest entry.
+
+- Keep `matches` as narrow as the feature allows.
+- Add `exclude_matches`, `all_frames`, or `match_about_blank` only when the feature actually requires those behaviors.
+- Treat `run_at` and `world` as part of the feature contract, not just implementation detail.
+- Re-test permission and host-permission scope when changing where a content script runs.
+
 ## Development behavior
 
 - Editing content script code usually updates through wrapper-driven HMR/remount flow.
@@ -103,9 +172,13 @@ Use isolated world by default. Use `MAIN` only when page-context access is requi
 - Scope selectors/styles carefully to avoid host-page collisions.
 - Prefer explicit `run_at` and `world` values when behavior depends on timing/context.
 - Treat manifest content-script list changes as structural development changes.
+- Pass page-derived data through validated messaging instead of performing privileged work directly in the page boundary.
+- Default to isolated world and move to `MAIN` only when the page context is strictly required.
 
 ## Next steps
 
 - Understand update outcomes in [dev update behavior](../workflows/dev-update-behavior.mdx).
+- Design cross-context communication with [Messaging](./messaging.mdx).
+- Review access scope in [Permissions and host permissions](./permissions-and-host-permissions.mdx).
 - Learn about [web-accessible resources](./web-accessible-resources.mdx).
 - Continue with [locales in development](./locales.mdx).

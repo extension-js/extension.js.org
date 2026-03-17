@@ -1,16 +1,17 @@
-"use client";
+'use client'
+
+import HomepageSection from './homepage-section'
+import HomepageSectionHeader from './homepage-section-header'
 
 export default function SponsorsSection() {
   return (
-    <section className="w-full p-4 sm:p-6 md:p-8 lg:p-8" id="sponsors">
-      <div className="mx-auto max-w-4xl text-center">
-        <h2 className="text-foreground mx-auto mb-2 max-w-2xl text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
-          Backing the open source core
-        </h2>
-        <p className="text-muted-foreground mx-auto mb-16 max-w-xl text-lg leading-relaxed sm:text-lg">
-          Sponsors help us ship faster releases, better developer experience, and long-term
-          reliability for extension teams.
-        </p>
+    <HomepageSection id="sponsors" contentClassName="max-w-4xl">
+      <div className="text-center">
+        <HomepageSectionHeader
+          className="mb-16"
+          title="Backing the open source core"
+          description="Sponsors help us ship faster releases, better developer experience, and long-term reliability for extension teams."
+        />
         <a
           className="inline-flex items-center gap-3"
           href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=extensionjs"
@@ -21,10 +22,10 @@ export default function SponsorsSection() {
             alt="TestMu AI logo"
             className="w-auto transition dark:invert"
             src="https://assets.testmu.ai/resources/images/logos/logo.png"
-            style={{ height: "64px" }}
+            style={{height: '64px'}}
           />
         </a>
       </div>
-    </section>
-  );
+    </HomepageSection>
+  )
 }
