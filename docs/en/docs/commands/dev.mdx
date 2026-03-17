@@ -42,21 +42,55 @@ If no path is provided, Extension.js uses `process.cwd()`.
 
 ## Core options
 
-| Flag                        | Alias              | What it does                                                                                                | Default                  |
-| --------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------ |
-| `[path or url]`             | -                  | Extension path or remote URL.                                                                               | `process.cwd()`          |
-| `--browser <browser>`       | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values). | `chromium`               |
-| `--profile <path\|boolean>` | -                  | Browser profile path or boolean profile mode.                                                               | fresh profile            |
-| `--chromium-binary <path>`  | -                  | [Custom Chromium-family binary path](../browsers/running-other-browsers.mdx).                               | system default           |
-| `--gecko-binary <path>`     | `--firefox-binary` | [Custom Gecko-family binary path](../browsers/running-other-browsers.mdx).                                  | system default           |
-| `--polyfill [boolean]`      | -                  | Enable compatibility polyfill behavior.                                                                     | `false`                  |
-| `--starting-url <url>`      | -                  | Starting URL in launched browser.                                                                           | unset                    |
-| `--port <port>`             | -                  | Dev server port.                                                                                            | `8080`                   |
-| `--no-open`                 | -                  | Do not automatically open browser.                                                                          | browser opens by default |
-| `--no-browser`              | -                  | Do not launch browser.                                                                                      | browser launch enabled   |
-| `--extensions <list>`       | -                  | Comma-separated companion extensions or store URLs.                                                         | unset                    |
-| `--install [boolean]`       | -                  | Install project dependencies when missing.                                                                  | command behavior default |
-| `--author`                  | `--author-mode`    | Enable maintainer diagnostics.                                                                              | disabled                 |
+| Flag                           | Alias              | What it does                                                                                                | Default                  |
+| ------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `[path or url]`                | -                  | Extension path or remote URL.                                                                               | `process.cwd()`          |
+| `--browser <browser>`          | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values). | `chromium`               |
+| `--profile <path\|boolean>`    | -                  | Browser profile path or boolean profile mode.                                                               | fresh profile            |
+| `--chromium-binary <path>`     | -                  | [Custom Chromium-family binary path](../browsers/running-other-browsers.mdx).                               | system default           |
+| `--gecko-binary <path>`        | `--firefox-binary` | [Custom Gecko-family binary path](../browsers/running-other-browsers.mdx).                                  | system default           |
+| `--polyfill [boolean]`         | -                  | Enable compatibility polyfill behavior.                                                                     | `false`                  |
+| `--starting-url <url>`         | -                  | Starting URL in launched browser.                                                                           | unset                    |
+| `--port <port>`                | -                  | Dev server port.                                                                                            | `8080`                   |
+| `--no-open`                    | -                  | Do not automatically open browser.                                                                          | browser opens by default |
+| `--no-browser`                 | -                  | Do not launch browser.                                                                                      | browser launch enabled   |
+| `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit.                                                 | disabled                 |
+| `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                                                                  | `60000`                  |
+| `--wait-format <pretty\|json>` | -                  | Output format for wait results (`json` is machine-readable).                                                | `pretty`                 |
+| `--extensions <list>`          | -                  | Comma-separated companion extensions or store URLs.                                                         | unset                    |
+| `--install [boolean]`          | -                  | Install project dependencies when missing.                                                                  | command behavior default |
+| `--author`                     | `--author-mode`    | Enable maintainer diagnostics.                                                                              | disabled                 |
+
+## Automation metadata (recommended for scripts/agents)
+
+When `dev` runs, Extension.js emits machine-readable metadata under:
+
+- `dist/extension-js/<browser>/ready.json`
+- `dist/extension-js/<browser>/events.ndjson`
+
+For automation (Playwright, CI, AI agents), prefer these files over terminal log parsing.
+
+`ready.json` should be treated as the readiness contract:
+
+- `status: "starting"` while booting
+- `status: "ready"` when runtime is ready
+- `status: "error"` for startup/compile failures
+- `runId` uniquely identifies a runtime session
+- `startedAt` marks the runtime session start timestamp
+
+### `--no-browser` and readiness synchronization
+
+`--no-browser` only disables browser launch. It does not block external runners until compile is usable.
+
+For Playwright/CI/AI workflows:
+
+1. run `extension dev --no-browser` as a long-lived process
+2. run `extension dev --wait --browser=<browser>` as the readiness gate
+3. launch external browser automation only after `status: "ready"`
+
+`--wait` is designed for a second process (or CI step) and exits non-zero on `error`/timeout.
+When `--wait` sees a stale `ready.json` from a dead process (`pid` no longer alive), it keeps waiting for a live producer.
+If both `--wait` and `--no-browser` are passed to the same command invocation, `--wait` takes precedence and the command runs in wait-only mode.
 
 ## Source inspection workflow
 
@@ -105,8 +139,7 @@ Also supports [global flags](../workflows/global-flags.mdx).
 
 ### Running a local extension
 
-{/* VIDEO_DEMO_SOON: Show local extension dev startup with watch mode and live update behavior after editing a UI file. */}
-![Video demo soon: local dev workflow](https://placehold.co/960x540?text=Video+demo+soon)
+{/* VIDEO_PLACEHOLDER_TODO: Show local extension dev startup with watch mode and live update behavior after editing a UI file. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <PackageManagerTabs
   command={{
@@ -118,8 +151,7 @@ Also supports [global flags](../workflows/global-flags.mdx).
 
 ### Running a remote extension
 
-{/* VIDEO_DEMO_SOON: Show `--source` flow for remote extension inspection and output updates while watching source changes. */}
-![Video demo soon: remote source dev workflow](https://placehold.co/960x540?text=Video+demo+soon)
+{/* VIDEO_PLACEHOLDER_TODO: Show `--source` flow for remote extension inspection and output updates while watching source changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <PackageManagerTabs
   command={{
@@ -131,8 +163,7 @@ Also supports [global flags](../workflows/global-flags.mdx).
 
 ### Running in Firefox
 
-{/* VIDEO_DEMO_SOON: Show switching browser target to Firefox and validating extension behavior in that runtime. */}
-![Video demo soon: firefox target dev workflow](https://placehold.co/960x540?text=Video+demo+soon)
+{/* VIDEO_PLACEHOLDER_TODO: Show switching browser target to Firefox and validating extension behavior in that runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <PackageManagerTabs
   command={{
@@ -144,8 +175,7 @@ Also supports [global flags](../workflows/global-flags.mdx).
 
 ### Running in multiple browsers in sequence
 
-{/* VIDEO_DEMO_SOON: Show running dev in Chrome then Firefox with explicit browser targets for cross-browser validation. */}
-![Video demo soon: multi-browser dev checks](https://placehold.co/960x540?text=Video+demo+soon)
+{/* VIDEO_PLACEHOLDER_TODO: Show running dev in Chrome then Firefox with explicit browser targets for cross-browser validation. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <PackageManagerTabs
   command={{
@@ -157,8 +187,7 @@ Also supports [global flags](../workflows/global-flags.mdx).
 
 ### Running in brave as a custom binary
 
-{/* VIDEO_DEMO_SOON: Show running `dev` with a custom Chromium binary and validating that the extension launches in that browser. */}
-![Video demo soon: custom binary dev workflow](https://placehold.co/960x540?text=Video+demo+soon)
+{/* VIDEO_PLACEHOLDER_TODO: Show running `dev` with a custom Chromium binary and validating that the extension launches in that browser. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <PackageManagerTabs
   command={{
@@ -173,6 +202,7 @@ Also supports [global flags](../workflows/global-flags.mdx).
 - **Browser compatibility:** Test your extension in different browsers to ensure compatibility with the target audience.
 - **Polyfilling:** If Firefox or a Gecko-based browser is also a target, use the `--polyfill` flag to enable compatibility for the `browser.*` API in Chromium-based browsers.
 - **Source inspection workflows:** Use `dev` (not `start`/`preview`) when you need source inspection options.
+- **Automation reliability:** Treat `dev` as the watch-mode "dev friend" (`--no-browser` + `dev --wait`) and `start` as the production "test friend" (`--no-browser` + `start --wait`) for Playwright/CI flows (`--wait-format=json` for machine consumers).
 
 ## Next steps
 

@@ -1,5 +1,5 @@
-import { PackageManagerTabs } from "@theme";
-import { AvatarImage } from "../../../../theme/components/avatar-image";
+import {PackageManagerTabs} from '@theme'
+import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 <AvatarImage icon="extension" />
 
@@ -66,20 +66,49 @@ If assets are already imported through supported content-script/build paths, Ext
 }
 ```
 
+## What Extension.js adds automatically
+
+Extension.js can expand WAR entries from build output when the runtime needs those assets to be page-accessible.
+
+Common examples include:
+
+- assets imported by content scripts
+- content-script CSS outputs
+- emitted fonts or static assets referenced by those entries
+- development-only runtime support needed for reload behavior
+
+Automatic inclusion is convenient, but it is not a substitute for reviewing the final exposure surface.
+
 ## Development behavior
 
 - In development, Extension.js patches WAR entries to support reload/HMR-related asset access.
 - Content-script related assets can be auto-included in WAR when needed.
 - Path normalization removes `public/` and leading `/` conventions into extension output-safe paths.
 
-{/* VIDEO_DEMO_SOON: Show tightening WAR from broad to minimal resource/match patterns and validating runtime access still works. */}
-![Video demo soon: web accessible resources hardening flow](https://placehold.co/960x540?text=Video+demo+soon)
+{/* VIDEO_PLACEHOLDER_TODO: Show tightening WAR from broad to minimal resource/match patterns and validating runtime access still works. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 ## Output and resolution notes
 
 - Resources in `public/` are copied by the public-asset flow and can be declared from extension root paths.
 - Relative WAR resource paths resolve from manifest directory.
 - Globs are supported, but match patterns must be valid for target browser constraints.
+- MV3 entries without `resources` are dropped during normalization.
+- Globs are preserved as globs; Extension.js does not expand them into explicit file lists for you.
+
+## Runtime usage
+
+Use browser runtime URL helpers instead of constructing extension URLs manually:
+
+```ts
+const logoUrl = chrome.runtime.getURL('/images/logo.png')
+```
+
+If a page or content script cannot read an asset you expected to be accessible, check:
+
+1. whether the asset is actually present in the output
+2. whether the WAR entry exposes the correct `resources`
+3. whether the `matches` scope includes the page that is trying to read it
+4. whether the asset should instead stay private to extension pages only
 
 ## Best practices
 
@@ -87,6 +116,7 @@ If assets are already imported through supported content-script/build paths, Ext
 - Prefer explicit resource paths over broad globs for tighter security posture.
 - Validate WAR match patterns and resource paths across Chromium and Firefox targets.
 - Use `chrome.runtime.getURL()`/`browser.runtime.getURL()` for runtime-safe URL creation.
+- Re-audit WAR after adding content-script imports, fonts, or page-accessible static assets.
 
 ### Security checklist
 
