@@ -1,21 +1,22 @@
-import FaqSection from "./faq-section";
-import OpenSourceHeroSection from "./open-source-hero-section";
-import SponsorsSection from "./sponsors-section";
-import TemplatesSection from "./templates-section";
-import TestimonialsSection from "./testimonials-section";
-import WorkflowVideoSection from "./workflow-video-section";
+import CoreFeaturesSection from './core-features-section'
+import FaqSection from './faq-section'
+import OpenSourceHeroSection from './open-source-hero-section'
+import SponsorsSection from './sponsors-section'
+import TemplatesSection from './templates-section'
+import TestimonialsSection from './testimonials-section'
+import WorkflowVideoSection from './workflow-video-section'
 
 const homepageStructuredData = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "Extension.js",
-  applicationCategory: "DeveloperApplication",
-  operatingSystem: "Chrome, Edge, Firefox",
-  url: "https://extension.js.org",
-  codeRepository: "https://github.com/extension-js/extension.js",
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Extension.js',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Chrome, Edge, Firefox',
+  url: 'https://extension.js.org',
+  codeRepository: 'https://github.com/extension-js/extension.js',
   description:
-    "Build browser extensions for Chrome, Edge, and Firefox with one modern workflow. Extension.js handles manifest compilation, browser-specific output, reload behavior, and packaging so you can focus on product features.",
-};
+    'Build browser extensions for Chrome, Edge, and Firefox with one modern workflow. Extension.js handles manifest compilation, browser-specific output, reload behavior, and packaging so you can focus on product features.'
+}
 
 export default function Homepage() {
   return (
@@ -23,17 +24,18 @@ export default function Homepage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(homepageStructuredData),
+          __html: JSON.stringify(homepageStructuredData)
         }}
       />
-      <div className="mx-auto flex w-full max-w-screen-2xl flex-col space-y-8 sm:space-y-12 md:space-y-16 lg:space-y-16">
+      <div className="homepage-reveal mx-auto flex w-full max-w-screen-2xl flex-col space-y-8 sm:space-y-12 md:space-y-16 lg:space-y-16">
         <OpenSourceHeroSection />
         <TestimonialsSection />
         <WorkflowVideoSection />
+        <CoreFeaturesSection />
         <TemplatesSection />
         <SponsorsSection />
         <FaqSection />
       </div>
     </main>
-  );
+  )
 }

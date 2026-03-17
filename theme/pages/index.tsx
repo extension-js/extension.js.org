@@ -1,5 +1,5 @@
-import Homepage from "../components-home/homepage";
-import UpgradeFooterSection from "../components-home/homepage/upgrade-footer-section";
+import Homepage from '../components-home/homepage'
+import UpgradeFooterSection from '../components/upgrade-footer-section'
 
 export function HomeLayout() {
   return (
@@ -7,5 +7,5 @@ export function HomeLayout() {
       <Homepage />
       <UpgradeFooterSection />
     </>
-  );
+  )
 }

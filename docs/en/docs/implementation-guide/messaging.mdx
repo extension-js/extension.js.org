@@ -1,0 +1,105 @@
+import {AvatarImage} from '../../../../theme/components/avatar-image'
+
+<AvatarImage icon="extension" />
+
+# Messaging
+
+Move data across extension contexts explicitly and validate every privileged boundary.
+
+Extension.js bundles background scripts, content scripts, and extension pages together, but those contexts still communicate through browser-extension messaging APIs. Good messaging structure keeps privilege boundaries clear and makes both human debugging and AI automation more reliable.
+
+## Context boundaries
+
+| From                               | To                                            | Typical API                                    |
+| ---------------------------------- | --------------------------------------------- | ---------------------------------------------- |
+| Popup or options page              | Background service worker                     | `runtime.sendMessage()`                        |
+| Content script                     | Background service worker                     | `runtime.sendMessage()` or `runtime.connect()` |
+| Background service worker          | Content script                                | `tabs.sendMessage()`                           |
+| Long-lived streaming or state sync | Background service worker and another context | `runtime.connect()`                            |
+
+## Recommended contract
+
+Treat messages as a typed protocol:
+
+- include an explicit `type`
+- validate payload shape before acting
+- validate sender context for privileged operations
+- return structured success and error responses
+
+```ts
+type Message =
+  | {type: 'settings:get'}
+  | {type: 'settings:set'; payload: {theme: 'light' | 'dark'}}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (
+    !message ||
+    typeof message !== 'object' ||
+    typeof message.type !== 'string'
+  ) {
+    sendResponse({ok: false, error: 'invalid_message'})
+    return
+  }
+
+  if (message.type === 'settings:get') {
+    sendResponse({ok: true, data: {theme: 'dark'}})
+    return
+  }
+
+  if (message.type === 'settings:set') {
+    sendResponse({ok: true})
+    return
+  }
+
+  sendResponse({ok: false, error: 'unknown_message'})
+})
+```
+
+## When to use `sendMessage` vs `connect`
+
+| Use case                                           | Prefer                  |
+| -------------------------------------------------- | ----------------------- |
+| One request and one response                       | `runtime.sendMessage()` |
+| Long-lived stream or multiple updates              | `runtime.connect()`     |
+| Communicating with a specific tab's content script | `tabs.sendMessage()`    |
+
+## Good architecture
+
+- Keep one message handler module per feature area instead of one giant switch file.
+- Centralize privileged work in the background service worker.
+- Let content scripts collect page data, then forward only the minimum required payload.
+- Keep popup and options pages thin by delegating browser API orchestration to background code.
+
+## Security rules
+
+- Never trust page-derived content just because it came from a content script.
+- Validate sender identity before performing privileged actions.
+- Reject unknown message types explicitly.
+- Avoid exposing generic "run anything" or "fetch anything" commands through messaging.
+
+## Common mistakes
+
+- Letting UI pages call privileged APIs directly in many places instead of routing through background.
+- Sending large arbitrary page snapshots when a small structured payload would be enough.
+- Treating content scripts as trusted because they are your code, even though they see untrusted page data.
+- Forgetting to version or migrate message shapes when multiple contexts evolve together.
+
+## Practical patterns
+
+### Popup requests current state
+
+Use a single request-response message from popup to background.
+
+### Content script requests privileged work
+
+Collect the smallest possible page payload, send it to background, and let background decide whether the action is allowed.
+
+### Live subscription
+
+Use `runtime.connect()` only when you truly need continuous updates, not for simple request-response flows.
+
+## Related pages
+
+- Persist data with [Storage](./storage.mdx).
+- Design event-driven logic in [Background scripts / service worker](./background.mdx).
+- Review boundary safety in [Security checklist](../workflows/security-checklist.mdx).
