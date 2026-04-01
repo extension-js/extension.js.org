@@ -2,6 +2,8 @@
 
 > The documentation website for Extension.js
 
+![Extension.js banner](./BANNER.png)
+
 Extension.js Docs is the documentation site for the cross-browser extension framework. It is built with [Rspress](https://rspress.dev/) and publishes the guides, references, workflows, and implementation notes for [Extension.js](https://extension.js.org).
 
 - Read the docs: [extension.js.org](https://extension.js.org)
