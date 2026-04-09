@@ -1,4 +1,9 @@
+'use client'
+
+import {motion, useReducedMotion} from 'framer-motion'
+
 import {TemplateCard} from './ui/template-card'
+import {homepageEase} from '../components-home/homepage-motion-reveal'
 
 type TemplateCardItem = {
   title: string
@@ -22,7 +27,7 @@ const TEMPLATE_CARDS: TemplateCardItem[] = [
     title: 'Preact',
     slug: 'preact',
     description:
-      'Get a React-like workflow with a lighter runtime and smaller bundles.',
+      'Build polished extension interfaces with Preact, lighter bundles, and familiar JSX you know well.',
     iconSrc: 'https://cdn.simpleicons.org/preact/673AB8',
     accent: 'from-violet-400/20 via-violet-400/5 to-transparent'
   },
@@ -30,7 +35,7 @@ const TEMPLATE_CARDS: TemplateCardItem[] = [
     title: 'Vue',
     slug: 'vue',
     description:
-      'Use single-file components and clear conventions for maintainable extension UIs.',
+      'Build polished extension interfaces with Vue, single-file flow, and predictable structure in UIs.',
     iconSrc:
       'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vuejs/vuejs-original.svg',
     accent: 'from-emerald-400/20 via-emerald-400/5 to-transparent'
@@ -39,7 +44,7 @@ const TEMPLATE_CARDS: TemplateCardItem[] = [
     title: 'Svelte',
     slug: 'svelte',
     description:
-      'Ship interactive UIs with concise components and minimal runtime overhead.',
+      'Build polished extension interfaces with Svelte, lean components, and tiny runtime in shipped UI.',
     iconSrc:
       'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/svelte/svelte-original.svg',
     accent: 'from-orange-300/20 via-orange-300/5 to-transparent'
@@ -48,7 +53,7 @@ const TEMPLATE_CARDS: TemplateCardItem[] = [
     title: 'TypeScript',
     slug: 'typescript',
     description:
-      'Add type safety for clearer refactors and long-term maintainability.',
+      'Build polished extension interfaces with TypeScript, static typing, and safer refactors at scale.',
     iconSrc:
       'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg',
     accent: 'from-cyan-400/20 via-cyan-400/5 to-transparent'
@@ -57,7 +62,7 @@ const TEMPLATE_CARDS: TemplateCardItem[] = [
     title: 'JavaScript',
     slug: 'javascript',
     description:
-      'Start fast and ship quickly with the lightest setup, while keeping the path clear for rapid prototypes, production-ready features, and teams that want minimal ceremony.',
+      'Build polished extension interfaces with JavaScript, light tooling, and quick sketch-to-UI speed.',
     iconSrc:
       'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg',
     accent: 'from-amber-300/20 via-amber-300/5 to-transparent'
@@ -65,18 +70,45 @@ const TEMPLATE_CARDS: TemplateCardItem[] = [
 ]
 
 export function TemplateCardsGrid() {
+  const reduce = useReducedMotion()
+
   return (
-    <div className="grid grid-cols-1 gap-3 text-left md:grid-cols-2 lg:gap-4">
+    <motion.div
+      className="grid grid-cols-1 gap-3 text-left md:grid-cols-2 lg:gap-4"
+      initial={reduce ? false : 'hidden'}
+      whileInView={reduce ? undefined : 'show'}
+      viewport={{once: true, margin: '-50px', amount: 0.1}}
+      variants={{
+        hidden: {},
+        show: {
+          transition: {staggerChildren: reduce ? 0 : 0.06, delayChildren: 0.02}
+        }
+      }}
+    >
       {TEMPLATE_CARDS.map((template) => (
-        <TemplateCard
+        <motion.div
           key={template.slug}
-          title={template.title}
-          description={template.description}
-          href={`https://templates.extension.dev/${template.slug}`}
-          accent={template.accent}
-          iconSrc={template.iconSrc}
-        />
+          variants={{
+            hidden: reduce
+              ? {opacity: 1, y: 0, scale: 1}
+              : {opacity: 0, y: 40, scale: 0.97},
+            show: {
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              transition: {duration: reduce ? 0 : 0.62, ease: homepageEase}
+            }
+          }}
+        >
+          <TemplateCard
+            title={template.title}
+            description={template.description}
+            href={`https://templates.extension.dev/${template.slug}`}
+            accent={template.accent}
+            iconSrc={template.iconSrc}
+          />
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   )
 }

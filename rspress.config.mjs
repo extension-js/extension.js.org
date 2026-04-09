@@ -106,7 +106,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       placement: 'outline'
     },
     footer: {
-      message: 'MIT (c) Cezar Augusto and the Extension.js Authors.'
+      message: 'MIT (c) Cezar Augusto and the Extension.js authors.'
     },
     editLink: {
       docRepoBaseUrl: 'https://github.com/extension-js/docs/tree/main/docs',

@@ -7,31 +7,75 @@ import {AvatarImage} from '../../../../theme/components/avatar-image'
 
 Use one extension codebase across browsers and environments without hardcoding values.
 
-Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js resolves env files during compilation, injects public variables into JavaScript (`process.env` and `import.meta.env`), and replaces placeholders in emitted `.json` and `.html` assets.
+Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js uses **two different** environment loading paths: one for **compiled extension bundles** (browser/mode aware) and a **narrower** one while loading **`extension.config.*`** in Node. Both matter depending on where you read variables.
+
+## Template examples
+
+### `new-env`
+
+![new-env template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-env/screenshot.png)
+
+See environment variables in action with a new-tab extension that reads `EXTENSION_PUBLIC_*` values.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=new-env',
+    pnpm: 'pnpx extension@latest create my-extension --template=new-env',
+    yarn: 'yarn dlx extension@latest create my-extension --template=new-env'
+  }}
+/>
+
+Repository: [extension-js/examples/new-env](https://github.com/extension-js/examples/tree/main/examples/new-env)
+
+### `content-env`
+
+![content-env template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-env/screenshot.png)
+
+Use environment variables inside content scripts injected into web pages.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content-env',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-env',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-env'
+  }}
+/>
+
+Repository: [extension-js/examples/content-env](https://github.com/extension-js/examples/tree/main/examples/content-env)
 
 ## How it works
 
-Extension.js checks environment files in priority order and uses the first matching file:
+### Extension bundles (compile time)
 
-- `.env.[browser].[mode]`: Browser-specific environment variables for a specific mode.
-- `.env.[browser]`: Browser-specific environment variables.
-- `.env.[mode]`: Mode-specific environment variables.
-- `.env.local`: Local-only overrides.
-- `.env`: Default environment variables.
-- `.env.example`: Fallback when no env file above exists.
+When building your extension, the compiler picks **one** env file from the extension package directory by first match in this order:
 
-In addition, `.env.defaults` is loaded as default values, and system environment variables (`process.env`) take final precedence.
+1. `.env.[browser].[mode]` (for example `.env.chrome.development`)
+2. `.env.[browser]`
+3. `.env.[mode]`
+4. `.env.local`
+5. `.env`
+6. `.env.example`
 
-> Note: File selection is single-file priority (plus `.env.defaults` + system env), not full cascading across all files.
+`.env.defaults` is **always merged first** when present, then the selected file’s variables, then **system** `process.env` (highest precedence for overlapping keys).
 
-### `extension.config.*` env resolution in monorepos
+> Note: Selection is a **single** env file from the list above (plus `.env.defaults`), not a full cascade through every file.
 
-When loading `extension.config.js` / `.mjs` / `.cjs`, Extension.js preloads env files into `process.env`:
+If no matching file exists next to the project and no `.env.defaults` is found there, Extension.js repeats the same search from the **nearest workspace root**—the directory that contains `pnpm-workspace.yaml` when walking up from the project. That keeps monorepo extensions able to share root env files for **bundle** injection.
 
-- It first resolves from the extension project directory.
-- If no `.env*` file exists there, it falls back to the nearest workspace root (directory containing `pnpm-workspace.yaml`) and applies the same priority order.
+**Monorepo constraint:** Workspace fallback only runs when that `pnpm-workspace.yaml` marker exists on an ancestor. Pure npm or Yarn workspaces that rely only on `package.json` `"workspaces"` without `pnpm-workspace.yaml` will **not** get this automatic root lookup. In that case, keep env files beside the extension package, add a `pnpm-workspace.yaml` at the repo root if appropriate, or use another sharing strategy.
 
-This makes submodule-style extension apps work with shared monorepo root env files without custom `dotenv` setup.
+### `extension.config.*` (Node, before your config runs)
+
+`extension.config.js` / `.mjs` / `.cjs` executes in Node. Before the file is evaluated, Extension.js preloads a **small** set of files into `process.env` so the config can read them:
+
+1. `.env.defaults` (merged when present)
+2. Then the **first** file that exists among: `.env.development`, `.env.local`, `.env`
+
+Browser-scoped files such as `.env.chrome` or `.env.chrome.development` are **not** used for this preload step. Use plain `process.env` set by your shell/CI, or rely on bundle-time env (above) for `EXTENSION_PUBLIC_*` injection into extension code.
+
+**Monorepo:** If none of those files exist in the extension package directory, the same preload runs from the nearest directory containing `pnpm-workspace.yaml` (same constraint as above).
+
+This split exists because config loading is browser-agnostic at file-read time, while the bundler knows the active browser and mode.
 
 {/* VIDEO_PLACEHOLDER_TODO: Show env file resolution order for one build target and mode, then confirm selected values in output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
@@ -79,14 +123,20 @@ All built-ins above are available through both `process.env.*` and `import.meta.
 
 ### CLI and dev-server operational variables
 
-| Variable                  | Purpose                               | Typical usage                    |
-| ------------------------- | ------------------------------------- | -------------------------------- |
-| `EXTENSION_AUTO_EXIT_MS`  | Auto-exit dev process after N ms      | CI hard-stop control             |
-| `EXTENSION_FORCE_KILL_MS` | Force-kill timeout fallback           | CI cleanup resilience            |
-| `EXTENSION_VERBOSE`       | Verbose diagnostics in selected flows | Debugging CLI behavior           |
-| `EXTENSION_AUTHOR_MODE`   | Maintainer/author diagnostics mode    | Internal diagnostics and tooling |
+| Variable                   | Purpose                                      | Typical usage                         |
+| -------------------------- | -------------------------------------------- | ------------------------------------- |
+| `EXTENSION_AUTO_EXIT_MS`   | Auto-exit dev process after N ms             | CI hard-stop control                  |
+| `EXTENSION_FORCE_KILL_MS`  | Force-kill timeout fallback                  | CI cleanup resilience                 |
+| `EXTENSION_VERBOSE`        | Verbose diagnostics in selected flows        | Debugging CLI behavior                |
+| `EXTENSION_AUTHOR_MODE`    | Maintainer/author diagnostics mode           | Internal diagnostics and tooling      |
+| `EXTENSION_CLI_NO_BROWSER` | Disable browser launch from CLI (`1` to set) | Equivalent to `--no-browser` flag     |
+| `EXTENSION_DEV_NO_BROWSER` | Disable browser launch in dev server         | Monorepo watch without browser spawns |
+| `EXTENSION_DEV_DRY_RUN`    | Skip dev server startup (return early)       | Smoke-testing CLI wiring              |
+| `EXT_BROWSERS_CACHE_DIR`   | Override managed browser cache directory     | Custom CI cache paths                 |
 
 ## Browser-specific environment files
+
+The rules below apply to **compile-time / bundle** env selection (see [Extension bundles](#extension-bundles-compile-time) above). They do **not** apply to the narrow `extension.config.*` preload in Node.
 
 Need different values per browser? Extension.js supports browser-scoped env files such as `.env.chrome` and `.env.firefox`. You can also combine browser and mode for a single build variant:
 
@@ -217,8 +267,7 @@ These values are inlined at compile time and can vary by browser/mode.
 
 For ESM workflows, Extension.js also supports `import.meta.env`:
 
-```js
-service_worker.mjs
+```js title="service_worker.mjs"
 const apiUrl = import.meta.env.EXTENSION_PUBLIC_API_URL
 console.log(`API URL for the current environment: ${apiUrl}`)
 ```

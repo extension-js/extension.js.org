@@ -43,7 +43,9 @@ function addOrUpdateMetaTags(filePath) {
 
   if (isDocsPage) {
     // Convert HTML path to MDX path
-    const mdxPath = filePath.replace('doc_build', 'docs/en').replace('.html', '.mdx')
+    const mdxPath = filePath
+      .replace('doc_build', 'docs/en')
+      .replace('.html', '.mdx')
 
     try {
       const mdxContent = fs.readFileSync(mdxPath, 'utf8')
@@ -71,7 +73,11 @@ function addOrUpdateMetaTags(filePath) {
       const bodyTagIndex = data.indexOf(bodyTag) + bodyTag.length
       // Only insert if not already present
       if (!data.includes(gtmNoScript.trim())) {
-        data = data.slice(0, bodyTagIndex) + '\n' + gtmNoScript + data.slice(bodyTagIndex)
+        data =
+          data.slice(0, bodyTagIndex) +
+          '\n' +
+          gtmNoScript +
+          data.slice(bodyTagIndex)
       }
     } else {
       console.warn(
@@ -101,17 +107,26 @@ function addOrUpdateMetaTags(filePath) {
     } else {
       // Insert new meta description
       const newMetaTag = `<meta name="description" content="${metaDescription}">\n`
-      data = data.slice(0, afterTitleIndex) + newMetaTag + data.slice(afterTitleIndex)
+      data =
+        data.slice(0, afterTitleIndex) +
+        newMetaTag +
+        data.slice(afterTitleIndex)
     }
 
     // Handle canonical URL for blog pages
     if (filePath.includes('blog/index')) {
       const canonicalRegex = /<link\s+rel=["']canonical["'][^>]*?>/i
       if (canonicalRegex.test(data)) {
-        data = data.replace(canonicalRegex, `<link rel="canonical" href="${canonicalURL}">`)
+        data = data.replace(
+          canonicalRegex,
+          `<link rel="canonical" href="${canonicalURL}">`
+        )
       } else {
         const newCanonicalTag = `<link rel="canonical" href="${canonicalURL}">\n`
-        data = data.slice(0, afterTitleIndex) + newCanonicalTag + data.slice(afterTitleIndex)
+        data =
+          data.slice(0, afterTitleIndex) +
+          newCanonicalTag +
+          data.slice(afterTitleIndex)
       }
     }
 
@@ -121,7 +136,9 @@ function addOrUpdateMetaTags(filePath) {
         console.error('Error writing to the file:', err)
         return
       }
-      console.log(`Meta tags and GTM <noscript> updated successfully for ${filePath}`)
+      console.log(
+        `Meta tags and GTM <noscript> updated successfully for ${filePath}`
+      )
     })
   })
 }

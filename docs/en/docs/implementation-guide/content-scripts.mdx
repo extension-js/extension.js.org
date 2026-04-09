@@ -18,6 +18,40 @@ Extension.js compiles content script entries from `manifest.json`, wraps them fo
 | MAIN vs isolated world support | Use advanced page-context mode when required                  |
 | Predictable output layout      | Emit normalized `content_scripts/*` artifacts                 |
 
+## Template examples
+
+### `content`
+
+![content template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content/screenshot.png)
+
+Minimal content script setup with vanilla JS.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content',
+    pnpm: 'pnpx extension@latest create my-extension --template=content',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content'
+  }}
+/>
+
+Repository: [extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+### `content-react`
+
+![content-react template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-react/screenshot.png)
+
+Inject a React-powered UI into web pages through content scripts.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content-react',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-react',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-react'
+  }}
+/>
+
+Repository: [extension-js/examples/content-react](https://github.com/extension-js/examples/tree/main/examples/content-react)
+
 ## Supported manifest fields
 
 | Manifest field        | File type expected                   |
@@ -102,6 +136,42 @@ If your content script appears to compile but never mounts, check the default ex
 - CSS updates trigger remount events (`__EXTENSIONJS_CSS_UPDATE__`) in development.
 - `run_at` timing is respected from manifest values.
 
+## Multi-entry content scripts
+
+You can declare multiple content script entries in a single manifest. Each entry compiles independently with its own match patterns, run timing, and world settings.
+
+### `content-multi-one-entry`
+
+![content-multi-one-entry template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-multi-one-entry/screenshot.png)
+
+Multiple content scripts bundled under one `content_scripts` manifest entry.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content-multi-one-entry',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-multi-one-entry',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-multi-one-entry'
+  }}
+/>
+
+Repository: [extension-js/examples/content-multi-one-entry](https://github.com/extension-js/examples/tree/main/examples/content-multi-one-entry)
+
+### `content-multi-three-entries`
+
+![content-multi-three-entries template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-multi-three-entries/screenshot.png)
+
+Three separate `content_scripts` manifest entries with independent match patterns.
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content-multi-three-entries',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-multi-three-entries',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-multi-three-entries'
+  }}
+/>
+
+Repository: [extension-js/examples/content-multi-three-entries](https://github.com/extension-js/examples/tree/main/examples/content-multi-three-entries)
+
 ## `scripts/` folder behavior
 
 The `scripts/` folder is for script entrypoints that are not declared by an HTML page entry. In practice, these entries follow the same mount-style runtime expectations as content scripts.
@@ -120,16 +190,34 @@ Content script entries are normalized per manifest index:
 
 ```plaintext
 content_scripts/
-├── content-0.js
+├── content-0.js          # production
+├── content-0.abcd1234.js # development (hash-based cache busting)
 ├── content-0.css
 └── ...
 ```
 
+In **development mode**, content script JS filenames include a short hash suffix (e.g., `content-0.abcd1234.js`). This forces the browser to load a fresh `chrome-extension://` URL after each rebuild — Chrome aggressively caches extension resources, and stable filenames can cause stale scripts to persist even after Cmd+Shift+R. Production builds use clean `content-0.js` names.
+
 ## Main world notes
 
-- `world: "MAIN"` has dedicated bridge/runtime behavior and different extension API limitations.
+### `content-main-world`
+
+See MAIN world content scripts in action with a working example that injects UI directly into the page context:
+
+<PackageManagerTabs
+  command={{
+    npm: 'npx extension@latest create my-extension --template=content-main-world',
+    pnpm: 'pnpx extension@latest create my-extension --template=content-main-world',
+    yarn: 'yarn dlx extension@latest create my-extension --template=content-main-world'
+  }}
+/>
+
+Repository: [extension-js/examples/content-main-world](https://github.com/extension-js/examples/tree/main/examples/content-main-world)
+
+- **`world: "MAIN"` is Chromium-only.** Firefox does not support the `world` field and will ignore it — your script still runs in the isolated world. If you need cross-browser MAIN world behavior, use the `chromium:` manifest prefix to declare it only for Chromium targets and provide an isolated-world fallback for Firefox.
 - MAIN-world scripts use bridge-based chunk loading/public-path handling in development.
-- Treat MAIN world as an advanced path and validate behavior on target browsers early.
+- Extension APIs (`chrome.runtime`, `chrome.storage`, etc.) are **not available** in the MAIN world — only page-context globals are accessible.
+- Treat MAIN world as an advanced path. Validate behavior on each target browser early.
 
 ### Isolated vs MAIN quick example
 
@@ -150,6 +238,28 @@ content_scripts/
 ```
 
 Use isolated world by default. Use `MAIN` only when page-context access is required and account for extension API/runtime constraints.
+
+### Cross-browser MAIN world pattern
+
+Use [browser-specific prefixes](../features/browser-specific-fields.mdx) to declare MAIN world only for Chromium and provide an isolated fallback for Firefox:
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "chromium:js": ["./scripts/main-world.ts"],
+      "chromium:world": "MAIN"
+    }
+  ]
+}
+```
+
+Firefox will skip the `chromium:` prefixed fields entirely, so only Chromium targets get the MAIN-world script.
 
 ## Matching and execution guidance
 

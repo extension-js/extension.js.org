@@ -1,6 +1,13 @@
 import {AnimatePresence, motion} from 'framer-motion'
 import {Play, XIcon} from 'lucide-react'
-import {type ReactNode, useEffect, useId, useRef, useState} from 'react'
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useId,
+  useRef,
+  useState
+} from 'react'
 import {createPortal} from 'react-dom'
 
 import {cn} from '../../lib/utils'
@@ -15,13 +22,31 @@ type AnimationStyle =
   | 'top-in-bottom-out'
   | 'left-in-right-out'
 
+export type HeroVideoTriggerRenderArgs = {
+  openVideo: () => void
+  triggerRef: RefObject<HTMLButtonElement | null>
+  triggerAriaProps: {
+    'aria-label': string
+    'aria-controls': string
+    'aria-expanded': boolean
+    'aria-haspopup': 'dialog'
+  }
+}
+
 interface HeroVideoProps {
   animationStyle?: AnimationStyle
   videoSrc: string
   thumbnailSrc: string
   thumbnailBackgroundColor?: string
   thumbnailAlt?: string
+  /**
+   * Full control of the play trigger; place the invisible hit `button` only where clicks
+   * should open the dialog (e.g. over the preview, not headings).
+   */
+  renderTrigger?: (args: HeroVideoTriggerRenderArgs) => ReactNode
   triggerContent?: ReactNode
+  /** Non-interactive layer above the hit target (e.g. “Click to expand”); pointer-events none */
+  triggerOverlay?: ReactNode
   className?: string
   dialogClassName?: string
   thumbnailClassName?: string
@@ -32,9 +57,9 @@ interface HeroVideoProps {
 
 const animationVariants = {
   'from-bottom': {
-    initial: {y: '100%', opacity: 0},
-    animate: {y: 0, opacity: 1},
-    exit: {y: '100%', opacity: 0}
+    initial: {y: 96, scale: 0.92, opacity: 0},
+    animate: {y: 0, scale: 1, opacity: 1},
+    exit: {y: 72, scale: 0.96, opacity: 0}
   },
   'from-center': {
     initial: {scale: 0.5, opacity: 0},
@@ -79,7 +104,9 @@ export default function HeroVideoDialog({
   thumbnailSrc,
   thumbnailBackgroundColor,
   thumbnailAlt = 'Video thumbnail',
+  renderTrigger,
   triggerContent,
+  triggerOverlay,
   className,
   dialogClassName,
   thumbnailClassName,
@@ -134,7 +161,15 @@ export default function HeroVideoDialog({
 
   return (
     <div className={cn('relative', className)}>
-      {triggerContent ? (
+      {renderTrigger ? (
+        <div className={cn('w-full text-left', containerClassName)}>
+          {renderTrigger({
+            openVideo,
+            triggerRef,
+            triggerAriaProps
+          })}
+        </div>
+      ) : triggerContent ? (
         <div
           className={cn(
             'relative isolate block w-full group text-left',
@@ -151,6 +186,11 @@ export default function HeroVideoDialog({
           >
             <span className="sr-only">Play developer workflow video</span>
           </button>
+          {triggerOverlay ? (
+            <div className="pointer-events-none absolute inset-0 z-[60]">
+              {triggerOverlay}
+            </div>
+          ) : null}
         </div>
       ) : (
         <button
@@ -221,7 +261,12 @@ export default function HeroVideoDialog({
                   <motion.div
                     {...selectedAnimation}
                     id={dialogId}
-                    transition={{type: 'spring', damping: 30, stiffness: 300}}
+                    transition={{
+                      type: 'spring',
+                      damping: 26,
+                      stiffness: 280,
+                      mass: 0.85
+                    }}
                     className={cn(
                       'relative mx-auto aspect-video w-full max-w-4xl',
                       dialogClassName

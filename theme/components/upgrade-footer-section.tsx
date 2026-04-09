@@ -3,6 +3,7 @@
 import {ExternalLink} from 'lucide-react'
 
 import CommandCopyChip from './ui/command-copy-chip'
+import {CREATE_COMMAND} from '../lib/utils'
 
 const footerLinks = [
   {
@@ -25,21 +26,7 @@ export default function UpgradeFooterSection() {
       <div className="mx-auto w-full max-w-screen-2xl p-4 sm:p-6 md:p-8 lg:p-8">
         <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
           <div className="flex flex-col items-start gap-3">
-            <CommandCopyChip command="npx extension@latest create my-extension" />
-            <a
-              className="text-muted-foreground inline-flex items-center gap-1 font-mono text-xs font-medium underline-offset-4 hover:text-muted-foreground hover:underline"
-              href="https://github.com/extension-js/extension.js/releases/tag/v3.0.0"
-              rel="noreferrer"
-              target="_blank"
-            >
-              <img
-                alt="Extension.js icon"
-                className="h-5 min-w-5 object-cover mr-1"
-                src="https://media.extension.land/track/extension-js.png"
-              />
-              Extension.js v3 is available. Explore what&apos;s new.
-              <ExternalLink className="h-3 w-3" />
-            </a>
+            <CommandCopyChip command={CREATE_COMMAND} />
           </div>
           <div className="flex flex-col gap-4 md:items-end">
             <ul className="flex flex-wrap items-center gap-x-8 gap-y-2">
@@ -58,7 +45,14 @@ export default function UpgradeFooterSection() {
               ))}
             </ul>
             <p className="text-muted-foreground text-sm">
-              MIT (c) Cezar Augusto and the Extension.js Authors.
+              MIT (c) Cezar Augusto and the{' '}
+              <a
+                className="underline underline-offset-4 hover:text-foreground transition-colors"
+                href="/en/docs/hall-of-fame"
+              >
+                Extension.js authors
+              </a>
+              .
             </p>
           </div>
         </div>

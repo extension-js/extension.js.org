@@ -1,5 +1,6 @@
 import CoreFeaturesSection from './core-features-section'
 import FaqSection from './faq-section'
+import {HomepageMotionReveal} from './homepage-motion-reveal'
 import OpenSourceHeroSection from './open-source-hero-section'
 import SponsorsSection from './sponsors-section'
 import TemplatesSection from './templates-section'
@@ -27,10 +28,14 @@ export default function Homepage() {
           __html: JSON.stringify(homepageStructuredData)
         }}
       />
-      <div className="homepage-reveal mx-auto flex w-full max-w-screen-2xl flex-col space-y-8 sm:space-y-12 md:space-y-16 lg:space-y-16">
-        <OpenSourceHeroSection />
+      <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-y-9 sm:gap-y-11 md:gap-y-14 lg:gap-y-[4.5rem] xl:gap-y-20">
+        <HomepageMotionReveal emphasis delay={0}>
+          <OpenSourceHeroSection />
+        </HomepageMotionReveal>
+        <HomepageMotionReveal emphasis delay={0.06}>
+          <WorkflowVideoSection />
+        </HomepageMotionReveal>
         <TestimonialsSection />
-        <WorkflowVideoSection />
         <CoreFeaturesSection />
         <TemplatesSection />
         <SponsorsSection />
