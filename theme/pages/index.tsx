@@ -1,4 +1,4 @@
-import Homepage from '../components-home/homepage'
+import Homepage from '../components-home'
 import UpgradeFooterSection from '../components/upgrade-footer-section'
 
 export function HomeLayout() {
