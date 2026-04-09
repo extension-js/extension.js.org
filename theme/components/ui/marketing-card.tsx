@@ -39,7 +39,7 @@ export function MarketingCard({
 
       <div className="pointer-events-none relative flex h-full flex-col">
         <div className="mb-4 flex min-h-10 w-full items-start justify-between gap-3 sm:mb-5 sm:gap-4">
-          <h3 className="m-0 min-w-0 flex-1 pr-2 text-lg font-semibold leading-snug text-foreground sm:pr-4 sm:text-xl">
+          <h3 className="m-0 min-w-0 flex-1 pr-2 text-xl font-semibold leading-snug text-foreground sm:pr-4 sm:text-2xl">
             {title}
           </h3>
           {media ? (

@@ -1,6 +1,5 @@
 import {ArrowRight} from 'lucide-react'
 
-import {DockIcon} from './dock-icon'
 import {cn} from '../../lib/utils'
 
 type TemplateCardProps = {
@@ -32,10 +31,10 @@ export function TemplateCard({
           <h3 className="m-0 max-w-lg pr-2 text-lg font-semibold leading-snug text-foreground sm:pr-4 sm:text-xl">
             {title}
           </h3>
-          <DockIcon
+          <img
             src={iconSrc}
             alt={`${title} icon`}
-            imgClassName="object-contain"
+            className="h-8 w-8 shrink-0 object-contain"
           />
         </div>
 

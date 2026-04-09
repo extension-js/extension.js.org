@@ -1,6 +1,6 @@
 import type {ComponentPropsWithoutRef, ReactNode, Ref} from 'react'
 
-import {cn} from '../../lib/utils'
+import {cn} from '../lib/utils'
 
 interface HomepageSectionProps extends ComponentPropsWithoutRef<'section'> {
   children: ReactNode

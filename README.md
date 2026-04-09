@@ -1,3 +1,5 @@
+[![CI](https://github.com/extension-js/extension.js.org/actions/workflows/ci.yml/badge.svg)](https://github.com/extension-js/extension.js.org/actions/workflows/ci.yml)
+
 # Extension.js Docs
 
 > The documentation website for Extension.js
@@ -38,4 +40,4 @@ pnpm preview
 
 ## License
 
-MIT (c) Cezar Augusto and the Extension.js Authors.
+MIT (c) Cezar Augusto and the Extension.js authors.

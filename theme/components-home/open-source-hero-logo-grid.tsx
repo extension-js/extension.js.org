@@ -1,32 +1,46 @@
+import type {ReactNode} from 'react'
+
+/**
+ * Hero dock: uniform square tiles, squircle curve, shared inset.
+ * Motion lives on the parent in open-source-hero-section (single reveal).
+ */
+const dockTileTopMax = 'w-full max-w-[8.25rem] shrink-0'
+const dockTileCenterMax = 'w-full max-w-[9rem] shrink-0'
+const dockTileBottomMax = 'w-full max-w-[7.625rem] shrink-0'
+const dockTileRadius = 'rounded-[20%]'
+const dockTileBorder =
+  'border border-stone-900 bg-white shadow-[inset_0_1px_1px_0_var(--color-stone-700)]'
+const dockImageInsetClass = 'h-full w-full object-contain p-[9.76%]'
+const dockImageReducedInsetClass = 'h-full w-full object-contain p-[5%]'
+
+const dockTileTopChrome = `${dockTileTopMax} ${dockTileRadius} overflow-hidden ${dockTileBorder}`
+const dockTileBottomChrome = `${dockTileBottomMax} ${dockTileRadius} overflow-hidden ${dockTileBorder}`
+
 const heroLogoTopRow = [
   {
     src: 'https://media.extension.land/logos/browsers/brave.svg',
-    className:
-      'w-full max-w-[8.25rem] origin-bottom scale-[.83] overflow-hidden rounded-[20%] border border-stone-800 bg-white shadow-[inset_0_1px_1px_0_var(--color-stone-700)]',
-    imageClassName: 'h-full w-full object-contain p-3'
+    className: dockTileTopChrome,
+    imageClassName: dockImageReducedInsetClass
   },
   {
     src: 'https://media.extension.land/logos/browsers/chrome.svg',
-    className:
-      'w-full max-w-[8.25rem] origin-bottom scale-90 overflow-hidden rounded-[20%] border border-stone-900 bg-white shadow-[inset_0_1px_1px_0_var(--color-stone-700)]',
-    imageClassName: 'h-full w-full object-contain p-3'
+    className: dockTileTopChrome,
+    imageClassName: dockImageInsetClass
   },
   {
     src: 'https://media.extension.land/track/extension-js.png',
-    className: 'w-full max-w-[8.25rem] overflow-hidden rounded-[20%]',
-    imageClassName: 'h-full w-full object-cover object-center',
+    className: `${dockTileCenterMax} ${dockTileRadius} overflow-hidden`,
+    imageClassName: 'h-full w-full object-cover object-center p-0',
     useTileChrome: false
   },
   {
     src: 'https://media.extension.land/logos/browsers/edge.svg',
-    className:
-      'w-full max-w-[8.25rem] origin-bottom scale-90 overflow-hidden rounded-[20%] border border-stone-900 bg-white shadow-[inset_0_1px_1px_0_var(--color-stone-700)]',
-    imageClassName: 'h-full w-full object-contain p-3'
+    className: dockTileTopChrome,
+    imageClassName: dockImageInsetClass
   },
   {
     src: 'https://media.extension.land/logos/browsers/vivaldi.svg',
-    className:
-      'w-full max-w-[8.25rem] origin-bottom scale-[.83] overflow-hidden rounded-[20%] border border-stone-800 bg-white shadow-[inset_0_1px_1px_0_var(--color-stone-700)]',
+    className: dockTileTopChrome,
     imageClassName: 'h-full w-full object-contain p-0'
   }
 ]
@@ -34,23 +48,22 @@ const heroLogoTopRow = [
 const heroLogoBottomRow = [
   {
     src: 'https://media.extension.land/logos/browsers/opera.svg',
-    className:
-      'w-full max-w-[7.625rem] origin-bottom scale-[.83] overflow-hidden rounded-[20%] border border-stone-950 bg-white shadow-[inset_0_1px_1px_0_var(--color-stone-700)]'
+    className: dockTileBottomChrome,
+    imageClassName: dockImageReducedInsetClass
   },
   {
     src: 'https://media.extension.land/logos/browsers/chromium.svg',
-    className:
-      'w-full max-w-[7.625rem] overflow-hidden rounded-[20%] border border-stone-950 bg-white shadow-[inset_0_1px_1px_0_var(--color-stone-700)]'
+    className: dockTileBottomChrome,
+    imageClassName: dockImageInsetClass
   },
   {
     src: 'https://media.extension.land/logos/browsers/firefox.svg',
-    className:
-      'w-full max-w-[7.625rem] overflow-hidden rounded-[20%] border border-stone-950 bg-white shadow-[inset_0_1px_1px_0_var(--color-stone-700)]'
+    className: dockTileBottomChrome,
+    imageClassName: dockImageInsetClass
   },
   {
     src: 'https://media.extension.land/logos/browsers/safari.svg',
-    className:
-      'w-full max-w-[7.625rem] origin-bottom scale-[.83] overflow-hidden rounded-[20%] border border-stone-950 bg-white shadow-[inset_0_1px_1px_0_var(--color-stone-700)]',
+    className: dockTileBottomChrome,
     imageClassName: 'h-full w-full object-contain p-0'
   }
 ]
@@ -58,7 +71,7 @@ const heroLogoBottomRow = [
 function BrowserLogoSquare({
   src,
   className,
-  imageClassName = 'h-full w-full object-contain p-3',
+  imageClassName = dockImageInsetClass,
   useTileChrome = true
 }: {
   src: string
@@ -83,10 +96,26 @@ function BrowserLogoSquare({
   )
 }
 
+function DockRow({
+  children,
+  className
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={`flex w-full items-center justify-center gap-[2.8%] ${className ?? ''}`}
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function OpenSourceHeroLogoGrid() {
   return (
-    <div className="w-full max-w-[43.125rem]">
-      <div className="flex w-full items-end justify-center gap-[2.8%]">
+    <div className="mx-auto w-full max-w-[43.125rem]">
+      <DockRow>
         {heroLogoTopRow.map((logo) => (
           <BrowserLogoSquare
             key={logo.src}
@@ -96,8 +125,8 @@ export default function OpenSourceHeroLogoGrid() {
             useTileChrome={logo.useTileChrome}
           />
         ))}
-      </div>
-      <div className="flex w-full items-start justify-center gap-[2.8%] pt-[3%]">
+      </DockRow>
+      <DockRow className="pt-[3%]">
         {heroLogoBottomRow.map((logo) => (
           <BrowserLogoSquare
             key={logo.src}
@@ -106,7 +135,7 @@ export default function OpenSourceHeroLogoGrid() {
             imageClassName={logo.imageClassName}
           />
         ))}
-      </div>
+      </DockRow>
     </div>
   )
 }
