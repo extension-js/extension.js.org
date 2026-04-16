@@ -9,6 +9,7 @@
 Extension.js Docs is the documentation site for the cross-browser extension framework. It is built with [Rspress](https://rspress.dev/) and publishes the guides, references, workflows, and implementation notes for [Extension.js](https://extension.js.org).
 
 - Read the docs: [extension.js.org](https://extension.js.org)
+- View the avaialble examples: [extension-js/examples](https://github.com/extension-js/examples)
 - Explore the framework: [extension-js/extension.js](https://github.com/extension-js/extension.js)
 - Contribute to the framework: [CONTRIBUTING.md](https://github.com/extension-js/extension.js/blob/main/CONTRIBUTING.md)
 
