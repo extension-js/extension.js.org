@@ -1,0 +1,85 @@
+---
+title: "AI access"
+description: "Connect Extension.js documentation to your AI tools via the hosted MCP server, or pull structured summaries from llms.txt."
+icon: "sparkles"
+keywords: ["extension.js", "mcp", "ai", "claude", "cursor", "chatgpt", "llms.txt", "docs"]
+---
+
+Extension.js publishes its documentation through two standard AI-accessible surfaces so your editor and your assistants can answer questions grounded in the real docs instead of stale training data.
+
+## Hosted MCP server
+
+The docs site exposes a [Model Context Protocol](https://modelcontextprotocol.io) server at:
+
+```
+https://extensionjs.mintlify.app/mcp
+```
+
+Point any MCP-compatible client at this URL and it will gain tools to search the docs, fetch specific pages, and answer questions from current content.
+
+### One-click install
+
+Each page has a contextual menu (top-right of the page) with install buttons for common clients — **Claude**, **Cursor**, **VS Code**, and **ChatGPT**. Use those for the shortest path.
+
+### Manual install
+
+<CodeGroup>
+
+```json Claude Desktop (claude_desktop_config.json)
+{
+  "mcpServers": {
+    "extensionjs": {
+      "url": "https://extensionjs.mintlify.app/mcp"
+    }
+  }
+}
+```
+
+```json Cursor (.cursor/mcp.json)
+{
+  "mcpServers": {
+    "extensionjs": {
+      "url": "https://extensionjs.mintlify.app/mcp"
+    }
+  }
+}
+```
+
+```jsonc VS Code (settings.json)
+"mcp.servers": {
+  "extensionjs": {
+    "url": "https://extensionjs.mintlify.app/mcp"
+  }
+}
+```
+
+```bash Claude Code
+claude mcp add --transport http extensionjs https://extensionjs.mintlify.app/mcp
+```
+
+</CodeGroup>
+
+After installing, ask your assistant something like *"How do I configure browser-specific manifest fields in Extension.js?"* — it will consult the MCP tools and cite docs pages.
+
+## llms.txt
+
+A static, machine-friendly index of the documentation is available at:
+
+- [`/llms.txt`](https://extensionjs.mintlify.app/llms.txt) — short index of all pages
+- [`/llms-full.txt`](https://extensionjs.mintlify.app/llms-full.txt) — full-content bundle for ingestion
+
+Use these when you want to feed the docs directly into a retrieval pipeline or summarize them in a custom agent. They are regenerated on every docs deploy.
+
+## Per-page AI actions
+
+The page-level contextual menu also offers:
+
+- **Copy page** — copies the current page as Markdown for pasting into chats
+- **View as Markdown** — opens the raw Markdown source in a new tab
+- **Ask ChatGPT / Claude / Perplexity** — opens the respective assistant pre-loaded with the page as context
+
+## Best practices
+
+- Prefer the MCP server when you want the assistant to reason across multiple pages and keep answers current.
+- Prefer `llms-full.txt` for offline tooling, evaluations, or custom RAG pipelines.
+- Use the per-page actions for quick spot questions about the page you're already reading.
