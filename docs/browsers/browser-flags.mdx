@@ -1,0 +1,115 @@
+---
+title: "Browser flags"
+---
+<AvatarBrowsers browsers={['chrome', 'firefox', 'edge']} />
+Control browser launch behavior for debugging, automation, and runtime experiments.
+
+Tune browser launch behavior without changing extension source code. Extension.js merges browser flags from your `extension.config.*` and applies them in `dev`, `preview`, and `start` flows.
+
+## Template example
+
+### `new-browser-flags`
+
+![new-browser-flags template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-browser-flags/screenshot.png)
+
+See browser flags in action with a new-tab extension that configures launch behavior.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-browser-flags
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new-browser-flags](https://github.com/extension-js/examples/tree/main/examples/new-browser-flags)
+
+## How it works
+
+Define flags in configuration:
+
+- `browser.<target>.browserFlags`
+- `commands.dev|start|preview.browserFlags`
+- optional `excludeBrowserFlags` to remove defaults or user flags (runner-dependent behavior)
+
+Merge precedence is browser defaults -> command defaults -> CLI-selected command context.
+
+## Flag capabilities
+
+| Config key                             | What it does                                             |
+| -------------------------------------- | -------------------------------------------------------- |
+| `browser.<target>.browserFlags`        | Sets default launch flags for a specific browser target. |
+| `commands.dev.browserFlags`            | Adds or overrides flags for `dev` runs.                  |
+| `commands.start.browserFlags`          | Adds or overrides flags for `start` runs.                |
+| `commands.preview.browserFlags`        | Adds or overrides flags for `preview` runs.              |
+| `browser.<target>.excludeBrowserFlags` | Removes matching default or user flags for a target.     |
+| `commands.<name>.excludeBrowserFlags`  | Removes flags in a command-specific context.             |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show browser-level flags plus command-level overrides and the final launch flags used at runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### Example configuration
+
+```js
+export default {
+  browser: {
+    chrome: {
+      browserFlags: ['--disable-web-security', '--auto-open-devtools-for-tabs'],
+      excludeBrowserFlags: ['--mute-audio']
+    },
+    firefox: {
+      browserFlags: ['--devtools', '--new-instance'],
+      excludeBrowserFlags: ['--devtools']
+    }
+  }
+}
+```
+
+## Chromium vs Firefox behavior
+
+- **Chromium family (`chrome`, `edge`, `chromium`, `chromium-based`)**
+  - Starts from an internal default flag set, then appends your `browserFlags`.
+  - `excludeBrowserFlags` removes matching default flags (exact-match filtering).
+  - `--load-extension=...` is managed by Extension.js and filtered out from user-provided flags.
+
+- **Firefox/Gecko family (`firefox`, `gecko-based` / `firefox-based`)**
+  - Uses user-provided `browserFlags` (no large default flag bundle like Chromium).
+  - `excludeBrowserFlags` removes user flags by prefix matching.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Chromium and Firefox launches using different flag behavior from the same config. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Supported targets and references
+
+| Browser        | Usage                                    | More Information                                                                       |
+| -------------- | ---------------------------------------- | -------------------------------------------------------------------------------------- |
+| Chrome         | `extension dev --browser=chrome`         | [Chrome Flags](https://peter.sh/experiments/chromium-command-line-switches/)           |
+| Edge           | `extension dev --browser=edge`           | [Edge Flags](https://docs.microsoft.com/en-us/deployedge/microsoft-edge-policies)      |
+| Firefox        | `extension dev --browser=firefox`        | [Firefox Flags](https://developer.mozilla.org/en-US/docs/Mozilla/Command_Line_Options) |
+| Chromium-based | `extension dev --browser=chromium-based` | [Chromium Flags](https://peter.sh/experiments/chromium-command-line-switches/)         |
+| Gecko-based    | `extension dev --browser=gecko-based`    | Firefox-based browsers share the same flags as Firefox.                                |
+
+Use binary flags when needed for engine-based targets:
+
+- `--chromium-binary=...`
+- `--gecko-binary=...`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show engine-based target launch with custom browser binary and target-specific flags. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Best practices
+
+- **Add only necessary flags**: Minimize long flag lists to reduce flaky or non-portable setups.
+- **Prefer `excludeBrowserFlags` over replacing defaults**: Remove only what conflicts with your workflow.
+- **Do not pass `--load-extension` manually**: Extension.js manages extension loading flags internally.
+- **Validate per browser family**: A flag working in Chromium may be invalid or ignored in Firefox.
+
+## Next steps
+
+- Learn more about [Browser Preferences](/docs/browsers/browser-preferences).
+- Learn more about [Browser Profile](/docs/browsers/browser-profile).

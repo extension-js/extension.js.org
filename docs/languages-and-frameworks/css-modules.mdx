@@ -1,0 +1,137 @@
+---
+title: "CSS modules"
+icon: "cssModules"
+---
+Scope styles by default and avoid naming collisions across extension pages, options UIs, and popups.
+
+Extension.js supports CSS Modules with zero configuration for module-style filenames and uses the Rspack CSS pipeline under the hood.
+
+## When CSS modules are a good fit
+
+- You need local class scoping without adopting a full CSS-in-JS stack.
+- You share components across popup/options/new-tab surfaces.
+- You want predictable style ownership in larger extension codebases.
+
+## Template examples
+
+### `content-css-modules`
+
+![content-css-modules template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-css-modules/screenshot.png)
+
+Add locally scoped styles to content-script UI with minimal setup.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-css-modules
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-css-modules](https://github.com/extension-js/examples/tree/main/examples/content-css-modules)
+
+## Usage with an existing extension
+
+To use CSS Modules, name files with a module suffix:
+
+- `*.module.css`
+- `*.module.scss`
+- `*.module.sass`
+- `*.module.less`
+
+Use the related language pages for Sass and Less setup requirements.
+
+```diff
+- myComponentCss.css
++ myComponentCss.module.css
+```
+
+### Usage example
+
+After renaming your stylesheet, import and use it in your component:
+
+```ts
+import styles from './styles/myComponent.module.css'
+
+const button = document.createElement('button')
+button.className = styles.primary
+button.innerText = 'Click here'
+document.body.appendChild(button)
+```
+
+## How it works
+
+Extension.js enables Rspack CSS support and handles module imports through the CSS module pipeline:
+
+- default import style maps (`import styles from "./x.module.css"`)
+- class names are generated through Rspack CSS module generation
+- module class exports are designed for direct use in JS/TS/TSX files
+
+In extension page contexts (for example popup/options/new tab), module imports behave as expected with hashed/localized class mapping.
+
+## Content script note
+
+Content script styles use an asset-based CSS flow. In that context, CSS is emitted and injected as stylesheet content rather than consumed as CSS Module JS exports.
+
+Use component-level local class naming in content scripts, and avoid assuming module export maps there unless your setup explicitly verifies that path.
+
+## React/Preact example usage
+
+For React or Preact, you can import and use the CSS Module in the component like this:
+
+```jsx
+import styles from './styles/myComponent.module.css'
+
+export default function NewTabPage() {
+  return <button className={styles.primary}>Click here</button>
+}
+```
+
+## Vue example usage
+
+In Vue, you can use module classes from SFC styles:
+
+```vue
+<template>
+  <button :class="$style.primary">Click here</button>
+</template>
+
+<style module>
+@import './styles/myComponent.module.css';
+</style>
+```
+
+## Svelte example usage
+
+In Svelte, import module mappings and apply class names:
+
+```svelte
+<script>
+  import styles from "./styles/myComponent.module.css";
+</script>
+
+<button class={styles.primary}>Click here</button>
+```
+
+## Best practices
+
+- Keep module styles close to components (`Component.module.css`) for easier ownership.
+- Use `:global(...)` sparingly and only for intentional global overrides.
+- Prefer module styles for extension pages and framework components where class mapping is explicit.
+
+## Next steps
+
+- Learn more about [Sass and Sass modules](/docs/languages-and-frameworks/sass).
+- Learn more about [LESS and LESS modules](/docs/languages-and-frameworks/less).
+
+## Video walkthrough
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CSS Module class mapping in extension UI and content-script style injection behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

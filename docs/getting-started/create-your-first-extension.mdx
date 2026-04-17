@@ -1,0 +1,187 @@
+---
+title: "Create your first extension"
+icon: "flag-checkered"
+---
+Build your first browser extension end-to-end with a practical workflow. Create a GitHub search shortcut that runs from the browser omnibox and learn the core Extension.js loop.
+
+## What you will build
+
+| Capability                | What you get                                                  |
+| ------------------------- | ------------------------------------------------------------- |
+| Omnibox keyword flow      | Trigger extension behavior with `gh` from the browser URL bar |
+| Background event handling | Handle user input through a service worker                    |
+| Local dev loop            | Run, load, and validate extension behavior quickly            |
+| Progressive enhancement   | Add live GitHub suggestions after baseline flow works         |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show the final UX first: type `gh` in the browser omnibox, enter a query, and open GitHub results in a new tab. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## The plan
+
+Make GitHub search as fast as a native browser shortcut. The extension reserves the keyword `gh`; after the user types `gh` and a query, it opens GitHub search results.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show the interface and interaction model for the omnibox keyword (`gh`) before implementation details. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+> The interface that we are creating here.
+
+## Step 1 - create the extension
+
+Use the Extension.js `create` command to bootstrap a minimal extension named `github-search`.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create github-search
+```
+
+```bash pnpm
+pnpx extension@latest create github-search
+```
+
+```bash yarn
+yarn dlx extension@latest create github-search
+```
+
+</CodeGroup>
+
+## Step 2 - create the manifest file
+
+{/* VIDEO_PLACEHOLDER_TODO: manifest setup walkthrough. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+> Step 2 Demo
+
+Every extension starts with a manifest file. It defines metadata, permissions, and runtime files. Based on the [plan above](#the-plan), we will set the `gh` shortcut and add a service worker for user events.
+
+```json
+{
+  "manifest_version": 3,
+  "name": "GitHub Search",
+  "version": "1.0",
+  "omnibox": {"keyword": "gh"},
+  "background": {
+    "service_worker": "service_worker.js"
+  }
+}
+```
+
+- `omnibox.keyword`: When the keyword `gh` is set, an event will be fired.
+- `background.service_worker`: Will listen to the event that we just fired.
+
+## Step 3 - create the background service worker
+
+In browser extensions, the background service worker handles browser events.
+
+For this example, add a script that listens to omnibox input and routes the query to GitHub search.
+
+Create `service_worker.js`:
+
+```js
+// When the user has accepted what is typed into the omnibox.
+chrome.omnibox.onInputEntered.addListener((text) => {
+  // Convert any special character (spaces, &, ?, etc)
+  // into a valid character for the URL format.
+  const encodedSearchText = encodeURIComponent(text)
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`
+
+  chrome.tabs.create({url})
+})
+```
+
+The script above will open a new tab with GitHub search results whenever you enter something after "gh" in the URL bar.
+
+## Step 4 - load your extension
+
+If you take a look at your `package.json` file now, it looks more or less like this:
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "devDependencies": {
+    "extension": "latest"
+  }
+}
+```
+
+These scripts are the default Extension.js commands. Run the extension for the first time:
+
+<CodeGroup>
+
+```bash npm
+npm run dev
+```
+
+```bash pnpm
+pnpm run dev
+```
+
+```bash yarn
+yarn run dev
+```
+
+</CodeGroup>
+
+If everything is configured correctly, you should see the following:
+
+{/* VIDEO_PLACEHOLDER_TODO: first dev run and browser load. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+That's it! You created your first browser extension that searches on GitHub!
+
+## Step 5 - making it better
+
+Improve the search experience by adding suggestions directly in the URL bar with an omnibox input listener.
+
+Update `service_worker.js` to fetch GitHub suggestions and display them while typing.
+
+```js title="service_worker.js"
+// Create a debounce function to avoid excessive
+// calls to the GitHub API while the user is still
+// typing the search query.
+function debounce(fn, delay) {
+  let timeoutID
+  return function (...args) {
+    if (timeoutID) clearTimeout(timeoutID)
+    timeoutID = setTimeout(() => fn(...args), delay)
+  }
+}
+
+// When the user has changed what is typed into the omnibox.
+chrome.omnibox.onInputChanged.addListener(
+  debounce(async (text, suggest) => {
+    const response = await fetch(
+      `https://api.github.com/search/issues?q=${text}`
+    )
+    const data = await response.json()
+    const suggestions = data.items.map((issue) => ({
+      content: issue.html_url,
+      description: issue.title
+    }))
+
+    suggest(suggestions)
+  }, 250)
+)
+
+// When the user has accepted what is typed into the omnibox.
+chrome.omnibox.onInputEntered.addListener((text) => {
+  // Convert any special character (spaces, &, ?, etc)
+  // into a valid character for the URL format.
+  const encodedSearchText = encodeURIComponent(text)
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`
+
+  chrome.tabs.create({url})
+})
+```
+
+This code adds live GitHub suggestions directly in the URL bar.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show omnibox live suggestions returned from GitHub API while typing, then selecting one result. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+You now have a working GitHub search extension. Iterate on it and adapt it to your own workflow.
+
+## Next steps
+
+- Create another extension with [templates](/docs/getting-started/templates).
+- Add automated checks with [Playwright E2E](/docs/workflows/playwright-e2e).
+- Review [Troubleshooting](/docs/workflows/troubleshooting), [Security checklist](/docs/workflows/security-checklist), and [Performance playbook](/docs/workflows/performance-playbook) as your extension grows.

@@ -1,0 +1,142 @@
+---
+title: "Svelte"
+icon: "puzzle"
+---
+Build extension UIs with Svelte components while keeping Extension.js in charge of the framework wiring.
+
+Extension.js detects Svelte from your project dependencies and configures `.svelte` resolution, loader setup, and Svelte client aliases automatically.
+
+## When Svelte is a good fit
+
+- You want a smaller runtime for popup, options, sidebar, or new-tab UIs.
+- You prefer component-first authoring with concise syntax.
+- You want a framework option that works for both extension pages and content-script UI mounts.
+
+## Template examples
+
+### `new-svelte`
+
+![new-svelte template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-svelte/screenshot.png)
+
+Use the Svelte starter when you want a framework-first extension UI with minimal setup.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-svelte
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-svelte
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-svelte
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new-svelte](https://github.com/extension-js/examples/tree/main/examples/new-svelte)
+
+### `content-svelte`
+
+![content-svelte template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-svelte/screenshot.png)
+
+Inject Svelte components into web pages through content scripts.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-svelte
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-svelte
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-svelte
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-svelte](https://github.com/extension-js/examples/tree/main/examples/content-svelte)
+
+## Usage with an existing extension
+
+Install Svelte:
+
+<PackageManagerTabs command="install svelte" />
+
+For explicit setup in an existing project, install the Svelte loader too:
+
+<PackageManagerTabs command="install -D svelte-loader typescript" />
+
+## Development behavior
+
+When Svelte is detected, Extension.js:
+
+- enables `.svelte` file resolution
+- wires the Svelte loader into the JS framework pipeline
+- applies Svelte client aliases such as `svelte`, `svelte/store`, and `svelte/reactivity`
+
+If optional tooling is missing, Extension.js can install what it needs and ask for a restart.
+
+## Usage examples
+
+### In an extension page
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Svelte Extension</title>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+  <script src="./main.ts"></script>
+</html>
+```
+
+```ts
+import App from './App.svelte'
+
+new App({
+  target: document.getElementById('app')!
+})
+```
+
+### In a content script
+
+For content scripts, create a mount node and return a cleanup from your default export so Extension.js can remount safely in development:
+
+```ts
+import App from './App.svelte'
+
+export default function main() {
+  const target = document.createElement('div')
+  target.id = 'extension-root'
+  document.body.appendChild(target)
+
+  const app = new App({target})
+
+  return () => {
+    app.$destroy()
+    target.remove()
+  }
+}
+```
+
+## Best practices
+
+- Keep Svelte components focused on UI and move browser API orchestration to dedicated modules.
+- In content scripts, always return cleanup so remount behavior stays predictable.
+- Use Svelte for extension pages first, then expand to content-script UI once the feature boundary is clear.
+
+## Next steps
+
+- Learn more about [TypeScript support](/docs/languages-and-frameworks/typescript).
+- Review the content-script contract in [Content scripts](/docs/implementation-guide/content-scripts).

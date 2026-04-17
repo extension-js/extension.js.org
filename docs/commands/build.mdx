@@ -1,0 +1,172 @@
+---
+title: "Build command"
+icon: "puzzle"
+---
+Create production extension artifacts for one or more browser targets.
+
+`build` compiles your extension in production mode and writes output to `dist/<browser>`.
+
+For monorepo/submodule projects, config-time env resolution (project root first, then workspace-root fallback) is documented in [Environment variables](/docs/features/environment-variables#extensionconfig-env-resolution-in-monorepos).
+
+## When to use `build`
+
+- Preparing extension packages for Chrome Web Store, Edge Add-ons, or Firefox Add-ons.
+- Running CI jobs that produce deterministic release artifacts.
+- Validating production bundle output and browser-target differences before submission.
+
+## Build command capabilities
+
+| Capability             | What it gives you                                             |
+| ---------------------- | ------------------------------------------------------------- |
+| Production compilation | Generate optimized extension artifacts per target             |
+| Multi-target output    | Build multiple browser targets in one command                 |
+| Packaging support      | Create distribution zip artifacts with optional source bundle |
+| CI-friendly behavior   | Keep build outputs and naming predictable in automation       |
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension build [project-path] [options]
+```
+
+```bash pnpm
+extension build [project-path] [options]
+```
+
+```bash yarn
+extension build [project-path] [options]
+```
+
+</CodeGroup>
+
+## Build output
+
+After running `build`, Extension.js generates optimized files for the selected browser targets. Output is written to `dist/` with one subfolder per target. Each folder contains bundled JavaScript, CSS, HTML, and required runtime assets.
+
+**Example output structure:**
+
+```plaintext
+dist/
+├── chrome/
+│   ├── manifest.json
+│   ├── background/service_worker.js
+│   ├── content_scripts/content-0.js
+├── edge/
+│   ├── manifest.json
+│   ├── background/service_worker.js
+│   ├── content_scripts/content-0.js
+```
+
+## Browser target matrix
+
+| Target style   | Examples                                         | Notes                              |
+| -------------- | ------------------------------------------------ | ---------------------------------- |
+| Named targets  | `chromium`, `chrome`, `edge`, `firefox`          | Build one specific browser target  |
+| Engine targets | `chromium-based`, `gecko-based`, `firefox-based` | Useful for engine-family workflows |
+| Multi-target   | `chrome,firefox`                                 | Comma-separated targets            |
+
+## Arguments and flags
+
+| Flag                     | Alias           | What it does                                                                                         | Default                  |
+| ------------------------ | --------------- | ---------------------------------------------------------------------------------------------------- | ------------------------ |
+| `[path]`                 | -               | Builds a local extension project.                                                                    | `process.cwd()`          |
+| `--browser <browser>`    | `-b`            | Browser target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values). | `chromium`               |
+| `--polyfill [boolean]`   | -               | Enables compatibility polyfill behavior where relevant.                                              | `false`                  |
+| `--zip [boolean]`        | -               | Creates a packaged zip artifact.                                                                     | `false`                  |
+| `--zip-source [boolean]` | -               | Includes source files in zip output.                                                                 | `false`                  |
+| `--zip-filename <name>`  | -               | Sets custom zip filename.                                                                            | extension name + version |
+| `--silent [boolean]`     | -               | Suppresses build logs.                                                                               | `false`                  |
+| `--extensions <list>`    | -               | Comma-separated companion extensions or store URLs.                                                  | unset                    |
+| `--install [boolean]`    | -               | Install project dependencies when missing.                                                           | command behavior default |
+| `--author`               | `--author-mode` | Enable maintainer diagnostics.                                                                       | disabled                 |
+
+## Shared global options
+
+Also supports [global flags](/docs/workflows/global-flags).
+
+## Zip behavior
+
+| Option           | Effect                                  | Typical use                          |
+| ---------------- | --------------------------------------- | ------------------------------------ |
+| `--zip`          | Creates a packaged artifact zip         | Store submission/manual distribution |
+| `--zip-filename` | Sets custom zip name                    | CI naming conventions                |
+| `--zip-source`   | Adds source archive alongside artifacts | Compliance/review pipelines          |
+
+## Examples
+
+### Building with zip output and custom filename
+
+{/* VIDEO_PLACEHOLDER_TODO: Show build for multiple browser targets with zip artifacts and custom artifact naming in output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash pnpm
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash yarn
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+</CodeGroup>
+
+In this example, the build will target Edge and Chrome, with the output zipped and saved as `my-extension.zip`.
+
+### Building with polyfill support
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash pnpm
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash yarn
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+</CodeGroup>
+
+In this example, the build targets Chrome and Firefox and includes polyfill support where relevant.
+
+### Building source and artifact zip
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --zip --zip-source
+```
+
+```bash pnpm
+extension build ./my-extension --zip --zip-source
+```
+
+```bash yarn
+extension build ./my-extension --zip --zip-source
+```
+
+</CodeGroup>
+
+## Best practices
+
+- **Check build logs:** Review logs for warnings and missing assets after each build.
+- **Optimize your manifest:** Keep `manifest.json` compatible with every target browser.
+- **Name artifacts intentionally:** Use `--zip-filename` for stable CI artifact naming.
+- **Validate target output:** Check each `dist/<browser>` folder before publishing.
+
+## Next steps
+
+- Run existing build output with [`preview`](/docs/commands/preview).
+- Build and launch in one command with [`start`](/docs/commands/start).
+- Configure shared defaults in [`extension.config.js`](/docs/features/extension-configuration).
+- Review config env loading behavior in [Environment variables](/docs/features/environment-variables#extensionconfig-env-resolution-in-monorepos).
+- Review supported targets in [browsers available](/docs/browsers/browsers-available).

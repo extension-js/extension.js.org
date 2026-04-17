@@ -1,0 +1,211 @@
+---
+title: "Multi-platform builds"
+icon: "box"
+---
+Build and package the same extension for multiple browsers with predictable outputs.
+
+Ship the same extension to Chrome, Edge, and Firefox without maintaining separate build scripts. Extension.js can run production builds per target, write artifacts to `dist/<browser>`, and optionally generate zip packages for distribution.
+
+## How it works
+
+Run a production build:
+
+<CodeGroup>
+
+```bash npm
+npx extension build
+```
+
+```bash pnpm
+pnpx extension build
+```
+
+```bash yarn
+yarn dlx extension build
+```
+
+</CodeGroup>
+
+Default browser target is `chromium` unless overridden.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a default production build and where output appears under `dist/`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Browser selection
+
+You can target a specific browser/engine:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --browser=chrome
+```
+
+```bash pnpm
+pnpx extension build --browser=chrome
+```
+
+```bash yarn
+yarn dlx extension build --browser=chrome
+```
+
+</CodeGroup>
+
+<CodeGroup>
+
+```bash npm
+npx extension build --browser=firefox
+```
+
+```bash pnpm
+pnpx extension build --browser=firefox
+```
+
+```bash yarn
+yarn dlx extension build --browser=firefox
+```
+
+</CodeGroup>
+
+Supported values include:
+
+- `chrome`
+- `edge`
+- `firefox`
+- `chromium`
+- `chromium-based`
+- `gecko-based` / `firefox-based` (aliases)
+
+You can also run a build matrix in one command:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --browser=chrome,edge,firefox
+```
+
+```bash pnpm
+pnpx extension build --browser=chrome,edge,firefox
+```
+
+```bash yarn
+yarn dlx extension build --browser=chrome,edge,firefox
+```
+
+</CodeGroup>
+
+This builds sequentially for `chrome`, `edge`, and `firefox`.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one command building `chrome`, `edge`, and `firefox` with separate outputs. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Output layout
+
+Each target writes to its own folder:
+
+- `dist/chrome`
+- `dist/edge`
+- `dist/firefox`
+- `dist/chromium`
+- `dist/chromium-based`
+- `dist/gecko-based`
+
+### Build capabilities
+
+| Option                  | What it does                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| `--browser=<target>`    | Builds for a specific browser or engine family.                                      |
+| `--zip`                 | Creates a distribution zip per target output.                                        |
+| `--zip-filename=<name>` | Overrides the default zip file name.                                                 |
+| `--zip-source`          | Creates a source archive alongside output.                                           |
+| `--polyfill`            | Enables compatibility behavior for `browser.*` API usage in Chromium-family targets. |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show final `dist/<browser>` folder layout after a matrix build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Generating a zip file
+
+Generate a distribution zip from each target output with `--zip`:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --zip
+```
+
+```bash pnpm
+pnpx extension build --zip
+```
+
+```bash yarn
+yarn dlx extension build --zip
+```
+
+</CodeGroup>
+
+By default, the zip name uses sanitized manifest `name` + `version`, for example:
+
+- `my-extension-1.0.0.zip`
+
+Customize filename:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --zip --zip-filename=my-release
+```
+
+```bash pnpm
+pnpx extension build --zip --zip-filename=my-release
+```
+
+```bash yarn
+yarn dlx extension build --zip --zip-filename=my-release
+```
+
+</CodeGroup>
+
+This creates `my-release.zip` inside the target `dist/<browser>` folder.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show zip output generation with default and custom `--zip-filename` values. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Include source archive
+
+Use `--zip-source` to generate a source archive alongside distribution output.
+
+`--zip-source` produces:
+
+- `dist/<name>-<version>-source.zip`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show source archive generation and where `-source.zip` is written. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Polyfill support
+
+If your code relies on Gecko-style `browser.*` APIs and you need Chromium compatibility, enable `--polyfill`:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --polyfill
+```
+
+```bash pnpm
+pnpx extension build --polyfill
+```
+
+```bash yarn
+yarn dlx extension build --polyfill
+```
+
+</CodeGroup>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `--polyfill` build output for Chromium target when using `browser.*` in code. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Best practices
+
+- **Build per target in CI**: Treat each browser output as an independent artifact.
+- **Use a browser matrix command for parity checks**: Catch target-specific issues early in one pipeline step.
+- **Package intentionally**: Use `--zip` for store uploads and `--zip-source` for traceable source artifacts.
+- **Keep target config explicit**: Use `extension.config.*` command/browser defaults for reproducible builds.
+
+## Next steps
+
+- Learn more about the [Browsers Available](/docs/browsers/browsers-available).
+- Explore [Path Resolution](/docs/features/path-resolution) for asset/output mapping details.

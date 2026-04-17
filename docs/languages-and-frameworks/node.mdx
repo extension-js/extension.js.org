@@ -1,0 +1,147 @@
+---
+title: "Node APIs in browser extensions"
+icon: "node"
+---
+Use browser-native APIs first, then selectively polyfill Node modules only when you explicitly need them.
+
+Extension.js targets the browser runtime by default, so Node core modules are not automatically polyfilled.
+
+## When Node polyfills are a good fit
+
+- A required dependency needs Node core modules in browser runtime.
+- You are incrementally migrating code from Node-centric packages.
+- You can accept larger bundles for specific runtime capabilities.
+
+## Template examples
+
+### `new-typescript`
+
+![new-typescript template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-typescript/screenshot.png)
+
+Start from a TypeScript baseline when your extension needs explicit bundler/polyfill tuning.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-typescript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-typescript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-typescript
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new-typescript](https://github.com/extension-js/examples/tree/main/examples/new-typescript)
+
+### `content-typescript`
+
+![content-typescript template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-typescript/screenshot.png)
+
+Use a content-script TypeScript base when Node-dependent libraries run inside page-injected flows.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-typescript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-typescript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-typescript
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-typescript](https://github.com/extension-js/examples/tree/main/examples/content-typescript)
+
+### `new-crypto`
+
+![new-crypto template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-crypto/screenshot.png)
+
+See Node `crypto` polyfill usage in a new-tab extension.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-crypto
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-crypto
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-crypto
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new-crypto](https://github.com/extension-js/examples/tree/main/examples/new-crypto)
+
+## Default behavior
+
+- Build target is browser-first (`web`).
+- Resolution prioritizes browser exports (`browser`, `module`, `main`).
+- Node core fallbacks such as `crypto`, `path`, and `fs` are disabled by default.
+
+This means importing Node APIs may fail unless you add explicit fallbacks.
+
+## Setting up Node polyfills
+
+Use `extension.config.js` (or `.mjs` / `.cjs`) to extend the Rspack config and define safe fallbacks.
+
+```js
+import NodePolyfillPlugin from 'node-polyfill-webpack-plugin'
+import {createRequire} from 'node:module'
+
+const require = createRequire(import.meta.url)
+
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {}
+    config.resolve.fallback = {
+      ...(config.resolve.fallback || {}),
+      crypto: require.resolve('crypto-browserify'),
+      path: require.resolve('path-browserify'),
+      fs: false
+    }
+    config.plugins = config.plugins || []
+    config.plugins.push(new NodePolyfillPlugin())
+    return config
+  }
+}
+```
+
+## Install optional polyfill packages
+
+<PackageManagerTabs command="install -D node-polyfill-webpack-plugin crypto-browserify path-browserify" />
+
+## Extension APIs vs Node APIs
+
+`polyfill: true` in CLI/config is for `webextension-polyfill` (`browser.*` API ergonomics), not Node core module polyfills.
+
+Use Node polyfills only for libraries that cannot run with standard Web APIs.
+
+## Caveats
+
+- Do not assume filesystem access in extension runtime; keep `fs: false` unless you have a very specific browser-safe strategy.
+- Prefer Web Crypto (`crypto.subtle`) over large Node crypto shims when possible.
+- Polyfills increase bundle size and can affect startup time in extension pages/content scripts.
+- Some packages using `node:` specifiers may need explicit fallback handling.
+
+## Next steps
+
+- Learn how to customize [Rspack configuration](/docs/features/rspack-configuration).
+- Learn how to manage [extension configuration](/docs/features/extension-configuration).
+
+## Video walkthrough
+
+{/* VIDEO_PLACEHOLDER_TODO: Show enabling selected Node polyfills, rebuilding, and validating runtime behavior safely. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

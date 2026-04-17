@@ -1,0 +1,108 @@
+---
+title: "Page reload and hot module replacement (HMR)"
+description: "Use the fastest safe update path during development with clear rules for HMR, hard reloads, and restart-required changes."
+icon: "gauge-high"
+---
+Keep development fast by using the lightest update strategy for each file change.
+
+Need fast feedback after each file change? Extension.js chooses the safest and fastest update path automatically:
+
+- **HMR** when module updates are safe
+- **Hard extension reload** when runtime-critical assets change
+- **Restart-required errors/warnings** when entrypoint structure changes
+
+## Reload prerequisites (DevTools setup dialog)
+
+Before evaluating reload behavior, confirm the same setup checks shown in the Extension.js DevTools **Confirm setup** dialog:
+
+| Setup step                                            | Why it matters for reload/HMR                                                                        |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Turn on Developer mode in `chrome://extensions`       | Lets extension runtime updates (including service worker changes) apply reliably during development. |
+| Allow local network access prompt for content scripts | Required for reliable content-script reload workflows when the browser asks for permission.          |
+
+If either step is missing, reload behavior can appear inconsistent even when the build pipeline is healthy.
+
+## Reload tiers
+
+### 1) Hot module replacement (fastest path)
+
+HMR is used when code can update without restarting extension runtime wiring.
+
+Common examples:
+
+- Scripts attached to extension HTML pages (accept updates through injected HMR wrappers)
+- Background script modules in non-service-worker flows
+- User script API script flows
+- CSS updates in content-script/runtime wrappers where supported
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a small JS/CSS change applied instantly through HMR without full extension reload. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 2) Hard extension reload
+
+Some file changes require reloading the extension runtime itself.
+
+Typical hard-reload triggers:
+
+- `manifest.json`
+- `_locales/**.json`
+- Service worker/background runtime-critical changes
+- Content script output changes (browser runner enforces extension reload for consistency)
+
+Extension.js applies browser-specific hard reload mechanisms internally (Chromium and Firefox flows differ under the hood), but behavior is unified at the CLI/user level.
+
+> **Why do content script filenames include hashes in dev?** Chrome aggressively caches `chrome-extension://` resources. A stable filename like `content-0.js` can serve stale code even after a full extension reload. Extension.js appends a short build hash (e.g., `content-0.abcd1234.js`) in development so each rebuild produces a fresh URL that bypasses the cache. Production builds use clean names.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a manifest or locale change triggering full extension reload during development. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 3) Restart required (dev server)
+
+When extension entrypoint references change (instead of just module contents), Extension.js reports restart-required diagnostics so you do not continue with a stale graph.
+
+Typical restart-required scenarios:
+
+- Manifest script entrypoint list changes
+- HTML entrypoint script/style references change
+- `pages/` / `scripts/` file set changes in watch mode (especially removals)
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a file-entry change that triggers restart-required guidance in dev output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Behavior matrix
+
+| Change type                                                           | Default behavior                    |
+| --------------------------------------------------------------------- | ----------------------------------- |
+| JS/CSS module updates in existing entries                             | HMR where supported                 |
+| `manifest.json` / locales / service-worker-critical updates           | Hard extension reload               |
+| Entrypoint structure updates (manifest lists, HTML script/style refs) | Restart required                    |
+| `pages/` or `scripts/` file add/remove during watch                   | Warning/error with restart guidance |
+
+## Reloading scripts and HTML outside the manifest
+
+`pages/` and `scripts/` follow the same reload strategy as manifest-declared assets.
+
+- Existing module updates can use hot-update paths.
+- Entrypoint set changes (add/remove or reference graph changes) may require restart.
+
+**Example:**
+
+```plaintext
+pages/
+└── extra-page.html
+scripts/
+└── extra-script.js
+```
+
+> Note: The `/pages` and `/scripts` folders are special folders recognized by Extension.js for hot-reloading. Each entry in these folders is treated as a separate page or script that can be reloaded independently.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `pages/` and `scripts/` updates using HMR vs restart-required behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Best practices
+
+- Keep entrypoint references stable during active dev sessions to maximize HMR.
+- Batch `manifest.json` and locale edits to avoid repeated hard extension reloads.
+- Use `pages/` and `scripts/` for off-manifest assets, then restart when file sets or entry wiring changes.
+- Treat restart-required diagnostics as intentional safety checks, not transient warnings.
+
+## Next steps
+
+- Review off-manifest asset flows in [special folders](/docs/features/special-folders).
+- Understand structural update outcomes in [dev update behavior](/docs/workflows/dev-update-behavior).

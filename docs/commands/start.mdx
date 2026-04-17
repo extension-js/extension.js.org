@@ -1,0 +1,203 @@
+---
+title: "Start command"
+icon: "puzzle"
+---
+Use `start` when you want a production build and immediate browser launch in one command.
+
+The `start` command runs a production build first, then launches the built extension through the preview runner.
+
+## When to use `start`
+
+- Manually validating production behavior right after compilation.
+- Reproducing runtime differences between watch mode and production output.
+- Running a production-like check locally without a separate `build` then `preview` step.
+
+## Start command capabilities
+
+| Capability                 | What it gives you                                         |
+| -------------------------- | --------------------------------------------------------- |
+| Build + launch workflow    | Run production compile and browser launch in one step     |
+| Target selection           | Start directly in selected browser or engine target       |
+| Runner control             | Skip browser launch when you only need build verification |
+| Production-like validation | Check real compiled output instead of watch-mode state    |
+
+## How it differs from other commands
+
+- `dev`: development server + HMR/watch loop
+- `build`: production build only
+- `preview`: launch an existing built extension without building
+- `start`: `build` + `preview` in sequence
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension start [path-or-url] [options]
+```
+
+```bash pnpm
+extension start [path-or-url] [options]
+```
+
+```bash yarn
+extension start [path-or-url] [options]
+```
+
+</CodeGroup>
+
+If no path is provided, the current working directory is used.
+
+## Core options
+
+| Flag                           | Alias              | What it does                                                 | Default                  |
+| ------------------------------ | ------------------ | ------------------------------------------------------------ | ------------------------ |
+| `[path or url]`                | -                  | Extension path or remote URL.                                | `process.cwd()`          |
+| `--browser <browser>`          | -                  | Browser/engine target.                                       | `chromium`               |
+| `--profile <path\|boolean>`    | -                  | Browser profile path or boolean profile mode.                | fresh profile            |
+| `--chromium-binary <path>`     | -                  | Custom Chromium-family binary path.                          | system default           |
+| `--gecko-binary <path>`        | `--firefox-binary` | Custom Gecko-family binary path.                             | system default           |
+| `--polyfill [boolean]`         | -                  | Enable compatibility polyfill behavior.                      | `true`                   |
+| `--starting-url <url>`         | -                  | Starting URL in launched browser.                            | unset                    |
+| `--no-browser`                 | -                  | Build but skip browser launch.                               | browser launch enabled   |
+| `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit.  | disabled                 |
+| `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                   | `60000`                  |
+| `--wait-format <pretty\|json>` | -                  | Output format for wait results (`json` is machine-readable). | `pretty`                 |
+| `--port <port>`                | -                  | Runner/devtools port when runner is enabled. Use `0` for OS-assigned port. | `8080`                   |
+| `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/devcontainers.   | `127.0.0.1`              |
+| `--extensions <list>`          | -                  | Comma-separated companion extensions or store URLs.          | unset                    |
+| `--install [boolean]`          | -                  | Install project dependencies when missing.                   | command behavior default |
+| `--author`                     | `--author-mode`    | Enable maintainer diagnostics.                               | disabled                 |
+
+## Automation metadata
+
+`start` writes readiness metadata to:
+
+- `dist/extension-js/<browser>/ready.json`
+
+This is useful for automation when using `--no-browser`:
+
+- wait for `status: "ready"` before launching external runners
+- handle `status: "error"` as a deterministic failure signal
+- use `runId` and `startedAt` to correlate a specific runtime session
+
+### `--no-browser` and readiness synchronization
+
+`--no-browser` only disables browser launch. It does not block external runners until production startup is usable.
+
+For production-oriented Playwright/CI/AI workflows:
+
+1. run `extension start --no-browser` as the producer process
+2. run `extension start --wait --browser=<browser>` as the readiness gate
+3. launch external browser automation only after `status: "ready"`
+
+`--wait` exits non-zero on `error`/timeout and ignores stale contracts from dead processes (`pid` no longer alive).
+If both `--wait` and `--no-browser` are passed in the same command invocation, `--wait` takes precedence and the command runs in wait-only mode.
+
+## Logging flags
+
+| Flag                                                 | What it does                                                                                 | Default            |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
+| `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | Minimum log level.                                                                           | `off`              |
+| `--log-context <list\|all>`                          | Context filter (`background`, `content`, `page`, `sidebar`, `popup`, `options`, `devtools`). | `all`              |
+| `--log-format <pretty\|json\|ndjson>`                | Logger output format.                                                                        | `pretty`           |
+| `--no-log-timestamps`                                | Disable timestamps in pretty mode.                                                           | timestamps enabled |
+| `--no-log-color`                                     | Disable color in pretty mode.                                                                | color enabled      |
+| `--log-url <pattern>`                                | Filter log events by URL substring/regex.                                                    | unset              |
+| `--log-tab <id>`                                     | Filter log events by tab ID.                                                                 | unset              |
+
+## Source inspection flags (not supported in `start`)
+
+`start` accepts these flags in parsing, but exits with an error if you use them. Use `dev --source ...` instead.
+
+| Flag                                            | Support in `start`                          |
+| ----------------------------------------------- | ------------------------------------------- |
+| `--source [url]`                                | not supported (command exits with guidance) |
+| `--watch-source [boolean]`                      | not supported (command exits with guidance) |
+| `--source-format <pretty\|json\|ndjson>`        | not supported (command exits with guidance) |
+| `--source-summary [boolean]`                    | not supported (command exits with guidance) |
+| `--source-meta [boolean]`                       | not supported (command exits with guidance) |
+| `--source-probe <selectors>`                    | not supported (command exits with guidance) |
+| `--source-tree <off\|root-only>`                | not supported (command exits with guidance) |
+| `--source-console [boolean]`                    | not supported (command exits with guidance) |
+| `--source-dom [boolean]`                        | not supported (command exits with guidance) |
+| `--source-max-bytes <bytes>`                    | not supported (command exits with guidance) |
+| `--source-redact <off\|safe\|strict>`           | not supported (command exits with guidance) |
+| `--source-include-shadow <off\|open-only\|all>` | not supported (command exits with guidance) |
+| `--source-diff [boolean]`                       | not supported (command exits with guidance) |
+
+## Shared global options
+
+Also supports [global flags](/docs/workflows/global-flags).
+
+## Examples
+
+### Start with default browser
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `start` building production output and launching the extension in the default browser target. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension start
+```
+
+```bash pnpm
+extension start
+```
+
+```bash yarn
+extension start
+```
+
+</CodeGroup>
+
+### Start in Firefox
+
+<CodeGroup>
+
+```bash npm
+extension start --browser firefox
+```
+
+```bash pnpm
+extension start --browser firefox
+```
+
+```bash yarn
+extension start --browser firefox
+```
+
+</CodeGroup>
+
+### Build and skip browser launch
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `start --no-browser` generating production output without launching a browser session. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension start --no-browser
+```
+
+```bash pnpm
+extension start --no-browser
+```
+
+```bash yarn
+extension start --no-browser
+```
+
+</CodeGroup>
+
+## Important behavior notes
+
+- `start` does not run a dev server and does not provide HMR/watch mode.
+- `start` is production-mode oriented; use `dev` for iterative local development.
+- Source inspection options are not supported in `start`; use `dev --source ...` for that workflow.
+- For machine consumers, parse `dist/extension-js/<browser>/ready.json` instead of terminal text.
+
+## Next steps
+
+- Iterate quickly with [`dev`](/docs/commands/dev).
+- Launch existing build output with [`preview`](/docs/commands/preview).
