@@ -1,0 +1,189 @@
+---
+title: "Sass / Sass modules"
+icon: "sass"
+---
+Use Sass to scale extension styling with variables, nesting, and modules while keeping a single build workflow.
+
+Extension.js supports `.scss` and `.sass`, plus module variants (`.module.scss`, `.module.sass`) through the Rspack-based style pipeline.
+
+## When Sass is a good fit
+
+- Your design system already relies on Sass variables and mixins.
+- You need modular styles for component-driven extension UIs.
+- You want parity with existing Sass workflows in web applications.
+
+## Template examples
+
+### `new-sass`
+
+![new-sass template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-sass/screenshot.png)
+
+Start a new-tab extension with Sass support already configured.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-sass
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-sass
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-sass
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new-sass](https://github.com/extension-js/examples/tree/main/examples/new-sass)
+
+## Usage with an existing extension
+
+You can integrate Sass with an existing Extension.js project by installing the necessary dependencies and configuring your files.
+
+### Installation
+
+Install the required dependencies:
+
+<PackageManagerTabs command="install -D sass sass-loader" />
+
+### Example usage in an HTML file
+
+In extension pages (popup/options/new tab), import Sass from your entry script:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+    <script src="./main.ts"></script>
+  </head>
+  <body>
+    <h1 class="title">Hello, Extension.</h1>
+  </body>
+</html>
+```
+
+```ts
+import './styles/globals.scss'
+
+console.log('Sass loaded')
+```
+
+## Sass modules
+
+Sass Modules allow you to scope styles locally, just like CSS Modules. You can use `.module.scss` or `.module.sass` to activate Sass Modules, which prevent naming conflicts in your stylesheets.
+
+### `content-sass-modules`
+
+![content-sass-modules template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-sass-modules/screenshot.png)
+
+Use Sass Modules in content scripts when you need scoped styling for injected UI.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-sass-modules
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-sass-modules
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-sass-modules
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-sass-modules](https://github.com/extension-js/examples/tree/main/examples/content-sass-modules)
+
+## Using Sass modules in an existing extension
+
+To enable Sass Modules, rename your Sass file to include `.module.scss` or `.module.sass`. This will automatically scope the styles to your component.
+
+```diff
+- button.scss
++ button.module.scss
+```
+
+### Example usage
+
+After renaming your Sass file, import it into your script:
+
+```ts
+import styles from './styles/button.module.scss'
+
+const element = document.createElement('h1')
+element.className = styles.primaryColor
+element.innerText = 'Hello, Extension!'
+document.body.appendChild(element)
+```
+
+In the Sass file:
+
+```scss
+/* styles/button.module.scss */
+
+$primary-color: #64ff00;
+
+:export {
+  primaryColor: $primary-color;
+}
+```
+
+## React/Preact example usage
+
+Import the Sass module into your React or Preact component, and use the scoped class names:
+
+```jsx
+import styles from './styles/button.module.scss'
+
+export default function MyComponent() {
+  return <h1 className={styles.primaryColor}>Hello, Extension!</h1>
+}
+```
+
+## Vue example usage
+
+In Vue SFCs, prefer module styles with `lang="scss"`:
+
+```vue
+<template>
+  <h1 :class="$style.primaryColor">Hello, Extension!</h1>
+</template>
+
+<style lang="scss" module>
+@import './styles/button.module.scss';
+</style>
+```
+
+## Svelte example usage
+
+In Svelte, import Sass module mappings and apply classes:
+
+```svelte
+<script>
+  import styles from "./styles/button.module.scss";
+</script>
+
+<h1 class={styles.primaryColor}>Hello, Extension!</h1>
+```
+
+## Behavior notes
+
+- In extension pages, `.module.scss` and `.module.sass` export class maps for JS/TS imports.
+- In content scripts, Sass is emitted as CSS assets for injection rather than module export maps.
+- If Sass tooling is missing, Extension.js may install optional dependencies and ask for a restart.
+
+## Next steps
+
+- Learn more about [CSS modules](/docs/languages-and-frameworks/css-modules).
+- Ensure stylesheet quality with [Stylelint](/docs/integrations/stylelint).
+
+## Video walkthrough
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Sass and Sass Modules applied in extension pages and content-script contexts. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

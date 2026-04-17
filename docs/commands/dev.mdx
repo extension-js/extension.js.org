@@ -1,0 +1,317 @@
+---
+title: "Dev command"
+icon: "puzzle"
+---
+Use `dev` for day-to-day browser extension development with watch mode, browser launch, and context-aware update behavior.
+
+`dev` runs the development pipeline, watches project files, and applies update strategies based on what changed (HMR, hard reload, or restart-required diagnostics).
+
+## When to use `dev`
+
+- Building features and validating changes in real time.
+- Debugging extension behavior in one or more browser targets.
+- Running source-inspection workflows with `--source`.
+
+Use `build` for production artifacts, `start` for production build + launch, and `preview` to run existing build output only.
+
+If your extension lives inside a monorepo/submodule, review how `extension.config.*` loads env files (including workspace-root fallback): [Environment variables](/docs/features/environment-variables#extensionconfig-env-resolution-in-monorepos).
+
+## What `dev` gives you
+
+| Capability             | Outcome for developers                                |
+| ---------------------- | ----------------------------------------------------- |
+| Watch mode iteration   | Tight edit -> rebuild -> validate loop while coding   |
+| Browser-target control | Explicit cross-browser validation per command         |
+| Profile-aware runs     | Reliable fresh or persisted profiles by workflow need |
+| Source inspection mode | Structured output and diagnostics with source flags   |
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension dev [path-or-url] [options]
+```
+
+```bash pnpm
+extension dev [path-or-url] [options]
+```
+
+```bash yarn
+extension dev [path-or-url] [options]
+```
+
+</CodeGroup>
+
+If no path is provided, Extension.js uses `process.cwd()`. You can also pass a **GitHub tree URL** (e.g., `https://github.com/user/repo/tree/main/path`) to develop a remote extension locally — Extension.js clones it and runs dev mode on the local copy.
+
+## Core options
+
+| Flag                           | Alias              | What it does                                                                                                | Default                  |
+| ------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `[path or url]`                | -                  | Extension path or remote URL.                                                                               | `process.cwd()`          |
+| `--browser <browser>`          | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values). | `chromium`               |
+| `--profile <path\|boolean>`    | -                  | Browser profile path or boolean profile mode.                                                               | fresh profile            |
+| `--chromium-binary <path>`     | -                  | [Custom Chromium-family binary path](/docs/browsers/running-other-browsers).                               | system default           |
+| `--gecko-binary <path>`        | `--firefox-binary` | [Custom Gecko-family binary path](/docs/browsers/running-other-browsers).                                  | system default           |
+| `--polyfill [boolean]`         | -                  | Enable compatibility polyfill behavior.                                                                     | `false`                  |
+| `--starting-url <url>`         | -                  | Starting URL in launched browser.                                                                           | unset                    |
+| `--port <port>`                | -                  | Dev server port. Use `0` for OS-assigned port.                                                              | `8080`                   |
+| `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/devcontainers.                                    | `127.0.0.1`              |
+| `--no-open`                    | -                  | Do not automatically open browser.                                                                          | browser opens by default |
+| `--no-browser`                 | -                  | Do not launch browser.                                                                                      | browser launch enabled   |
+| `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit.                                                 | disabled                 |
+| `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                                                                  | `60000`                  |
+| `--wait-format <pretty\|json>` | -                  | Output format for wait results (`json` is machine-readable).                                                | `pretty`                 |
+| `--extensions <list>`          | -                  | Comma-separated companion extensions or store URLs.                                                         | unset                    |
+| `--install [boolean]`          | -                  | Install project dependencies when missing.                                                                  | command behavior default |
+| `--author`                     | `--author-mode`    | Enable maintainer diagnostics.                                                                              | disabled                 |
+
+## Automation metadata (recommended for scripts/agents)
+
+When `dev` runs, Extension.js emits machine-readable metadata under:
+
+- `dist/extension-js/<browser>/ready.json`
+- `dist/extension-js/<browser>/events.ndjson`
+
+For automation (Playwright, CI, AI agents), prefer these files over terminal log parsing.
+
+`ready.json` should be treated as the readiness contract:
+
+- `status: "starting"` while booting
+- `status: "ready"` when runtime is ready
+- `status: "error"` for startup/compile failures
+- `runId` uniquely identifies a runtime session
+- `startedAt` marks the runtime session start timestamp
+
+### `--no-browser` and readiness synchronization
+
+`--no-browser` only disables browser launch. It does not block external runners until compile is usable.
+
+For Playwright/CI/AI workflows:
+
+1. run `extension dev --no-browser` as a long-lived process
+2. run `extension dev --wait --browser=<browser>` as the readiness gate
+3. launch external browser automation only after `status: "ready"`
+
+`--wait` is designed for a second process (or CI step) and exits non-zero on `error`/timeout.
+When `--wait` sees a stale `ready.json` from a dead process (`pid` no longer alive), it keeps waiting for a live producer.
+If both `--wait` and `--no-browser` are passed to the same command invocation, `--wait` takes precedence and the command runs in wait-only mode.
+
+## Source inspection workflow
+
+Use source options only with `dev`. Source inspection opens a target URL in the browser and prints the full, live HTML of the page **after** your content scripts have been injected — useful for verifying what your extension actually changes on a page.
+
+- `--source [url]` to inspect a page (defaults to `--starting-url` or `https://example.com`)
+- `--watch-source` / `--no-watch-source` to re-print HTML on each rebuild
+
+`start` and `preview` do not support source-inspection flags.
+
+### Source flags
+
+| Flag                                            | What it does                               | Default behavior                   |
+| ----------------------------------------------- | ------------------------------------------ | ---------------------------------- |
+| `--source [url]`                                | Enable source inspection flow.             | disabled                           |
+| `--watch-source [boolean]`                      | Re-print source output on watched updates. | `true` when `--source` is enabled  |
+| `--source-format <pretty\|json\|ndjson>`        | Output format for source inspection.       | falls back to log format or `json` |
+| `--source-summary [boolean]`                    | Emit compact summary output.               | disabled                           |
+| `--source-meta [boolean]`                       | Include page metadata.                     | enabled when source is on          |
+| `--source-probe <selectors>`                    | Comma-separated CSS selectors to probe.    | unset                              |
+| `--source-tree <off\|root-only>`                | Include compact extension tree details.    | unset                              |
+| `--source-console [boolean]`                    | Include console summary.                   | disabled                           |
+| `--source-dom [boolean]`                        | Include DOM snapshots/diffs.               | enabled when watch-source is on    |
+| `--source-max-bytes <bytes>`                    | Cap output payload size.                   | unset                              |
+| `--source-redact <off\|safe\|strict>`           | Redaction strategy for source output.      | format-dependent                   |
+| `--source-include-shadow <off\|open-only\|all>` | Control Shadow DOM inclusion.              | `open-only` when source is on      |
+| `--source-diff [boolean]`                       | Include diff metadata on watch updates.    | enabled when watch-source is on    |
+
+## Logging flags
+
+| Flag                                                 | What it does                                                                                 | Default            |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
+| `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | Minimum log level.                                                                           | `off`              |
+| `--log-context <list\|all>`                          | Context filter (`background`, `content`, `page`, `sidebar`, `popup`, `options`, `devtools`). | `all`              |
+| `--log-format <pretty\|json\|ndjson>`                | Logger output format.                                                                        | `pretty`           |
+| `--no-log-timestamps`                                | Disable timestamps in pretty mode.                                                           | timestamps enabled |
+| `--no-log-color`                                     | Disable color in pretty mode.                                                                | color enabled      |
+| `--log-url <pattern>`                                | Filter log events by URL substring/regex.                                                    | unset              |
+| `--log-tab <id>`                                     | Filter log events by tab ID.                                                                 | unset              |
+
+## Shared global options
+
+Also supports [global flags](/docs/workflows/global-flags).
+
+## Examples
+
+### Running a local extension
+
+{/* VIDEO_PLACEHOLDER_TODO: Show local extension dev startup with watch mode and live update behavior after editing a UI file. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension
+```
+
+```bash pnpm
+extension dev ./my-extension
+```
+
+```bash yarn
+extension dev ./my-extension
+```
+
+</CodeGroup>
+
+### Running a remote extension from GitHub
+
+Pass a GitHub tree URL as the argument to develop a remote extension locally:
+
+<CodeGroup>
+
+```bash npm
+extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
+```
+
+```bash pnpm
+extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
+```
+
+```bash yarn
+extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
+```
+
+</CodeGroup>
+
+### Inspecting page HTML with source mode
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `--source` flow for page inspection and output updates while watching source changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --source https://example.com
+```
+
+```bash pnpm
+extension dev ./my-extension --source https://example.com
+```
+
+```bash yarn
+extension dev ./my-extension --source https://example.com
+```
+
+</CodeGroup>
+
+### Running in Firefox
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching browser target to Firefox and validating extension behavior in that runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --browser firefox
+```
+
+```bash pnpm
+extension dev ./my-extension --browser firefox
+```
+
+```bash yarn
+extension dev ./my-extension --browser firefox
+```
+
+</CodeGroup>
+
+### Running in multiple browsers in sequence
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running dev in Chrome then Firefox with explicit browser targets for cross-browser validation. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --browser=chrome,firefox
+```
+
+```bash pnpm
+extension dev ./my-extension --browser=chrome,firefox
+```
+
+```bash yarn
+extension dev ./my-extension --browser=chrome,firefox
+```
+
+</CodeGroup>
+
+### Running inside Docker or a devcontainer
+
+When running inside Docker, devcontainers, or GitHub Codespaces, bind the dev server to `0.0.0.0` so the host machine can reach it:
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --host 0.0.0.0
+```
+
+```bash pnpm
+extension dev ./my-extension --host 0.0.0.0
+```
+
+```bash yarn
+extension dev ./my-extension --host 0.0.0.0
+```
+
+</CodeGroup>
+
+Combine with `--port 0` to let the OS pick an available port automatically:
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --host 0.0.0.0 --port 0
+```
+
+```bash pnpm
+extension dev ./my-extension --host 0.0.0.0 --port 0
+```
+
+```bash yarn
+extension dev ./my-extension --host 0.0.0.0 --port 0
+```
+
+</CodeGroup>
+
+### Running in brave as a custom binary
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running `dev` with a custom Chromium binary and validating that the extension launches in that browser. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --chromium-binary /path/to/brave
+```
+
+```bash pnpm
+extension dev ./my-extension --chromium-binary /path/to/brave
+```
+
+```bash yarn
+extension dev ./my-extension --chromium-binary /path/to/brave
+```
+
+</CodeGroup>
+
+## Best practices
+
+- **Browser compatibility:** Test your extension in different browsers to ensure compatibility with the target audience.
+- **Polyfilling:** If Firefox or a Gecko-based browser is also a target, use the `--polyfill` flag to enable compatibility for the `browser.*` API in Chromium-based browsers.
+- **Source inspection workflows:** Use `dev` (not `start`/`preview`) when you need source inspection options.
+- **Automation reliability:** Treat `dev` as the watch-mode "dev friend" (`--no-browser` + `dev --wait`) and `start` as the production "test friend" (`--no-browser` + `start --wait`) for Playwright/CI flows (`--wait-format=json` for machine consumers).
+
+## Next steps
+
+- Build production artifacts with [`build`](/docs/commands/build).
+- Validate production launch flow with [`start`](/docs/commands/start).
+- Review browser targeting with [browser-specific manifest fields](/docs/features/browser-specific-fields).
+- Configure shared defaults in [`extension.config.js`](/docs/features/extension-configuration).
+- Review config env loading behavior in [Environment variables](/docs/features/environment-variables#extensionconfig-env-resolution-in-monorepos).

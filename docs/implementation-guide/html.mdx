@@ -1,0 +1,227 @@
+---
+title: "HTML"
+icon: "html"
+---
+Build extension UIs with plain HTML entrypoints while Extension.js handles asset wiring, script/style bundling, and dev-time update behavior.
+
+Extension.js processes HTML entrypoints from manifest fields and from the special `pages/` folder.
+
+## Template examples
+
+### `new`
+
+![new template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new/screenshot.png)
+
+Minimal new-tab extension with an HTML page entrypoint.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new](https://github.com/extension-js/examples/tree/main/examples/new)
+
+### `sidebar`
+
+![sidebar template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/sidebar/screenshot.png)
+
+Side panel extension with an HTML page entry for persistent companion UI.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/sidebar](https://github.com/extension-js/examples/tree/main/examples/sidebar)
+
+## HTML capabilities
+
+| Capability           | What it gives you                                            |
+| -------------------- | ------------------------------------------------------------ |
+| Entrypoint discovery | Compile HTML declared in manifest and `pages/` with one flow |
+| Asset wiring         | Bundle referenced scripts and styles from HTML tags          |
+| Public path handling | Keep intentional public-root assets stable                   |
+| Dev tracking         | Recompile on HTML and referenced asset edits                 |
+
+## Supported HTML entrypoints
+
+The following manifest fields use HTML files as entrypoints:
+
+| Manifest field                     | File type expected |
+| ---------------------------------- | ------------------ |
+| `action.default_popup`             | `.html`            |
+| `background.page`                  | `.html`            |
+| `chrome_url_overrides.*`           | `.html`            |
+| `devtools_page`                    | `.html`            |
+| `options_ui.page` / `options_page` | `.html`            |
+| `page_action.default_popup`        | `.html`            |
+| `sandbox.pages`                    | `.html`            |
+| `side_panel.default_path`          | `.html`            |
+| `sidebar_action.default_panel`     | `.html`            |
+
+You can also add standalone pages under `pages/` without expanding manifest entrypoint fields for every file.
+
+## Sample HTML entry
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Extension Page</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="./main.ts"></script>
+  </body>
+</html>
+```
+
+## How Extension.js processes HTML
+
+For each HTML entrypoint, Extension.js:
+
+1. emits the HTML file into compilation
+2. discovers local scripts/styles/static assets from tags
+3. bundles scripts/styles as proper extension outputs
+4. patches HTML to inject compiled bundle references
+5. keeps public-root references (like `/icon.png`) as public assets
+
+{/* VIDEO_PLACEHOLDER_TODO: Show an HTML entrypoint importing a script and stylesheet, then inspect emitted compiled HTML and bundled assets. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Development behavior
+
+- HTML and referenced assets are tracked in file dependencies, so edits trigger recompilation.
+- Script changes use HMR where supported in the injected script flow.
+- If the HTML script/style entry list changes (add/remove entries), Extension.js can require a dev server restart.
+- Manifest HTML entrypoint changes can also trigger restart-required diagnostics.
+
+## Paths and environment variables
+
+- Relative paths are resolved from the HTML file location.
+- Leading `/` paths are treated as extension public-root paths.
+- `$EXTENSION_PUBLIC_*` and related placeholders can be replaced in emitted HTML during compilation.
+
+## Using extra pages
+
+Place extra files in `pages/`:
+
+```plaintext
+pages/
+└── extra-page.html
+```
+
+## Common extension surfaces
+
+Most user-facing extension surfaces that render UI are just HTML entrypoints with different manifest fields and runtime expectations. Use the surface that matches the user interaction model, then keep the HTML page itself thin.
+
+| Surface          | Manifest field                                              | Good fit                                           |
+| ---------------- | ----------------------------------------------------------- | -------------------------------------------------- |
+| Popup            | `action.default_popup` or `browser_action.default_popup`    | short, task-focused UI opened from the toolbar     |
+| Options page     | `options_ui.page` or `options_page`                         | durable settings and preferences                   |
+| Side panel       | `side_panel.default_path` or `sidebar_action.default_panel` | persistent companion UI alongside the current tab  |
+| DevTools page    | `devtools_page`                                             | debugging or inspection tools for developers       |
+| New tab override | `chrome_url_overrides.newtab`                               | full-screen extension-owned browser surface        |
+| Sandbox page     | `sandbox.pages`                                             | isolated HTML when sandboxed execution is required |
+
+### Popup
+
+Use a popup for fast, focused actions:
+
+- quick status checks
+- one-step commands
+- small forms or toggles
+
+Keep popups small and resilient. They are often opened and closed frequently, so avoid assuming long-lived in-memory UI state.
+
+### Options page
+
+Use an options page when the user needs to configure durable behavior:
+
+- account or integration settings
+- feature toggles
+- keyboard or workflow preferences
+
+Pair options pages with browser storage so settings survive restarts and can be read by background or content-script code.
+
+### Side panel
+
+Use a side panel when the extension needs a persistent workspace next to the current page:
+
+- research or note-taking companions
+- tab-aware assistants
+- page analysis results that should stay visible while the user navigates
+
+Side panel HTML is still just an extension page entrypoint. The difference is the surface semantics, not the build pipeline.
+
+### DevTools page
+
+Use `devtools_page` when the extension provides tooling for developers:
+
+- inspection panels
+- request or DOM diagnostics
+- project-specific debugging helpers
+
+Treat this as a specialized surface. It usually needs stronger messaging patterns because it often coordinates with background logic and inspected tabs.
+
+### New tab override
+
+Use `chrome_url_overrides.newtab` when the extension owns the whole new-tab experience.
+
+This is usually the best fit for rich, app-like UIs where a popup would be too constrained.
+
+### Sandbox page
+
+Use sandbox pages only when the feature truly needs the sandbox model. They are HTML entrypoints too, but they exist for a narrower set of browser-extension security and execution constraints.
+
+## Surface authoring pattern
+
+A good default structure for any HTML surface is:
+
+1. keep the HTML file minimal
+2. mount one script entry
+3. import styles from that script or a linked stylesheet
+4. move browser API coordination into dedicated modules
+
+That pattern works well for popup, options, side panel, devtools, and new-tab surfaces.
+
+## Best practices
+
+- Keep entry HTML minimal and import app code through scripts.
+- Use relative paths for project assets and `/` paths only for intentional public assets.
+- Use `pages/` for additional extension pages that are not primary manifest UI entrypoints.
+- Treat script/link add/remove changes as structural changes that may require restart.
+- Pick the surface by user interaction model first, then implement it as a thin HTML page entrypoint.
+- Keep surface-specific state in storage or background coordination instead of assuming the UI page always stays mounted.
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](/docs/workflows/dev-update-behavior).
+- Persist settings and state with [Storage](/docs/implementation-guide/storage).
+- Coordinate UI pages with [Messaging](/docs/implementation-guide/messaging).
+- Learn more about [special folders](/docs/features/special-folders).
+- Continue with [CSS in development](/docs/implementation-guide/css).

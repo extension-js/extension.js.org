@@ -1,0 +1,160 @@
+---
+title: "Background scripts"
+icon: "layer-group"
+---
+Run extension-wide logic in background contexts with clear support for both MV2-style background scripts and MV3 service workers.
+
+Extension.js reads background entries from `manifest.json`, compiles them into dedicated background outputs, and applies browser-specific reload behavior during development.
+
+## Template examples
+
+### `action`
+
+![action template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/action/screenshot.png)
+
+An action popup extension with a background service worker handling browser events.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+### `action-chatgpt`
+
+![action-chatgpt template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/action-chatgpt/screenshot.png)
+
+Action popup with a background service worker that integrates with an external API (ChatGPT).
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action-chatgpt
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/action-chatgpt](https://github.com/extension-js/examples/tree/main/examples/action-chatgpt)
+
+## Background capabilities
+
+| Capability                   | What it gives you                                                    |
+| ---------------------------- | -------------------------------------------------------------------- |
+| MV2/MV3 compatibility        | Support `background.scripts` and `background.service_worker` entries |
+| Dedicated background outputs | Emit background runtime files per active manifest shape              |
+| Reload-aware development     | Apply hard reload/restart behavior for structural changes            |
+| Worker mode control          | Respect `background.type` module/classic runtime behavior            |
+
+## Background script support
+
+The following fields in `manifest.json` are used to declare background scripts:
+
+| Manifest field              | File type expected           | Dev behavior        |
+| --------------------------- | ---------------------------- | ------------------- |
+| `background.service_worker` | `.js`, `.ts`, `.mjs`, `.tsx` | hard reload flow    |
+| `background.scripts`        | `.js`, `.ts`, `.mjs`, `.tsx` | HMR-compatible path |
+
+`background.type` can also affect runtime mode (`module` vs classic service worker behavior).
+
+## Sample background script declaration
+
+Below is an example of how to declare a background script within the `manifest.json` file:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./scripts/background.ts"
+  }
+}
+```
+
+## Development behavior
+
+- Service worker/source changes are tracked and can trigger hard extension reload.
+- Manifest changes affecting background entries can trigger restart-required diagnostics.
+- Browser launch plugins apply target-specific hard reload strategies (Chromium/Firefox).
+- Structural entrypoint changes are treated more strictly than regular module edits.
+
+## MV3 service worker lifecycle
+
+`background.service_worker` runs under the browser's service-worker lifecycle, not as a permanently alive process.
+
+That means:
+
+- in-memory state can disappear between events
+- long-running work should be designed around events, not process permanence
+- startup should stay small and predictable
+- important state should be rehydrated from storage or recomputed safely
+
+Use `background.scripts` only for MV2-style compatibility cases. For MV3-first extensions, treat the service worker as the source of truth for privileged orchestration.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show background service worker edit flow, including hard reload behavior and restart-required when background entry structure changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Output behavior
+
+Common outputs include:
+
+- `background/service_worker.js`
+- `background/scripts.js`
+
+Exact output depends on which manifest field is active after browser filtering.
+
+## Module and classic notes
+
+- `background.type: "module"` uses module worker semantics.
+- Classic service worker mode uses import-scripts chunk loading behavior.
+- Keep dynamic import usage conservative in background runtime-critical paths.
+
+## Recommended architecture
+
+- Keep the background entry thin and move feature logic into shared modules.
+- Use the background context as the privileged coordinator for messaging, storage access, and browser API orchestration.
+- Rehydrate durable state from storage instead of assuming a singleton process.
+- Use alarms, explicit event listeners, and small feature modules instead of one large startup path.
+
+## Common mistakes
+
+- Treating the service worker like a permanently running server process.
+- Keeping critical state only in memory.
+- Doing expensive startup work on every event wakeup.
+- Putting too much feature logic in popup or content-script code when it actually needs privileged coordination.
+
+## Best practices
+
+- Prefer `background.service_worker` for MV3-first extensions.
+- Keep background entry files small and delegate logic to shared modules.
+- Avoid expensive startup work in service workers; initialize lazily where safe.
+- Treat manifest background field edits as structural changes in dev flow.
+- Route privileged actions through validated message handlers.
+- Store durable settings and caches in browser storage, not only in module-level variables.
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](/docs/workflows/dev-update-behavior).
+- Persist durable runtime state with [Storage](/docs/implementation-guide/storage).
+- Coordinate contexts with [Messaging](/docs/implementation-guide/messaging).
+- Learn more about [JavaScript in development](/docs/implementation-guide/javascript).
+- Continue with [content scripts](/docs/implementation-guide/content-scripts).
