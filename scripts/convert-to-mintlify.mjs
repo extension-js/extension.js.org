@@ -113,7 +113,10 @@ function transform(source, filePath) {
       text = text.replace(/^\s*#\s+.+\s*\n/m, '')
     } else {
       // For blog/index and similar, derive title from filename
-      const base = filePath.split('/').pop().replace(/\.mdx?$/, '')
+      const base = filePath
+        .split('/')
+        .pop()
+        .replace(/\.mdx?$/, '')
       frontmatter.title = base
         .split('-')
         .map((w) => w[0].toUpperCase() + w.slice(1))
@@ -151,14 +154,18 @@ function transform(source, filePath) {
       const value = frontmatter[key]
       // Quote if not already quoted
       const needsQuotes = !/^["'].*["']$/.test(value)
-      fmLines.push(`${key}: ${needsQuotes ? `"${value.replace(/"/g, '\\"')}"` : value}`)
+      fmLines.push(
+        `${key}: ${needsQuotes ? `"${value.replace(/"/g, '\\"')}"` : value}`
+      )
     }
   }
   for (const key of Object.keys(frontmatter)) {
     if (!ordered.includes(key)) {
       const value = frontmatter[key]
       const needsQuotes = !/^["'].*["']$/.test(value)
-      fmLines.push(`${key}: ${needsQuotes ? `"${value.replace(/"/g, '\\"')}"` : value}`)
+      fmLines.push(
+        `${key}: ${needsQuotes ? `"${value.replace(/"/g, '\\"')}"` : value}`
+      )
     }
   }
 
@@ -184,4 +191,6 @@ for (const file of FILES) {
   }
 }
 
-console.log(`\nDone: ${changed} files converted, ${skipped} already-converted skipped.`)
+console.log(
+  `\nDone: ${changed} files converted, ${skipped} already-converted skipped.`
+)

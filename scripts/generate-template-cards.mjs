@@ -68,7 +68,13 @@ function pickIcon(slug) {
 
 function pickContextLabel(slug) {
   if (slug === 'init' || slug === 'new') return 'Default baseline'
-  for (const prefix of ['new-', 'content-', 'action-', 'sidebar-', 'special-folders-']) {
+  for (const prefix of [
+    'new-',
+    'content-',
+    'action-',
+    'sidebar-',
+    'special-folders-'
+  ]) {
     if (slug.startsWith(prefix)) return CONTEXT_LABEL[prefix.replace(/-$/, '')]
   }
   return CONTEXT_LABEL[slug] || 'Example'
@@ -82,7 +88,8 @@ function formatTitle(slug) {
 }
 
 async function main() {
-  const api = 'https://api.github.com/repos/extension-js/examples/contents/examples'
+  const api =
+    'https://api.github.com/repos/extension-js/examples/contents/examples'
   const res = await fetch(api, {
     headers: {'User-Agent': 'extensionjs-docs-build'}
   })
@@ -120,16 +127,15 @@ async function main() {
   let updated
   if (current.includes(BEGIN) && current.includes(END)) {
     updated = current.replace(
-      new RegExp(`${BEGIN.replace(/[/*]/g, '\\$&')}[\\s\\S]*?${END.replace(/[/*]/g, '\\$&')}`),
+      new RegExp(
+        `${BEGIN.replace(/[/*]/g, '\\$&')}[\\s\\S]*?${END.replace(/[/*]/g, '\\$&')}`
+      ),
       cardBlock
     )
   } else {
     // Replace the <div>...<TemplateCardsGrid />...</div> block or bare <TemplateCardsGrid />
     updated = current
-      .replace(
-        /<div[^>]*>\s*<TemplateCardsGrid\s*\/>\s*<\/div>/,
-        cardBlock
-      )
+      .replace(/<div[^>]*>\s*<TemplateCardsGrid\s*\/>\s*<\/div>/, cardBlock)
       .replace(/<TemplateCardsGrid\s*\/>/, cardBlock)
   }
   writeFileSync(target, updated)
