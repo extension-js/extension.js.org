@@ -17,7 +17,7 @@ keywords:
 
 Use one extension codebase across browsers and environments without hardcoding values.
 
-Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js uses **two different** environment loading paths: one for **compiled extension bundles** (browser/mode aware) and a **narrower** one while loading **`extension.config.*`** in Node. Both paths matter depending on where you read your variables.
+Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js uses **two different** environment loading paths: one for **compiled extension bundles** (browser/mode aware) and a **narrower** one while loading **`extension.config.*`** in Node. Both paths matter, depending on where you read your variables.
 
 ## Template examples
 
@@ -97,7 +97,7 @@ If no matching file exists next to the project and no `.env.defaults` is found t
 1. `.env.defaults` (merged when present)
 2. Then the **first** file that exists among: `.env.development`, `.env.local`, `.env`
 
-Browser-scoped files such as `.env.chrome` or `.env.chrome.development` are **not** used for this preload step. Use plain `process.env` set by your shell or CI pipeline, or rely on bundle-time env (above) for `EXTENSION_PUBLIC_*` injection into extension code.
+Browser-scoped files such as `.env.chrome` or `.env.chrome.development` are **not** used for this preload step. Instead, use plain `process.env` set by your shell or CI (continuous integration) pipeline, or rely on bundle-time env (above) for `EXTENSION_PUBLIC_*` injection into extension code.
 
 **Monorepo:** If none of those files exist in the extension package directory, the same preload runs from the nearest directory containing `pnpm-workspace.yaml` (same constraint as above).
 
@@ -179,8 +179,8 @@ The rules below apply to **compile-time / bundle** env selection (see [Extension
 
 Need different values per browser? Extension.js supports browser-scoped env files such as `.env.chrome` and `.env.firefox`. You can also combine browser and mode for a single build variant:
 
-- `.env.chrome.development`: Applied only when running the extension in Chrome during development mode.
-- `.env.firefox.production`: Applied only when building the extension for Firefox in production mode.
+- `.env.chrome.development`: Extension.js applies this only when running the extension in Chrome during development mode.
+- `.env.firefox.production`: Extension.js applies this only when building the extension for Firefox in production mode.
 
 Priority order is:
 
@@ -217,7 +217,7 @@ EXTENSION_PUBLIC_SITE_URL=https://example.com
 PRIVATE_KEY=abc123  # Not injected into JS bundles
 ```
 
-**Important:** Variables without `EXTENSION_PUBLIC_` are not injected into JS bundles.  
+**Important:** Extension.js does not inject variables without `EXTENSION_PUBLIC_` into JS bundles.  
 However, placeholders in emitted `.json`/`.html` files can resolve `$EXTENSION_*` tokens, so avoid referencing secrets in static asset templates.
 
 ## Using environment variables
@@ -277,7 +277,7 @@ You can also use placeholders in static HTML files (for example, under `pages/`)
 </html>
 ```
 
-When built, `$EXTENSION_PUBLIC_API_KEY` is replaced in the output HTML.
+During compilation, Extension.js replaces `$EXTENSION_PUBLIC_API_KEY` in the output HTML.
 
 ### 4. In JSX components
 
@@ -304,7 +304,7 @@ These values are inlined at compile time and can vary by browser/mode.
 
 ## `import.meta` support
 
-For ESM workflows, Extension.js also supports `import.meta.env`:
+For ECMAScript Module (ESM) workflows, Extension.js also supports `import.meta.env`:
 
 ```js title="service_worker.mjs"
 const apiUrl = import.meta.env.EXTENSION_PUBLIC_API_URL
