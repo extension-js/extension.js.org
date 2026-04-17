@@ -1,0 +1,161 @@
+---
+title: "Special folders"
+icon: "folder-open"
+---
+Use special folders when your extension needs entrypoints or assets that do not fit cleanly in `manifest.json`.
+
+Handle extra pages, runtime-injected scripts, static assets with exact paths, and companion extensions for local development without splitting your project structure.
+
+## Template examples
+
+### `special-folders-pages`
+
+![special-folders-pages template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/special-folders-pages/screenshot.png)
+
+See the `pages/` special folder in action with extra HTML entrypoints.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=special-folders-pages
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/special-folders-pages](https://github.com/extension-js/examples/tree/main/examples/special-folders-pages)
+
+### `special-folders-scripts`
+
+![special-folders-scripts template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/special-folders-scripts/screenshot.png)
+
+See the `scripts/` special folder in action with standalone script entrypoints.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=special-folders-scripts
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/special-folders-scripts](https://github.com/extension-js/examples/tree/main/examples/special-folders-scripts)
+
+## Why this matters
+
+Many extension files are not declared directly in the manifest: iframe pages, scripts injected with `scripting.executeScript`, static vendor assets, and companion extensions used in development. Special folders make these first-class in the build pipeline.
+
+## How it works
+
+Each special folder has a specific role:
+
+| Folder name   | **Description**                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `pages/`      | Adds HTML pages to compilation as entry points, even when they are not listed in the manifest.                |
+| `scripts/`    | Adds script files to compilation as entry points, even when they are not referenced by manifest/HTML entries. |
+| `public/`     | Copies static assets to the output root as-is (`public/**` -> `dist/**`) without bundling or transformation.  |
+| `extensions/` | Provides a conventional location for load-only companion extensions in dev/preview/start workflows.           |
+
+## `pages/`: additional HTML entry points
+
+Use `pages/` for extra extension pages such as sandbox iframes, diagnostics pages, or internal tools.
+
+Each `.html` file in `pages/` is treated as an entry point and compiled like manifest-declared pages.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a page added under `pages/` and then loaded in the running extension build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+For a sandboxed iframe example, see the [Chrome Sandbox Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox).
+
+## `scripts/`: standalone script entry points
+
+Use `scripts/` for executable scripts that are loaded dynamically and are not tied to an HTML page entry.
+
+Files in `scripts/` are compiled as entry points using the same extension resolution pipeline as the rest of your project.
+
+### Important contract
+
+When a `scripts/` entry is used as a content-script-like runtime entry, it should follow the same mount-style authoring contract as content scripts:
+
+- export a default function
+- perform setup inside that function
+- optionally return a synchronous cleanup
+
+This is especially important during development, where Extension.js remounts content-script-like entries safely instead of relying on blind page reloads.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a script added under `scripts/` and injected at runtime with `scripting.executeScript`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+For dynamic injection examples, see the [Chrome Scripting Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/scripting).
+
+## `public/`: copy-only static assets
+
+Use `public/` when you need stable file paths and no bundling/transformation.
+
+Everything under `public/` is copied to output root 1:1.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a static file in `public/` copied directly to `dist/` with unchanged path. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### Important `public/` guard
+
+Do not place `manifest.json` at `public/manifest.json`. Extension.js prevents this to avoid overwriting the generated manifest during compilation.
+
+## `extensions/`: companion extensions (load-only)
+
+When using companion extensions (for example, devtools helpers), Extension.js supports an `extensions/` folder as a load-only source in dev/preview/start flows.
+
+At a high level:
+
+- Scans subfolders under `extensions/` for unpacked extension roots (`manifest.json` present).
+- Companion extensions are loaded alongside your main extension.
+- This is for loading, not building those companion extensions into your main artifact.
+
+You can also load companion extensions via the `--extensions` CLI flag or the `extensions` key in `extension.config.js`:
+
+```bash
+# Load from a local directory
+extension dev --extensions ./path/to/companion
+
+# Load from Chrome Web Store or Firefox Add-ons
+extension dev --extensions "https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi"
+```
+
+Store URLs are downloaded, unpacked, and loaded alongside your extension automatically.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a companion extension inside `extensions/` loading together with the main extension in dev mode. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Development behavior (watch mode)
+
+In development watch mode, Extension.js monitors `pages/` and `scripts/` for file set changes:
+
+- Adding supported files triggers a warning (you can keep working).
+- Removing supported files triggers a compilation error and requires restarting the dev server.
+
+This protects the running compilation graph from stale or broken entry points.
+
+## Best practices
+
+- **Keep shared runtime assets in `public/`**: Use it for files that must keep exact names and paths in output.
+- **Use `pages/` and `scripts/` for true entry points**: Keep off-manifest execution paths explicit.
+- **Restart dev server after entry set changes**: Especially after removing files under `pages/` or `scripts/`.
+- **Keep companion extensions isolated**: Treat `extensions/` as load-only dependencies for local workflows.
+- **Do not place `manifest.json` in `public/`**: Extension.js blocks `public/manifest.json` to protect the generated extension output.
+
+## Next steps
+
+- Learn more about [Reload and Hot-Module Replacement](/docs/features/reload-and-hmr).
+- Understand the mount contract in [Content scripts](/docs/implementation-guide/content-scripts).
+- Check out the different [Templates](../getting-started/templates) to bootstrap your next extension.

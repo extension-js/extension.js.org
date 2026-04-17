@@ -1,0 +1,110 @@
+---
+title: "CI templates"
+icon: "puzzle"
+---
+Automate lint, build, and E2E checks so extension changes stay releasable.
+
+Use CI to run the same quality gates on every pull request and release branch.
+
+## CI capabilities
+
+| Capability                | What it gives you                                        |
+| ------------------------- | -------------------------------------------------------- |
+| Quality gates             | Enforce lint, build, and test checks before merge        |
+| Browser-target confidence | Build and validate multiple browser targets consistently |
+| Reproducible environments | Lock toolchain versions across local and CI runs         |
+| Debuggable failures       | Publish test reports and artifacts for investigation     |
+
+## Core pipeline stages
+
+1. install dependencies
+2. run lint/check commands
+3. build browser targets
+4. run automated tests (including Playwright where applicable)
+5. upload artifacts/reports
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a pull request CI run executing lint, multi-browser build, and Playwright checks with uploaded failure artifacts. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Minimal GitHub Actions example
+
+```yaml
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm extension build --browser=chromium
+```
+
+## Build matrix example
+
+```yaml
+strategy:
+  matrix:
+    browser: [chromium, firefox]
+steps:
+  - run: pnpm extension build --browser=${{ matrix.browser }}
+```
+
+## Playwright in CI
+
+- install browsers in CI job (`playwright install` or equivalent)
+- keep retries slightly higher on CI than local
+- publish Playwright reports/artifacts for failed runs
+- use `dist/extension-js/<browser>/ready.json` as readiness contract before launching Playwright
+- avoid parsing human-readable logs in CI automation scripts
+- prefer native readiness gates: `extension dev --wait --browser=<browser>` (watch/dev) or `extension start --wait --browser=<browser>` (production/start)
+- for machine consumers, prefer `--wait-format=json`
+
+### Example readiness gate
+
+```bash
+pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-format=json
+```
+
+## Docker and container CI
+
+When CI runs inside Docker or a devcontainer, pass `--host 0.0.0.0` so the dev server is reachable from the host or other containers. If the default port is taken, use `--port 0` for OS-assigned allocation.
+
+```bash
+pnpm extension dev --host 0.0.0.0 --port 0 --no-browser
+```
+
+For slow or resource-constrained containers, increase browser transport timeouts via environment variables (see [browser transport tuning variables](/docs/features/environment-variables#browser-transport-tuning-variables)).
+
+## Common pitfalls
+
+- CI scripts diverging from local scripts over time
+- building only one browser target while shipping to multiple engines
+- missing artifact upload for failed E2E jobs
+- mixing unpinned Node/package manager versions across workflows
+
+This repository includes an E2E workflow example at:
+
+- `.github/workflows/e2e.yml`
+
+## Best practices
+
+- Keep CI commands close to local scripts to reduce drift.
+- Fail fast on lint/config errors before expensive browser jobs.
+- Cache dependencies and browser binaries when possible.
+- Version lock CI Node and package manager versions for reproducibility.
+
+## Next steps
+
+- Add or refine [Playwright E2E tests](/docs/workflows/playwright-e2e).
+- Review [commands reference](/docs/commands/dev) for script alignment.

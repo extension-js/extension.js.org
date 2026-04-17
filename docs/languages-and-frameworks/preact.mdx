@@ -1,0 +1,160 @@
+---
+title: "Preact"
+icon: "preact"
+---
+Ship smaller extension UI bundles while keeping a React-like developer experience and fast local iteration.
+
+Extension.js detects Preact from your dependencies and configures JSX/TSX transforms, compatibility aliases, and development refresh wiring automatically.
+
+## When Preact is a good fit
+
+- You want smaller UI bundle size for popup/sidebar/new tab surfaces.
+- You like React-style components but want a lighter runtime.
+- You are optimizing extension startup and UI responsiveness on lower-end devices.
+
+## Template examples
+
+### `new-preact`
+
+![new-preact template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-preact/screenshot.png)
+
+Ship a lighter new-tab UI with Preact and React-compatible ergonomics.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-preact
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-preact
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-preact
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new-preact](https://github.com/extension-js/examples/tree/main/examples/new-preact)
+
+### `content-preact`
+
+![content-preact template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-preact/screenshot.png)
+
+Inject a compact Preact UI into page content using content scripts.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-preact
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-preact
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-preact
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-preact](https://github.com/extension-js/examples/tree/main/examples/content-preact)
+
+## Usage with an existing extension
+
+To integrate Preact into an existing extension, follow these steps:
+
+### Installation
+
+Install the required dependencies:
+
+<PackageManagerTabs command="install preact" />
+
+Preact ships its own TypeScript types, so no separate `@types/preact` package is needed.
+
+### Configuration
+
+Extension.js expects Preact files to use the following file extensions:
+
+- If TypeScript is not enabled: `*.jsx`
+- If TypeScript is enabled: `*.tsx`
+
+## Development behavior
+
+When Preact is detected, Extension.js configures:
+
+- compatibility aliases (for example `react` -> `preact/compat`)
+- JSX handling tuned for Preact
+- refresh integration in development using `@rspack/plugin-preact-refresh`
+
+If optional refresh dependencies are missing, Extension.js installs them and asks for a restart.
+
+### Troubleshooting
+
+- **Missing refresh dependency warning:** install `@rspack/plugin-preact-refresh` (and related prefresh deps if prompted).
+- **Prompt to restart after install:** restart `extension dev` so refresh wiring can be reloaded cleanly.
+- **No Preact integration detected:** confirm `preact` is listed in `dependencies` or `devDependencies`.
+
+## Usage examples
+
+### In a new tab extension
+
+To use Preact in a new tab extension, include it as a `<script>` in your HTML file:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this extension.</noscript>
+    <div id="root"></div>
+  </body>
+  <script src="./index.tsx"></script>
+</html>
+```
+
+```tsx
+import {h, render} from 'preact'
+import App from './App'
+
+const root = document.getElementById('root')
+
+render(<App />, root)
+```
+
+```tsx
+export default function App() {
+  return <h1>Hello, Preact Extension!</h1>
+}
+```
+
+### In a `content_script` file
+
+For content scripts, you can inject Preact into the page by dynamically creating an HTML element and rendering Preact into it:
+
+```tsx
+import {h, render} from 'preact'
+import App from './App'
+import './content.css'
+
+const rootDiv = document.createElement('div')
+rootDiv.id = 'extension-root'
+document.body.appendChild(rootDiv)
+
+render(<App />, rootDiv)
+```
+
+## Next steps
+
+- Learn more about [TypeScript support](/docs/languages-and-frameworks/typescript).
+- Explore how Extension.js handles [Sass modules](/docs/languages-and-frameworks/sass).
+
+## Video walkthrough
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Preact template setup, runtime launch, and UI update cycle with refresh behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

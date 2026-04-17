@@ -1,0 +1,174 @@
+---
+title: "Vue.js"
+icon: "vue"
+---
+Build extension UIs with Vue single-file components (SFCs) without maintaining custom bundler wiring.
+
+Extension.js detects Vue from your dependencies and configures SFC compilation, framework aliases, and development behavior automatically.
+
+## When Vue is a good fit
+
+- Your team already ships production Vue apps.
+- You prefer SFC ergonomics with scoped styles and composition APIs.
+- You want extension UI surfaces that mirror existing Vue architecture.
+
+## Template examples
+
+### `new-vue`
+
+![new-vue template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/new-vue/screenshot.png)
+
+Build a Vue new-tab experience with SFC support from day one.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-vue
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-vue
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-vue
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new-vue](https://github.com/extension-js/examples/tree/main/examples/new-vue)
+
+### `content-vue`
+
+![content-vue template screenshot](https://raw.githubusercontent.com/extension-js/examples/main/public/content-vue/screenshot.png)
+
+Inject Vue components directly into web pages with a content-script setup.
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-vue
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-vue
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-vue
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-vue](https://github.com/extension-js/examples/tree/main/examples/content-vue)
+
+## Usage with an existing extension
+
+To integrate Vue.js into an existing extension, follow these steps:
+
+### Installation
+
+Install the required dependencies:
+
+<PackageManagerTabs command="install vue" />
+
+For explicit setup in existing projects, install the Vue SFC toolchain too:
+
+<PackageManagerTabs command="install -D vue-loader @vue/compiler-sfc" />
+
+### Configuration
+
+Extension.js expects Vue components in `.vue` files. It wires `vue-loader`, `VueLoaderPlugin`, and Vue-related define flags in the Rspack pipeline.
+
+## Development behavior
+
+When Vue is detected, Extension.js:
+
+- enables `.vue` compilation in the framework plugin
+- applies Vue runtime aliases (for consistent runtime resolution)
+- supports content script updates by remounting after relevant Vue SFC changes
+
+If optional Vue tooling is missing, Extension.js installs it and asks for a restart.
+
+### Troubleshooting
+
+- **Missing Vue tooling warning:** install `vue-loader` and `@vue/compiler-sfc`.
+- **Prompt to restart after install:** stop and rerun `extension dev` so the newly installed loader/plugin is picked up.
+- **Unexpected `.vue` handling issues:** verify `vue` is present in project dependencies so Vue integration is detected.
+
+## Usage examples
+
+### In a new tab extension
+
+To use Vue.js in a new tab extension, include your entry file in HTML:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this extension.</noscript>
+    <div id="app"></div>
+  </body>
+  <script src="./main.ts"></script>
+</html>
+```
+
+```ts
+import {createApp} from 'vue'
+import App from './App.vue'
+
+createApp(App).mount('#app')
+```
+
+```vue
+<!-- App.vue -->
+<template>
+  <h1>Hello, Vue.js Extension!</h1>
+</template>
+
+<script setup lang="ts">
+// Component logic goes here.
+</script>
+
+<style scoped>
+h1 {
+  color: #42b983;
+}
+</style>
+```
+
+### In a `content_script` file
+
+For content scripts, mount a Vue app into an injected root node:
+
+```ts
+import {createApp} from 'vue'
+import App from './App.vue'
+import './content.css'
+
+const rootDiv = document.createElement('div')
+rootDiv.id = 'extension-root'
+document.body.appendChild(rootDiv)
+
+createApp(App).mount('#extension-root')
+```
+
+## Best practices
+
+- Keep UI entrypoints framework-first (`main.ts`, `App.vue`) and keep extension APIs in dedicated modules.
+- Use scoped styles in SFCs when possible to reduce style leaks in extension pages.
+- For large UIs, split components and shared composables to keep content scripts small.
+
+## Next steps
+
+- Learn more about [TypeScript support](/docs/languages-and-frameworks/typescript).
+- Explore [Sass and Sass modules](/docs/languages-and-frameworks/sass).
+
+## Video walkthrough
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Vue SFC template creation, dev mode launch, and component update behavior in extension UI. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

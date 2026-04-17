@@ -1,0 +1,135 @@
+---
+title: "Manifest"
+icon: "brackets-curly"
+---
+Keep extension builds predictable by treating `manifest.json` as the source of truth for entrypoints, assets, and browser-specific behavior.
+
+Extension.js compiles your manifest, filters browser-prefixed fields, rewrites runtime paths, validates referenced files, and emits a ready-to-load manifest per target browser.
+
+## Manifest capabilities
+
+| Capability                       | What it gives you                                                  |
+| -------------------------------- | ------------------------------------------------------------------ |
+| Browser-specific field filtering | Keep one manifest file while emitting target-specific output       |
+| Path normalization               | Resolve runtime-safe output paths automatically                    |
+| Reference validation             | Fail early when HTML/script/CSS/JSON/icon files are missing        |
+| Targeted outputs                 | Generate manifest artifacts per browser target in `dist/<browser>` |
+
+## Where the manifest is read from
+
+- `src/manifest.json` (preferred when present)
+- `manifest.json` at project root
+
+`public/manifest.json` is not used as the source manifest.
+
+If a project has a `package.json`, Extension.js does not treat `public/manifest.json` as a valid fallback. This guard prevents the generated manifest from being overwritten by a copied static asset.
+
+## What Extension.js does with it
+
+During dev/build, the manifest pipeline:
+
+1. emits the manifest asset from your source file
+2. filters browser-prefixed keys for the active browser target
+3. applies manifest overrides/path normalization for extension outputs
+4. validates referenced files (HTML/scripts/CSS/icons/JSON) and fails early when missing
+
+## One manifest, multiple browsers
+
+Browser-prefixed keys let you keep one manifest file while still targeting browser-specific behavior:
+
+- `chromium:*`, `chrome:*`, `edge:*`
+- `firefox:*`, `gecko:*`
+
+These prefixes can apply to top-level keys and nested manifest fields.
+
+Examples:
+
+- `chromium:key`
+- `background.firefox:scripts`
+- `background.chromium:service_worker`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show editing one manifest file, running different browser targets, and inspecting target-specific emitted manifest output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### Supported manifest fields
+
+Common entrypoint-related fields include:
+
+| Manifest field                           | File type expected                 |
+| ---------------------------------------- | ---------------------------------- |
+| `action.default_popup`                   | .html                              |
+| `background.page`                        | .html                              |
+| `background.service_worker`              | .js, .jsx, .ts, .tsx, .mjs         |
+| `browser_action.default_popup`           | .html                              |
+| `chrome_url_overrides.bookmarks`         | .html                              |
+| `chrome_url_overrides.history`           | .html                              |
+| `chrome_url_overrides.newtab`            | .html                              |
+| `content_scripts.js`                     | .js, .jsx, .ts, .tsx, .mjs         |
+| `content_scripts.css`                    | .css, .scss, .sass, .less          |
+| `declarative_net_request.rule_resources` | .json                              |
+| `devtools_page`                          | .html                              |
+| `icons`                                  | .png, .jpg, ...Other image formats |
+| `options_ui.page`                        | .html                              |
+| `options_page`                           | .html                              |
+| `page_action.default_popup`              | .html                              |
+| `sandbox.pages`                          | .html                              |
+| `side_panel.default_path`                | .html                              |
+| `sidebar_action.default_panel`           | .html                              |
+| `storage.managed_schema`                 | .json                              |
+| `theme_icons`                            | .png, .jpg, ...Other image formats |
+| `user_scripts.api_script`                | .js, .jsx, .ts, .tsx, .mjs         |
+| `web_accessible_resources`               | .png, .jpg, .css, .js              |
+
+## Permissions design
+
+The manifest is also where your extension declares what it is allowed to do. Extension.js will compile the manifest, but it does not reduce the importance of good permission design.
+
+- keep `permissions` small and intentional
+- keep `host_permissions` as narrow as the feature allows
+- move non-core capabilities into `optional_permissions` or `optional_host_permissions` where possible
+- review permission scope whenever content-script matches or background capabilities change
+
+For permission strategy, see [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions).
+
+## Output behavior
+
+Manifest paths are rewritten to canonical output locations when needed. Two important examples:
+
+- `background.service_worker` becomes `background/service_worker.js`
+- `side_panel.default_path` becomes `sidebar/index.html`
+
+Content scripts are also normalized by manifest entry index:
+
+- `content_scripts/content-0.js`
+- `content_scripts/content-0.css`
+
+Those emitted paths are the browser-facing contract. Use source paths in authoring, then let Extension.js rewrite them for output.
+
+## Development behavior
+
+- When `manifest.json` changes, Extension.js recompiles and triggers extension hard reload flow.
+- If manifest entrypoint structure changes (for example script list changes), Extension.js may require a dev server restart.
+- Missing files referenced by manifest fields fail compilation with manifest-focused errors.
+
+### Change outcome matrix
+
+| Manifest change type                                                         | Typical outcome                     |
+| ---------------------------------------------------------------------------- | ----------------------------------- |
+| Update non-structural values (for example descriptions/permissions metadata) | Hard reload flow                    |
+| Update asset path values that still resolve cleanly                          | Recompile + hard reload flow        |
+| Add/remove script or page entrypoints in manifest                            | Restart required                    |
+| Introduce invalid/missing referenced files                                   | Build error (fix first, then rerun) |
+
+## Best practices
+
+- Keep manifest paths relative to the extension source/output model and use leading `/` only when you mean extension output root.
+- Use browser-prefixed keys instead of maintaining separate manifest files per browser.
+- Keep entrypoint changes deliberate; adding/removing manifest scripts often changes reload semantics in dev.
+- Validate icons, JSON resources, and content script assets as part of CI to catch path regressions early.
+- Do not place `manifest.json` under `public/`.
+
+## Next steps
+
+- Understand update outcomes in [dev update behavior](/docs/workflows/dev-update-behavior).
+- Design least-privilege access in [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions).
+- Learn how Extension.js handles [browser-specific fields](/docs/features/browser-specific-fields).
+- Understand dev update flow in [page reload and HMR](/docs/features/reload-and-hmr).
