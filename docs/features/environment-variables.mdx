@@ -71,13 +71,13 @@ When building your extension, the compiler picks **one** env file from the exten
 5. `.env`
 6. `.env.example`
 
-`.env.defaults` is **always merged first** when present, then the selected file’s variables, then **system** `process.env` (highest precedence for overlapping keys).
+Extension.js **always merges** `.env.defaults` first when present, then the selected file’s variables, then **system** `process.env` (highest precedence for overlapping keys).
 
 > Note: Selection is a **single** env file from the list above (plus `.env.defaults`), not a full cascade through every file.
 
-If no matching file exists next to the project and no `.env.defaults` is found there, Extension.js repeats the same search from the **nearest workspace root**—the directory that contains `pnpm-workspace.yaml` when walking up from the project. That keeps monorepo extensions able to share root env files for **bundle** injection.
+If no matching file exists next to the project and no `.env.defaults` is found there, Extension.js repeats the same search from the **nearest workspace root**. The workspace root is the directory that contains `pnpm-workspace.yaml` when walking up from the project. This lets monorepo extensions share root env files for **bundle** injection.
 
-**Monorepo constraint:** Workspace fallback only runs when that `pnpm-workspace.yaml` marker exists on an ancestor. Pure npm or Yarn workspaces that rely only on `package.json` `"workspaces"` without `pnpm-workspace.yaml` will **not** get this automatic root lookup. In that case, keep env files beside the extension package, add a `pnpm-workspace.yaml` at the repo root if appropriate, or use another sharing strategy.
+**Monorepo constraint:** Workspace fallback only runs when that `pnpm-workspace.yaml` marker exists on an ancestor. Pure npm or Yarn workspaces that rely only on `package.json` `"workspaces"` without `pnpm-workspace.yaml` will **not** trigger this automatic root lookup. In that case, keep env files beside the extension package, add a `pnpm-workspace.yaml` at the repo root if appropriate, or use another sharing strategy.
 
 ### `extension.config.*` (Node, before your config runs)
 
@@ -206,7 +206,7 @@ EXTENSION_PUBLIC_SITE_URL=https://example.com
 PRIVATE_KEY=abc123  # Not injected into JS bundles
 ```
 
-**Important:** Variables without `EXTENSION_PUBLIC_` are not injected into JS bundles.  
+**Important:** Extension.js does not inject variables without `EXTENSION_PUBLIC_` into JS bundles.  
 However, placeholders in emitted `.json`/`.html` files can resolve `$EXTENSION_*` tokens, so avoid referencing secrets in static asset templates.
 
 ## Using environment variables
@@ -228,7 +228,7 @@ You can use environment variables in `manifest.json`, locales, HTML, and JavaScr
 }
 ```
 
-During compilation, `$EXTENSION_PUBLIC_API_KEY` is replaced with the resolved env value.
+During compilation, Extension.js replaces `$EXTENSION_PUBLIC_API_KEY` with the resolved env value.
 
 ### 2. In locale files
 
@@ -245,7 +245,7 @@ You can also use placeholders in locale files when values should change by envir
 }
 ```
 
-When assets are emitted, placeholders such as `$EXTENSION_PUBLIC_SITE_URL` are replaced with resolved values.
+When Extension.js emits assets, it replaces placeholders such as `$EXTENSION_PUBLIC_SITE_URL` with resolved values.
 
 ### 3. In HTML files
 
@@ -266,7 +266,7 @@ You can also use placeholders in static HTML files (for example, under `pages/`)
 </html>
 ```
 
-When built, `$EXTENSION_PUBLIC_API_KEY` is replaced in the output HTML.
+When you build, Extension.js replaces `$EXTENSION_PUBLIC_API_KEY` in the output HTML.
 
 ### 4. In JSX components
 
