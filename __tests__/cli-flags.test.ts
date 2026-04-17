@@ -4,7 +4,7 @@ import {resolve, dirname} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DOCS_DIR = resolve(__dirname, '..', 'docs', 'en', 'docs')
+const DOCS_DIR = resolve(__dirname, '..', 'docs')
 const MONOREPO_ROOT = resolve(__dirname, '..', '..', '..')
 const COMMANDS_DIR = resolve(MONOREPO_ROOT, 'programs', 'extension', 'commands')
 const CLI_INDEX = resolve(MONOREPO_ROOT, 'programs', 'extension', 'index.ts')
