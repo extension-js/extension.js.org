@@ -17,7 +17,7 @@ keywords:
 
 Use one extension codebase across browsers and environments without hardcoding values.
 
-Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js uses **two different** environment loading paths: one for **compiled extension bundles** (browser/mode aware) and a **narrower** one while loading **`extension.config.*`** in Node. Both paths matter depending on where you read variables.
+Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js uses **two different** environment loading paths: one for **compiled extension bundles** (browser/mode aware) and a **narrower** one while loading **`extension.config.*`** in Node. Both paths matter depending on where you read your variables.
 
 ## Template examples
 
@@ -86,7 +86,7 @@ Extension.js **always merges** `.env.defaults` first when present, then the sele
 
 > Note: Selection is a **single** env file from the list above (plus `.env.defaults`), not a full cascade through every file.
 
-If no matching file exists next to the project and no `.env.defaults` is found there, Extension.js repeats the same search from the **nearest workspace root**—the directory that contains `pnpm-workspace.yaml` when walking up from the project. That keeps monorepo extensions able to share root env files for **bundle** injection.
+If no matching file exists next to the project and no `.env.defaults` is found there, Extension.js repeats the same search from the **nearest workspace root**. The workspace root is the directory containing `pnpm-workspace.yaml`, found by walking up from the project. This keeps monorepo extensions able to share root env files for **bundle** injection.
 
 **Monorepo constraint:** Workspace fallback only runs when that `pnpm-workspace.yaml` marker exists on an ancestor. Pure npm or Yarn workspaces that rely only on `package.json` `"workspaces"` without `pnpm-workspace.yaml` will **not** get this automatic root lookup. In that case, keep env files beside the extension package, add a `pnpm-workspace.yaml` at the repo root if appropriate, or use another sharing strategy.
 
@@ -97,7 +97,7 @@ If no matching file exists next to the project and no `.env.defaults` is found t
 1. `.env.defaults` (merged when present)
 2. Then the **first** file that exists among: `.env.development`, `.env.local`, `.env`
 
-Browser-scoped files such as `.env.chrome` or `.env.chrome.development` are **not** used for this preload step. Use plain `process.env` set by your shell/CI, or rely on bundle-time env (above) for `EXTENSION_PUBLIC_*` injection into extension code.
+Browser-scoped files such as `.env.chrome` or `.env.chrome.development` are **not** used for this preload step. Use plain `process.env` set by your shell or CI pipeline, or rely on bundle-time env (above) for `EXTENSION_PUBLIC_*` injection into extension code.
 
 **Monorepo:** If none of those files exist in the extension package directory, the same preload runs from the nearest directory containing `pnpm-workspace.yaml` (same constraint as above).
 
