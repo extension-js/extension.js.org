@@ -4,7 +4,7 @@ import {resolve, dirname} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DOCS_DIR = resolve(__dirname, '..', 'docs', 'en', 'docs')
+const DOCS_DIR = resolve(__dirname, '..', 'docs')
 const EXAMPLES_DIR = resolve(__dirname, '..', '..', 'examples')
 const HAS_EXAMPLES = existsSync(EXAMPLES_DIR)
 
