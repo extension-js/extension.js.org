@@ -25,7 +25,7 @@ Extension.js compiles content script entries from `manifest.json`, wraps them fo
 | ------------------------------ | ------------------------------------------------------------- |
 | Manifest-driven entries        | Compile JS/CSS content script lists directly from manifest    |
 | Dev remount flow               | Update scripts/styles quickly through wrapper-driven behavior |
-| MAIN vs isolated world support | Use advanced page-context mode when required                  |
+| MAIN vs isolated world support | Use MAIN world (page JavaScript context) or isolated world (sandboxed extension context) |
 | Predictable output layout      | Emit normalized `content_scripts/*` artifacts                 |
 
 ## Template examples
@@ -238,7 +238,7 @@ content_scripts/
 └── ...
 ```
 
-In **development mode**, content script JS filenames include a short hash suffix (for example, `content-0.abcd1234.js`). This forces the browser to load a fresh `chrome-extension://` URL after each rebuild. Chrome aggressively caches extension resources, so stable filenames can cause stale scripts to persist even after a hard refresh. Production builds use clean `content-0.js` names.
+In **development mode**, content script JS filenames include a short hash suffix (for example, `content-0.abcd1234.js`). This forces the browser to load a fresh `chrome-extension://` URL after each rebuild. Chrome aggressively caches extension resources. Stable filenames can cause stale scripts to persist even after a hard refresh. Production builds use clean `content-0.js` names.
 
 ## Main world notes
 
@@ -313,7 +313,7 @@ Firefox will skip the `chromium:` prefixed fields entirely, so only Chromium tar
 
 ## Matching and execution guidance
 
-The browser still controls where a content script runs. Extension.js bundles the file, but the matching contract still comes from the manifest entry.
+The browser still controls where a content script runs. Extension.js bundles the file, but the manifest entry still defines the matching contract.
 
 - Keep `matches` as narrow as the feature allows.
 - Add `exclude_matches`, `all_frames`, or `match_about_blank` only when the feature actually requires those behaviors.
