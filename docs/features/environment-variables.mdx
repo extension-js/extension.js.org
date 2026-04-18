@@ -17,7 +17,7 @@ keywords:
 
 Use one extension codebase across browsers and environments without hardcoding values.
 
-Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js uses **two different** environment loading paths: one for **compiled extension bundles** (browser/mode aware) and a **narrower** one while loading **`extension.config.*`** in Node. Both paths matter, depending on where you read your variables.
+Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js uses **two different** environment loading paths. One handles **compiled extension bundles** (browser/mode aware) and the other runs while loading **`extension.config.*`** in Node. Both paths matter, depending on where you read your variables.
 
 ## Template examples
 
@@ -88,11 +88,11 @@ Extension.js **always merges** `.env.defaults` first when present, then the sele
 
 If no matching file exists next to the project and no `.env.defaults` is found there, Extension.js repeats the same search from the **nearest workspace root**. The workspace root is the folder containing `pnpm-workspace.yaml`, found by walking up from the project. This keeps monorepo extensions able to share root env files for **bundle** injection.
 
-**Monorepo constraint:** Workspace fallback only runs when a `pnpm-workspace.yaml` marker exists on an ancestor. Pure npm or Yarn workspaces that rely only on `package.json` `"workspaces"` without `pnpm-workspace.yaml` do **not** get this automatic root lookup. In that case, keep env files beside the extension package, add a `pnpm-workspace.yaml` at the repo root if appropriate, or use another sharing strategy.
+**Monorepo constraint:** Workspace fallback only runs when a `pnpm-workspace.yaml` marker exists on an ancestor. Pure npm or Yarn workspaces that rely only on `package.json` `"workspaces"` without `pnpm-workspace.yaml` do **not** get this automatic root lookup. Keep env files beside the extension package, add a `pnpm-workspace.yaml` at the repo root if appropriate, or use another sharing strategy.
 
 ### `extension.config.*` (Node, before your config runs)
 
-`extension.config.js` / `.mjs` / `.cjs` executes in Node. Before the file is evaluated, Extension.js preloads a **small** set of files into `process.env` so the config can read them:
+`extension.config.js` / `.mjs` / `.cjs` runs in Node. Before the file is evaluated, Extension.js preloads a **small** set of files into `process.env` so the config can read them:
 
 1. `.env.defaults` (merged when present)
 2. Then the **first** file that exists among: `.env.development`, `.env.local`, `.env`
