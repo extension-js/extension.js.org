@@ -17,7 +17,6 @@ module.exports = {
     'node_modules',
     'pnpm-lock.yaml',
     'package.json',
-    'doc_build',
     '/project-words.txt'
   ],
   flagWords: banWords,
