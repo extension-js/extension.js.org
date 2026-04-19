@@ -12,12 +12,10 @@ import tseslint from 'typescript-eslint'
 export default [
   {
     ignores: [
-      'doc_build/**',
       'dist/**',
       'node_modules/**',
       '.pnpm-store/**',
-      'coverage/**',
-      'document/**'
+      'coverage/**'
     ]
   },
   js.configs.recommended,
