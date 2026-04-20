@@ -24,7 +24,7 @@ Extension.js compiles content script entries from `manifest.json` and wraps them
 | Capability                     | What it gives you                                             |
 | ------------------------------ | ------------------------------------------------------------- |
 | Manifest-driven entries        | Compile JS/CSS content script lists directly from manifest    |
-| Dev remount flow               | Update scripts/styles quickly through wrapper-driven behavior |
+| dev remount flow               | Update scripts/styles quickly through wrapper-driven behavior |
 | MAIN vs isolated world support | Use MAIN world (page JavaScript context) or isolated world (sandboxed extension context) |
 | Predictable output layout      | Emit normalized `content_scripts/*` artifacts                 |
 
@@ -141,7 +141,7 @@ export default class App {}
 export default {}
 ```
 
-### Async guidance
+### Guidance for async content scripts
 
 Keep the default export synchronous even when the feature does async work internally. Start async work inside the function and return a synchronous cleanup.
 
@@ -151,14 +151,14 @@ Why this matters: Extension.js remounts content scripts during development. With
 
 - No default export: Extension.js warns during development and skips mounting.
 - Default export is not a function: Extension.js warns during development and skips mounting.
-- Async default export: the module still runs, but Extension.js does not treat the returned `Promise` as cleanup.
+- Default export returns a Promise: the module still runs, but Extension.js does not treat that `Promise` as cleanup.
 
 If your content script appears to compile but never mounts, check the default export first.
 
 ## Runtime wrapper behavior
 
 - Extension.js wraps content script modules with mount/runtime helpers.
-- Dev mode adds HMR accept/dispose behavior and remount flow.
+- dev mode adds HMR accept/dispose behavior and remount flow.
 - CSS updates trigger remount events (`__EXTENSIONJS_CSS_UPDATE__`) in development.
 - Extension.js respects `run_at` timing from manifest values.
 
@@ -238,7 +238,7 @@ content_scripts/
 └── ...
 ```
 
-In **development mode**, content script JS filenames include a short hash suffix (for example, `content-0.abcd1234.js`). This forces the browser to load a fresh `chrome-extension://` URL after each rebuild. Chrome aggressively caches extension resources. Stable filenames let the browser serve cached scripts even after a hard refresh. Production builds use clean `content-0.js` names.
+In **development mode**, content script JS filenames include a short hash suffix (for example, `content-0.abcd1234.js`). This forces the browser to load a fresh `chrome-extension://` URL after each rebuild, because Chrome aggressively caches extension resources. Production builds use clean `content-0.js` names.
 
 ## MAIN world notes
 
