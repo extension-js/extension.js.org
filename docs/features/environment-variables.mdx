@@ -73,7 +73,7 @@ Repository: [extension-js/examples/content-env](https://github.com/extension-js/
 
 ### Extension bundles (compile time)
 
-When building your extension, the compiler picks **one** env file from your extension package folder by first match in this order:
+When building your extension, Extension.js picks **one** env file from your extension package directory by first match in this order:
 
 1. `.env.[browser].[mode]` (for example `.env.chrome.development`)
 2. `.env.[browser]`
@@ -86,7 +86,7 @@ Extension.js **always merges** `.env.defaults` first when present, then the sele
 
 > **Note:** Selection is a **single** env file from the list above (plus `.env.defaults`), not a full cascade through every file.
 
-If no matching file exists next to the project, Extension.js repeats the same search from the **nearest workspace root**. The workspace root is the folder containing `pnpm-workspace.yaml`, found by walking up from the project. This lets monorepo extensions share root-level env files for **bundle** injection.
+If no matching file exists next to the project, Extension.js repeats the same search from the **nearest workspace root**. The workspace root is the directory containing `pnpm-workspace.yaml`, found by walking up from the project. This lets monorepo extensions share root-level env files for **bundle** injection.
 
 **Monorepo constraint:** Workspace fallback only runs when a `pnpm-workspace.yaml` marker exists on an ancestor. Pure npm or Yarn workspaces that rely only on `package.json` `"workspaces"` do **not** get this automatic root lookup. Keep env files beside the extension package, or add a `pnpm-workspace.yaml` at the repo root.
 
@@ -97,11 +97,11 @@ If no matching file exists next to the project, Extension.js repeats the same se
 1. `.env.defaults` (merged when present)
 2. Then the **first** file that exists among: `.env.development`, `.env.local`, `.env`
 
-Extension.js does **not** use browser-scoped files such as `.env.chrome` or `.env.chrome.development` for this preload step. Instead, set values through plain `process.env` in your shell or CI (continuous integration) pipeline. You can also rely on bundle-time env (described above) for injecting `EXTENSION_PUBLIC_*` values into extension code.
+Extension.js does **not** use browser-scoped files such as `.env.chrome` or `.env.chrome.development` for this preload step. Instead, set values through plain `process.env` in your shell or CI (continuous integration) pipeline. You can also rely on compile-time environment loading (described above) for injecting `EXTENSION_PUBLIC_*` values into extension code.
 
-**Monorepo:** If none of those files exist in the extension package folder, the same preload runs from the nearest folder containing `pnpm-workspace.yaml` (same constraint as above).
+**Monorepo:** If none of those files exist in the extension package directory, the same preload runs from the nearest directory containing `pnpm-workspace.yaml` (same constraint as above).
 
-This split exists because config loading is browser-agnostic at file-read time, while the bundler knows the active browser and mode.
+This split exists because the config loads before Extension.js knows the browser target, while the bundler runs with the active browser and mode.
 
 {/* VIDEO_PLACEHOLDER_TODO: Show env file resolution order for one build target and mode, then confirm selected values in output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
@@ -168,7 +168,7 @@ All built-ins above are available through both `process.env.*` and `import.meta.
 | `EXTENSION_TELEMETRY`              | Back-compat disable (`0` to disable)                 | unset     |
 | `EXTENSION_TELEMETRY_SAMPLE_RATE`  | Sampling rate for `command_executed` (0.0–1.0)       | `0.2`     |
 | `EXTENSION_TELEMETRY_MAX_EVENTS`   | Maximum events emitted per CLI process               | `3`       |
-| `EXTENSION_TELEMETRY_DEBOUNCE_MS`  | Dedup window for identical event tuples (ms)         | `60000`   |
+| `EXTENSION_TELEMETRY_DEBOUNCE_MS`  | Dedup window for identical event combinations (ms)   | `60000`   |
 | `EXTENSION_TELEMETRY_DEBUG`        | Print telemetry payloads to stderr (`1` to set)      | unset     |
 
 See [Telemetry and privacy](/docs/features/telemetry-and-privacy) for the full opt-out contract.
