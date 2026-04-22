@@ -31,7 +31,7 @@ Per CLI run, at most one of:
 | Event              | Sampled                            | Properties                              |
 | ------------------ | ---------------------------------- | --------------------------------------- |
 | `command_executed` | 20 % (configurable, see below)     | `command`, `success: true`, `version`   |
-| `command_failed`   | 100 % (the CLI always sends failures) | `command`, `success: false`, `version`  |
+| `command_failed`   | 100 % (Extension.js always sends failures) | `command`, `success: false`, `version`  |
 
 Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`. Nothing else.
 
@@ -41,18 +41,18 @@ Three independent controls limit how much data leaves the machine:
 
 - **Sampling** — Extension.js samples `command_executed` at 20 % by default. Override with `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0–1.0). Failures are never sampled.
 - **Per-run cap** — at most **3 events** per CLI process. Override with `EXTENSION_TELEMETRY_MAX_EVENTS`.
-- **Debounce** — the CLI drops duplicate `(event, command, success)` tuples within 60 s. Override with `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
+- **Debounce** — Extension.js drops duplicate `(event, command, success)` tuples within 60 s. Override with `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
 
 ## What Extension.js never collects
 
-The CLI telemetry contract explicitly excludes:
+The Extension.js telemetry contract explicitly excludes:
 
 - Source code, manifest contents, HTML output, or `package.json` contents
 - Repo names, Git remotes, GitHub org/user names, branch names, commit SHAs, or preview URLs
 - Dependency lists, permission lists, or freeform project identifiers
 - Environment variable values, filesystem paths, or machine-local URLs
 - Stack traces, error messages, or free-text error names
-- IP addresses (the CLI sets `$ip` to `null` on every payload)
+- IP addresses (Extension.js sets `$ip` to `null` on every payload)
 
 ## Opt out
 
@@ -76,13 +76,13 @@ The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or t
 
 ## Default behavior
 
-Telemetry is **opt-out**. On the first run where none of the overrides above apply, the CLI prints a one-line notice explaining how to disable telemetry. It also records an `enabled` consent marker so the notice does not repeat.
+Telemetry is **opt-out**. On the first run where none of the overrides above apply, Extension.js prints a one-line notice explaining how to disable telemetry. It also records an `enabled` consent marker so the notice does not repeat.
 
 Continuous integration (CI) environments follow the same rules — set `EXTENSION_TELEMETRY=0` in your CI environment to disable telemetry across the board.
 
 ## Local audit log
 
-The CLI appends every event it considers sending (whether or not it actually ships) to `events.jsonl` next to the consent file. Inspect it any time. Delete it freely.
+Extension.js appends every event it considers sending (whether or not it actually ships) to `events.jsonl` next to the consent file. Inspect it any time. Delete it freely.
 
 ## Best practices
 
