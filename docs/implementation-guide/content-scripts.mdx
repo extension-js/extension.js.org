@@ -145,7 +145,7 @@ export default {}
 
 Keep the default export synchronous even when the feature does async work internally. Start async work inside the function and return a synchronous cleanup.
 
-Why this matters: Extension.js remounts content scripts during development. Without a cleanup contract, you can easily duplicate UI, event listeners, observers, and timers.
+Why this matters: Extension.js remounts content scripts during development. Without a cleanup function, you can easily duplicate UI, event listeners, observers, and timers.
 
 ## What happens on contract violations
 
@@ -216,7 +216,7 @@ Repository: [extension-js/examples/content-multi-three-entries](https://github.c
 
 ## `scripts/` folder behavior
 
-The `scripts/` folder is for script entrypoints that no HTML page entry declares. In practice, these entries follow the same mount-style runtime expectations as content scripts.
+The `scripts/` folder is for script entrypoints that no HTML page entry declares. In practice, these entries follow the same default-export pattern as content scripts.
 
 That means `scripts/` is not just a generic folder for loose JavaScript files:
 
@@ -264,7 +264,7 @@ yarn dlx extension@latest create my-extension --template=content-main-world
 
 Repository: [extension-js/examples/content-main-world](https://github.com/extension-js/examples/tree/main/examples/content-main-world)
 
-- **`world: "MAIN"` is Chromium-only.** Firefox does not support the `world` field and ignores it — your script still runs in the isolated world. For cross-browser MAIN world behavior, use the `chromium:` manifest prefix to declare it only for Chromium targets. Then provide an isolated-world fallback for Firefox.
+- **`world: "MAIN"` is Chromium-only.** Firefox does not support the `world` field and ignores it. Your script still runs in the isolated world on Firefox. For cross-browser MAIN world behavior, use the `chromium:` manifest prefix to declare it only for Chromium targets. Then provide an isolated-world fallback for Firefox.
 - In development, MAIN-world scripts use an internal bridge mechanism to load code chunks and resolve public paths.
 - Extension APIs (`chrome.runtime`, `chrome.storage`, etc.) are **not available** in the MAIN world — you can only access page-context globals.
 - Treat MAIN world as an advanced path. Validate behavior on each target browser early.
@@ -332,7 +332,7 @@ The browser still controls where a content script runs. Extension.js bundles the
 - Scope selectors/styles carefully to avoid host-page collisions.
 - Prefer explicit `run_at` and `world` values when behavior depends on timing/context.
 - Treat manifest content-script list changes as structural development changes.
-- Pass page-derived data through validated messaging instead of performing privileged work directly in the page boundary.
+- Pass page-derived data through validated messaging instead of performing privileged work directly in the content script.
 - Default to isolated world and move to `MAIN` only when the page context is strictly required.
 
 ## Next steps
