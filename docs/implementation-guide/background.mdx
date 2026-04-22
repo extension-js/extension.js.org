@@ -122,7 +122,7 @@ That means:
 - startup should stay small and predictable
 - your code should restore important state from storage or recompute it safely
 
-Use `background.scripts` only for MV2-style compatibility cases. For MV3-first extensions, treat the service worker as the source of truth for privileged orchestration.
+Use `background.scripts` only for MV2-style compatibility cases. For MV3-first extensions, treat the service worker as the central coordinator for browser API calls and cross-context communication.
 
 {/* VIDEO_PLACEHOLDER_TODO: Show background service worker edit flow, including hard reload behavior and restart-required when background entry structure changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
@@ -139,13 +139,13 @@ The exact output depends on which manifest field remains active after browser fi
 
 - `background.type: "module"` uses module worker semantics.
 - Classic service worker mode uses `importScripts`-based chunk loading behavior.
-- Keep dynamic import usage conservative in background runtime-critical paths.
+- Avoid dynamic imports in background code that must load immediately on startup.
 
 ## Recommended architecture
 
 - Keep the background entry thin and move feature logic into shared modules.
-- Use the background context as the privileged coordinator for messaging, storage access, and browser API orchestration.
-- Restore durable state from storage instead of assuming a singleton process.
+- Use the background context as the central coordinator for messaging, storage access, and browser API calls.
+- Restore durable state from storage instead of assuming the background script stays running permanently.
 - Use alarms, explicit event listeners, and small feature modules instead of one large startup path.
 
 ## Common mistakes
@@ -153,7 +153,7 @@ The exact output depends on which manifest field remains active after browser fi
 - Treating the service worker like a permanently running server process.
 - Keeping critical state only in memory.
 - Doing expensive startup work on every event wakeup.
-- Putting too much feature logic in popup or content-script code when it actually needs privileged coordination.
+- Putting too much feature logic in popup or content-script code when it actually needs background-level browser API access.
 
 ## Best practices
 
