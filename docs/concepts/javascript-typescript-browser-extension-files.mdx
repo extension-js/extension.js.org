@@ -1,0 +1,90 @@
+---
+title: 'JavaScript and TypeScript files in browser extensions'
+description: 'Learn how .js, .ts, .tsx, manifest.json, background scripts, and content scripts work in Chrome, Firefox, and Edge extensions built with Extension.js.'
+icon: 'file-code'
+keywords:
+  [
+    'javascript extension',
+    'typescript extension',
+    'js extension',
+    '.js extension',
+    '.ts extension',
+    'react file extension',
+    'extension of javascript',
+    'typescript file extension',
+    'browser extension files',
+    'extension.js'
+  ]
+---
+
+Browser extensions use JavaScript, TypeScript, HTML, CSS, and a `manifest.json` to define behavior, UI, permissions, and browser integration. This page covers the file extensions you will see in a browser extension project and which ones land where.
+
+If you are looking for "extension" as in a software add-on for Chrome or Firefox, start at [What is a browser extension?](/docs/concepts/what-is-a-browser-extension) instead.
+
+## JavaScript file extensions: `.js` and `.mjs`
+
+Browser extensions accept the same JavaScript file extensions the rest of the web platform uses:
+
+| File extension | What it means                                                                             |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `.js`          | Plain JavaScript. Treated as ES module or classic script depending on how it is loaded.   |
+| `.mjs`         | ES module. Useful when you want to force module semantics, especially in service workers. |
+| `.cjs`         | CommonJS. Rare in extension source code; sometimes appears in `extension.config.cjs`.     |
+
+In Manifest V3, the background `service_worker` runs as a module when `manifest.json` includes `"type": "module"` in the `background` block. See [Manifest V3 troubleshooting](/docs/concepts/manifest-v3) for the details.
+
+## TypeScript file extensions: `.ts` and `.tsx`
+
+TypeScript works as a first-class source language in Extension.js:
+
+| File extension | What it means                                           |
+| -------------- | ------------------------------------------------------- |
+| `.ts`          | TypeScript without JSX.                                 |
+| `.tsx`         | TypeScript with JSX (React, Preact).                    |
+| `.d.ts`        | Type declaration file. Not emitted to the build output. |
+
+You do not need to write a `tsconfig.json` from scratch: Extension.js ships sensible defaults, and types for `chrome.*`, `browser.*`, `import.meta.env`, and the public env keys are available through `@types/chrome` and Extension.js's own ambient types. See [TypeScript](/docs/languages-and-frameworks/typescript).
+
+## React file extensions: `.jsx` and `.tsx`
+
+React in a browser extension uses the standard JSX file extensions:
+
+| File extension | What it means        |
+| -------------- | -------------------- |
+| `.jsx`         | JavaScript with JSX. |
+| `.tsx`         | TypeScript with JSX. |
+
+React works inside extension pages (popup, options, side panel, new-tab) and inside content scripts injected into web pages. See [React](/docs/languages-and-frameworks/react) for setup and shadow-DOM patterns.
+
+## Browser extension files: `manifest.json`, background, content scripts, pages
+
+Beyond JavaScript and TypeScript source, a browser extension folder usually contains:
+
+| File or folder   | Purpose                                                           |
+| ---------------- | ----------------------------------------------------------------- |
+| `manifest.json`  | Declares name, version, permissions, entry points, and metadata.  |
+| Background entry | Long-lived event handler. Manifest V3 service worker on Chromium. |
+| Content scripts  | Code injected into web pages matching a URL pattern.              |
+| Extension pages  | Popup, options, side panel, or new-tab HTML.                      |
+| Locales          | `_locales/<lang>/messages.json` for translated strings.           |
+| Icons and assets | Toolbar icons, web-accessible resources, fonts, images.           |
+
+Extension.js compiles your `.ts`, `.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.less`, `.scss`, and `.module.*` source down to that on-disk layout, and produces a separate folder per browser target (`dist/chrome`, `dist/firefox`, `dist/edge`).
+
+## How Extension.js compiles JavaScript and TypeScript extensions
+
+When you run `extension dev` or `extension build`, Extension.js:
+
+1. Reads `manifest.json` and finds every entry point (background, content scripts, popup, options, side panel, new-tab, web-accessible HTML).
+2. Resolves source files referenced from those entries, including imports across `.ts`, `.tsx`, `.jsx`, `.vue`, `.svelte`, and stylesheet types.
+3. Compiles through Rspack with extension-aware defaults: code splitting where it helps, no chunking where the browser refuses it (service workers, content scripts).
+4. Emits the result into `dist/<browser>` with a manifest filtered for that target.
+
+You write source in any of the file extensions above. Extension.js handles the bundling, polyfills, reload-on-save loop, and per-browser packaging.
+
+## Next steps
+
+- Try [`extension create`](/docs/commands/create) to scaffold a TypeScript or React extension.
+- Read [TypeScript](/docs/languages-and-frameworks/typescript) and [React](/docs/languages-and-frameworks/react).
+- Read [Manifest V3 troubleshooting](/docs/concepts/manifest-v3) for service worker and module rules.
+- Build with [`extension build`](/docs/commands/build).
