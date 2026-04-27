@@ -1,9 +1,14 @@
 ---
-title: 'Environment variables for cross-browser configs'
-description: 'Manage API hosts, keys, and browser-specific values across environments. Extension.js loads env files for compiled bundles and for the config layer.'
+title: 'Environment variables in browser extensions'
+description: 'Use .env files and browser-specific environment values safely in Chrome, Firefox, and Edge extensions built with Extension.js.'
 icon: 'key'
 keywords:
   [
+    'environment variables in browser extensions',
+    'chrome extension environment variables',
+    '.env extension',
+    'browser environment variable',
+    'secrets in browser extension builds',
     'extension.js',
     'extensions',
     'chrome',
@@ -17,7 +22,11 @@ keywords:
 
 Use one extension codebase across browsers and environments without hardcoding values.
 
-Manage API hosts, keys, and browser-specific values cleanly across environments. Extension.js uses **two different** environment loading paths. One serves **compiled extension bundles** (browser/mode aware). The other runs while loading **`extension.config.*`** in Node.
+## Environment variables in browser extensions
+
+Browser extensions ship code that runs on the user's machine. That makes the line between configuration and secrets sharper than in a typical web app: anything bundled into JavaScript, HTML, or the compiled `manifest.json` can be inspected.
+
+Extension.js handles this with two environment loading paths. One serves **compiled extension bundles** (browser and mode aware). The other runs while loading **`extension.config.*`** in Node.
 
 Both paths matter depending on where you read your variables.
 
@@ -86,7 +95,10 @@ When building your extension, the compiler picks **one** env file from your exte
 
 Extension.js **always merges** `.env.defaults` first when present, then the selected file’s variables. Finally, **system** `process.env` takes highest precedence for overlapping keys.
 
-<Note>Selection is a **single** env file from the list above (plus `.env.defaults`), not a full cascade through every file.</Note>
+<Note>
+  Selection is a **single** env file from the list above (plus `.env.defaults`),
+  not a full cascade through every file.
+</Note>
 
 If no matching file exists next to the project, Extension.js repeats the same search from the **nearest workspace root**. That root is the closest ancestor folder containing `pnpm-workspace.yaml`. Extensions inside monorepos can share root-level env files for **bundle** injection.
 
@@ -113,15 +125,15 @@ This split exists because configuration loading is browser-agnostic at file-read
 
 Extension.js injects built-in variables at compile time, so browser and mode are always available in your extension code.
 
-| Variable name              | Description                                                                         |
-| -------------------------- | ----------------------------------------------------------------------------------- |
-| `EXTENSION_PUBLIC_BROWSER` | The current browser target for your extension (for example, `chrome`, `firefox`, `edge`).  |
-| `EXTENSION_PUBLIC_MODE`    | The mode in which your extension is running, such as `development` or `production`. |
-| `EXTENSION_BROWSER`        | Browser target (non-legacy alias).                                                  |
-| `EXTENSION_MODE`           | Build mode (non-legacy alias).                                                      |
-| `BROWSER`                  | Short browser alias.                                                                |
-| `MODE`                     | Short mode alias.                                                                   |
-| `NODE_ENV`                 | Node environment aligned to compiler mode (`development` / `production`).           |
+| Variable name              | Description                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `EXTENSION_PUBLIC_BROWSER` | The current browser target for your extension (for example, `chrome`, `firefox`, `edge`). |
+| `EXTENSION_PUBLIC_MODE`    | The mode in which your extension is running, such as `development` or `production`.       |
+| `EXTENSION_BROWSER`        | Browser target (non-legacy alias).                                                        |
+| `EXTENSION_MODE`           | Build mode (non-legacy alias).                                                            |
+| `BROWSER`                  | Short browser alias.                                                                      |
+| `MODE`                     | Short mode alias.                                                                         |
+| `NODE_ENV`                 | Node environment aligned to compiler mode (`development` / `production`).                 |
 
 All built-ins above are available through both `process.env.*` and `import.meta.env.*`.
 
@@ -166,15 +178,15 @@ All built-ins above are available through both `process.env.*` and `import.meta.
 
 ### Telemetry control variables
 
-| Variable                           | Purpose                                              | Default   |
-| ---------------------------------- | ---------------------------------------------------- | --------- |
-| `EXTENSION_TELEMETRY_DISABLED`     | Disable telemetry entirely (`1` to set)              | unset     |
-| `EXTENSION_TELEMETRY`              | Back-compat disable (`0` to disable)                 | unset     |
-| `EXTENSION_TELEMETRY_SAMPLE_RATE`  | Sampling rate for `command_executed` (0.0–1.0)       | `0.2`     |
-| `EXTENSION_TELEMETRY_MAX_EVENTS`   | Maximum events emitted per CLI process               | `3`       |
-| `EXTENSION_TELEMETRY_DEBOUNCE_MS`  | Dedup window for identical event tuples (ms)         | `60000`   |
-| `EXTENSION_TELEMETRY_TIMEOUT_MS`   | HTTP timeout for telemetry requests (ms)             | `300`     |
-| `EXTENSION_TELEMETRY_DEBUG`        | Print telemetry payloads to stderr (`1` to set)      | unset     |
+| Variable                          | Purpose                                         | Default |
+| --------------------------------- | ----------------------------------------------- | ------- |
+| `EXTENSION_TELEMETRY_DISABLED`    | Disable telemetry entirely (`1` to set)         | unset   |
+| `EXTENSION_TELEMETRY`             | Back-compat disable (`0` to disable)            | unset   |
+| `EXTENSION_TELEMETRY_SAMPLE_RATE` | Sampling rate for `command_executed` (0.0–1.0)  | `0.2`   |
+| `EXTENSION_TELEMETRY_MAX_EVENTS`  | Maximum events emitted per CLI process          | `3`     |
+| `EXTENSION_TELEMETRY_DEBOUNCE_MS` | Dedup window for identical event tuples (ms)    | `60000` |
+| `EXTENSION_TELEMETRY_TIMEOUT_MS`  | HTTP timeout for telemetry requests (ms)        | `300`   |
+| `EXTENSION_TELEMETRY_DEBUG`       | Print telemetry payloads to stderr (`1` to set) | unset   |
 
 See [Telemetry and privacy](/docs/features/telemetry-and-privacy) for the full opt-out contract.
 
@@ -191,11 +203,11 @@ These variables override internal Chrome DevTools Protocol (CDP) and Remote Debu
 | `EXTENSION_RDP_MAX_RETRIES`           | Firefox RDP connect retry count         | `150`   |
 | `EXTENSION_RDP_RETRY_INTERVAL_MS`     | Firefox RDP connect retry interval (ms) | `1000`  |
 
-## Browser-specific environment files
+## Browser-specific environment variables
 
 The rules below apply to **compile-time / bundle** env selection (see [Extension bundles](#extension-bundles-compile-time) above). They do **not** apply to the narrow `extension.config.*` preload in Node.
 
-Need different values per browser? Extension.js supports browser-scoped env files such as `.env.chrome` and `.env.firefox`. You can also combine browser and mode for a single build variant:
+Need different values per browser? Extension.js supports browser-scoped env files such as `.env.chrome` (Chrome extension environment variables) and `.env.firefox` (Firefox extension environment variables). You can also combine browser and mode for a single build variant:
 
 - `.env.chrome.development`: Extension.js applies this only when running the extension in Chrome during development mode.
 - `.env.firefox.production`: Extension.js applies this only when building the extension for Firefox in production mode.
@@ -333,6 +345,17 @@ console.log(`API URL for the current environment: ${apiUrl}`)
 
 {/* VIDEO_PLACEHOLDER_TODO: Show one value consumed in `manifest.json`, HTML, and JS (`process.env` / `import.meta.env`) during a build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
+## Secrets in browser extension builds
+
+Browser extensions run on the user's machine. Any value bundled into JavaScript, HTML, or the compiled `manifest.json` can be inspected by anyone who installs your extension. Treat the bundle as public.
+
+A few rules to follow:
+
+- Never put API secrets, signing keys, or auth tokens behind `EXTENSION_PUBLIC_*`. The prefix exists to mark a value as safe to ship, not to hide it.
+- Avoid `$EXTENSION_*` placeholders in static `manifest.json`, locale, or HTML templates when the value is sensitive. Those expand at build time and end up in the artifact.
+- Move anything privileged behind a backend you own and call it from the extension at runtime.
+- For continuous integration (CI), keep build secrets in `process.env` (not committed env files) and rely on `.env.defaults` for safe shared values.
+
 ## Best practices
 
 - **Expose only what must ship:** Prefix only client-safe keys with `EXTENSION_PUBLIC_`.
@@ -344,3 +367,4 @@ console.log(`API URL for the current environment: ${apiUrl}`)
 
 - Review browser targeting in [Browsers available](/docs/browsers/browsers-available).
 - Configure shared defaults in [`extension.config.js`](/docs/features/extension-configuration).
+- Build for release with [`extension build`](/docs/commands/build).
