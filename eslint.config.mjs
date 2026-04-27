@@ -11,12 +11,7 @@ import tseslint from 'typescript-eslint'
 /** @type {import("eslint").Linter.Config[]} */
 export default [
   {
-    ignores: [
-      'dist/**',
-      'node_modules/**',
-      '.pnpm-store/**',
-      'coverage/**'
-    ]
+    ignores: ['dist/**', 'node_modules/**', '.pnpm-store/**', 'coverage/**']
   },
   js.configs.recommended,
   eslintConfigPrettier,
