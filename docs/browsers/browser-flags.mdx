@@ -1,8 +1,12 @@
 ---
-title: 'Browser launch flags for debugging and automation'
-description: 'Control Chrome, Firefox, and Edge launch behavior with browser flags for debugging, automation, and runtime experiments in Extension.js.'
+title: 'Firefox flags and browser launch flags for extension development'
+description: 'Use firefox://flags, chrome://flags, and browser launch flags in Extension.js. Control Chrome, Firefox, and Edge runtime behavior during extension development.'
 keywords:
   [
+    'firefox flags',
+    'firefox://flags',
+    'browser://flags',
+    'chrome://flags',
     'extension.js',
     'chrome',
     'firefox',
@@ -19,6 +23,17 @@ Control browser launch behavior for debugging, automation, and runtime
 experiments.
 
 Tune browser launch behavior without changing extension source code. Extension.js merges browser flags from your `extension.config.*` and applies them in `dev`, `preview`, and `start` flows.
+
+## Does Firefox have `firefox://flags`?
+
+Firefox does not use `firefox://flags` the way Chromium browsers use `chrome://flags` or `edge://flags`. Firefox exposes runtime toggles through `about:config` (preferences) and accepts launch flags from the command line.
+
+If you searched for `firefox://flags`, `firefox //flags`, `browser://flags`, `mozilla://flags`, or `about flags firefox`, you are probably trying to change browser behavior during extension development. In Extension.js, do that in two places:
+
+- Use [`browserFlags`](/docs/browsers/browser-flags) for launch-time flags Extension.js passes to the browser binary.
+- Use [Firefox preferences](/docs/browsers/browser-preferences) for repeatable Gecko runtime behavior that would otherwise live in `about:config`.
+
+Both work for Chrome, Edge, and Firefox extension development from the same Extension.js project.
 
 ## Template examples
 
@@ -101,34 +116,36 @@ export default {
 
 Extension.js applies these flags automatically when launching Chromium-family browsers. Use `excludeBrowserFlags` to remove any you do not need.
 
-| Flag                                                    | Purpose                                                  |
-| ------------------------------------------------------- | -------------------------------------------------------- |
-| `--no-first-run`                                        | Disable first run experience                             |
-| `--disable-client-side-phishing-detection`              | Disable phishing detection                               |
-| `--disable-sync`                                        | Disable sync to avoid account prompts                    |
-| `--disable-component-extensions-with-background-pages`  | Disable built-in extensions not affected by `--disable-extensions` |
-| `--disable-default-apps`                                | Disable installation of default apps                     |
-| `--disable-features=InterestFeedContentSuggestions`     | Disable Discover feed on new tab page (NTP)              |
-| `--disable-features=Translate`                          | Disable Chrome translation                               |
-| `--hide-scrollbars`                                     | Hide scrollbars from screenshots                         |
-| `--mute-audio`                                          | Mute any audio                                           |
-| `--no-default-browser-check`                            | Disable default browser check prompt                     |
-| `--ash-no-nudges`                                       | Avoid user education nudges                              |
-| `--disable-search-engine-choice-screen`                 | Disable search engine choice screen                      |
-| `--disable-features=MediaRoute`                         | Disable Chrome Media Router background networking        |
-| `--use-mock-keychain`                                   | Use mock keychain on Mac to prevent blocking dialogs     |
-| `--disable-background-networking`                       | Disable background network services                      |
-| `--disable-breakpad`                                    | Disable crashdump collection                             |
-| `--disable-component-update`                            | Disable component updates                                |
-| `--disable-domain-reliability`                          | Disable domain reliability monitoring                    |
-| `--no-pings`                                            | Disable hyperlink auditing pings                         |
-| `--enable-features=SidePanelUpdates`                    | Ensure side panel is visible                             |
-| `--disable-features=DisableLoadExtensionCommandLineSwitch` | Allow `--load-extension` at the command line          |
-| `--enable-unsafe-extension-debugging`                   | Allow Chrome DevTools Protocol (CDP) extension management (Chrome 126+) |
-| `--silent-debugger-extension-api`                       | Suppress the "X is debugging this browser" infobar                      |
+| Flag                                                       | Purpose                                                                 |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `--no-first-run`                                           | Disable first run experience                                            |
+| `--disable-client-side-phishing-detection`                 | Disable phishing detection                                              |
+| `--disable-sync`                                           | Disable sync to avoid account prompts                                   |
+| `--disable-component-extensions-with-background-pages`     | Disable built-in extensions not affected by `--disable-extensions`      |
+| `--disable-default-apps`                                   | Disable installation of default apps                                    |
+| `--disable-features=InterestFeedContentSuggestions`        | Disable Discover feed on new tab page (NTP)                             |
+| `--disable-features=Translate`                             | Disable Chrome translation                                              |
+| `--hide-scrollbars`                                        | Hide scrollbars from screenshots                                        |
+| `--mute-audio`                                             | Mute any audio                                                          |
+| `--no-default-browser-check`                               | Disable default browser check prompt                                    |
+| `--ash-no-nudges`                                          | Avoid user education nudges                                             |
+| `--disable-search-engine-choice-screen`                    | Disable search engine choice screen                                     |
+| `--disable-features=MediaRoute`                            | Disable Chrome Media Router background networking                       |
+| `--use-mock-keychain`                                      | Use mock keychain on Mac to prevent blocking dialogs                    |
+| `--disable-background-networking`                          | Disable background network services                                     |
+| `--disable-breakpad`                                       | Disable crashdump collection                                            |
+| `--disable-component-update`                               | Disable component updates                                               |
+| `--disable-domain-reliability`                             | Disable domain reliability monitoring                                   |
+| `--no-pings`                                               | Disable hyperlink auditing pings                                        |
+| `--enable-features=SidePanelUpdates`                       | Ensure side panel is visible                                            |
+| `--disable-features=DisableLoadExtensionCommandLineSwitch` | Allow `--load-extension` at the command line                            |
+| `--enable-unsafe-extension-debugging`                      | Allow Chrome DevTools Protocol (CDP) extension management (Chrome 126+) |
+| `--silent-debugger-extension-api`                          | Suppress the "X is debugging this browser" infobar                      |
 
 <Note>
-In Docker, continuous integration (CI), or containerized environments, Extension.js also applies `--no-sandbox` and `--disable-setuid-sandbox` automatically.
+  In Docker, continuous integration (CI), or containerized environments,
+  Extension.js also applies `--no-sandbox` and `--disable-setuid-sandbox`
+  automatically.
 </Note>
 
 {/* VIDEO_PLACEHOLDER_TODO: Show Chromium and Firefox launches using different flag behavior from the same config. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
@@ -161,3 +178,5 @@ Use binary flags when needed for engine-based targets:
 
 - Learn more about [Browser preferences](/docs/browsers/browser-preferences).
 - Learn more about [Browser profile](/docs/browsers/browser-profile).
+- Pick a target in [Browsers available](/docs/browsers/browsers-available).
+- Wire flags through [`extension.config.*`](/docs/features/extension-configuration).

@@ -1,8 +1,12 @@
 ---
-title: 'Cross-browser compatibility for Chrome and Firefox'
-description: 'Ship one extension to Chrome, Edge, and Firefox from a single project. Extension.js handles browser-specific build output for each target.'
+title: 'Cross-browser extension development for Chrome and Firefox'
+description: 'Ship one extension to Chrome, Edge, and Firefox from a single project. Extension.js handles browser-specific manifest fields, build output, and Chrome and Firefox extension compatibility.'
 keywords:
   [
+    'cross-browser extension development',
+    'cross browser extension framework',
+    'chrome and firefox extension compatibility',
+    'browser-specific manifest fields',
     'extension.js',
     'extensions',
     'chrome',
@@ -15,9 +19,27 @@ keywords:
 ---
 
 <AvatarBrowsers browsers={['chrome', 'firefox', 'edge']} />
-Extension.js handles browser-specific setup during development and build. You produce runtime-correct outputs for Chromium and Gecko (Firefox engine) targets from one project.
+Extension.js handles browser-specific setup during development and build. You
+produce runtime-correct outputs for Chromium and Gecko (Firefox engine) targets
+from one project.
+
+## Cross-browser extension development
+
+Cross-browser extension development means writing one extension that ships to Chrome, Edge, and Firefox without forking the codebase. Extension.js compiles a single project into per-browser artifacts (`dist/chrome`, `dist/edge`, `dist/firefox`), filters the manifest for the active target, and applies the right launch behavior so the reload loop, runtime APIs, and packaging all match the browser you are debugging.
 
 Use one `manifest.json` and target specific browsers or custom binaries. Enable polyfills when you need `browser.*` API compatibility in Chromium-family targets.
+
+## Chrome and Firefox extension compatibility
+
+Chrome and Firefox extensions share most of the WebExtensions surface but differ in three places that matter every day:
+
+- **Background scripts:** Chrome (Manifest V3) requires `background.service_worker`. Firefox uses `background.scripts` with non-persistent event pages. Extension.js routes both from one prefixed manifest.
+- **Runtime API namespace:** Firefox supports `browser.*` natively. Chromium uses `chrome.*`. Pass `--polyfill` to bridge the gap on Chromium targets.
+- **Permissions and CSP:** Some `permissions` and `host_permissions` entries are evaluated differently per browser. Keep browser-specific values behind prefixed manifest keys instead of feature-detecting at runtime.
+
+## Browser-specific manifest fields
+
+Browser-specific manifest fields are how Extension.js keeps a single `manifest.json` working across browsers. Prefixed keys (`chromium:`, `chrome:`, `edge:`, `firefox:`, `gecko:`) are filtered to the active target at compile time, and unprefixed keys apply everywhere. See [Browser-specific manifest fields](/docs/features/browser-specific-fields) for the full prefix list.
 
 ## Template examples
 
@@ -120,7 +142,10 @@ For example:
 For Chromium-family targets, Extension.js uses prefixes like `chromium:`, `chrome:`, and `edge:`.  
 For Firefox-family targets, Extension.js uses `firefox:` and `gecko:`.
 
-<Note>See [Browser-specific manifest fields](/docs/features/browser-specific-fields) for full details on prefixed manifest fields.</Note>
+<Note>
+  See [Browser-specific manifest fields](/docs/features/browser-specific-fields)
+  for full details on prefixed manifest fields.
+</Note>
 
 ### 3) Output per browser target
 
