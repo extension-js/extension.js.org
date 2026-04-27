@@ -1,0 +1,129 @@
+---
+title: 'Manifest V3 troubleshooting for browser extensions'
+description: 'Fix common Manifest V3 issues with service workers, web_accessible_resources, host_permissions, and browser-specific behavior in Chrome and Firefox.'
+icon: 'wrench'
+keywords:
+  [
+    'manifest v3',
+    'manifest v3 troubleshooting',
+    'manifest v3 background service_worker',
+    'manifest v3 background type module',
+    'service_worker type module',
+    'web_accessible_resources',
+    'web_accessible_resources example',
+    'host_permissions',
+    'permissions',
+    'declarative_net_request firefox',
+    'background.js',
+    'content script',
+    'extension.js'
+  ]
+---
+
+Manifest V3 (MV3) replaced background pages with service workers, tightened content security policy, and reshaped how extensions declare network and host access. Most of the day-to-day pain points have the same root cause: MV3 assumes ephemeral, event-driven background code, and Chrome and Firefox interpret a few keys differently.
+
+This page collects the issues that come up most often when building MV3 extensions, with the exact fix and what Extension.js handles for you.
+
+## Manifest V3 background `service_worker` with `type: "module"`
+
+Chromium uses a service worker for the MV3 background. To import ES modules from it, the manifest needs `type: "module"`:
+
+```json
+{
+  "manifest_version": 3,
+  "background": {
+    "service_worker": "service_worker.js",
+    "type": "module"
+  }
+}
+```
+
+Without `"type": "module"`, `import` statements fail at registration with no clear error in the extension console. With it, you can write modern ES module syntax in the worker file.
+
+Extension.js sets `type: "module"` automatically when your background entry uses ES module syntax, and it compiles `.ts`/`.tsx` workers to a single bundled output so module resolution still works in production.
+
+## Why `background.js` behaves differently in Manifest V3
+
+In Manifest V2, `background.js` ran in a persistent background page with a DOM. In Manifest V3 on Chromium, the background runs as a service worker:
+
+- No DOM. `window`, `document`, `XMLHttpRequest`, and `localStorage` are gone. Use `fetch` and `chrome.storage`.
+- The worker can be **terminated at any time** when idle and woken on the next event. Do not store state in module-scope variables; persist it in `chrome.storage`.
+- Top-level `await` is allowed, but long initialization will not keep the worker alive on its own.
+- Event listeners must be registered **synchronously** at the top of the file, not inside async callbacks, or they will not fire on the wake-up event that loaded the worker.
+
+Firefox keeps non-persistent event pages instead of service workers. Extension.js routes Chromium to `service_worker` and Firefox to `scripts` from the same source, so the same background entry compiles correctly per target.
+
+## `web_accessible_resources` in Manifest V3
+
+Manifest V3 changed `web_accessible_resources` from a flat array of files to a list of `{ resources, matches }` blocks:
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["images/logo.png", "pages/injected.html"],
+      "matches": ["https://example.com/*"]
+    }
+  ]
+}
+```
+
+Common mistakes:
+
+- Listing a path that is not in the build output. Extension.js only emits files that are referenced from `manifest.json`, the entry HTML, or imported code. Add the file as an asset so it lands in `dist/<browser>`.
+- Forgetting `matches`. Without it, the resource is not exposed to any origin.
+- Using V2-style flat strings. The browser silently ignores them in MV3.
+
+See [`web_accessible_resources` implementation](/docs/implementation-guide/web-accessible-resources) for the full pattern, including injecting an extension URL into a content script.
+
+## `host_permissions` vs `permissions`
+
+Manifest V3 split host access out of the `permissions` array:
+
+| Key                                                    | What it controls                                                                              |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `permissions`                                          | Named API surfaces (`storage`, `tabs`, `cookies`, `scripting`, `alarms`, etc.).               |
+| `host_permissions`                                     | URL match patterns the extension can read or modify (`https://*/*`, `*://api.example.com/*`). |
+| `optional_permissions` and `optional_host_permissions` | Permissions requested at runtime via `chrome.permissions.request`.                            |
+
+Symptoms of mixing them up:
+
+- `chrome.cookies.get` returning empty for a site you have access to: the URL needs `host_permissions`, not just `cookies`.
+- `chrome.scripting.executeScript` failing with "Cannot access contents of url": add the URL to `host_permissions`.
+- Web store warning users about "all-site" access when you only need one origin: narrow the host pattern.
+
+See [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions) for the per-API reference.
+
+## `declarative_net_request` in Firefox
+
+`declarative_net_request` (DNR) is the MV3 replacement for blocking `webRequest`. Firefox supports it, but with a few constraints:
+
+- Static rule resource files (`rule_resources`) must be valid JSON arrays. Firefox is stricter about empty or malformed rule files than Chrome.
+- Some rule actions and conditions Chrome supports are still partial in Firefox. Check [MDN's `declarativeNetRequest` reference](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/declarativeNetRequest) for the current matrix.
+- `host_permissions` (or `<all_urls>`) is required for DNR rules to apply on cross-origin requests.
+
+Extension.js validates the DNR resources at build time and emits per-browser artifacts so a Firefox-specific rule file does not end up in the Chrome build.
+
+## Content scripts, workers, and extension URLs
+
+Three places where MV3 trips people up:
+
+- **Content scripts cannot access the page's JavaScript scope.** They share the DOM, not the window. Use `window.postMessage` (or a `<script>` tag pointing to a `web_accessible_resources` entry) to communicate with page code.
+- **Service workers cannot reach `chrome.runtime.getURL` reliably during install.** Resolve URLs lazily, inside the event handler that needs them.
+- **Extension URLs are origin-scoped.** Two pages from your extension can talk to each other, but you cannot fetch them from the page unless they are listed in `web_accessible_resources`.
+
+## How Extension.js helps with Manifest V3
+
+- Routes background entries to `service_worker` (Chromium) or `scripts` (Firefox) automatically.
+- Sets `type: "module"` when the background uses ES module syntax.
+- Validates `web_accessible_resources`, `permissions`, and `host_permissions` against the active manifest version at build time.
+- Emits per-browser `dist/<browser>` artifacts so MV3 differences between Chrome and Firefox stay isolated.
+- Reloads content scripts, the service worker, and HTML pages on save during `extension dev`.
+
+## Next steps
+
+- Read [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions).
+- Read [Background scripts](/docs/implementation-guide/background) and [Content scripts](/docs/implementation-guide/content-scripts).
+- Read [`web_accessible_resources`](/docs/implementation-guide/web-accessible-resources).
+- See [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the build pipeline.
+- See [Browser-specific manifest fields](/docs/features/browser-specific-fields) for prefixed manifest keys.

@@ -1,0 +1,79 @@
+---
+title: 'What is a browser extension?'
+description: 'Learn what browser extensions are, how they work, and how JavaScript developers build them for Chrome, Firefox, and Edge with Extension.js.'
+icon: 'circle-question'
+keywords:
+  [
+    'what is a browser extension',
+    'browser extension',
+    'browser extension framework',
+    'javascript extension',
+    'chrome extension',
+    'firefox extension',
+    'edge extension',
+    'web extension',
+    'webextensions',
+    'extension.js'
+  ]
+---
+
+A browser extension is software that adds features to a browser. Extensions can change how pages render, add new UI inside the browser chrome (toolbars, popups, side panels, new-tab pages), respond to network and tab events, and call privileged browser APIs that ordinary web pages cannot.
+
+Extension.js is a JavaScript framework for building browser extensions across Chrome, Firefox, and Edge from a single project.
+
+## What browser extensions can do
+
+The exact API surface varies by browser, but most extensions do one or more of:
+
+- **Change page content.** Inject CSS or scripts into specific URLs (content scripts).
+- **Add browser UI.** Render a popup from the toolbar action, a side panel, an options page, or a custom new-tab page.
+- **React to browser events.** Listen for tab updates, navigation, downloads, alarms, or messages from the page.
+- **Store data.** Read and write to extension-scoped storage that survives across sessions.
+- **Call privileged APIs.** Manage cookies, declarative network requests, bookmarks, history, downloads, or notifications, gated by `permissions`.
+
+Extensions cannot do anything the user has not granted permission for, and the browser sandboxes extensions away from raw OS access.
+
+## Browser extension files
+
+Every browser extension is a folder of static assets and code, signed and packaged for distribution:
+
+| File or folder    | Purpose                                                                          |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `manifest.json`   | Declares the extension's name, version, permissions, entry points, and metadata. |
+| Background script | Long-lived event handler. Manifest V3 uses a service worker on Chromium.         |
+| Content scripts   | Code injected into matching web pages.                                           |
+| HTML pages        | Popup, options, side panel, or new-tab UI.                                       |
+| Icons and assets  | Toolbar icons, locale strings, and other static resources.                       |
+
+Extension.js compiles your source (`.ts`, `.tsx`, `.jsx`, `.vue`, `.svelte`, CSS, Less, Sass) down to this on-disk layout and produces a separate folder per browser target.
+
+## JavaScript, TypeScript, HTML, and CSS in extensions
+
+Browser extensions are built with the same languages as the web. JavaScript and TypeScript drive logic. HTML defines extension pages. CSS (or Less, Sass, CSS modules, Tailwind) styles them. Extension.js wires all of this through Rspack with extension-aware defaults so you do not have to configure bundlers per browser. See [JavaScript and TypeScript files in browser extensions](/docs/concepts/javascript-typescript-browser-extension-files) for which file extensions land where.
+
+## Chrome extensions vs Firefox extensions
+
+Chrome and Firefox extensions share the WebExtensions API, but a few differences matter every time you build:
+
+- **Background:** Chrome (Manifest V3) requires `background.service_worker`. Firefox uses `background.scripts` with non-persistent event pages.
+- **Runtime API:** Firefox exposes `browser.*` natively. Chromium uses `chrome.*`. Use `--polyfill` to bridge the gap on Chromium.
+- **Permissions:** A few `permissions` and `host_permissions` entries are evaluated differently per browser.
+- **Distribution:** Chrome ships through the Chrome Web Store, Firefox through addons.mozilla.org, Edge through the Edge Add-ons store.
+
+Extension.js handles these differences through [browser-specific manifest fields](/docs/features/browser-specific-fields) and per-target build output. See [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the full pipeline.
+
+## How Extension.js helps
+
+Without a framework, building a browser extension means hand-writing `manifest.json`, configuring a bundler per browser, wiring reload-on-save by hand, polyfilling APIs, and producing separate Chrome, Firefox, and Edge artifacts. Extension.js does this for you:
+
+- One project, one `manifest.json`, separate `dist/<browser>` outputs.
+- TypeScript, React, Vue, Svelte, Preact, and modern CSS work without configuration.
+- `extension dev` reloads the extension, content scripts, and HTML pages on save.
+- `extension build` produces signed-ready artifacts per browser target.
+
+## Next steps
+
+- Try [`extension create`](/docs/commands/create) to scaffold an extension in seconds.
+- Learn about [Manifest V3](/docs/concepts/manifest-v3) and the API differences between browsers.
+- See [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the build pipeline.
+- Pick a [browser target](/docs/browsers/browsers-available) for development.
