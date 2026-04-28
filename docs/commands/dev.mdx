@@ -72,6 +72,7 @@ If you omit the path, Extension.js uses the current working folder. You can also
 | `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/dev containers.                                    | `127.0.0.1`                 |
 | `--no-open`                    | -                  | Do not automatically launch browser.                                                                        | browser launches by default |
 | `--no-browser`                 | -                  | Do not launch browser.                                                                                      | browser launch enabled      |
+| `--no-reload`                  | -                  | Skip the content-script reload runtime and on-rebuild reload dispatch. Reload tabs manually to see changes. | reload runtime enabled      |
 | `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit.                                                 | disabled                    |
 | `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                                                                  | `60000`                     |
 | `--wait-format <pretty\|json>` | -                  | Output format for wait results (`json` is machine-readable).                                                | `pretty`                    |
@@ -109,6 +110,12 @@ For Playwright/CI/AI workflows:
 `--wait` targets a second process (or CI step) and exits non-zero on `error`/timeout.
 When `--wait` sees a stale `ready.json` from a dead process (`pid` no longer alive), it keeps waiting for a live producer.
 If you pass both `--wait` and `--no-browser` in the same command invocation, `--wait` takes precedence. The command runs in wait-only mode.
+
+### `--no-reload` for a clean dev bundle
+
+`--no-reload` skips the content-script reinjection wrapper and the on-rebuild reload dispatch. The dev `dist` stays close to a production bundle and an open tab is not disturbed when files change. Reload the extension or page yourself to pick up changes.
+
+`--no-reload` is only supported on `extension dev`. Passing it to `start`, `preview`, or `build` exits with an error. Internally it sets `EXTENSION_NO_RELOAD=true` so the develop process can read it from outside the CLI argv.
 
 ## Source inspection workflow
 
