@@ -1,16 +1,16 @@
 ---
-title: 'Playwright E2E testing for extensions'
-description: 'Write repeatable end-to-end tests for browser extensions with Playwright. Cover extension flows, UI rendering, and integrations in CI and locally.'
+title: "Playwright E2E testing for extensions"
+description: "Write repeatable end-to-end tests for browser extensions with Playwright. Cover extension flows, UI rendering, and integrations in CI and locally."
 keywords:
   [
-    'extension.js',
-    'extensions',
-    'chrome',
-    'firefox',
-    'browser',
-    'manifest',
-    'playwright',
-    'popup'
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "playwright",
+    "popup",
   ]
 ---
 
@@ -44,17 +44,17 @@ Create a `playwright.config.ts` and define browser projects and reporting.
 ## Recommended baseline
 
 ```ts
-import {defineConfig, devices} from '@playwright/test'
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: 'e2e',
+  testDir: "e2e",
   retries: process.env.CI ? 2 : 0,
-  reporter: [['html'], ['list']],
+  reporter: [["html"], ["list"]],
   projects: [
-    {name: 'chromium', use: {...devices['Desktop Chrome']}},
-    {name: 'firefox', use: {...devices['Desktop Firefox']}}
-  ]
-})
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+  ],
+});
 ```
 
 ## Automation contract (recommended)
@@ -132,66 +132,66 @@ Production-oriented variant:
 3. Start Playwright only after the wait step exits successfully
 
 ```ts
-import {spawn} from 'node:child_process'
-import {chromium} from '@playwright/test'
+import { spawn } from "node:child_process";
+import { chromium } from "@playwright/test";
 
-const browserName = 'chromium'
+const browserName = "chromium";
 
 const child = spawn(
-  'pnpm',
-  ['extension', 'dev', '--no-browser', `--browser=${browserName}`],
+  "pnpm",
+  ["extension", "dev", "--no-browser", `--browser=${browserName}`],
   {
-    stdio: 'inherit',
-    env: process.env
-  }
-)
+    stdio: "inherit",
+    env: process.env,
+  },
+);
 
 async function waitForReady() {
   return await new Promise<any>((resolve, reject) => {
-    let stdout = ''
-    let stderr = ''
+    let stdout = "";
+    let stderr = "";
     const wait = spawn(
-      'pnpm',
+      "pnpm",
       [
-        'extension',
-        'dev',
-        '--wait',
+        "extension",
+        "dev",
+        "--wait",
         `--browser=${browserName}`,
-        '--wait-timeout=60000',
-        '--wait-format=json'
+        "--wait-timeout=60000",
+        "--wait-format=json",
       ],
-      {stdio: ['ignore', 'pipe', 'pipe'], env: process.env}
-    )
-    wait.stdout.on('data', (chunk) => (stdout += chunk.toString()))
-    wait.stderr.on('data', (chunk) => (stderr += chunk.toString()))
-    wait.on('error', reject)
-    wait.on('close', (code) => {
+      { stdio: ["ignore", "pipe", "pipe"], env: process.env },
+    );
+    wait.stdout.on("data", (chunk) => (stdout += chunk.toString()));
+    wait.stderr.on("data", (chunk) => (stderr += chunk.toString()));
+    wait.on("error", reject);
+    wait.on("close", (code) => {
       if ((code ?? 1) !== 0) {
         reject(
-          new Error(stderr || `wait command failed with code ${String(code)}`)
-        )
-        return
+          new Error(stderr || `wait command failed with code ${String(code)}`),
+        );
+        return;
       }
-      const payload = JSON.parse(stdout.trim())
-      resolve(payload.results[0])
-    })
-  })
+      const payload = JSON.parse(stdout.trim());
+      resolve(payload.results[0]);
+    });
+  });
 }
 
-const ready = await waitForReady()
+const ready = await waitForReady();
 
-const context = await chromium.launchPersistentContext('', {
+const context = await chromium.launchPersistentContext("", {
   headless: false,
   args: [
     `--disable-extensions-except=${ready.distPath}`,
-    `--load-extension=${ready.distPath}`
-  ]
-})
+    `--load-extension=${ready.distPath}`,
+  ],
+});
 
 // run tests using context/pages...
 
-await context.close()
-child.kill('SIGTERM')
+await context.close();
+child.kill("SIGTERM");
 ```
 
 ## Practical guidance for extensions
