@@ -1,0 +1,152 @@
+---
+title: "Migrate from CRXJS to Extension.js"
+description: "Step-by-step migration from a Vite + CRXJS browser extension setup to Extension.js. Map manifest, entrypoints, scripts, and HMR behavior cleanly."
+keywords:
+  [
+    "crxjs migration",
+    "crxjs to extension.js",
+    "vite chrome extension migration",
+    "replace crxjs",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+[CRXJS](https://crxjs.dev) is a Vite plugin for Chrome extensions. If you have outgrown the Chrome-only scope, want first-class Firefox output, or hit reload-loop quirks, this guide migrates a typical CRXJS project to Extension.js without rewriting your UI code.
+
+## What changes, what stays
+
+**Stays the same:** your React/Vue/Svelte components, your Tailwind config, your tests, your `chrome.*` API calls.
+
+**Changes:**
+
+- `vite.config.ts` + `@crxjs/vite-plugin` becomes `extension.config.js` (or no config at all).
+- `manifest.config.ts` (TypeScript module) becomes plain `manifest.json` with [browser-prefixed keys](/docs/features/browser-specific-fields).
+- `vite` / `vite build` scripts become `extension dev` / `extension build`.
+- The Vite dev server is replaced by Extension.js dev, which includes browser launch, profile management, and per-target reload.
+
+## Step 1: install Extension.js
+
+```bash
+npm install extension@latest --save-dev
+npm uninstall @crxjs/vite-plugin vite
+```
+
+If your project also uses Vite for non-extension surfaces (a marketing site, for example), keep Vite installed scoped to that workspace.
+
+## Step 2: convert the manifest
+
+CRXJS uses a TypeScript module:
+
+```ts manifest.config.ts
+import { defineManifest } from "@crxjs/vite-plugin";
+import pkg from "./package.json";
+
+export default defineManifest({
+  manifest_version: 3,
+  name: pkg.name,
+  version: pkg.version,
+  action: { default_popup: "src/popup/index.html" },
+  background: { service_worker: "src/background/index.ts" },
+  content_scripts: [{ matches: ["<all_urls>"], js: ["src/content/index.ts"] }],
+});
+```
+
+In Extension.js, write a real `manifest.json` and reference real files:
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "my-extension",
+  "version": "1.0.0",
+  "action": { "default_popup": "popup/index.html" },
+  "background": { "service_worker": "background/index.ts" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content/index.ts"] }]
+}
+```
+
+Notes:
+
+- File extensions stay `.ts`/`.tsx` in the manifest. Extension.js compiles them at build time.
+- Drop the `src/` prefix if you flatten directories. Extension.js follows whatever paths your manifest declares.
+- For browser-specific values, use [prefixed keys](/docs/features/browser-specific-fields) (`firefox:browser_specific_settings`) rather than per-build manifests.
+
+## Step 3: update package.json scripts
+
+Replace:
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  }
+}
+```
+
+With:
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "start": "extension start"
+  }
+}
+```
+
+See [Commands reference](/docs/commands/index) for the full set.
+
+## Step 4: remove vite.config.ts
+
+If your `vite.config.ts` only existed to wire CRXJS, delete it. If it has other plugins, move equivalents to [`extension.config.js`](/docs/features/extension-configuration) or to [Rspack configuration](/docs/features/rspack-configuration) for advanced bundler customization.
+
+## Step 5: handle HMR differences
+
+CRXJS HMR pushes updates over a Vite WebSocket. Extension.js uses a different model documented in [Reload and HMR](/docs/features/reload-and-hmr):
+
+- Popup, options, devtools pages: HMR.
+- Content scripts: targeted reload.
+- Background service worker: full restart.
+
+If your code depended on Vite's `import.meta.hot` for content-script logic, replace those branches with regular module code. Extension.js handles reload orchestration outside your source.
+
+## Step 6: cross-browser output
+
+CRXJS targets Chromium. To start emitting Firefox output too:
+
+```bash
+extension build --browser=chrome,firefox --zip
+```
+
+You get `dist/chrome` and `dist/firefox` with browser-correct manifests and `.zip` archives ready for the Chrome Web Store and addons.mozilla.org. See [Cross-browser compatibility](/docs/features/cross-browser-compatibility).
+
+## Step 7: verify
+
+```bash
+extension dev --browser=chrome
+```
+
+Verify popup, options, content scripts, and background behavior. Then validate Firefox:
+
+```bash
+extension dev --browser=firefox
+```
+
+Use `--polyfill` if your code calls `chrome.*` and you want the same source to run on Firefox without changes.
+
+## Common gotchas
+
+- **Service worker `import` statements:** Extension.js auto-sets `type: "module"` when your background entry uses ESM syntax. CRXJS did the same. No action needed.
+- **`web_accessible_resources` typing:** Manifest V3 uses `[{resources, matches}]` blocks. Both frameworks emit the right shape; copy your existing entries verbatim.
+- **Hashed asset paths:** Extension.js uses stable paths under [`dist/<browser>`](/docs/features/path-resolution). If your code hardcoded Vite-style hashed filenames, replace with manifest-relative paths.
+
+## See also
+
+- [Cross-browser compatibility](/docs/features/cross-browser-compatibility)
+- [Browser-specific manifest fields](/docs/features/browser-specific-fields)
+- [Reload and HMR](/docs/features/reload-and-hmr)
+- [Manifest V3 troubleshooting](/docs/concepts/manifest-v3)

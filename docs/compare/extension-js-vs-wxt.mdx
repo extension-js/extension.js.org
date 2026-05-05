@@ -1,0 +1,102 @@
+---
+title: "Extension.js vs WXT"
+description: "Side-by-side comparison of Extension.js and WXT for building cross-browser extensions. CLI ergonomics, manifest model, framework support, and reload behavior."
+keywords:
+  [
+    "extension.js vs wxt",
+    "wxt vs extension.js",
+    "browser extension framework comparison",
+    "wxt",
+    "extension.js",
+    "cross-browser extension",
+    "chrome extension framework",
+    "firefox extension framework",
+  ]
+---
+
+Extension.js and [WXT](https://wxt.dev) are both modern frameworks for building cross-browser extensions. They overlap in mission and differ in philosophy. This page is a factual comparison so you can choose based on your project, not marketing copy.
+
+## At a glance
+
+| Dimension            | Extension.js                                                               | WXT                                                                 |
+| -------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Bundler              | [Rspack](/docs/features/rspack-configuration) (Rust-based)                 | Vite (Rolldown migration in progress)                               |
+| Manifest             | One `manifest.json`, browser-prefixed keys filtered at compile time        | `wxt.config.ts` generates `manifest.json` per build                 |
+| Entrypoints          | Files referenced from `manifest.json`                                      | File-system convention under `entrypoints/`                         |
+| Browser targets      | Chrome, Edge, Firefox, Chromium, Gecko, custom binaries                    | Chrome, Edge, Firefox, Safari (community), custom binaries          |
+| Manifest V3          | Default                                                                    | Default                                                             |
+| Manifest V2          | Not supported as a primary target                                          | Supported via `manifestVersion: 2`                                  |
+| Reload model         | HMR for popup/options/devtools, targeted reload for content scripts and SW | HMR for popup/options/devtools, targeted reload for content scripts |
+| `browser.*` polyfill | `--polyfill` flag                                                          | Auto-polyfilled `browser` namespace                                 |
+| Templates            | React, Preact, Vue, Svelte, TypeScript, JavaScript, init                   | React, Vue, Svelte, Solid, Preact, vanilla                          |
+| TypeScript           | First-class                                                                | First-class                                                         |
+| AI surfaces          | Hosted MCP server + `llms.txt` ([details](/docs/ai-access))                | `llms.txt` available                                                |
+
+## Mental model
+
+**Extension.js stays close to the platform.** You author a `manifest.json` and reference real files. The CLI compiles, filters per browser, and ships. If you already understand how a browser extension is structured, the framework gets out of your way.
+
+**WXT abstracts the platform.** Entrypoints are inferred from a directory layout (`entrypoints/popup/`, `entrypoints/content.ts`), and the manifest is generated from your config and source. If you prefer convention over configuration, WXT does more for you per file you write.
+
+Neither approach is universally better. The choice depends on whether you want to **see** your manifest or **declare** your manifest.
+
+## CLI surface
+
+### Extension.js
+
+```bash
+extension dev --browser=chrome,firefox
+extension build --browser=chrome,firefox --zip
+extension dev https://github.com/user/repo/tree/main/path
+```
+
+The argument can also be a remote GitHub URL or a ZIP archive, useful for spinning up a sample without cloning. See [Get started immediately](/docs/getting-started/immediately).
+
+### WXT
+
+```bash
+wxt
+wxt build
+wxt build -b firefox
+wxt zip
+```
+
+WXT splits dev/build/zip into separate commands. Extension.js consolidates packaging into `build --zip`.
+
+## Cross-browser strategy
+
+Both frameworks ship one codebase to multiple browsers, with different mechanics:
+
+- **Extension.js** uses [browser-prefixed manifest fields](/docs/features/browser-specific-fields) (`chrome:`, `firefox:`, `gecko:`, etc.) inside one `manifest.json`. The unprefixed keys apply everywhere; prefixed keys land only in matching builds.
+- **WXT** computes the manifest from `wxt.config.ts` and per-target overrides. Browser differences live in TypeScript config rather than in the manifest itself.
+
+If your team includes designers or PMs who read `manifest.json`, prefixed keys keep that file as the source of truth. If your team wants extension config alongside other TypeScript config, WXT's approach reads more naturally.
+
+## Migration paths
+
+If you are already on WXT and looking to evaluate Extension.js, the typical migration touches three things:
+
+1. Move `entrypoints/` content back to flat files referenced from a hand-authored `manifest.json`.
+2. Replace `wxt.config.ts` with [`extension.config.js`](/docs/features/extension-configuration) for build defaults.
+3. Replace `wxt`/`wxt build` scripts with `extension dev`/`extension build`.
+
+Most React, Vue, and Svelte source files copy over without changes.
+
+## When to choose Extension.js
+
+- You want the manifest as the source of truth, not generated.
+- You want one CLI argument to dev a remote sample (`extension dev <github-url>`).
+- You want first-class hosted MCP for AI tooling on the docs.
+- You want Rspack's Rust-speed compile times for large extensions.
+
+## When to choose WXT
+
+- You prefer file-system convention over an explicit manifest.
+- You need Manifest V2 as a primary target.
+- You want auto-polyfilled `browser.*` everywhere by default.
+
+## See also
+
+- [Cross-browser compatibility](/docs/features/cross-browser-compatibility)
+- [Browser-specific manifest fields](/docs/features/browser-specific-fields)
+- [Templates](/docs/getting-started/templates)
