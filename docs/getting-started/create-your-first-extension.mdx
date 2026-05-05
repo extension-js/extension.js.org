@@ -1,16 +1,16 @@
 ---
-title: 'Create your first browser extension step by step'
-description: 'Build your first browser extension end-to-end with Extension.js. Create a GitHub search Omnibox shortcut and learn the core development loop.'
+title: "Create your first browser extension step by step"
+description: "Build your first browser extension end-to-end with Extension.js. Create a GitHub search Omnibox shortcut and learn the core development loop."
 keywords:
   [
-    'extension.js',
-    'extensions',
-    'chrome',
-    'browser',
-    'manifest',
-    'playwright',
-    'service worker',
-    'docs'
+    "extension.js",
+    "extensions",
+    "chrome",
+    "browser",
+    "manifest",
+    "playwright",
+    "service worker",
+    "docs",
   ]
 ---
 
@@ -64,7 +64,7 @@ Every extension starts with a manifest file. It defines metadata, permissions, a
   "manifest_version": 3,
   "name": "GitHub Search",
   "version": "1.0",
-  "omnibox": {"keyword": "gh"},
+  "omnibox": { "keyword": "gh" },
   "background": {
     "service_worker": "service_worker.js"
   }
@@ -87,11 +87,11 @@ Create `service_worker.js`:
 chrome.omnibox.onInputEntered.addListener((text) => {
   // Convert any special character (spaces, &, ?, etc)
   // into a valid character for the URL format.
-  const encodedSearchText = encodeURIComponent(text)
-  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`
+  const encodedSearchText = encodeURIComponent(text);
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
 
-  chrome.tabs.create({url})
-})
+  chrome.tabs.create({ url });
+});
 ```
 
 The script above opens a new tab with GitHub search results whenever you type something after "gh" in the address bar.
@@ -131,7 +131,9 @@ yarn run dev
 
 </CodeGroup>
 
-If your setup is correct, you see the following:
+If your setup is correct, Extension.js launches Chrome with a fresh profile, loads `github-search` as an unpacked extension, and prints a ready banner in your terminal. The Chrome address bar now recognizes `gh` as a keyword.
+
+Type `gh` followed by a space, enter `extension.js`, press Enter. A new tab opens to `https://github.com/search?q=extension.js&type=issues`.
 
 {/* VIDEO_PLACEHOLDER_TODO: first dev run and browser load. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
@@ -148,38 +150,38 @@ Update `service_worker.js` to fetch GitHub suggestions and display them while ty
 // calls to the GitHub API while the user is still
 // typing the search query.
 function debounce(fn, delay) {
-  let timeoutID
+  let timeoutID;
   return function (...args) {
-    if (timeoutID) clearTimeout(timeoutID)
-    timeoutID = setTimeout(() => fn(...args), delay)
-  }
+    if (timeoutID) clearTimeout(timeoutID);
+    timeoutID = setTimeout(() => fn(...args), delay);
+  };
 }
 
 // When the user has changed what is typed into the omnibox.
 chrome.omnibox.onInputChanged.addListener(
   debounce(async (text, suggest) => {
     const response = await fetch(
-      `https://api.github.com/search/issues?q=${text}`
-    )
-    const data = await response.json()
+      `https://api.github.com/search/issues?q=${text}`,
+    );
+    const data = await response.json();
     const suggestions = data.items.map((issue) => ({
       content: issue.html_url,
-      description: issue.title
-    }))
+      description: issue.title,
+    }));
 
-    suggest(suggestions)
-  }, 250)
-)
+    suggest(suggestions);
+  }, 250),
+);
 
 // When the user has accepted what is typed into the omnibox.
 chrome.omnibox.onInputEntered.addListener((text) => {
   // Convert any special character (spaces, &, ?, etc)
   // into a valid character for the URL format.
-  const encodedSearchText = encodeURIComponent(text)
-  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`
+  const encodedSearchText = encodeURIComponent(text);
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
 
-  chrome.tabs.create({url})
-})
+  chrome.tabs.create({ url });
+});
 ```
 
 This code adds live GitHub suggestions directly in the address bar.
