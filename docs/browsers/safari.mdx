@@ -1,0 +1,119 @@
+---
+title: "Building Safari extensions with Extension.js"
+description: "Build your web extension into a Safari app on macOS with Extension.js. Covers requirements, the build and dev workflow, enabling the extension in Safari, and current limitations."
+keywords:
+  [
+    "extension.js",
+    "safari",
+    "webkit",
+    "safari web extension",
+    "xcode",
+    "macos",
+    "browser",
+    "docs",
+    "browsers",
+  ]
+---
+
+<AvatarBrowsers browsers={["safari"]} />
+Package your existing web extension into a native Safari app on macOS — no separate Xcode project to maintain by hand.
+
+<Warning>
+Safari support is **alpha**. The build → convert → `xcodebuild` → open pipeline works, but expect rough edges and breaking changes. Chrome, Edge, and Firefox are the stable targets.
+</Warning>
+
+Use `--browser=safari` to turn the same extension you ship to Chrome and Firefox into a Safari App Extension. Extension.js bundles your code, runs Apple's `safari-web-extension-converter`, compiles the generated app with `xcodebuild`, and walks you through enabling it.
+
+## Requirements
+
+Safari is **macOS-only** and needs the **full Xcode app** — not just the Command Line Tools. The converter (`safari-web-extension-converter`) and `xcodebuild` ship inside `Xcode.app`.
+
+```bash
+# Install Xcode from the Mac App Store, then point the toolchain at it:
+sudo xcode-select --switch /Applications/Xcode.app
+xcodebuild -runFirstLaunch
+```
+
+If Xcode is missing, `extension build`/`dev --browser=safari` fail fast — before bundling — with guidance instead of a late, confusing error.
+
+## What it produces
+
+`extension build --browser=safari` creates, next to your project:
+
+| Path                | What it is                                                      |
+| ------------------- | -------------------------------------------------------------- |
+| `dist/safari`       | The bundled web extension (manifest, scripts, assets).         |
+| `dist/safari-xcode` | The generated Xcode project (app + Safari extension targets).  |
+| `…/Release/<App>.app` | The compiled, ad-hoc–signed app that hosts your extension.   |
+
+The pipeline runs end to end: **bundle → convert → `xcodebuild` → open the app → guided enable**.
+
+```bash
+npx extension build --browser=safari
+```
+
+The app name and bundle identifier are derived from your manifest `name` (for example, `React Sidebar Example` → bundle id `dev.extensionjs.React-Sidebar-Example`). The project targets macOS by default.
+
+## Enabling the extension in Safari
+
+Local builds are **ad-hoc signed** (no Apple Developer account required), so Safari needs you to opt in once. After the build opens the app, Extension.js prints these steps and confirms when macOS has registered the extension:
+
+1. Safari ▸ Settings ▸ Advanced ▸ check **"Show features for web developers"**.
+2. Safari ▸ Develop ▸ **Allow Unsigned Extensions** (this resets every time Safari restarts).
+3. Safari ▸ Settings ▸ Extensions ▸ turn on your extension.
+
+<Note>
+  "Allow Unsigned Extensions" resets each time you launch Safari. Re-enable it after restarting Safari during development. A signed build (Apple Developer ID) avoids this step and is part of the distribution workflow.
+</Note>
+
+## Developing with `dev`
+
+`extension dev --browser=safari` runs a watch loop:
+
+```bash
+npx extension dev --browser=safari
+```
+
+- **First compile** — full package: convert, build, open the app, and print the enable steps.
+- **On every save** — incremental `xcodebuild` resync (typically a couple of seconds) that updates the app's resources from the freshly rebuilt `dist/safari`.
+
+Safari has no live-reload channel like Chromium or Firefox, so after a rebuild **refresh the page (or toggle the extension)** in Safari to pick up changes. The Xcode project is generated once and reused, so any customizations you make in Xcode (entitlements, capabilities) are preserved across rebuilds. Delete `dist/safari-xcode` to regenerate it from scratch.
+
+## Engine target
+
+`safari` has an engine alias, **`webkit-based`**, that parallels `chromium-based` and `gecko-based`:
+
+```bash
+npx extension build --browser=webkit-based
+```
+
+## Command support
+
+| Command   | Safari support                                                                 |
+| --------- | ------------------------------------------------------------------------------ |
+| `build`   | ✅ Builds and packages the Safari app.                                          |
+| `dev`     | ✅ Watch + incremental rebuild (refresh in Safari to apply).                    |
+| `preview` | ❌ Not supported — Safari extensions can't be auto-loaded into a live browser.  |
+| `start`   | ❌ Not supported — same reason as `preview`.                                    |
+
+`preview` and `start` exist to launch your extension in a running browser. Safari requires the manual, security-gated enable step above, so those commands point you to `build` instead.
+
+## Limitations
+
+- **macOS only.** Building a Safari app requires macOS with the full Xcode app.
+- **No live reload.** Rebuilds are fast, but you refresh in Safari to apply them.
+- **Manual one-time enable.** Allowing unsigned extensions and toggling the extension on are Safari security controls and cannot be automated.
+- **Local builds are ad-hoc signed.** Distribution signing, notarization, and App Store submission are a separate step beyond this workflow.
+- **macOS target only.** iOS app generation is not produced by this workflow today.
+
+## Best practices
+
+- **Build other targets normally**: Safari is additive — keep iterating in `chromium`/`firefox` and run `--browser=safari` when you want to validate Safari.
+- **Use browser-specific fields** for true behavioral differences via browser-prefixed manifest keys.
+- **Keep the generated project** unless you need a clean slate — regenerating discards Xcode-side customizations.
+
+## Next steps
+
+- See all [supported browsers](/docs/browsers/browsers-available).
+- Use [browser-specific manifest fields](/docs/features/browser-specific-fields).
+- Review [multi-platform builds](/docs/features/multi-platform-builds).
