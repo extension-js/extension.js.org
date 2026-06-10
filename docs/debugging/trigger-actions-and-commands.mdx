@@ -1,0 +1,103 @@
+---
+title: "Test a toolbar action or keyboard command without clicking"
+description: "Fire chrome.action.onClicked and chrome.commands.onCommand from the terminal or CI — headless, deterministic, on Chrome and Firefox. Plus a real-gesture click on Chromium 149+ when you need activeTab."
+keywords:
+  [
+    "test chrome.action.onClicked",
+    "trigger extension action programmatically",
+    "chrome.commands.onCommand test",
+    "headless extension testing",
+    "extension toolbar button test",
+    "activeTab",
+    "extension.js",
+    "ci",
+  ]
+---
+
+You can't click a toolbar icon in CI, and a popup-less action only does something when its `onClicked` fires. Extension.js lets you trigger those handlers directly — the toolbar action and keyboard-shortcut commands — so you can exercise them headlessly and assert on what they did.
+
+This works because Extension.js captures your `chrome.action.onClicked` and `chrome.commands.onCommand` listeners at build time (the dev runtime loads before your background code) and replays them on demand. No window, no mouse, no flake.
+
+<Note>
+Requires a dev session started with `--allow-control` — see [Debugging overview](/docs/debugging).
+</Note>
+
+## Trigger the toolbar action
+
+```bash
+pnpm extension open action --allow-control --output json
+```
+
+If the action has a `default_popup`, this opens it. If it doesn't, it replays the `onClicked` listeners:
+
+```json
+{ "ok": true, "value": { "triggered": "onClicked", "listeners": 1, "gesture": false } }
+```
+
+## Trigger a keyboard command
+
+Replay any `chrome.commands.onCommand` handler by name — the shortcut itself is never pressed:
+
+```bash
+pnpm extension open command --name toggle-theme --allow-control --output json
+```
+
+```json
+{ "ok": true, "value": { "triggered": "command", "command": "toggle-theme", "listeners": 1, "gesture": false } }
+```
+
+## The one caveat: no user gesture
+
+Replay invokes your handler, but it is **not** a real user click, so the browser does not attach a user gesture. The practical consequence:
+
+<Warning>
+A real toolbar click grants temporary **`activeTab`** and satisfies gesture-gated APIs (`chrome.permissions.request`, interactive `chrome.identity.getAuthToken`). A replay does not. So a handler that relies on `activeTab` — `chrome.scripting.executeScript` on the active tab, `chrome.tabs.captureVisibleTab` — will behave differently than a real click.
+</Warning>
+
+Extension.js tells you when this matters: the result reports `gesture: false`, and adds a `warning` when your manifest declares `activeTab`:
+
+```json
+{
+  "ok": true,
+  "value": {
+    "triggered": "onClicked",
+    "listeners": 1,
+    "gesture": false,
+    "warning": "replayed without a user gesture: activeTab is NOT granted, so APIs that depend on it (scripting on the active tab, captureVisibleTab) behave differently than a real click"
+  }
+}
+```
+
+For most handler logic — toggling state, writing storage, opening a tab, messaging — replay is exactly what you want: deterministic and scriptable. Reach for the real click below only when you specifically need gesture semantics.
+
+## Need a genuine-gesture click?
+
+A real action click grants `activeTab` — confirmed on Chrome 149. The replay deliberately does **not** carry that gesture (so `activeTab`-dependent handlers behave differently). For the rare case where you need true gesture semantics, use [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp)'s `trigger_extension_action` (Chromium only), which drives a real invocation through Puppeteer over the supported pipe transport.
+
+We recommend [running it alongside Extension.js](/docs/integrations/chrome-devtools-mcp) anyway: let it own genuine-gesture browser driving, while Extension.js owns the build-aware, cross-browser, headless replay you use for everything else.
+
+## In CI: assert your action handler ran
+
+Boot a session, fire the action, and assert on the side effect — no browser UI, no Playwright. This is the whole loop in a GitHub Actions job:
+
+```yaml
+- run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
+- run: pnpm extension open action --browser=chromium --output json
+- run: |
+    pnpm extension storage get --key lastClickedAt --browser=chromium --output json \
+      | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0)).value?.lastClickedAt ? 0 : 1)'
+```
+
+Because the trigger is deterministic and headless, it's a reliable gate — the same path is exercised by Extension.js's own `smoke:open-action` check, which fires the action *and* a command, then reads `chrome.storage` back to prove each handler actually executed.
+
+See [CI templates](/docs/workflows/ci-templates#test-handlers-without-a-browser-ui) for the full pipeline.
+
+## Cross-browser
+
+`open action` and `open command` are built on the in-browser companion, so they run on **both Chrome and Firefox** — they touch only `addListener`, nothing engine-specific, and are verified on both. A single `background.service_worker` source works on Firefox too: Extension.js translates it to a `background.scripts` event page for the Firefox build. (A genuine-gesture click is Chromium-only and lives in chrome-devtools-mcp — see above.)
+
+## Next steps
+
+- [Debugging overview](/docs/debugging) — the full control surface.
+- [CI templates](/docs/workflows/ci-templates) — wire this into a pull-request gate.
+- [Run both MCP servers](/docs/integrations/chrome-devtools-mcp) — fidelity vs. portability, side by side.
