@@ -88,6 +88,20 @@ steps:
 pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-format=json
 ```
 
+## Test handlers without a browser UI
+
+You don't always need Playwright. For event handlers — the toolbar action, keyboard commands — Extension.js can fire them directly against a dev session and you assert on the side effect. It's deterministic and headless, so it's a reliable gate.
+
+```yaml
+- run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
+- run: pnpm extension open action --browser=chromium --output json
+- run: |
+    pnpm extension storage get --key lastClickedAt --browser=chromium --output json \
+      | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0)).value?.lastClickedAt ? 0 : 1)'
+```
+
+The same approach replays keyboard commands (`extension open command --name <cmd>`). See [Trigger actions and commands](/docs/debugging/trigger-actions-and-commands) for the result payloads and the one caveat (replay carries no user gesture, so `activeTab` is not granted).
+
 ## Docker and container CI
 
 When CI runs inside Docker or a dev container, pass `--host 0.0.0.0` so external processes can reach the dev server. If another process already occupies the default port, use `--port 0` for automatic port assignment.
