@@ -1,0 +1,137 @@
+---
+title: "从 Plasmo 迁移到 Extension.js"
+description: "分步指南：从 Plasmo 浏览器扩展迁移到 Extension.js。将文件约定映射到 manifest.json、转换环境变量，并保留现有的 React 代码。"
+keywords:
+  [
+    "plasmo migration",
+    "plasmo to extension.js",
+    "plasmo alternative",
+    "migrate from plasmo",
+    "plasmo framework",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+[Plasmo](https://www.plasmo.com) 是一个基于 Parcel、采用文件约定式路由的浏览器扩展框架。它的发布节奏已经放缓，工具链相对当前的打包器也开始显得陈旧，这就是许多团队重新评估它的原因。本指南将一个典型的 Plasmo 项目迁移到 Extension.js，且无需重写 UI 代码。
+
+## 哪些会变，哪些不变
+
+**保持不变：** 你的 React 组件、Tailwind 配置、测试、`chrome.*` API 调用，以及你正在使用的 `@plasmohq/storage`（它包装的是 `chrome.storage`，在这里同样可用）。
+
+**会改变：**
+
+- 文件约定式入口（`popup.tsx`、`contents/*.ts`）变成真实 `manifest.json` 中显式的入口。
+- `package.json` 中的 `manifest` 字段移入 `manifest.json`。
+- `plasmo dev` / `plasmo build` / `plasmo package` 变成 `extension dev` / `extension build --zip`。
+- `PLASMO_PUBLIC_*` 环境变量变成 `EXTENSION_PUBLIC_*`。
+
+## 第 1 步：安装 Extension.js
+
+```bash
+npm install extension@latest --save-dev
+npm uninstall plasmo
+```
+
+## 第 2 步：编写 manifest
+
+Plasmo 根据 `package.json` 加上文件约定来生成 manifest。Extension.js 把 `manifest.json` 当作事实来源。逐项翻译每个约定：
+
+| Plasmo 约定                         | `manifest.json` 条目                                       |
+| ----------------------------------- | --------------------------------------------------------- |
+| `popup.tsx` 或 `src/popup.tsx`      | `"action": {"default_popup": "popup/index.html"}`         |
+| `options.tsx`                       | `"options_ui": {"page": "options/index.html"}`            |
+| `newtab.tsx`                        | `"chrome_url_overrides": {"newtab": "newtab/index.html"}` |
+| `background.ts`                     | `"background": {"service_worker": "background.ts"}`       |
+| 带 CS 配置的 `contents/inline.ts`   | `"content_scripts": [{...}]` 条目                         |
+| `package.json` 中的 `manifest` 字段 | 直接合并到 `manifest.json`                                |
+
+HTML 入口就是普通的 HTML 文件，用来加载你的 React 组件。一个 popup 看起来是这样的：
+
+```html popup/index.html
+<!doctype html>
+<html>
+  <body>
+    <div id="root"></div>
+    <script src="./index.tsx" type="module"></script>
+  </body>
+</html>
+```
+
+manifest 与 `<script>` 标签里的扩展名继续保持 `.ts`/`.tsx`。Extension.js 会在构建期编译它们。
+
+## 第 3 步：转换 content script
+
+Plasmo 通过读取导出的 `PlasmoCSConfig` 来识别匹配规则：
+
+```ts contents/inline.tsx
+import type { PlasmoCSConfig } from "plasmo";
+
+export const config: PlasmoCSConfig = {
+  matches: ["https://example.com/*"],
+};
+```
+
+在 Extension.js 中，匹配规则放在 manifest 里，源文件就是一个普通的模块：
+
+```json manifest.json
+{
+  "content_scripts": [
+    {
+      "matches": ["https://example.com/*"],
+      "js": ["content/inline.tsx"]
+    }
+  ]
+}
+```
+
+如果你使用过 Plasmo CSUI（通过 `getRootContainer` 与 anchor 实现的 content script UI），可以改用常规 DOM 代码挂载你的组件：创建一个容器元素，把它附加到你原先 anchor 的位置，再渲染进去。完整模式（包含使用 shadow DOM 隔离样式）参见 [Content scripts](/docs/implementation-guide/content-scripts)。
+
+## 第 4 步：环境变量与消息
+
+- 把 `.env` 文件和代码中的 `PLASMO_PUBLIC_*` 重命名为 `EXTENSION_PUBLIC_*`。参见 [环境变量](/docs/features/environment-variables)。
+- `@plasmohq/storage` 可以原样继续使用。
+- `@plasmohq/messaging` 依赖 Plasmo 的 `background/messages/*` 构建约定。请用标准的 `chrome.runtime.onMessage` 监听器替换 background 脚本中的处理器。参见 [消息](/docs/implementation-guide/messaging)。
+
+## 第 5 步：更新 package.json 脚本
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "start": "extension start"
+  }
+}
+```
+
+Plasmo 用 `--target=firefox-mv2` 的地方，Extension.js 直接以浏览器为目标：
+
+```bash
+extension build --browser=chrome,firefox --zip
+```
+
+你会得到 `dist/chrome` 与 `dist/firefox`，里面是为各浏览器正确生成的 manifest，以及可直接提交到 Chrome Web Store 和 addons.mozilla.org 的 `.zip` 压缩包。
+
+## 第 6 步：验证
+
+```bash
+extension dev --browser=chrome
+```
+
+检查 popup、options、content script 与 background 的行为，然后用 `--browser=firefox` 在 Firefox 上做同样的事。如果你的代码调用 `chrome.*` 而又希望让同一份源码在 Firefox 上运行，可以使用 `--polyfill`。
+
+## 常见坑
+
+- **`assets/` 中的图标：** Plasmo 会基于 `assets/icon.png` 自动生成各种尺寸的图标。Extension.js 只使用 manifest 中 `"icons"` 声明的内容；自己导出需要的尺寸即可。参见 [图标](/docs/implementation-guide/icons)。
+- **`~` 导入别名：** Plasmo 把 `~` 别名指向项目根。请在 `tsconfig.json` 的 paths 中映射它，或者改用相对导入。参见 [路径解析](/docs/features/path-resolution)。
+- **Storage hooks：** `@plasmohq/storage/hook` 的 `useStorage` 可以保持不变；它只依赖 React 和 `chrome.storage`。
+
+## 另请参阅
+
+- [从 CRXJS 迁移](/docs/migrate/from-crxjs)
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)
+- [跨浏览器兼容性](/docs/features/cross-browser-compatibility)
+- [重载与 HMR](/docs/features/reload-and-hmr)
