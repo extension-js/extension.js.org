@@ -1,0 +1,96 @@
+---
+title: "Extension.js 的遥测与隐私控制"
+description: "了解 Extension.js 遥测协议:收集哪些匿名数据、从不收集什么,以及如何完全退出遥测。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "typescript",
+    "docs",
+    "features",
+  ]
+---
+
+Extension.js 收集极少量的匿名遥测,用于了解你运行了哪些命令,哪些命令失败了。它从不收集源代码、文件路径、URL 或项目内容。
+
+隐私门槛在设计上极为严格:
+
+- 总共两个事件:`command_executed` 与 `command_failed`
+- 每个事件三个属性:`command`、`success`、`version`
+- 通过环境变量、CLI 标志或持久化同意命令退出
+- Extension.js 进行采样并设置上限,确保稳稳留在 [PostHog](https://posthog.com/)(开源分析服务)的免费额度内
+
+## Extension.js 会收集的内容
+
+每次 CLI 运行,最多发送以下其一:
+
+| 事件               | 采样                                          | 属性                                   |
+| ------------------ | --------------------------------------------- | -------------------------------------- |
+| `command_executed` | 20%(可配置,见下文)                         | `command`、`success: true`、`version`  |
+| `command_failed`   | 100%(Extension.js 始终发送失败事件)         | `command`、`success: false`、`version` |
+
+附加在每个事件上的通用上下文:`os`(`darwin`/`linux`/`win32`)、`arch`、`node_major`、`is_ci`。仅此而已。
+
+## 数据量控制
+
+有三个独立的控制项限制离开机器的数据量:
+
+- **采样:** Extension.js 默认以 20% 采样 `command_executed`。可通过 `EXTENSION_TELEMETRY_SAMPLE_RATE` 覆盖(0.0–1.0)。失败事件从不采样。
+- **每次运行上限:** 每个 CLI 进程最多 **3 个事件**。可通过 `EXTENSION_TELEMETRY_MAX_EVENTS` 覆盖。
+- **防抖(重复抑制):** Extension.js 会在 60 秒内丢弃重复的 `(event, command, success)` 元组。可通过 `EXTENSION_TELEMETRY_DEBOUNCE_MS` 覆盖。
+
+## Extension.js 永远不会收集的内容
+
+Extension.js 遥测协议明确排除以下内容:
+
+- 源代码、manifest 内容、HTML 输出或 `package.json` 内容
+- 仓库名、Git 远端、GitHub 组织/用户名、分支名、commit SHA 或预览 URL
+- 依赖列表、权限列表或任意项目标识符
+- 环境变量值、文件系统路径或本机 URL
+- 调用栈、错误消息或任意错误名称
+- IP 地址(Extension.js 在每个 payload 中都把 `$ip` 设为 `null`)
+
+## 退出方式
+
+按优先级从高到低,有三种方式禁用遥测:
+
+```bash
+# 1. 环境变量(优先级高于其他所有方式)
+EXTENSION_TELEMETRY_DISABLED=1 extension dev   # 推荐
+EXTENSION_TELEMETRY=0 extension dev            # 向后兼容,同样会被识别
+
+# 2. 单次运行的标志
+extension dev --no-telemetry
+
+# 3. 通过 telemetry 命令使用持久化同意文件
+extension telemetry disable
+extension telemetry enable
+extension telemetry status    # 显示当前状态(不带参数时为默认)
+```
+
+同意文件位于 `$XDG_CONFIG_HOME/extensionjs/telemetry/consent`(或平台对应位置)。
+
+## 默认行为
+
+遥测默认是 **opt-out**(默认开启,可手动关闭)。在首次运行且以上覆盖均未生效时,Extension.js 会打印一行说明如何禁用它的提示,并记录一个 `enabled` 同意标记,这样提示不会重复出现。
+
+持续集成(CI)环境也遵循相同规则。在 CI 环境中设置 `EXTENSION_TELEMETRY=0` 可全局禁用遥测。
+
+## 本地审计日志
+
+Extension.js 会把它考虑发送(无论最终是否真的发送)的每个事件追加写入位于同意文件旁边的 `events.jsonl`。你可以随时查看,也可以随意删除。
+
+## 最佳实践
+
+- 当政策不允许遥测时,在 CI 中使用 `EXTENSION_TELEMETRY_DISABLED=1`。
+- 把隐私回归视为产品回归。
+- 阅读仓库级别的协议获取确切的事件列表。
+
+## 后续步骤
+
+- 在[全局标志](/docs/workflows/global-flags)中查看 `--no-telemetry` 及环境变量覆盖。
+- 使用 [build](/docs/commands/build) 与 [dev](/docs/commands/dev) 处理发布与自动化工作流。
+- 阅读仓库级别的 [`TELEMETRY.md`](https://github.com/extension-js/extension.js/blob/main/TELEMETRY.md) 协议,获取确切的事件列表。

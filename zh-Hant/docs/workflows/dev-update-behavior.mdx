@@ -1,0 +1,61 @@
+---
+title: "Dev 模式的更新與重新載入行為"
+description: "了解開發期間哪些檔案變更會熱更新，哪些需要重新啟動。Extension.js 會自動選擇最輕量的安全更新模式。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+    "service worker",
+    "docs",
+    "workflows",
+  ]
+---
+
+透過了解哪些變更會即時生效、哪些需要重新啟動來保持快速迭代。Extension.js 會針對每次檔案變更選擇最輕量的安全更新模式。
+
+## 更新模式
+
+| 模式                       | 發生了什麼                                            | 典型影響                                              |
+| -------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| 熱模組替換（HMR）          | 模組/樣式更新就地生效                                 | 最快的迭代速度，不需完全重新啟動擴充功能              |
+| `Hard reload`              | 目標瀏覽器重新載入擴充功能執行階段                    | 擴充功能上下文重新啟動，但 dev 行程持續執行           |
+| `Restart required`         | 編譯期診斷要求你重新啟動 `extension dev`              | 用於進入點/清單的結構性變更                           |
+
+## 常見範例
+
+| 變更                                            | 預期行為                              |
+| ----------------------------------------------- | ------------------------------------- |
+| 編輯內容指令稿/元件程式碼                       | HMR/remount 路徑（在支援時）          |
+| 編輯被內容指令稿/頁面使用的樣式 import          | HMR 風格的更新路徑（視上下文而定）    |
+| 編輯 `manifest.json` 值（非結構性）             | Hard reload 流程                      |
+| 新增/移除 manifest 進入點引用                   | 需要重新啟動                          |
+| 新增/移除 `pages/` 或 `scripts/` 進入點         | 需要重新啟動                          |
+| 編輯 `_locales/*/messages.json`                 | Hard reload 流程                      |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show three edits in sequence (component change, manifest metadata change, entrypoint list change) and the resulting HMR/hard-reload/restart-required behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 當你需要重新啟動時該怎麼做
+
+當 Extension.js 回報 `Restart required` 時，停止並在繼續之前重新執行 `extension dev`。
+
+典型觸發條件：
+
+- 新增或移除 manifest 進入點引用
+- 新增或移除 `pages/` 或 `scripts/` 下作為擴充功能進入點使用的檔案
+- HTML 進入點中結構性的 script/style 進入點變更
+
+## 實務指南
+
+- 在活躍的開發工作階段中優先編輯既有的模組/資源，以獲得最快的回饋。
+- 將結構性的 manifest 變更（進入點清單編輯）批次進行，這樣只需重新啟動一次。
+- 將 restart required 的診斷視為權威；不重新啟動而繼續可能讓你的執行階段處於過時狀態。
+
+## 下一步
+
+- [manifest.json](/docs/implementation-guide/manifest-json)
+- [內容指令稿](/docs/implementation-guide/content-scripts)
+- [背景指令稿 / Service Worker](/docs/implementation-guide/background)
+- [HTML](/docs/implementation-guide/html)

@@ -1,0 +1,158 @@
+---
+title: "瀏覽器擴充功能中的 CSS modules"
+description: "透過 Rspack 流程提供的零設定 CSS modules,在瀏覽器擴充功能的彈出視窗、選項頁 UI 與內容腳本中為樣式提供範圍,避免命名衝突。"
+keywords:
+  [
+    "css modules",
+    "css modules in browser extensions",
+    "css modules vs sass modules",
+    "extension.js",
+    "react",
+    "vue",
+    "svelte",
+    "preact",
+    "rspack",
+    "content script",
+    "popup",
+  ]
+---
+
+Extension.js 對模組風格的檔名(例如 `styles.module.css`)提供零設定的 CSS modules 支援,並透過 Rspack CSS 流程進行處理。類別名稱會維持在匯入它們的元件的本地範圍內。
+
+## 何時適合使用 CSS modules
+
+- 你需要本地類別範圍,但不想採用完整的 CSS-in-JS 方案。
+- 你在彈出視窗/選項頁/新分頁之間共用元件。
+- 你希望在較大型的擴充功能程式碼庫中擁有可預測的樣式歸屬。
+
+## 範本範例
+
+### `content-css-modules`
+
+![content-css-modules 範本截圖](/images/examples/content-css-modules/screenshot.png)
+
+以極少的設定為內容腳本 UI 加入本地範圍的樣式。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-css-modules
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/content-css-modules](https://github.com/extension-js/examples/tree/main/examples/content-css-modules)
+
+## 在現有擴充功能中使用
+
+要使用 CSS modules,檔名需要帶上 module 後綴:
+
+- `*.module.css`
+- `*.module.scss`
+- `*.module.sass`
+- `*.module.less`
+
+如需 Sass 與 Less 的設定需求,請參考對應的語言頁面。
+
+```diff
+- myComponentCss.css
++ myComponentCss.module.css
+```
+
+### 使用範例
+
+重新命名樣式表之後,在元件中匯入並使用:
+
+```ts
+import styles from "./styles/myComponent.module.css";
+
+const button = document.createElement("button");
+button.className = styles.primary;
+button.innerText = "Click here";
+document.body.appendChild(button);
+```
+
+## 運作原理
+
+Extension.js 啟用 Rspack 的 CSS 支援,並透過 CSS modules 流程處理模組匯入:
+
+- 預設匯入風格的樣式映射(`import styles from "./x.module.css"`)
+- Rspack 透過其 CSS modules 流程產生具範圍的類別名稱
+- 模組類別匯出可以直接在 JS/TS/TSX 檔案中使用
+
+在擴充功能頁面情境中(例如彈出視窗/選項頁/新分頁),模組匯入會如預期產生獨一無二且具範圍的類別名稱。
+
+## 內容腳本注意事項
+
+在內容腳本中,Extension.js 會以樣式表內容形式輸出 CSS,而不附帶 JavaScript 類別名稱映射。
+
+請在內容腳本中採用元件層級的本地類別命名。除非你已明確測試過,否則不要假設 CSS modules 的類別匯入在內容腳本中可用。
+
+## React/Preact 使用範例
+
+在 React 或 Preact 中,你可以像這樣匯入並在元件中使用 CSS module:
+
+```jsx
+import styles from "./styles/myComponent.module.css";
+
+export default function NewTabPage() {
+  return <button className={styles.primary}>Click here</button>;
+}
+```
+
+## Vue 使用範例
+
+在 Vue 中,你可以在單一檔案元件(SFC)樣式中使用模組類別:
+
+```vue
+<template>
+  <button :class="$style.primary">Click here</button>
+</template>
+
+<style module>
+@import "./styles/myComponent.module.css";
+</style>
+```
+
+## Svelte 使用範例
+
+在 Svelte 中,匯入模組映射並套用類別名稱:
+
+```svelte
+<script>
+  import styles from "./styles/myComponent.module.css";
+</script>
+
+<button class={styles.primary}>Click here</button>
+```
+
+## 最佳實踐
+
+- 將模組樣式與元件放在一起(`Component.module.css`),方便明確歸屬。
+- 謹慎使用 `:global(...)`,只在有意進行全域覆寫時才使用。
+- 在擴充功能頁面與框架元件中,優先使用模組樣式,讓類別映射更為明確。
+
+## 後續步驟
+
+- 進一步了解 [Sass 與 Sass modules](/docs/languages-and-frameworks/sass)。
+- 進一步了解 [Less 與 Less modules](/docs/languages-and-frameworks/less)。
+
+## 影片導覽
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CSS Module class mapping in extension UI and content-script style injection behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

@@ -1,0 +1,230 @@
+---
+title: "面向 Chrome 与 Firefox 的跨浏览器扩展开发"
+description: "用一个项目同时交付 Chrome、Edge 与 Firefox 扩展。Extension.js 负责为每个目标处理浏览器专属的 manifest 字段和构建产物。"
+keywords:
+  [
+    "cross-browser extension development",
+    "cross browser extension framework",
+    "chrome and firefox extension compatibility",
+    "browser-specific manifest fields",
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "popup",
+  ]
+---
+
+<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
+Extension.js 在开发与构建过程中处理各浏览器的差异化设置。你可以
+用一个项目为 Chromium 与 Gecko(Firefox 引擎)目标生成运行时正确的
+产物。
+
+## 跨浏览器扩展开发
+
+跨浏览器扩展开发是指编写一个扩展并将其交付到 Chrome、Edge 与 Firefox,而无需分叉代码库。Extension.js 把单个项目编译为按浏览器划分的产物(`dist/chrome`、`dist/edge`、`dist/firefox`),并按当前目标过滤 manifest。重载循环、运行时 API 以及打包都会与你正在调试的浏览器一致。
+
+使用同一份 `manifest.json` 即可针对特定浏览器或自定义可执行文件构建。当你在 Chromium 家族目标中需要 `browser.*` API 兼容时,可启用 polyfill。
+
+## Chrome 与 Firefox 扩展的兼容性
+
+Chrome 与 Firefox 扩展在大部分 WebExtensions 接口上一致,但有三处差异每天都会遇到:
+
+- **后台脚本:** Chrome(Manifest V3)要求使用 `background.service_worker`。Firefox 使用 `background.scripts` 搭配非持久化事件页面。Extension.js 通过一份带前缀的 manifest 同时路由两者。
+- **运行时 API 命名空间:** Firefox 原生支持 `browser.*`。Chromium 使用 `chrome.*`。为 Chromium 目标加上 `--polyfill` 即可弥合差异。
+- **权限与内容安全策略(CSP):** 各浏览器对部分 `permissions` 与 `host_permissions` 的解释不同。请把浏览器专属取值放在带前缀的 manifest 键中,而不是在运行时做特性检测。
+
+## 浏览器专属 manifest 字段
+
+浏览器专属 manifest 字段是 Extension.js 让同一份 `manifest.json` 跨浏览器可用的方式。在编译时,Extension.js 会按当前目标过滤带前缀的键(`chromium:`、`chrome:`、`edge:`、`firefox:`、`gecko:`)。不带前缀的键则到处生效。完整的前缀列表参见[浏览器专属 manifest 字段](/docs/features/browser-specific-fields)。
+
+## 模板示例
+
+### `action`
+
+![action template screenshot](/images/examples/action/screenshot.png)
+
+通过一个可在 Chrome、Firefox 与 Edge 中运行的 action 弹窗体验跨浏览器兼容性。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+## 工作原理
+
+### 1)选择目标浏览器
+
+选择你想要运行扩展的位置。
+
+常见目标使用 `--browser`,也可以传入自定义的浏览器可执行文件。
+
+<CodeGroup>
+
+```bash npm
+extension dev --browser firefox
+```
+
+```bash pnpm
+extension dev --browser firefox
+```
+
+```bash yarn
+extension dev --browser firefox
+```
+
+```bash bun
+extension dev --browser firefox
+```
+
+```bash bun
+extension dev --browser firefox
+```
+
+</CodeGroup>
+
+<CodeGroup>
+
+```bash npm
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+```bash pnpm
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+```bash yarn
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+```bash bun
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+```bash bun
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+</CodeGroup>
+
+请根据你的操作系统使用对应的二进制路径:
+
+- **macOS**:`/Applications/Brave Browser.app/Contents/MacOS/Brave Browser`
+- **Linux**:`/usr/bin/brave-browser`(或其他基于 Chromium 的浏览器可执行文件)
+- **Windows**:`"C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching targets with `--browser` and with a custom Chromium binary. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+当你传入一个可执行文件时,Extension.js 会把它映射到某个浏览器引擎目标:
+
+- `--chromium-binary` 对应 `chromium-based`
+- `--gecko-binary` 对应 `gecko-based`
+
+### 2)编译时按浏览器过滤 manifest
+
+在编译过程中,Extension.js 仅包含与所选浏览器匹配的 manifest 字段。
+
+示例:
+
+```json
+{
+  "chromium:background": {
+    "service_worker": "sw.js"
+  },
+  "firefox:background": {
+    "scripts": ["sw.js"]
+  }
+}
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one manifest with prefixed fields being compiled for Chrome vs Firefox. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+对于 Chromium 家族目标,Extension.js 使用 `chromium:`、`chrome:`、`edge:` 等前缀。  
+对于 Firefox 家族目标,Extension.js 使用 `firefox:` 与 `gecko:`。
+
+<Note>
+  关于带前缀的 manifest 字段的完整细节,请参阅[浏览器专属 manifest 字段](/docs/features/browser-specific-fields)。
+</Note>
+
+### 3)按浏览器目标输出
+
+Extension.js 会将每个目标写入各自的构建目录:
+
+- `dist/chrome`
+- `dist/edge`
+- `dist/firefox`
+- `dist/chromium-based`(自定义 Chromium 引擎)
+- `dist/gecko-based`(自定义 Gecko 引擎)
+
+{/* VIDEO_PLACEHOLDER_TODO: Show build output folders changing by target in `dist/<browser>`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+这能让构建产物保持井然有序,也更便于在 CI 中交付。
+
+### 4)为 Chromium 目标可选启用 `browser.*` polyfill
+
+如果你的代码使用 `browser.*`,可为 Chromium 家族目标启用 `--polyfill`:
+
+<CodeGroup>
+
+```bash npm
+extension build --browser chrome --polyfill
+```
+
+```bash pnpm
+extension build --browser chrome --polyfill
+```
+
+```bash yarn
+extension build --browser chrome --polyfill
+```
+
+```bash bun
+extension build --browser chrome --polyfill
+```
+
+```bash bun
+extension build --browser chrome --polyfill
+```
+
+</CodeGroup>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a `browser.*` API working in Chromium with `--polyfill` enabled. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+启用后,Extension.js 会对非 Firefox 目标使用 `webextension-polyfill`(Mozilla 的 `browser.*` 兼容库)。  
+Extension.js 会跳过 Firefox,因为 Firefox 原生支持 `browser.*`。
+
+## 最佳实践
+
+- **保持一份代码库**:尽可能将浏览器差异放入带前缀的 manifest 字段。
+- **每次构建一个目标**:在持续集成(CI)中为每个浏览器生成独立产物(`dist/<browser>`)。
+- **按需使用 `--polyfill`**:只在 Chromium 家族目标中代码依赖 `browser.*` 时才启用。
+- **尽早确认 API 支持情况**:在依赖浏览器专属 API 前,先查阅 [MDN WebExtensions 文档](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions)。
+
+## 后续步骤
+
+- 进一步了解[可用浏览器](/docs/browsers/browsers-available)。
+- 进一步了解[浏览器专属 manifest 字段](/docs/features/browser-specific-fields)。

@@ -1,0 +1,199 @@
+---
+title: "Web 可存取資源與建置期合併"
+description: "只向網頁公開擴充功能實際需要的資源。Extension.js 會自動合併使用者宣告的 web_accessible_resources 與建置時的需求。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+    "docs",
+  ]
+---
+
+只公開網頁或外部擴充功能情境必須存取的擴充功能資源。
+
+Extension.js 會將使用者宣告的 `web_accessible_resources` 與建置期探索到的需求合併,並套用與目標相關的 manifest 規範化。
+
+## 範本範例
+
+### `content`
+
+![content 範本截圖](/images/examples/content/screenshot.png)
+
+內容指令稿使用 web 可存取資源向頁面注入樣式與資源。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+## Web 可存取資源能力
+
+| 能力                          | 你可以獲得什麼                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------- |
+| 處理 Manifest V2/V3 schema     | 依 manifest 版本處理陣列與物件兩種 `web_accessible_resources` 形態                                  |
+| 建置感知合併                      | 將宣告的資源與建置/執行時所需條目合併                                                                    |
+| 路徑規範化                       | 將 WAR(web-accessible resource)路徑解析到各目標瀏覽器對應的輸出位置                                         |
+| 安全控制面                       | 透過 `resources` 與 `matches` 讓存取規則保持明確                                                  |
+
+## Manifest schema
+
+### Manifest V3
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*.png", "fonts/*.woff2"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+```
+
+### Manifest V2
+
+```json
+{
+  "web_accessible_resources": ["images/*.png", "scripts/*.js", "styles/*.css"]
+}
+```
+
+## `manifest.json` 檔案範例
+
+如果你透過支援的內容指令稿或建置路徑匯入資源,Extension.js 會自動加入所需的 WAR 條目。如果網頁需要直接存取特定資源,請手動宣告它們。
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*.png", "scripts/*.js", "styles/*.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://example.com/*"],
+      "css": ["styles/content.css"],
+      "js": ["scripts/content.js"]
+    }
+  ]
+}
+```
+
+## Extension.js 自動加入的內容
+
+當執行時需要讓某些資源對頁面可存取時,Extension.js 可以從建置產物中擴充 WAR 條目。
+
+常見範例:
+
+- 內容指令稿匯入的資源。
+- 內容指令稿的 CSS 輸出。
+- 由這些條目參考的字型或靜態資源。
+- 重新載入行為所需、僅開發期的執行時支援。
+
+雖然自動加入很方便,但你仍應檢視最終向網頁公開的資源集合。
+
+## 開發期行為
+
+- 在開發時,Extension.js 會修補 WAR 條目以支援重新載入與熱模組替換 (HMR) 的資源存取。
+- 在需要時,Extension.js 會自動在 WAR 中加入與內容指令稿相關的資源。
+- Extension.js 會透過移除 `public/` 前綴與開頭的 `/` 來規範化路徑,以產生輸出安全的路徑。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show tightening WAR from broad to minimal resource/match patterns and validating runtime access still works. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 輸出與解析說明
+
+- Extension.js 透過 public 資源流程複製 `public/` 中的資源,你可以透過擴充功能根路徑宣告它們。
+- 相對的 WAR 資源路徑從 manifest 資料夾解析。
+- 你可以使用 glob,但比對模式必須符合目標瀏覽器的限制。
+- 在規範化期間,Extension.js 會丟棄沒有 `resources` 的 Manifest V3 (MV3) 條目。
+- Extension.js 會原封不動保留 glob,不會把它們展開為明確的檔案清單。
+
+## 執行時用法
+
+使用瀏覽器執行時 URL 輔助函式,而非手動建構擴充功能 URL:
+
+```ts
+const logoUrl = chrome.runtime.getURL("/images/logo.png");
+```
+
+如果頁面或內容指令稿無法讀取你期望可存取的資源,請檢查:
+
+1. 該資源是否真的存在於產物中。
+2. WAR 條目是否公開了正確的 `resources`。
+3. `matches` 範圍是否包含嘗試讀取它的頁面。
+4. 該資源是否應改為僅對擴充功能頁面私有。
+
+## 最佳實務
+
+- 讓 WAR 條目盡量精簡;只公開外部情境必須讀取的內容。
+- 優先使用明確的資源路徑而非寬泛的 glob,以提升安全性。
+- 在 Chromium 與 Firefox 目標上驗證 WAR 的比對模式與資源路徑。
+- 使用 `chrome.runtime.getURL()`/`browser.runtime.getURL()` 建立執行時安全的 URL。
+- 在新增內容指令稿匯入、字型或可被頁面存取的靜態資源後,重新檢視 WAR。
+
+### 安全檢查清單
+
+- 將 `matches` 限制在確實需要存取的網域內。
+- 在明確的小清單已足夠時,避免使用寬泛的萬用字元資源 glob。
+- 讓 WAR 條目聚焦於非敏感資源。
+- 在新增內容指令稿匯入或執行時資源查詢時,重新檢視 WAR。
+
+### 範圍合理與過寬的範例
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["images/logo.png", "fonts/inter.woff2"],
+      "matches": ["https://example.com/*"]
+    }
+  ]
+}
+```
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+```
+
+## 下一步
+
+- 了解更新結果:[開發期更新行為](/docs/workflows/dev-update-behavior)。
+- 深入了解 [特殊資料夾](/docs/features/special-folders)。
+- 接著閱讀 [命令參考](/docs/commands/dev)。

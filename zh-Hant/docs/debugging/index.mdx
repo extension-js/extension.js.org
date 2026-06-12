@@ -1,6 +1,6 @@
 ---
 title: "從終端機除錯執行中的瀏覽器擴充功能"
-description: "不需點擊也能驅動執行中的擴充功能開發 session：跨所有 context 讀取日誌、檢視即時 DOM、在 service worker 中執行 eval、讀取 chrome.storage、重新載入、觸發工具列動作 — 支援 Chrome 與 Firefox、可無頭執行、可寫成腳本。"
+description: "從終端機驅動一個現行的擴充功能開發階段:讀取記錄、檢視 DOM、在 worker 中求值、讀取 chrome.storage,以及在 Chrome 或 Firefox 上重新載入。"
 keywords:
   [
     "debug chrome extension",
@@ -15,49 +15,49 @@ keywords:
   ]
 ---
 
-瀏覽器擴充功能難以除錯，是因為關鍵狀態藏在你不容易觸及的位置：會閒置的 MV3 service worker、隔離的 content script world、一失焦就關閉的 popup。Extension.js 在你執行中的開發 session 開啟一條小型的**本機控制通道**，讓你（或 AI agent、或 CI job）能直接觸及這些 context — 讀取它們記錄的內容、檢視它們渲染的結果、呼叫進去，並觸發使用者會觸發的事件。
+瀏覽器擴充功能很難除錯,因為有趣的狀態存在你不易觸及的地方:會進入閒置的 MV3 service worker、隔離的內容腳本世界,以及一失去焦點就關閉的 popup。Extension.js 在你執行中的開發階段中開啟一個小巧的 **本機控制通道**,讓你(或一個 AI 代理,或一個 CI 工作)可以直接抵達這些情境 —— 讀取它們記錄的內容、檢視它們渲染的內容、呼叫它們,並觸發使用者會觸發的事件。
 
-它在本機運作、不需要帳號，觀察永遠免費。任何會 _改變_ 狀態的操作則需要在每個 session 中明確啟用。
+它是本機的、不需要帳號,觀察永遠免費。任何 _變更_ 狀態的事都是按工作階段選擇加入的。
 
-## 開啟方式
+## 開啟
 
-啟動帶有你所需控制旗標的開發 session：
+啟動一個帶有你需要的控制旗標的開發工作階段:
 
 ```bash
-# 唯讀模式永遠開啟。加上 control 才能對擴充功能執行動作：
+# 唯讀永遠開啟。加上 control 才能對擴充功能執行動作:
 pnpm extension dev --allow-control
 
-# 再加上 eval 以便在 context 中執行任意運算式：
+# 加上 eval 才能在情境中執行任意運算式:
 pnpm extension dev --allow-control --allow-eval
 ```
 
-以下每個操作都會作用在該 session，並以相同的方式指定 context，無論是讀取或執行動作。
+下面的每個操作都針對該工作階段,無論你是在讀取還是在執行動作,定址情境的方式都一致。
 
 ## 你可以做什麼
 
-| 指令                                       | 用途                                                                                                                  | 限制              |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| `extension logs`                           | 將所有 context（SW、content、popup、options、sidebar、devtools）的日誌串流為單一有序時間線                            | —                 |
-| `extension inspect`                        | 讀取某個介面注入後的即時 DOM                                                                                          | —                 |
-| `extension storage get \| set`             | 讀取或寫入擴充功能的 `chrome.storage`                                                                                 | `--allow-control` |
-| `extension reload`                         | 重新載入擴充功能或某個分頁                                                                                            | `--allow-control` |
-| `extension open <popup\|options\|sidebar>` | 開啟某個擴充功能介面                                                                                                  | `--allow-control` |
-| `extension open action`                    | [觸發工具列動作](/docs/debugging/trigger-actions-and-commands) — 開啟其 popup，或重播 `onClicked`                       | `--allow-control` |
-| `extension open command --name <cmd>`      | [重播鍵盤快速鍵指令](/docs/debugging/trigger-actions-and-commands)                                                    | `--allow-control` |
-| `extension eval "<expr>" --context <c>`    | 在某個 context 中執行運算式並回傳結果                                                                                  | `--allow-eval`    |
+| 指令                                       | 作用                                                                                                                | 門檻              |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `extension logs`                           | 在單一有序時間線上串流每個情境(SW、content、popup、options、sidebar、devtools)的記錄                              | —                 |
+| `extension inspect`                        | 讀取某個介面的即時(注入後)DOM                                                                                     | —                 |
+| `extension storage get \| set`             | 讀取或寫入你擴充功能的 `chrome.storage`                                                                             | `--allow-control` |
+| `extension reload`                         | 重新載入擴充功能或某個分頁                                                                                          | `--allow-control` |
+| `extension open <popup\|options\|sidebar>` | 開啟一個擴充功能介面                                                                                                | `--allow-control` |
+| `extension open action`                    | [觸發工具列 action](/docs/debugging/trigger-actions-and-commands) —— 開啟其 popup,或重播 `onClicked`                | `--allow-control` |
+| `extension open command --name <cmd>`      | [重播某個鍵盤捷徑指令](/docs/debugging/trigger-actions-and-commands)                                               | `--allow-control` |
+| `extension eval "<expr>" --context <c>`    | 在情境中對運算式求值並回傳值                                                                                        | `--allow-eval`    |
 
-## 指定 context
+## 定址情境
 
-讀取與執行動作共用同一套詞彙 — 你指定介面名稱，Extension.js 會在它正在追蹤的 session 中解析出來。
+讀取與執行動作共用同一套詞彙 —— 你指定介面名稱,Extension.js 會在它已追蹤的工作階段中解析。
 
-| 位址                                               | 意義                                          |
-| -------------------------------------------------- | --------------------------------------------- |
-| `--context background`                             | service worker（或 MV2 背景頁面）             |
-| `--context popup` / `options` / `sidebar`          | 該擴充功能介面（如果已開啟）                  |
-| `--context content --url "https://shop.example/*"` | 在符合網址的頁面上的隔離 content world        |
-| `--context content --tab 7`                        | 指定分頁中的 content world                    |
+| 定址                                                | 意義                                              |
+| --------------------------------------------------- | ------------------------------------------------- |
+| `--context background`                              | service worker(或 MV2 背景頁面)                 |
+| `--context popup` / `options` / `sidebar`           | 該擴充功能介面(若已開啟)                        |
+| `--context content --url "https://shop.example/*"`  | 符合頁面上的隔離內容世界                          |
+| `--context content --tab 7`                         | 特定分頁中的內容世界                              |
 
-## 範例：我的 background 處理函式真的有執行嗎？
+## 範例:我的背景處理器到底有沒有跑?
 
 ```bash
 pnpm extension eval "globalThis.__lastSyncAt" --context background --allow-eval
@@ -67,35 +67,35 @@ pnpm extension eval "globalThis.__lastSyncAt" --context background --allow-eval
 { "ok": true, "value": 1718000000000 }
 ```
 
-你的運算式所觸發的任何 `console.log`，同時會經由 `extension logs` 流出，並以序號相互關聯 — 因此你能同時看到回傳值 _以及_ 副作用。
+你的運算式所觸發的任何 `console.log` 都會同時透過 `extension logs` 流出,並依序列相關聯 —— 你可以同時看到回傳值 _以及_ 副作用。
 
 ## 跨瀏覽器支援
 
-Extension.js 透過**瀏覽器內的伴隨程式**進行除錯，而非 Chrome DevTools Protocol，因此核心流程能觸及你自己的介面，在 **Chrome 與 Firefox** 上都可運作 — 過去「Firefox 用 RDP，不支援」的那堵牆，對這些工具而言已經不存在。
+Extension.js 透過 **瀏覽器內部夥伴** 進行除錯,而不是透過 Chrome DevTools Protocol,因此核心迴圈能觸及 **Chrome 與 Firefox** 上你自己的介面 —— 舊的「Firefox 用 RDP,不支援」的高牆在這些工具上已經消失。
 
-| 功能                                                                              | Chromium | Firefox      |
+| 能力                                                                              | Chromium | Firefox      |
 | --------------------------------------------------------------------------------- | -------- | ------------ |
-| `logs`、`inspect`、`eval`、`storage`、`reload`、`open`（含 `action`/`command`）   | ✓        | ✓（已驗證）  |
-| `inspect --deep-dom`（封閉的 shadow root）                                        | ✓        | —（使用 CDP）|
-| `extension_list_extensions`（MCP 工具）                                           | ✓        | —（使用 CDP）|
+| `logs`、`inspect`、`eval`、`storage`、`reload`、`open`(含 `action`/`command`)   | ✓        | ✓(已驗證)  |
+| `inspect --deep-dom`(closed shadow roots)                                        | ✓        | —(使用 CDP)|
+| `extension_list_extensions`(MCP 工具)                                           | ✓        | —(使用 CDP)|
 
-（`extension_list_extensions` 是 MCP 工具而非 CLI 動詞 — 它透過 DevTools Protocol 連線，所以僅限 Chromium。）
+(`extension_list_extensions` 是 MCP 工具,而不是 CLI 動詞 —— 它透過 DevTools Protocol 連線,因此僅限 Chromium。)
 
 ## 安全性
 
-這些限制有其用意，並非繁文縟節：
+這些門檻是刻意設計,而不是繁文縟節:
 
-- **觀察不需要任何權限。** 讀取日誌與 DOM 隨時可用。
-- **有界限的操作需要 `--allow-control`。** `storage`、`reload` 與 `open` 會改變狀態，因此你必須在每個 session 中明確啟用。
-- **`eval` 需要 `--allow-eval` _以及_ 每個 session 的權杖。** 權杖會寫入 `dist/` 外的 `0600` 檔案，因此絕不會包含在建置產物中 — 隨機的本機程序無法悄悄操控你的 service worker。
-- **絕不會進入正式環境。** 控制通道只在 `dev`/`preview` 期間存在，且綁定在已建置產物中不存在的連接埠上。
+- **觀察不需要任何東西。** 讀取記錄與 DOM 永遠可用。
+- **有界操作需要 `--allow-control`。** `storage`、`reload` 與 `open` 會改變狀態,所以按工作階段選擇加入。
+- **`eval` 需要 `--allow-eval` _以及_ 一個按工作階段的權杖。** 該權杖寫入 `dist/` 之外的 `0600` 權限檔案,因此絕不會混入建構成品 —— 隨機本機程序無法默默驅動你的 service worker。
+- **不會觸及正式環境。** 控制通道僅在 `dev`/`preview` 期間存在;它由一個不會出現在已建構套件中的連接埠控制。
 
-## 搭配 AI agent
+## 與 AI 代理搭配
 
-同樣的操作會透過 [`@extension.dev/mcp`](/docs/integrations/chrome-devtools-mcp) 以 MCP 工具的形式提供（`extension_logs`、`extension_eval`、`extension_storage`、`extension_reload`、`extension_open`、`extension_list_extensions`）。限制完全相同 — 助手可以自由觀察，但只有在你為該 session 啟用後才能執行動作。
+相同的操作以 MCP 工具的形式透過 [`@extension.dev/mcp`](/docs/integrations/chrome-devtools-mcp) 公開(`extension_logs`、`extension_eval`、`extension_storage`、`extension_reload`、`extension_open`、`extension_list_extensions`)。門檻完全相同 —— 助理可以自由觀察,但只有在你按工作階段啟用時才會執行動作。
 
 ## 下一步
 
-- [觸發動作與鍵盤指令](/docs/debugging/trigger-actions-and-commands) — 不需點擊也能測試處理函式，可無頭執行並用於 CI。
-- [同時執行兩個 MCP server](/docs/integrations/chrome-devtools-mcp) — Extension.js 控制與 Chrome DevTools MCP 並用。
-- [CI 範本](/docs/workflows/ci-templates) — 將這些整合進 PR 檢核流程。
+- [觸發 action 與鍵盤指令](/docs/debugging/trigger-actions-and-commands) —— 無須點擊,以無頭與 CI 的方式測試處理器。
+- [同時執行兩個 MCP 伺服器](/docs/integrations/chrome-devtools-mcp) —— 讓 Extension.js control 與 Chrome DevTools MCP 並存。
+- [CI 範本](/docs/workflows/ci-templates) —— 將這些串到 PR 門檻。

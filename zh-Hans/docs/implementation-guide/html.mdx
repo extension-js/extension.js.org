@@ -1,0 +1,255 @@
+---
+title: "扩展页面的 HTML 入口"
+description: "使用纯 HTML 入口构建扩展 UI。Extension.js 处理资源连接、脚本与样式打包,以及页面的开发期更新行为。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "browser",
+    "manifest",
+    "hmr",
+    "side panel",
+    "popup",
+    "devtools",
+  ]
+---
+
+Extension.js 处理两类 HTML 入口:manifest 字段与特殊文件夹 `pages/`。manifest 字段包括 popup、options、side panel、新标签页和 DevTools。`pages/` 用于 manifest 未直接命名的路由。
+
+Extension.js 会遍历每个入口的脚本、样式和链接资源。你只需编写普通 HTML,Extension.js 会自动完成其他配置。
+
+## 模板示例
+
+### `new`
+
+![new 模板截图](/images/examples/new/screenshot.png)
+
+带 HTML 页面入口的极简新标签页扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/new](https://github.com/extension-js/examples/tree/main/examples/new)
+
+### `sidebar`
+
+![sidebar 模板截图](/images/examples/sidebar/screenshot.png)
+
+带 HTML 页面入口的侧边栏扩展,提供持久的伴随式 UI。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/sidebar](https://github.com/extension-js/examples/tree/main/examples/sidebar)
+
+## HTML 能力
+
+| 能力          | 你可以获得什么                                                |
+| ----------- | ------------------------------------------------------ |
+| 入口发现        | 用一套流程编译 manifest 与 `pages/` 中声明的 HTML                  |
+| 资源连接        | 把 HTML 标签引用的脚本与样式一并打包                                  |
+| public 路径处理 | 让有意为之的 public 根资源保持稳定                                  |
+| 开发期跟踪       | 在 HTML 与其引用资源编辑时触发重新编译                                 |
+
+## 支持的 HTML 入口
+
+以下 manifest 字段使用 HTML 文件作为入口:
+
+| Manifest 字段                       | 期望的文件类型 |
+| --------------------------------- | ------- |
+| `action.default_popup`            | `.html` |
+| `background.page`                 | `.html` |
+| `chrome_url_overrides.*`          | `.html` |
+| `devtools_page`                   | `.html` |
+| `options_ui.page` / `options_page` | `.html` |
+| `page_action.default_popup`       | `.html` |
+| `sandbox.pages`                   | `.html` |
+| `side_panel.default_path`         | `.html` |
+| `sidebar_action.default_panel`    | `.html` |
+
+你也可以把独立页面放到 `pages/` 下,而无需为每个文件扩展 manifest 入口字段。
+
+## HTML 入口示例
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Extension Page</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="./main.ts"></script>
+  </body>
+</html>
+```
+
+## Extension.js 如何处理 HTML
+
+对每个 HTML 入口,Extension.js 会:
+
+1. 把 HTML 文件输出到编译流程中。
+2. 从标签中发现本地脚本/样式/静态资源。
+3. 将脚本/样式打包为合适的扩展产物。
+4. 修补 HTML 以注入编译后的产物引用。
+5. 保持 public 根引用(例如 `/icon.png`)作为 public 资源。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show an HTML entrypoint importing a script and stylesheet, then inspect emitted compiled HTML and bundled assets. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 开发期行为
+
+- Extension.js 会跟踪 HTML 与所引用资源的文件依赖,因此编辑会触发重新编译。
+- 在受支持的注入脚本流程中,脚本变化使用热模块替换 (HMR)。
+- 如果 HTML 的脚本/样式入口列表发生变化(增减入口),Extension.js 可能需要重启开发服务器。
+- 修改 manifest 中的 HTML 入口也可能触发 “需要重启” 的诊断提示。
+
+## 路径与环境变量
+
+- Extension.js 从 HTML 文件所在位置解析相对路径。
+- Extension.js 将以 `/` 开头的路径视为扩展 public 根路径。
+- 在编译期间,Extension.js 会替换发出的 HTML 中的 `$EXTENSION_PUBLIC_*` 及相关占位符。
+
+## 使用额外页面
+
+把额外文件放在 `pages/`:
+
+```plaintext
+pages/
+└── extra-page.html
+```
+
+## 常见的扩展界面
+
+大多数渲染 UI 的扩展界面都是 HTML 入口,只是 manifest 字段和运行时预期不同。请按交互模型选择对应界面,然后保持 HTML 页面本身轻量。
+
+| 界面            | Manifest 字段                                                  | 适用场景                                              |
+| ------------- | ------------------------------------------------------------- | ------------------------------------------------- |
+| Popup         | `action.default_popup` 或 `browser_action.default_popup`        | 从工具栏打开的简短、任务聚焦型 UI                                |
+| Options 页面    | `options_ui.page` 或 `options_page`                             | 持久化的设置与偏好                                         |
+| 侧边栏          | `side_panel.default_path` 或 `sidebar_action.default_panel`     | 与当前标签页并存的持久伴随式 UI                                  |
+| DevTools 页面   | `devtools_page`                                                | 为扩展提供的调试或检查工具                                     |
+| 新标签页覆盖       | `chrome_url_overrides.newtab`                                  | 完全由扩展占据的全屏浏览器界面                                    |
+| Sandbox 页面    | `sandbox.pages`                                                | 需要沙箱执行的隔离 HTML                                    |
+
+### Popup
+
+将 popup 用于快速、聚焦的操作:
+
+- 快速状态检查。
+- 单步命令。
+- 小型表单或开关。
+
+保持 popup 小巧且健壮。popup 会频繁打开和关闭,因此不要假设 UI 内存状态可长期存在。
+
+### Options 页面
+
+需要配置持久化行为时使用 options 页面:
+
+- 账户或集成设置。
+- 功能开关。
+- 键盘或工作流偏好。
+
+把 options 页面与浏览器存储配对,这样设置可以在重启后保留,且后台或内容脚本代码也能读取。
+
+### 侧边栏
+
+当扩展需要在当前页面旁提供持久工作区时,使用侧边栏:
+
+- 研究或笔记伴侣。
+- 感知标签页的助手。
+- 在你导航时仍可见的页面分析结果。
+
+侧边栏 HTML 仍然是一个扩展页面入口。差别在于界面语义,而不是构建流水线。
+
+### DevTools 页面
+
+当扩展为开发者提供工具时,使用 `devtools_page`:
+
+- 检查面板。
+- 请求或 DOM 诊断。
+- 项目专属的调试辅助。
+
+将其视为一种专用界面。它通常需要更强的消息传递模式,因为往往要与后台逻辑和被检查的标签页协调。
+
+### 新标签页覆盖
+
+当扩展要占据整个新标签页体验时,使用 `chrome_url_overrides.newtab`。
+
+它通常最适合那些 popup 显得太局促的丰富、类应用 UI。
+
+### Sandbox 页面
+
+仅当功能确实需要 sandbox 模型时使用 sandbox 页面。它们同样是 HTML 入口,只是为更窄范围的浏览器扩展安全与执行约束而存在。
+
+## 界面编写模式
+
+任何 HTML 界面的良好默认结构是:
+
+1. 让 HTML 文件尽量精简。
+2. 挂载一个脚本入口。
+3. 从该脚本或链接的样式表导入样式。
+4. 将浏览器 API 协调放到独立模块中。
+
+这种模式对 popup、options、侧边栏、DevTools 和新标签页界面都适用。
+
+## 最佳实践
+
+- 让入口 HTML 保持精简,通过脚本引入应用代码。
+- 对项目资源使用相对路径,只在确需 public 资源时使用 `/` 路径。
+- 把不是主要 manifest UI 入口的额外扩展页面放在 `pages/`。
+- 把 script/link 的新增/移除视为可能需要重启的结构性变更。
+- 先按用户交互模型选择界面,再以轻量 HTML 页面入口实现它。
+- 把界面专属状态放在存储或后台协调中,而不是假设 UI 页面始终挂载。
+
+## 下一步
+
+- 了解更新结果:[开发期更新行为](/docs/workflows/dev-update-behavior)。
+- 用 [Storage](/docs/implementation-guide/storage) 持久化设置与状态。
+- 用 [Messaging](/docs/implementation-guide/messaging) 协调 UI 页面。
+- 详细了解 [特殊文件夹](/docs/features/special-folders)。
+- 继续阅读 [开发中的 CSS](/docs/implementation-guide/css)。

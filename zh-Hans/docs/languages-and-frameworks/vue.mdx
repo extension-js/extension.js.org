@@ -1,0 +1,200 @@
+---
+title: "面向浏览器扩展的 Vue.js"
+description: "使用 Vue 单文件组件构建扩展 UI。Extension.js 会从你的依赖中检测到 Vue,并配置 SFC 编译与别名。"
+keywords:
+  [
+    "extension.js",
+    "typescript",
+    "javascript",
+    "vue",
+    "rspack",
+    "content script",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Extension.js 会从你的依赖中检测到 Vue,自动配置单文件组件(SFC)编译、框架别名和开发时的更新行为。作用域样式、Composition API 和 `<script setup>` 都无需额外的打包器配置即可使用。
+
+## 何时适合使用 Vue
+
+- 你已经在生产环境中发布 Vue 应用。
+- 你偏好使用作用域样式和 Composition API 的 Vue 单文件组件写法。
+- 你希望扩展 UI 与现有的 Vue 架构保持一致。
+
+## 模板示例
+
+### `new-vue`
+
+![模板截图](/images/examples/new-vue/screenshot.png)
+
+从第一天起就支持 SFC,构建 Vue 新标签页体验。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-vue
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-vue
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-vue
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/new-vue](https://github.com/extension-js/examples/tree/main/examples/new-vue)
+
+### `content-vue`
+
+![模板截图](/images/examples/content-vue/screenshot.png)
+
+使用内容脚本将 Vue 组件直接注入到网页中。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-vue
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-vue
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-vue
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-vue](https://github.com/extension-js/examples/tree/main/examples/content-vue)
+
+## 在已有扩展中使用
+
+按以下步骤将 Vue 添加到现有扩展中。
+
+### 安装
+
+安装所需依赖:
+
+<PackageManagerTabs command="install vue" />
+
+如需在已有项目中显式配置,还需安装 Vue SFC 工具链:
+
+<PackageManagerTabs command="install -D vue-loader @vue/compiler-sfc" />
+
+### 配置
+
+Extension.js 期望 Vue 组件位于 `.vue` 文件中。它会在 Rspack 流水线中配置 `vue-loader`、`VueLoaderPlugin` 以及 Vue 相关的 define 标志。
+
+## 开发行为
+
+当 Extension.js 检测到 Vue 时,它会:
+
+- 在框架插件中启用 `.vue` 文件编译。
+- 应用 Vue 运行时别名(以保证运行时解析的一致性)。
+- 在相关的 Vue SFC 变更后重新挂载,从而支持内容脚本更新。
+
+如果你的项目缺少可选的 Vue 工具,Extension.js 会自动安装并要求重启。
+
+### 故障排查
+
+- **缺少 Vue 工具警告:** 安装 `vue-loader` 和 `@vue/compiler-sfc`。
+- **安装后提示重启:** 停止并重新运行 `extension dev`,以便 Extension.js 加载新安装的 loader/插件。
+- **意料之外的 `.vue` 处理问题:** 确认 `vue` 已经出现在项目依赖中,以便 Extension.js 检测到 Vue 集成。
+
+## 使用示例
+
+### 在新标签页扩展中
+
+要在新标签页扩展中使用 Vue,在 HTML 中引入入口文件:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this extension.</noscript>
+    <div id="app"></div>
+  </body>
+  <script src="./main.ts"></script>
+</html>
+```
+
+```ts
+import { createApp } from "vue";
+import App from "./App.vue";
+
+createApp(App).mount("#app");
+```
+
+```vue
+<!-- App.vue -->
+<template>
+  <h1>Hello, Vue.js Extension!</h1>
+</template>
+
+<script setup lang="ts">
+// Component logic goes here.
+</script>
+
+<style scoped>
+h1 {
+  color: #42b983;
+}
+</style>
+```
+
+### 在 `content_script` 文件中
+
+对于内容脚本,将 Vue 应用挂载到一个注入的根节点:
+
+```ts
+import { createApp } from "vue";
+import App from "./App.vue";
+import "./content.css";
+
+const rootDiv = document.createElement("div");
+rootDiv.id = "extension-root";
+document.body.appendChild(rootDiv);
+
+createApp(App).mount("#extension-root");
+```
+
+## 最佳实践
+
+- 让 UI 入口保持框架优先(`main.ts`、`App.vue`),并将扩展 API 放到专门的模块中。
+- 在 SFC 中尽量使用 scoped 样式,减少扩展页面中的样式泄露。
+- 对于大型 UI,拆分组件并提取共享 composable,以保持内容脚本的轻量。
+
+## 后续步骤
+
+- 进一步了解 [TypeScript 支持](/docs/languages-and-frameworks/typescript)。
+- 探索 [Sass 和 Sass modules](/docs/languages-and-frameworks/sass)。
+
+## 视频讲解
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Vue SFC template creation, dev mode launch, and component update behavior in extension UI. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

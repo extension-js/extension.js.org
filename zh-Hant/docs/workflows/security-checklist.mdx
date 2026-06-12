@@ -1,0 +1,86 @@
+---
+title: "擴充功能安全檢查清單"
+description: "在發行前透過可重複的安全審查減少擴充功能的攻擊面。涵蓋最小權限、受限制的執行階段存取與輸入驗證。"
+keywords:
+  [
+    "browser",
+    "manifest",
+    "content script",
+    "docs",
+    "workflows",
+    "security checklist",
+    "security",
+    "checklist",
+  ]
+---
+
+你的擴充功能可能因為幾個反覆出現的原因而無法通過商店審查與內部審查。權限範圍比功能所需更廣。內容指令稿以不安全的方式信任頁面上下文。Web-accessible 資源（WAR）將內部內容暴露給任意來源。訊息處理函式在未驗證寄件者的情況下採取行動。
+
+請在每次發行前執行此檢查清單。
+
+## 安全審查能力
+
+| 領域                                    | 它能協助你驗證什麼                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| 權限範圍                                | 申請的能力是最小且經過考量的                                              |
+| 內容指令稿安全                          | 頁面上下文中的行為避免不安全的注入模式                                    |
+| WAR（web-accessible 資源）曝光          | 只有必要的資產對外可讀                                                    |
+| 訊息邊界                                | 擴充功能驗證特權操作並檢查寄件者                                          |
+| 發行衛生                                | 持續整合（CI）與相依套件檢查可及早抓出回歸                                |
+
+## Manifest 與權限
+
+- 只申請你需要的權限。
+- 除非必要，避免廣泛的主機權限。
+- 對非核心能力優先使用選用權限。
+- 在功能變更後重新檢查 `web_accessible_resources` 的範圍。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a pre-release security pass that trims permissions and narrows web_accessible_resources before packaging. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 內容指令稿
+
+- 預設使用隔離世界（沙箱執行上下文），除非你嚴格需要 MAIN 世界存取頁面的 JavaScript 環境。
+- 讓選擇器與 DOM 異動限定在已知的目標上。
+- 在渲染或儲存之前清理不可信的頁面資料。
+- 避免向頁面上下文注入可執行字串。
+
+## Web-accessible 資源
+
+- 讓 WAR 條目保持明確且最小化。
+- 避免萬用字元 `resources: ["*"]` 模式。
+- 將 `matches` 限制在必需的網域上。
+- 使用執行階段 URL 輔助函式（`runtime.getURL`）存取資產。
+
+## 訊息傳遞與資料流
+
+- 在處理前驗證訊息負載的結構。
+- 對特權操作驗證寄件者上下文。
+- 避免將特權操作直接暴露給頁面指令稿。
+- 為內容/背景通訊保留邊界模組。
+
+## 建置與發行衛生
+
+- 在 CI 中執行 lint、類型檢查與測試。
+- 檢查正式 bundle 輸出中是否有非預期的產物。
+- 保持相依套件更新並移除未使用的套件。
+- 輪換密鑰，並將敏感值排除在客戶端可見的環境變數之外。
+
+## 常見高風險反模式
+
+- `host_permissions` 使用與功能不相關的廣泛萬用字元
+- `web_accessible_resources` 將廣泛的 glob 模式暴露給 `<all_urls>`
+- 訊息處理函式在不檢查寄件者或 schema 的情況下信任負載
+- 在可以使用隔離世界時卻使用 MAIN 世界指令稿
+
+## 發行前快速檢查
+
+1. 權限審查
+2. WAR 審查
+3. 內容指令稿世界審查
+4. 訊息驗證審查
+5. CI 在目標瀏覽器矩陣上維持綠色
+
+## 下一步
+
+- 查看 [web-accessible 資源](/docs/implementation-guide/web-accessible-resources)。
+- 查看[疑難排解](/docs/workflows/troubleshooting)。

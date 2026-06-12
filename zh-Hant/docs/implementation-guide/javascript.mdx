@@ -1,0 +1,164 @@
+---
+title: "擴充功能中的 JavaScript 與 TypeScript"
+description: "透過由 Rspack 與 SWC 轉換驅動的同一套 Extension.js 管線,在背景、內容指令稿與 UI 頁面之間交付 JavaScript 與 TypeScript。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "typescript",
+    "javascript",
+    "hmr",
+    "content script",
+    "service worker",
+  ]
+---
+
+透過同一套 JavaScript/TypeScript 管線,在背景、內容指令稿與 UI 頁面之間交付擴充功能行為。
+
+Extension.js 會從 `manifest.json`、HTML 頁面與特殊資料夾收集指令稿入口,並以預設的 SWC(Speedy Web Compiler)為基礎的設定進行編譯。
+
+## 範本範例
+
+### `javascript`
+
+![javascript 範本截圖](/images/examples/javascript/screenshot.png)
+
+附帶新分頁的原生 JavaScript 擴充功能。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=javascript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=javascript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=javascript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=javascript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=javascript
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/javascript](https://github.com/extension-js/examples/tree/main/examples/javascript)
+
+### `content`
+
+![content 範本截圖](/images/examples/content/screenshot.png)
+
+注入網頁的原生 JavaScript 內容指令稿。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+## JavaScript 能力
+
+| 能力                | 你可以獲得什麼                                                |
+| ----------------- | ------------------------------------------------------ |
+| 共用的 JS/TS 管線      | 使用同一套預設轉換器設定編譯擴充功能指令稿                                  |
+| 入口探索              | 從 manifest、頁面與特殊資料夾載入指令稿入口                                |
+| 執行時安全輸出           | 為每種擴充功能情境輸出可預期的指令稿產物                                      |
+| 路徑規範化             | 將支援的擴充功能路徑字面量改寫為輸出安全的路徑                                   |
+
+## 支援的指令稿入口
+
+| Manifest 欄位                | 預期的檔案類型                  |
+| --------------------------- | ---------------------------- |
+| `background.service_worker` | `.js`、`.ts`、`.mjs`、`.tsx` |
+| `background.scripts`        | `.js`、`.ts`、`.mjs`、`.tsx` |
+| `content_scripts.js`        | `.js`、`.ts`、`.mjs`、`.tsx` |
+| `user_scripts.api_script`   | `.js`、`.ts`、`.mjs`、`.tsx` |
+
+## `manifest.json` 中的指令稿宣告範例
+
+`manifest.json` 中的指令稿宣告範例:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./scripts/background.ts"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/content-script.ts"]
+    }
+  ]
+}
+```
+
+## 開發期行為
+
+- **內容指令稿:** Extension.js 注入熱模組替換 (HMR)/remount 流程以實現快速更新。
+- **擴充功能頁面:** 頁面指令稿遵循頁面的 HMR 行為。
+- **背景/service worker:** 依變更類型,指令稿更新可能觸發擴充功能硬重載。
+- **入口清單變動:** 修改 manifest 中的指令稿結構可能需要重新啟動開發伺服器。
+
+## 指令稿位置與慣例
+
+- 在專案根目錄使用 `scripts/` 放置以指令稿為主的擴充功能入口。
+- 使用 `pages/` 放置帶有自身指令稿的 HTML 入口。
+- 保持 manifest 參考的路徑穩定;不要在不更新 manifest 的情況下移動入口檔案。
+
+## 轉換與打包預設行為
+
+- SWC 是 JS/TS/JSX/TSX 的預設轉換器。
+- Extension.js 使用以瀏覽器為先的 `package.json` 欄位解析(`browser`、`module`、`main`)。
+- Extension.js 預設以可預期的方式輸出入口,不會將程式碼拆分到個別輸出檔案。
+- 路徑解析會改寫支援 API 中的靜態擴充功能路徑字面量。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one feature script reused across popup, content script, and background contexts with target-safe compiled output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 動態匯入的注意事項
+
+- 內容指令稿中的動態匯入有執行時限制;在可能的地方,Extension.js 會使用 loader 回退方案。
+- service worker 的延遲載入有瀏覽器限制;對於必須在 service worker 啟動時立即可用的程式碼,優先使用靜態匯入。
+
+## 最佳實務
+
+- 保持入口指令稿精簡,將功能邏輯下放到共用模組。
+- 對擴充功能 API 使用靜態匯入路徑,以便路徑解析能安全地規範化它們。
+- 避免在內容指令稿與 service worker 中進行不必要的動態匯入。
+- 在開發流程中,將 manifest 指令稿清單的修改視為結構性變更。
+
+## 下一步
+
+- 了解更新結果:[開發期更新行為](/docs/workflows/dev-update-behavior)。
+- 了解如何使用 [特殊資料夾](/docs/features/special-folders) 組織檔案結構。
+- 接著閱讀 [背景指令稿與 service worker](/docs/implementation-guide/background)。

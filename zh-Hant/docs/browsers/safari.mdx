@@ -1,0 +1,123 @@
+---
+title: "使用 Extension.js 建置 Safari 擴充功能"
+description: "在 macOS 上使用 Extension.js 將你的 web 擴充功能建置為 Safari 應用。涵蓋需求、dev 與 build 工作流以及已知限制。"
+keywords:
+  [
+    "extension.js",
+    "safari",
+    "webkit",
+    "safari web extension",
+    "xcode",
+    "macos",
+    "browser",
+    "docs",
+    "browsers",
+  ]
+---
+
+<AvatarBrowsers browsers={["safari"]} />
+把你現有的 web 擴充功能打包成 macOS 上的原生 Safari 應用 —— 不需手動維護獨立的 Xcode 專案。
+
+<Warning>
+  Safari 支援處於 **alpha** 階段。build → convert → `xcodebuild` → open
+  流程可用,但請預期會有粗糙之處與破壞性變更。Chrome、Edge 與 Firefox
+  才是穩定目標。
+</Warning>
+
+使用 `--browser=safari` 即可把你發佈到 Chrome 與 Firefox 的同一份擴充功能轉成 Safari App Extension。Extension.js 會打包你的程式碼、執行 Apple 的 `safari-web-extension-converter`、用 `xcodebuild` 編譯生成的應用,並引導你完成啟用流程。
+
+## 需求
+
+Safari 僅支援 **macOS**,而且需要**完整的 Xcode 應用**,不只是 Command Line Tools。轉換器(`safari-web-extension-converter`)與 `xcodebuild` 都隨 `Xcode.app` 一起提供。
+
+```bash
+# 從 Mac App Store 安裝 Xcode,然後讓工具鏈指向它:
+sudo xcode-select --switch /Applications/Xcode.app
+xcodebuild -runFirstLaunch
+```
+
+若缺少 Xcode,`extension build`/`dev --browser=safari` 會在打包前就快速失敗並提供指引,而不是出現令人困惑的後續錯誤。
+
+## 它會產出什麼
+
+`extension build --browser=safari` 會在你的專案旁建立:
+
+| 路徑                  | 是什麼                                                          |
+| --------------------- | --------------------------------------------------------------- |
+| `dist/safari`         | 打包好的 web 擴充功能(manifest、指令稿、資源)。               |
+| `dist/safari-xcode`   | 產生的 Xcode 專案(應用 + Safari 擴充功能 target)。            |
+| `…/Release/<App>.app` | 編譯完成、臨時簽署的應用,用於承載你的擴充功能。                |
+
+整條流程端到端執行:**打包 → 轉換 → `xcodebuild` → 開啟應用 → 引導啟用**。
+
+```bash
+npx extension build --browser=safari
+```
+
+應用名稱與 bundle 識別碼會從你的 manifest `name` 衍生(例如 `React Sidebar Example` → bundle id `dev.extensionjs.React-Sidebar-Example`)。此專案預設以 macOS 為目標。
+
+## 在 Safari 中啟用擴充功能
+
+本地建置是**臨時簽署**的(不需要 Apple Developer 帳號),因此 Safari 需要你手動啟用一次。當建置打開應用後,Extension.js 會印出這些步驟,並在 macOS 註冊該擴充功能後進行確認:
+
+1. Safari ▸ 設定 ▸ 進階 ▸ 勾選 **「顯示網頁開發者功能」**。
+2. Safari ▸ 開發 ▸ **允許未簽署的擴充功能**(每次重新啟動 Safari 都會重置)。
+3. Safari ▸ 設定 ▸ 擴充功能 ▸ 啟用你的擴充功能。
+
+<Note>
+  「允許未簽署的擴充功能」會在每次啟動 Safari 時重置。在開發期間重新啟動
+  Safari 後需要再次啟用。已簽署的建置(Apple Developer ID)可以避免這一步,
+  這也是發行工作流的一部分。
+</Note>
+
+## 使用 `dev` 進行開發
+
+`extension dev --browser=safari` 會執行監看迴圈:
+
+```bash
+npx extension dev --browser=safari
+```
+
+- **首次編譯** —— 完整打包流程:轉換、建置、開啟應用,並印出啟用步驟。
+- **每次儲存** —— 增量 `xcodebuild` 同步(通常幾秒),會以新建置的 `dist/safari` 更新應用的資源。
+
+Safari 沒有像 Chromium 或 Firefox 那樣的即時重新載入通道,因此重新建置之後,需在 Safari 中**重新整理頁面(或切換擴充功能開關)**來載入變更。Xcode 專案只會產生一次然後重複使用,所以你在 Xcode 中所做的客製(entitlements、capabilities)會在多次建置間保留。如需從頭重新產生,請刪除 `dist/safari-xcode`。
+
+## 引擎目標
+
+`safari` 有一個引擎別名 **`webkit-based`**,與 `chromium-based` 和 `gecko-based` 對應:
+
+```bash
+npx extension build --browser=webkit-based
+```
+
+## 命令支援
+
+| 命令      | Safari 支援                                                                    |
+| --------- | ------------------------------------------------------------------------------ |
+| `build`   | ✅ 建置並打包 Safari 應用。                                                    |
+| `dev`     | ✅ 監看 + 增量重新建置(需在 Safari 中重新整理以套用)。                       |
+| `preview` | ❌ 不支援 —— Safari 擴充功能無法被自動載入到執行中的瀏覽器。                   |
+| `start`   | ❌ 不支援 —— 原因同 `preview`。                                                |
+
+`preview` 與 `start` 的存在是為了在執行中的瀏覽器中啟動你的擴充功能。Safari 需要上方那個手動且受安全控管的啟用步驟,因此這些命令會引導你改用 `build`。
+
+## 限制
+
+- **僅 macOS。** 建置 Safari 應用需要 macOS 與完整的 Xcode 應用。
+- **沒有即時重新載入。** 重新建置很快,但需要在 Safari 中重新整理以套用。
+- **需要手動一次性啟用。** 允許未簽署擴充功能與啟用擴充功能皆為 Safari 的安全控制,無法自動化。
+- **本地建置是臨時簽署的。** 發行簽署、公證以及提交到 App Store 是此工作流之外的獨立步驟。
+- **僅 macOS 目標。** 目前此工作流不會產生 iOS 應用。
+
+## 最佳實務
+
+- **正常建置其他目標**:Safari 是加值項 —— 持續在 `chromium`/`firefox` 中迭代,當你要驗證 Safari 時再執行 `--browser=safari`。
+- **使用瀏覽器特定欄位**透過帶瀏覽器前置詞的 manifest 鍵表達真正的行為差異。
+- **保留產生的專案**,除非你需要從乾淨的狀態重新開始 —— 重新產生會捨棄 Xcode 端的客製內容。
+
+## 後續步驟
+
+- 查看所有[支援的瀏覽器](/docs/browsers/browsers-available)。
+- 使用[瀏覽器特定的 manifest 欄位](/docs/features/browser-specific-fields)。
+- 閱讀[多平台建置](/docs/features/multi-platform-builds)。

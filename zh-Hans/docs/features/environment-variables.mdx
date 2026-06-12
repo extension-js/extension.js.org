@@ -1,0 +1,386 @@
+---
+title: "浏览器扩展中的环境变量"
+description: "在 Chrome、Firefox 与 Edge 扩展中安全使用 .env 文件以及浏览器专属的环境变量。让密钥不进入打包后的扩展代码。"
+keywords:
+  [
+    "environment variables in browser extensions",
+    "chrome extension environment variables",
+    ".env extension",
+    "browser environment variable",
+    "secrets in browser extension builds",
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "typescript",
+  ]
+---
+
+在一套扩展代码库中跨浏览器和环境复用,而无需把取值写死在代码里。
+
+## 浏览器扩展中的环境变量
+
+浏览器扩展运行在用户机器上。这让“配置”与“密钥”之间的边界比普通 web 应用更敏感。任何安装你扩展的人都可以读取你打包进 JavaScript、HTML 或编译后 `manifest.json` 中的任何内容。
+
+Extension.js 通过两条环境加载路径来处理这一点。一条服务于**编译后的扩展包**(感知浏览器与模式)。另一条则在 Node 中加载 **`extension.config.*`** 时使用。
+
+两条路径都很重要,具体取决于你在哪里读取变量。
+
+## 模板示例
+
+### `new-env`
+
+![new-env template screenshot](/images/examples/new-env/screenshot.png)
+
+通过一个读取 `EXTENSION_PUBLIC_*` 值的新标签页扩展,体验环境变量的实际效果。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-env
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-env
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-env
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-env
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-env
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/new-env](https://github.com/extension-js/examples/tree/main/examples/new-env)
+
+### `content-env`
+
+![content-env template screenshot](/images/examples/content-env/screenshot.png)
+
+在注入到网页的内容脚本中使用环境变量。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-env
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-env
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-env
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-env
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-env
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-env](https://github.com/extension-js/examples/tree/main/examples/content-env)
+
+## 工作原理
+
+### 扩展打包(编译时)
+
+构建扩展时,编译器会从扩展包目录中按以下顺序选取**一个**匹配的 env 文件:
+
+1. `.env.[browser].[mode]`(例如 `.env.chrome.development`)
+2. `.env.[browser]`
+3. `.env.[mode]`
+4. `.env.local`
+5. `.env`
+6. `.env.example`
+
+Extension.js **总是会先合并** `.env.defaults`(如果存在),然后是上面选中的文件中的变量。最后,对于重复键,**系统** `process.env` 拥有最高优先级。
+
+<Note>
+  选择的是上面列表中的**单个** env 文件(加上 `.env.defaults`),
+  而不是按所有文件做完整层级覆盖。
+</Note>
+
+如果项目旁找不到匹配的文件,Extension.js 会从**最近的工作区根目录**重复同样的查找。这里的根目录是包含 `pnpm-workspace.yaml` 的最近祖先目录。位于 monorepo 中的扩展可以共享根级 env 文件进行**打包注入**。
+
+**Monorepo 限制:** 只有当祖先目录中存在 `pnpm-workspace.yaml` 标记时,工作区回退才会运行。如果你使用的纯粹是依赖 `package.json` 中 `"workspaces"` 字段的 npm 或 Yarn 工作区,这种自动根目录查找将不会生效。这种情况下,请将 env 文件与扩展包放在一起,或者在仓库根目录添加一个 `pnpm-workspace.yaml`。
+
+### `extension.config.*`(Node,在你的配置运行前)
+
+`extension.config.js` / `.mjs` / `.cjs` 在 Node 中运行。在 Extension.js 求值该文件之前,它会**预加载**一小部分文件到 `process.env`,使配置可以读取这些值:
+
+1. `.env.defaults`(若存在则合并)
+2. 然后从以下文件中选取**第一个**存在的:`.env.development`、`.env.local`、`.env`
+
+Extension.js **不会**为该预加载步骤使用浏览器范围的文件,例如 `.env.chrome` 或 `.env.chrome.development`。如需此类值,请通过 shell 或持续集成(CI)流水线中的普通 `process.env` 进行设置。
+
+你也可以依赖打包时的 env(如上所述)将 `EXTENSION_PUBLIC_*` 值注入到扩展代码中。
+
+**工作区回退:** 如果扩展包目录中不存在这些文件,会从最近的包含 `pnpm-workspace.yaml` 的目录运行相同的预加载(限制同上)。
+
+之所以拆分,是因为配置加载在文件读取时是与浏览器无关的,而打包器知道当前的浏览器与模式。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show env file resolution order for one build target and mode, then confirm selected values in output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 内置环境变量
+
+Extension.js 会在编译时注入内置变量,因此在扩展代码中始终可以获取浏览器和模式。
+
+| 变量名                     | 描述                                                                              |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| `EXTENSION_PUBLIC_BROWSER` | 你扩展当前的浏览器目标(例如 `chrome`、`firefox`、`edge`)。                      |
+| `EXTENSION_PUBLIC_MODE`    | 扩展当前运行的模式,例如 `development` 或 `production`。                          |
+| `EXTENSION_BROWSER`        | 浏览器目标(非旧式别名)。                                                        |
+| `EXTENSION_MODE`           | 构建模式(非旧式别名)。                                                          |
+| `BROWSER`                  | 浏览器短别名。                                                                    |
+| `MODE`                     | 模式短别名。                                                                      |
+| `NODE_ENV`                 | 与编译器模式对齐的 Node 环境(`development` / `production`)。                    |
+
+上述所有内置变量都可以通过 `process.env.*` 和 `import.meta.env.*` 两种方式访问。
+
+## 环境变量清单
+
+### 公开/运行时变量(用户定义)
+
+| 变量模式             | 用途                                  | 是否可在 JS 运行时读取                      | 备注                       |
+| -------------------- | ------------------------------------- | ------------------------------------------- | -------------------------- |
+| `EXTENSION_PUBLIC_*` | 将用户定义的值暴露给扩展代码          | 是(`process.env` + `import.meta.env`)     | 仅适合安全交付的值         |
+
+### 静态占位符变量
+
+| 变量模式                                          | 用途                                          | 是否可在 JS 运行时读取 | 备注                                 |
+| ------------------------------------------------- | --------------------------------------------- | ---------------------- | ------------------------------------ |
+| 输出的 `.html` / `.json` 中的 `$EXTENSION_*` 标记 | 在静态资源中进行构建时占位符替换              | 不是作为 JS 变量       | 避免在静态模板中使用密钥             |
+
+### 内置/别名变量
+
+| 变量                       | 类型           | 备注              |
+| -------------------------- | -------------- | ----------------- |
+| `EXTENSION_PUBLIC_BROWSER` | 内置           | 浏览器目标        |
+| `EXTENSION_PUBLIC_MODE`    | 内置           | 构建模式          |
+| `EXTENSION_BROWSER`        | 内置别名       | 浏览器目标        |
+| `EXTENSION_MODE`           | 内置别名       | 构建模式          |
+| `BROWSER`                  | 内置别名       | 浏览器短名        |
+| `MODE`                     | 内置别名       | 模式短名          |
+| `NODE_ENV`                 | 内置           | 编译器模式        |
+
+### CLI 与开发服务器运行控制变量
+
+| 变量                       | 用途                                          | 典型用法                                   |
+| -------------------------- | --------------------------------------------- | ------------------------------------------ |
+| `EXTENSION_AUTO_EXIT_MS`   | N 毫秒后自动退出开发进程                      | CI 强制终止控制                            |
+| `EXTENSION_FORCE_KILL_MS`  | 强制终止超时回退                              | CI 清理鲁棒性                              |
+| `EXTENSION_VERBOSE`        | 在指定流程中输出详细诊断                      | 调试 CLI 行为                              |
+| `EXTENSION_AUTHOR_MODE`    | 维护者/作者诊断模式                           | 内部诊断与工具                             |
+| `EXTENSION_CLI_NO_BROWSER` | 从 CLI 禁用浏览器启动(设为 `1`)             | 等同于 `--no-browser` 标志                 |
+| `EXTENSION_DEV_NO_BROWSER` | 在开发服务器中禁用浏览器启动                  | monorepo 监听场景下不启动浏览器            |
+| `EXTENSION_NO_RELOAD`      | 在开发中跳过内容脚本重载运行时                | 等同于 `extension dev --no-reload`         |
+| `EXTENSION_DEV_DRY_RUN`    | 跳过开发服务器启动(提前返回)                | 对 CLI 接线做冒烟测试                      |
+| `EXT_BROWSERS_CACHE_DIR`   | 覆盖受管理的浏览器缓存目录                    | 自定义 CI 缓存路径                         |
+
+### 遥测控制变量
+
+| 变量                              | 用途                                            | 默认值  |
+| --------------------------------- | ----------------------------------------------- | ------- |
+| `EXTENSION_TELEMETRY_DISABLED`    | 完全禁用遥测(设为 `1`)                        | 未设置  |
+| `EXTENSION_TELEMETRY`             | 旧版禁用方式(设为 `0` 表示禁用)               | 未设置  |
+| `EXTENSION_TELEMETRY_SAMPLE_RATE` | `command_executed` 的采样率(0.0–1.0)          | `0.2`   |
+| `EXTENSION_TELEMETRY_MAX_EVENTS`  | 每个 CLI 进程最多发送的事件数                   | `3`     |
+| `EXTENSION_TELEMETRY_DEBOUNCE_MS` | 相同事件元组的去重时间窗口(毫秒)              | `60000` |
+| `EXTENSION_TELEMETRY_TIMEOUT_MS`  | 遥测请求的 HTTP 超时(毫秒)                    | `300`   |
+| `EXTENSION_TELEMETRY_DEBUG`       | 将遥测载荷打印到 stderr(设为 `1`)             | 未设置  |
+
+完整退出协议请参阅[遥测与隐私](/docs/features/telemetry-and-privacy)。
+
+### 浏览器传输调优变量
+
+这些变量会覆盖内部的 Chrome DevTools Protocol(CDP)与 Remote Debugging Protocol(RDP)超时。在缓慢的持续集成(CI)环境、Docker 容器,或调试不稳定的浏览器连接时非常有用。
+
+| 变量                                  | 用途                                          | 默认值  |
+| ------------------------------------- | --------------------------------------------- | ------- |
+| `EXTENSION_CDP_COMMAND_TIMEOUT_MS`    | CDP sendCommand 超时(毫秒)                  | `12000` |
+| `EXTENSION_CDP_HTTP_TIMEOUT_MS`       | CDP HTTP `/json` 发现超时(毫秒)             | `1200`  |
+| `EXTENSION_CDP_HEARTBEAT_INTERVAL_MS` | CDP WebSocket 心跳间隔(毫秒)                | `30000` |
+| `EXTENSION_RDP_EVAL_TIMEOUT_MS`       | Firefox RDP 求值超时(毫秒)                  | `8000`  |
+| `EXTENSION_RDP_MAX_RETRIES`           | Firefox RDP 连接重试次数                      | `150`   |
+| `EXTENSION_RDP_RETRY_INTERVAL_MS`     | Firefox RDP 连接重试间隔(毫秒)              | `1000`  |
+
+## 浏览器专属环境变量
+
+以下规则适用于**编译时 / 打包**的 env 选择(见上文[扩展打包](#extension-bundles-compile-time))。它们**不**适用于 Node 中针对 `extension.config.*` 的有限预加载。
+
+需要为各浏览器配置不同的值?Extension.js 支持浏览器范围的 env 文件,例如 `.env.chrome`(Chrome 扩展环境变量)与 `.env.firefox`(Firefox 扩展环境变量)。你也可以为某个具体构建变体同时组合浏览器与模式:
+
+- `.env.chrome.development`:Extension.js 仅在开发模式下以 Chrome 运行扩展时应用。
+- `.env.firefox.production`:Extension.js 仅在为 Firefox 进行生产模式构建时应用。
+
+优先级顺序为:
+
+- `.env.[browser].[mode]`
+- `.env.[browser]`
+- `.env.[mode]`
+- `.env.local`
+- `.env`
+- `.env.example`
+
+### 文件示例
+
+```ini
+# .env.chrome.development
+EXTENSION_PUBLIC_API_URL=https://api-dev.chrome.com
+```
+
+```ini
+# .env.firefox.production
+EXTENSION_PUBLIC_API_URL=https://api.firefox.com
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Chrome and Firefox runs picking different env files and producing different resolved values. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 自定义环境变量
+
+你可以在项目根目录的 env 文件中定义自定义变量。  
+Extension.js 仅将以 `EXTENSION_PUBLIC_` 为前缀的变量注入到 JavaScript 包中(`process.env` / `import.meta.env`)。
+
+```ini
+# .env
+EXTENSION_PUBLIC_API_KEY=your_api_key_here
+EXTENSION_PUBLIC_SITE_URL=https://example.com
+PRIVATE_KEY=abc123  # Not injected into JS bundles
+```
+
+**重要:** Extension.js 不会将没有 `EXTENSION_PUBLIC_` 前缀的变量注入到 JS 包中。  
+但输出的 `.json`/`.html` 文件中的占位符可以解析 `$EXTENSION_*` 标记,因此请避免在静态资源模板中引用密钥。
+
+## 使用环境变量
+
+你可以在 `manifest.json`、本地化文件、HTML 以及 JavaScript/TypeScript 文件中使用环境变量。
+
+### 1. 在 `manifest.json` 中
+
+`manifest.json` 原生并不支持环境变量,但 Extension.js 会在构建时替换受支持的占位符。例如:
+
+```json
+{
+  "name": "My Extension",
+  "version": "1.0",
+  "description": "This extension is connected to $EXTENSION_PUBLIC_API_KEY",
+  "background": {
+    "service_worker": "service_worker.js"
+  }
+}
+```
+
+编译时,Extension.js 会用解析得到的 env 值替换 `$EXTENSION_PUBLIC_API_KEY`。
+
+### 2. 在本地化文件中
+
+当某些值需要随环境变化时,你也可以在本地化文件中使用占位符。例如:
+
+```json
+{
+  "appName": {
+    "message": "My Extension - $EXTENSION_PUBLIC_SITE_URL"
+  },
+  "appDescription": {
+    "message": "Connected to API at $EXTENSION_PUBLIC_API_KEY"
+  }
+}
+```
+
+Extension.js 输出资源时,会将 `$EXTENSION_PUBLIC_SITE_URL` 等占位符替换为解析得到的值。
+
+### 3. 在 HTML 文件中
+
+你也可以在静态 HTML 文件中使用占位符(例如位于 `pages/` 下的文件):
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Extension</title>
+  </head>
+  <body>
+    <h1>Welcome to My Extension</h1>
+    <p>API Key: $EXTENSION_PUBLIC_API_KEY</p>
+  </body>
+</html>
+```
+
+编译时,Extension.js 会替换输出 HTML 中的 `$EXTENSION_PUBLIC_API_KEY`。
+
+### 4. 在 JSX 组件中
+
+在 React/JSX/TS 文件中,通过 `process.env` 读取 env 值:
+
+```jsx
+const ApiInfo = () => {
+  const apiUrl = process.env.EXTENSION_PUBLIC_SITE_URL;
+  const apiKey = process.env.EXTENSION_PUBLIC_API_KEY;
+
+  return (
+    <div>
+      <h1>API Information</h1>
+      <p>URL: {apiUrl}</p>
+      <p>Key: {apiKey}</p>
+    </div>
+  );
+};
+
+export default ApiInfo;
+```
+
+Extension.js 会在编译时把这些值内联进代码,而这些值可以随浏览器/模式变化。
+
+## `import.meta` 支持
+
+对于 ECMAScript 模块(ESM)工作流,Extension.js 也支持 `import.meta.env`:
+
+```js title="service_worker.mjs"
+const apiUrl = import.meta.env.EXTENSION_PUBLIC_API_URL;
+console.log(`API URL for the current environment: ${apiUrl}`);
+```
+
+对已注入的 env 键,`import.meta.env` 与 `process.env` 行为一致。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one value consumed in `manifest.json`, HTML, and JS (`process.env` / `import.meta.env`) during a build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 浏览器扩展构建中的密钥
+
+浏览器扩展运行在用户机器上。任何安装你扩展的人都可以审视你打包进 JavaScript、HTML 或编译后 `manifest.json` 中的任何值。请把整个产物视为公开。
+
+请遵守以下几条规则:
+
+- 永远不要把 API 密钥、签名密钥或认证令牌放到 `EXTENSION_PUBLIC_*` 后面。这个前缀只是用来标记“可安全交付”,不是用来隐藏内容。
+- 当取值是敏感的时,避免在静态 `manifest.json`、本地化或 HTML 模板中使用 `$EXTENSION_*` 占位符。它们会在构建时展开并落到产物中。
+- 把任何特权内容放到你自己掌控的后端,并在运行时由扩展调用。
+- 对于持续集成(CI),请把构建密钥放在 `process.env` 中(不要提交 env 文件),并把 `.env.defaults` 用于安全的共享值。
+
+## 最佳实践
+
+- **只暴露必须发布的内容:** 仅对客户端安全的键使用 `EXTENSION_PUBLIC_` 前缀。
+- **用 `.env.defaults` 做共享默认值:** 既保留可预期的团队默认值,又允许本地/系统覆盖。
+- **不要把密钥放进静态占位符:** 避免在 HTML/JSON 模板中放置含密钥的 `$EXTENSION_*` 标记。
+- **版本控制卫生:** 提交 `.env.example` 并忽略真实的 env 文件(`.env`、`.env.local`、浏览器/模式变体)。
+
+## 后续步骤
+
+- 在[可用浏览器](/docs/browsers/browsers-available)中复习浏览器目标设置。
+- 在 [`extension.config.js`](/docs/features/extension-configuration) 中配置共享默认值。
+- 通过 [`extension build`](/docs/commands/build) 进行发布构建。

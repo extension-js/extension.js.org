@@ -1,0 +1,247 @@
+---
+title: "用于启动已构建扩展的 Preview 命令"
+description: "在不重新编译的情况下启动一个已构建的扩展,用于类生产的手动测试。加载未打包的输出并运行浏览器启动流程。"
+keywords:
+  [
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "hmr",
+    "popup",
+  ]
+---
+
+启动一个已构建的扩展输出,用于类生产的手动测试。
+
+`preview` 不会编译你的项目。它加载一个已有的未打包扩展根目录并运行浏览器启动流程。
+
+## 何时使用 `preview`
+
+- 在不重新构建的情况下运行已有的构建输出。
+- 快速比较打包后的行为在不同浏览器目标之间的差异。
+- 调试与生产产物(而非开发/监听模式)相关的运行时问题。
+
+## Preview 命令能力
+
+| 能力                 | 它能提供什么                                            |
+| -------------------- | ------------------------------------------------------- |
+| 构建输出验证         | 测试真实的生产产物,无需重新构建                        |
+| 浏览器目标检查       | 在所选浏览器目标上运行编译后的输出                      |
+| 运行器控制           | 根据工作流需要启动或跳过浏览器运行器                    |
+| 快速人工 QA          | 在发布前快速验证打包就绪的行为                          |
+
+> `preview` 只负责运行。当 `dist/<browser>` 输出存在时,它会优先使用该目录。你也可以让它指向另一个已经包含 `manifest.json` 的未打包扩展文件夹。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension preview [project-path] [options]
+```
+
+```bash pnpm
+extension preview [project-path] [options]
+```
+
+```bash yarn
+extension preview [project-path] [options]
+```
+
+```bash bun
+extension preview [project-path] [options]
+```
+
+```bash bun
+extension preview [project-path] [options]
+```
+
+</CodeGroup>
+
+如果省略路径,Extension.js 会使用当前工作目录。
+
+## `preview` 如何选择要运行的内容
+
+`preview` 会按以下顺序检查这些位置:
+
+1. 所选浏览器目标对应的 `dist/<browser>`。
+2. 提供的项目路径或当前工作目录。
+
+目标文件夹需要包含一个带 `manifest.json` 的未打包扩展。同一条命令中是否运行过构建并不重要。
+
+## 参数与选项
+
+| 选项                        | 别名               | 作用                                                                       | 默认值                 |
+| --------------------------- | ------------------ | -------------------------------------------------------------------------- | ---------------------- |
+| `[path]`                    | -                  | 从项目路径预览已构建的扩展。                                               | `process.cwd()`        |
+| `--browser <browser>`       | -                  | 浏览器/引擎目标(`chromium`、`chrome`、`edge`、`firefox` 等)。            | `chromium`             |
+| `--profile <path\|boolean>` | -                  | 浏览器配置文件路径或布尔型配置模式。                                       | 全新配置               |
+| `--chromium-binary <path>`  | -                  | [自定义 Chromium 家族二进制路径](/docs/browsers/running-other-browsers)。  | 系统默认               |
+| `--gecko-binary <path>`     | `--firefox-binary` | [自定义 Gecko 家族二进制路径](/docs/browsers/running-other-browsers)。     | 系统默认               |
+| `--starting-url <url>`      | -                  | 在启动的浏览器中打开的初始 URL。                                           | 未设置                 |
+| `--no-browser`              | -                  | 跳过浏览器启动。                                                           | 默认启用浏览器启动     |
+| `--port <port>`             | -                  | 启用运行器时的运行器/DevTools 端口。使用 `0` 表示由操作系统分配。          | `8080`                 |
+| `--host <host>`             | -                  | 开发服务器绑定的主机。在 Docker/开发容器中使用 `0.0.0.0`。                 | `127.0.0.1`            |
+| `--extensions <list>`       | -                  | 用逗号分隔的伴随扩展列表或商店 URL。                                       | 未设置                 |
+| `--author`                  | `--author-mode`    | 启用维护者诊断模式。                                                       | 禁用                   |
+
+## 自动化元数据
+
+`preview` 会将就绪元数据写入:
+
+- `dist/extension-js/<browser>/ready.json`
+
+对于 `--no-browser` 流程,它提供确定性的命令状态:
+
+- 命令初始化期间为 `starting`
+- 仅运行的验证完成后为 `ready`
+- 缺少所需输出或启动失败时为 `error`
+- `runId` 和 `startedAt` 用于在脚本/代理中关联会话
+
+`preview` 不提供 `--wait` 门控选项。对于 `preview` 自动化,请直接消费 `ready.json`。
+
+## 日志选项
+
+| 选项                                                 | 作用                                                                                         | 默认值             |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
+| `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | 最低日志级别。                                                                               | `off`              |
+| `--log-context <list\|all>`                          | 上下文过滤器(`background`、`content`、`page`、`sidebar`、`popup`、`options`、`devtools`)。 | `all`              |
+| `--log-format <pretty\|json\|ndjson>`                | 日志输出格式。                                                                               | `pretty`           |
+| `--no-log-timestamps`                                | 在 pretty 模式下禁用时间戳。                                                                 | 默认启用时间戳     |
+| `--no-log-color`                                     | 在 pretty 模式下禁用颜色。                                                                   | 默认启用颜色       |
+| `--log-url <pattern>`                                | 按 URL 子串/正则过滤日志事件。                                                               | 未设置             |
+| `--log-tab <id>`                                     | 按 tab ID 过滤日志事件。                                                                     | 未设置             |
+
+## 源码检查选项(`preview` 不支持)
+
+CLI 会检测到这些选项并在解析前以错误退出。请改用 `dev --source ...`。
+
+| 选项                                            | 在 `preview` 中的支持情况                  |
+| ----------------------------------------------- | ------------------------------------------ |
+| `--source [url]`                                | 不支持(命令以指引信息退出)               |
+| `--watch-source [boolean]`                      | 不支持(命令以指引信息退出)               |
+| `--source-format <pretty\|json\|ndjson>`        | 不支持(命令以指引信息退出)               |
+| `--source-summary [boolean]`                    | 不支持(命令以指引信息退出)               |
+| `--source-meta [boolean]`                       | 不支持(命令以指引信息退出)               |
+| `--source-probe <selectors>`                    | 不支持(命令以指引信息退出)               |
+| `--source-tree <off\|root-only>`                | 不支持(命令以指引信息退出)               |
+| `--source-console [boolean]`                    | 不支持(命令以指引信息退出)               |
+| `--source-dom [boolean]`                        | 不支持(命令以指引信息退出)               |
+| `--source-max-bytes <bytes>`                    | 不支持(命令以指引信息退出)               |
+| `--source-redact <off\|safe\|strict>`           | 不支持(命令以指引信息退出)               |
+| `--source-include-shadow <off\|open-only\|all>` | 不支持(命令以指引信息退出)               |
+| `--source-diff [boolean]`                       | 不支持(命令以指引信息退出)               |
+
+## 共享的全局选项
+
+也支持 [全局选项](/docs/workflows/global-flags)。
+
+## 示例
+
+### 预览本地扩展
+
+{/* VIDEO_PLACEHOLDER_TODO: Show previewing an existing `dist/<browser>` output after build and validating runtime behavior manually. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension preview ./my-extension
+```
+
+```bash pnpm
+extension preview ./my-extension
+```
+
+```bash yarn
+extension preview ./my-extension
+```
+
+```bash bun
+extension preview ./my-extension
+```
+
+```bash bun
+extension preview ./my-extension
+```
+
+</CodeGroup>
+
+### 在 Edge 和 Chrome 中预览
+
+{/* VIDEO_PLACEHOLDER_TODO: Show previewing one built artifact across two explicit browser targets for release checks. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension preview ./my-extension --browser=edge,chrome
+```
+
+```bash pnpm
+extension preview ./my-extension --browser=edge,chrome
+```
+
+```bash yarn
+extension preview ./my-extension --browser=edge,chrome
+```
+
+```bash bun
+extension preview ./my-extension --browser=edge,chrome
+```
+
+```bash bun
+extension preview ./my-extension --browser=edge,chrome
+```
+
+</CodeGroup>
+
+### 不启动浏览器进行预览
+
+{/* VIDEO_PLACEHOLDER_TODO: Show preview with `--no-browser` for CI/local verification when browser launch is not needed. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension preview ./my-extension --no-browser
+```
+
+```bash pnpm
+extension preview ./my-extension --no-browser
+```
+
+```bash yarn
+extension preview ./my-extension --no-browser
+```
+
+```bash bun
+extension preview ./my-extension --no-browser
+```
+
+```bash bun
+extension preview ./my-extension --no-browser
+```
+
+</CodeGroup>
+
+## 行为说明
+
+- `preview` 只负责运行,绝不会编译项目。
+- `preview` 优先使用已有的构建输出(`dist/<browser>`),但可以回退到另一个未打包扩展根目录。
+- `preview` 不运行监听模式,也不支持热模块替换 (HMR)。
+- `preview` 不支持源码检查相关选项;请改用 `dev`。
+- 对于脚本/代理,请依赖 `ready.json`,不要解析终端输出。
+
+## 最佳实践
+
+- 在测试一个全新的生产产物时,先运行 `build` 再运行 `preview`。
+- 当未打包扩展位于默认项目输出之外时,请传入项目路径参数。
+- 在打包前使用 `--browser` 在多个目标上验证行为。
+
+## 下一步
+
+- 用 [`start`](/docs/commands/start) 一步完成构建并启动。
+- 用 [`build`](/docs/commands/build) 生成生产产物。
+- 在 [`extension.config.js`](/docs/features/extension-configuration) 中配置共享默认值。
+- 在 [环境变量](/docs/features/environment-variables#how-it-works) 中查看配置环境变量加载行为。

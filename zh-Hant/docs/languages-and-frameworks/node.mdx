@@ -1,0 +1,181 @@
+---
+title: "瀏覽器擴充功能中的 Node API"
+description: "優先使用瀏覽器原生 API,必要時再有選擇地為 Node 核心模組加上 polyfill。Extension.js 預設以瀏覽器執行時為目標。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "browser",
+    "typescript",
+    "rspack",
+    "content script",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Extension.js 預設以瀏覽器執行時為目標,不會自動為 Node 核心模組加上 polyfill,以維持較小的產物大小。如果某個相依套件使用了 `buffer`、`stream` 或 `crypto`,你會在建置時看到解析錯誤。以下章節說明何時應加上 polyfill,何時應改用瀏覽器原生方案。
+
+## 何時適合使用 Node polyfill
+
+- 某個必要相依套件在瀏覽器執行時需要 Node 核心模組。
+- 你正在逐步將程式碼從以 Node 為主的套件遷移過來。
+- 你可以為特定的執行時能力接受較大的產物大小。
+
+## 範本範例
+
+### `new-typescript`
+
+![new-typescript 範本截圖](/images/examples/new-typescript/screenshot.png)
+
+當你的擴充功能需要明確調整打包器/polyfill 時,從 TypeScript 基線開始。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-typescript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-typescript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-typescript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-typescript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-typescript
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/new-typescript](https://github.com/extension-js/examples/tree/main/examples/new-typescript)
+
+### `content-typescript`
+
+![content-typescript 範本截圖](/images/examples/content-typescript/screenshot.png)
+
+當依賴 Node 的函式庫會在頁面注入流程中執行時,使用內容腳本 TypeScript 基礎範本。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-typescript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-typescript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-typescript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-typescript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-typescript
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/content-typescript](https://github.com/extension-js/examples/tree/main/examples/content-typescript)
+
+### `new-crypto`
+
+![new-crypto 範本截圖](/images/examples/new-crypto/screenshot.png)
+
+查看在新分頁擴充功能中如何使用 Node `crypto` polyfill。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-crypto
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-crypto
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-crypto
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-crypto
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-crypto
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/new-crypto](https://github.com/extension-js/examples/tree/main/examples/new-crypto)
+
+## 預設行為
+
+- 建置目標以瀏覽器優先(`web`)。
+- 解析優先採用瀏覽器匯出(`browser`、`module`、`main`)。
+- Extension.js 預設停用 Node 核心模組的後備方案(例如 `crypto`、`path` 與 `fs`)。
+
+這意味著,除非你明確加入後備方案,否則匯入 Node API 可能會失敗。
+
+## 設定 Node polyfill
+
+使用 `extension.config.js`(或 `.mjs` / `.cjs`)擴充 Rspack 設定並定義安全的後備方案。
+
+```js
+import NodePolyfillPlugin from "node-polyfill-webpack-plugin";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.fallback = {
+      ...(config.resolve.fallback || {}),
+      crypto: require.resolve("crypto-browserify"),
+      path: require.resolve("path-browserify"),
+      fs: false,
+    };
+    config.plugins = config.plugins || [];
+    config.plugins.push(new NodePolyfillPlugin());
+    return config;
+  },
+};
+```
+
+## 安裝選用的 polyfill 套件
+
+<PackageManagerTabs command="install -D node-polyfill-webpack-plugin crypto-browserify path-browserify" />
+
+## 擴充功能 API 與 Node API 的差異
+
+在 CLI/設定中將 `polyfill` 設為 `true` 會啟用 `webextension-polyfill` —— 這是一個讓 Chromium 系列瀏覽器可以存取 `browser.*` API 命名空間的相容層。它並不會啟用 Node 核心模組的 polyfill。
+
+只在那些無法以標準 Web API 執行的函式庫中使用 Node polyfill。
+
+## 注意事項
+
+- 不要假設擴充功能執行時可以存取檔案系統;除非你有專門的瀏覽器安全策略,否則維持 `fs: false`。
+- 在可行時優先使用 Web Crypto(`crypto.subtle`),而非體積較大的 Node crypto shim。
+- Polyfill(Node API 的瀏覽器相容替代品)會增加產物大小,並可能影響擴充功能頁面與內容腳本的啟動時間。
+- 部分使用 `node:` 指定字串的套件可能需要明確的後備處理。
+
+## 後續步驟
+
+- 了解如何自訂 [Rspack 設定](/docs/features/rspack-configuration)。
+- 了解如何管理[擴充功能設定](/docs/features/extension-configuration)。
+
+## 影片導覽
+
+{/* VIDEO_PLACEHOLDER_TODO: Show enabling selected Node polyfills, rebuilding, and validating runtime behavior safely. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

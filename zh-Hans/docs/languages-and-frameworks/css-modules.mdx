@@ -1,0 +1,158 @@
+---
+title: "浏览器扩展中的 CSS modules"
+description: "通过 Rspack 流水线提供的零配置 CSS modules,在浏览器扩展的弹窗、选项页 UI 和内容脚本中为样式提供作用域,避免命名冲突。"
+keywords:
+  [
+    "css modules",
+    "css modules in browser extensions",
+    "css modules vs sass modules",
+    "extension.js",
+    "react",
+    "vue",
+    "svelte",
+    "preact",
+    "rspack",
+    "content script",
+    "popup",
+  ]
+---
+
+Extension.js 对模块风格的文件名(例如 `styles.module.css`)提供零配置的 CSS modules 支持,通过 Rspack CSS 流水线进行处理。类名会保持在导入它们的组件本地作用域内。
+
+## 何时适合使用 CSS modules
+
+- 你需要本地类名作用域,但不想引入完整的 CSS-in-JS 方案。
+- 你在弹窗/选项页/新标签页之间共享组件。
+- 你希望在更大型的扩展代码库中拥有可预测的样式归属。
+
+## 模板示例
+
+### `content-css-modules`
+
+![content-css-modules 模板截图](/images/examples/content-css-modules/screenshot.png)
+
+以极少的配置为内容脚本 UI 添加本地作用域的样式。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-css-modules
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-css-modules
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-css-modules](https://github.com/extension-js/examples/tree/main/examples/content-css-modules)
+
+## 在已有扩展中使用
+
+要使用 CSS modules,文件名需要带上 module 后缀:
+
+- `*.module.css`
+- `*.module.scss`
+- `*.module.sass`
+- `*.module.less`
+
+如需 Sass 和 Less 的设置要求,请查看对应语言页面。
+
+```diff
+- myComponentCss.css
++ myComponentCss.module.css
+```
+
+### 使用示例
+
+重命名样式表后,在组件中导入并使用:
+
+```ts
+import styles from "./styles/myComponent.module.css";
+
+const button = document.createElement("button");
+button.className = styles.primary;
+button.innerText = "Click here";
+document.body.appendChild(button);
+```
+
+## 工作原理
+
+Extension.js 启用 Rspack 的 CSS 支持,并通过 CSS modules 流水线处理模块导入:
+
+- 默认导入风格的样式映射(`import styles from "./x.module.css"`)
+- Rspack 通过其 CSS modules 流水线生成作用域化的类名
+- 模块类导出可以直接在 JS/TS/TSX 文件中使用
+
+在扩展页面上下文中(例如弹窗/选项页/新标签页),模块导入会按预期生成唯一的、作用域化的类名。
+
+## 内容脚本注意事项
+
+在内容脚本中,Extension.js 会以样式表内容的形式发出 CSS,而不带 JavaScript 类名映射。
+
+请在内容脚本中使用组件级别的本地类命名。除非你已显式测试过,否则不要假设 CSS modules 的类导入在内容脚本中可用。
+
+## React/Preact 使用示例
+
+在 React 或 Preact 中,你可以像这样导入并在组件中使用 CSS module:
+
+```jsx
+import styles from "./styles/myComponent.module.css";
+
+export default function NewTabPage() {
+  return <button className={styles.primary}>Click here</button>;
+}
+```
+
+## Vue 使用示例
+
+在 Vue 中,你可以在单文件组件(SFC)样式中使用模块类:
+
+```vue
+<template>
+  <button :class="$style.primary">Click here</button>
+</template>
+
+<style module>
+@import "./styles/myComponent.module.css";
+</style>
+```
+
+## Svelte 使用示例
+
+在 Svelte 中,导入模块映射并应用类名:
+
+```svelte
+<script>
+  import styles from "./styles/myComponent.module.css";
+</script>
+
+<button class={styles.primary}>Click here</button>
+```
+
+## 最佳实践
+
+- 将模块样式与组件放在一起(`Component.module.css`),便于明确归属。
+- 谨慎使用 `:global(...)`,只在有意进行全局覆盖时才使用。
+- 在扩展页面以及框架组件中,优先使用模块样式,这样类名映射更明确。
+
+## 后续步骤
+
+- 进一步了解 [Sass 和 Sass modules](/docs/languages-and-frameworks/sass)。
+- 进一步了解 [Less 和 Less modules](/docs/languages-and-frameworks/less)。
+
+## 视频讲解
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CSS Module class mapping in extension UI and content-script style injection behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

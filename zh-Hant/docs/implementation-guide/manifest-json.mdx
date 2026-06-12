@@ -1,0 +1,147 @@
+---
+title: "Manifest.json 的編譯與輸出"
+description: "把 manifest.json 作為入口與資源的單一事實來源。Extension.js 會編譯、改寫路徑,並輸出可供瀏覽器載入的 manifest。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+  ]
+---
+
+透過把 `manifest.json` 作為入口、資源與瀏覽器特定行為的單一事實來源,讓擴充功能建置保持可預期。
+
+Extension.js 會編譯你的 manifest 並篩選帶有瀏覽器前綴的欄位。它會改寫執行時路徑、驗證所引用的檔案,並為每個目標瀏覽器產生可立即載入的 manifest。
+
+## Manifest 能力
+
+| 能力                | 你可以獲得什麼                                              |
+| ----------------- | ---------------------------------------------------- |
+| 瀏覽器特定欄位篩選         | 保留單一 manifest 檔案,同時輸出針對各目標的產物                       |
+| 路徑規範化             | 自動解析執行時安全的輸出路徑                                       |
+| 參考驗證              | 當 HTML/指令稿/CSS/JSON/圖示檔案缺失時及早失敗                      |
+| 依目標輸出             | 在 `dist/<browser>` 中依瀏覽器目標產生 manifest 產物              |
+
+## Extension.js 從哪裡讀取 manifest
+
+- `src/manifest.json`(若存在則優先使用)
+- 專案根目錄的 `manifest.json`
+
+Extension.js 不會將 `public/manifest.json` 用作來源 manifest。
+
+當專案有 `package.json` 時,Extension.js 會忽略 `public/manifest.json`,以防止被複製的靜態資源覆蓋 Extension.js 產生的 manifest。
+
+## Extension.js 對它做了什麼
+
+在開發/建置期間,manifest 管線會:
+
+1. 從你的原始檔輸出 manifest 資源。
+2. 為目前作用中的瀏覽器目標篩選帶瀏覽器前綴的鍵。
+3. 對擴充功能產物套用 manifest 覆寫/路徑規範化。
+4. 驗證所引用的檔案(HTML/指令稿/CSS/圖示/JSON),並在缺失時及早失敗。
+
+## 一份 manifest,多種瀏覽器
+
+帶瀏覽器前綴的鍵讓你能保留單一 manifest 檔案,同時仍能針對特定瀏覽器調整行為:
+
+- `chromium:*`、`chrome:*`、`edge:*`
+- `firefox:*`、`gecko:*`
+
+這些前綴可套用於頂層鍵與巢狀的 manifest 欄位。
+
+範例:
+
+- `chromium:key`
+- `background.firefox:scripts`
+- `background.chromium:service_worker`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show editing one manifest file, running different browser targets, and inspecting target-specific emitted manifest output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 支援的 manifest 欄位
+
+與入口相關的常見欄位包含:
+
+| Manifest 欄位                              | 預期的檔案類型                       |
+| ---------------------------------------- | ----------------------------- |
+| `action.default_popup`                   | .html                         |
+| `background.page`                        | .html                         |
+| `background.service_worker`              | .js、.jsx、.ts、.tsx、.mjs   |
+| `browser_action.default_popup`           | .html                         |
+| `chrome_url_overrides.bookmarks`         | .html                         |
+| `chrome_url_overrides.history`           | .html                         |
+| `chrome_url_overrides.newtab`            | .html                         |
+| `content_scripts.js`                     | .js、.jsx、.ts、.tsx、.mjs   |
+| `content_scripts.css`                    | .css、.scss、.sass、.less     |
+| `declarative_net_request.rule_resources` | .json                         |
+| `devtools_page`                          | .html                         |
+| `icons`                                  | .png、.jpg,以及其他圖片格式         |
+| `options_ui.page`                        | .html                         |
+| `options_page`                           | .html                         |
+| `page_action.default_popup`              | .html                         |
+| `sandbox.pages`                          | .html                         |
+| `side_panel.default_path`                | .html                         |
+| `sidebar_action.default_panel`           | .html                         |
+| `storage.managed_schema`                 | .json                         |
+| `theme_icons`                            | .png、.jpg,以及其他圖片格式         |
+| `user_scripts.api_script`                | .js、.jsx、.ts、.tsx、.mjs   |
+| `web_accessible_resources`               | .png、.jpg、.css、.js         |
+
+## 權限設計
+
+manifest 也是擴充功能宣告自身能力的地方。Extension.js 會編譯 manifest,但你仍需要良好的權限設計。
+
+- 讓 `permissions` 保持小而精。
+- 讓 `host_permissions` 限制在功能允許的最窄範圍內。
+- 盡可能將非核心能力移至 `optional_permissions` 或 `optional_host_permissions`。
+- 每次內容指令稿 matches 或背景能力變動時,檢視權限範圍。
+
+權限策略請參閱 [權限與 host 權限](/docs/implementation-guide/permissions-and-host-permissions)。
+
+## 輸出行為
+
+在需要時,Extension.js 會把 manifest 路徑改寫到可預期的輸出位置。兩個重要範例:
+
+- `background.service_worker` 變為 `background/service_worker.js`
+- `side_panel.default_path` 變為 `sidebar/index.html`
+
+Extension.js 也會依 manifest 入口索引規範化內容指令稿:
+
+- `content_scripts/content-0.js`
+- `content_scripts/content-0.css`
+
+輸出的這些路徑正是瀏覽器實際載入的路徑。在撰寫原始碼時使用來源路徑,讓 Extension.js 在輸出時改寫它們。
+
+## 開發期行為
+
+- 當 `manifest.json` 變動時,Extension.js 會重新編譯並觸發擴充功能硬重載流程。
+- 如果 manifest 入口結構變動(例如指令稿清單變動),Extension.js 可能需要重新啟動開發伺服器。
+- 被 manifest 欄位引用的檔案缺失會導致編譯失敗,並提供以 manifest 為焦點的錯誤訊息。
+
+### 變更結果矩陣
+
+| Manifest 變更類型                          | 典型結果                       |
+| ------------------------------------- | -------------------------- |
+| 更新非結構性的值(例如描述/權限中繼資料)                  | 硬重載流程                       |
+| 更新仍能乾淨解析的資源路徑值                          | 重新編譯 + 硬重載流程                |
+| 在 manifest 中新增/移除指令稿或頁面入口                | 需要重新啟動                      |
+| 引入不合法/缺失的所引用檔案                          | 建置錯誤(先修正,再重新執行)             |
+
+## 最佳實務
+
+- 讓 manifest 路徑相對於擴充功能來源/輸出模型保持一致,只在你確實表示擴充功能輸出根時才使用 `/` 開頭。
+- 使用帶瀏覽器前綴的鍵,而非為每個瀏覽器維護獨立的 manifest 檔案。
+- 謹慎處理入口變化;新增/移除 manifest 中的指令稿通常會改變開發期的重載語意。
+- 在持續整合 (CI) 中驗證圖示、JSON 資源與內容指令稿資產,以儘早抓出路徑回歸。
+- 不要把 `manifest.json` 放在 `public/` 下。
+
+## 下一步
+
+- 了解更新結果:[開發期更新行為](/docs/workflows/dev-update-behavior)。
+- 在 [權限與 host 權限](/docs/implementation-guide/permissions-and-host-permissions) 中設計最小權限存取。
+- 了解 Extension.js 如何處理 [瀏覽器特定的 manifest 欄位](/docs/features/browser-specific-fields)。
+- 在 [頁面重新載入與熱模組替換 (HMR)](/docs/features/reload-and-hmr) 中理解開發期更新流程。

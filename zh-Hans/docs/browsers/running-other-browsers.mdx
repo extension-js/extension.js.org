@@ -1,0 +1,129 @@
+---
+title: "通过二进制路径运行其他浏览器"
+description: "通过向 Extension.js 提供显式二进制路径,在 Brave、Vivaldi、Waterfox 或其他 Chromium 和 Gecko 浏览器中测试扩展。"
+keywords:
+  [
+    "extension.js",
+    "firefox",
+    "browser",
+    "docs",
+    "browsers",
+    "running other browsers",
+    "running",
+    "other",
+  ]
+---
+
+<AvatarBrowsers browsers={["waterfox", "opera", "brave"]} />
+通过提供显式的二进制路径,运行默认命名目标之外的 Chromium 和 Gecko 家族浏览器。
+
+在同一个 Extension.js 工作流中测试自定义浏览器二进制(例如 Brave、Vivaldi 或 Waterfox)。在 `dev`、`start` 和 `preview` 中使用二进制标志和 `extension.config.*`。
+
+## 工作原理
+
+使用以下任一标志:
+
+- `--chromium-binary <path>`
+- `--gecko-binary <path>`(别名:`--firefox-binary <path>`)
+
+无论你选择哪个命名浏览器目标,这些二进制标志都会覆盖 Extension.js 启动的浏览器二进制文件。
+
+## 二进制能力
+
+| 选项 / 键                         | 作用                                              |
+| --------------------------------- | ------------------------------------------------- |
+| `--chromium-binary <path>`        | 启动自定义的 Chromium 家族浏览器二进制。          |
+| `--gecko-binary <path>`           | 启动自定义的 Gecko 家族浏览器二进制。             |
+| `--firefox-binary <path>`         | `--gecko-binary` 的别名。                         |
+| `browser.<target>.chromiumBinary` | 在配置中设置默认的自定义 Chromium 二进制。        |
+| `browser.<target>.geckoBinary`    | 在配置中设置默认的自定义 Gecko 二进制。           |
+| `commands.<name>.chromiumBinary`  | 设置特定命令的自定义 Chromium 二进制。            |
+| `commands.<name>.geckoBinary`     | 设置特定命令的自定义 Gecko 二进制。               |
+
+### CLI 示例
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/path/to/brave"
+```
+
+```bash
+extension dev --browser=firefox --gecko-binary="/path/to/firefox-developer-edition"
+```
+
+也可以与 `start` 和 `preview` 一起使用。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show launching the same extension in Brave and Firefox Developer Edition using binary flags. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 在 `extension.config.*` 中配置
+
+```js
+export default {
+  browser: {
+    "chromium-based": {
+      chromiumBinary: "/path/to/custom-chromium-browser",
+    },
+    "gecko-based": {
+      geckoBinary: "/path/to/custom-gecko-browser",
+    },
+  },
+};
+```
+
+也可以把二进制路径放进命令块中:
+
+```js
+export default {
+  commands: {
+    dev: {
+      chromiumBinary: "/path/to/custom-chromium-browser",
+    },
+    preview: {
+      geckoBinary: "/path/to/custom-gecko-browser",
+    },
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show config-based binary defaults applied automatically in `dev` and `preview`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 目标映射行为
+
+二进制提示会映射到引擎目标:
+
+- `chromiumBinary` → `chromium-based`
+- `geckoBinary` / `firefoxBinary` → `gecko-based`
+
+如果同时提供两者,Extension.js 会优先解析 Chromium 二进制。
+
+## 可用的浏览器
+
+可使用二进制标志运行的常见浏览器:
+
+| 浏览器名称                    | 类型                  | CLI 标志            | 官方网站                                                  |
+| ----------------------------- | --------------------- | ------------------- | --------------------------------------------------------- |
+| **Brave**                     | 基于 Chromium 的浏览器 | `--chromium-binary` | [brave.com](https://brave.com)                            |
+| **Opera**                     | 基于 Chromium 的浏览器 | `--chromium-binary` | [opera.com](https://www.opera.com)                        |
+| **Vivaldi**                   | 基于 Chromium 的浏览器 | `--chromium-binary` | [vivaldi.com](https://vivaldi.com)                        |
+| **Waterfox**                  | 基于 Gecko 的浏览器    | `--gecko-binary`    | [Waterfox](https://www.waterfox.net)                      |
+| **Firefox Developer Edition** | 基于 Gecko 的浏览器    | `--gecko-binary`    | [firefox.com](https://www.mozilla.org/firefox/developer/) |
+
+## 重要约束
+
+- `chromium-based` 需要有效的 `chromiumBinary` 路径。
+- `gecko-based` / `firefox-based` 需要有效的 `geckoBinary` 路径。
+- 无效路径会立即失败,并给出明确的 CLI/运行时错误。
+- `build` 不接受二进制标志。仅 `dev`、`start` 和 `preview` 支持基于二进制的启动方式。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show invalid binary path error handling and then successful launch after fixing the path. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳实践
+
+- **将二进制与显式浏览器目标搭配使用**:使用 `--browser=chromium-based` 或 `--browser=gecko-based` 让意图更清晰。
+- **使用绝对路径**:避免依赖 shell 的路径解析问题。
+- **在持续集成(CI)运行器中固定版本**:让浏览器二进制路径在自动化检查中保持确定。
+- **谨慎组合 profile/标志**:复用与命名浏览器目标相同的 profile 和标志策略。
+
+## 后续步骤
+
+- 进一步了解[浏览器首选项](/docs/browsers/browser-preferences)。
+- 进一步了解[浏览器 profile](/docs/browsers/browser-profile)。

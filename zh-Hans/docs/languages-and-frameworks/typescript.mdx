@@ -1,0 +1,182 @@
+---
+title: "面向浏览器扩展的 TypeScript"
+description: "零配置构建 TypeScript 浏览器扩展。Extension.js 通过 Rspack 和 SWC,在后台脚本、内容脚本和页面中支持 TS。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "browser",
+    "typescript",
+    "react",
+    "rspack",
+    "content script",
+    "docs",
+  ]
+---
+
+Extension.js 在每一个扩展上下文中都运行 TypeScript:后台、内容脚本、弹窗、选项页和侧边栏。它默认使用 Rspack + SWC 流水线,你不需要单独的 `tsc` 步骤,也不需要 ts-loader 或额外的打包器规则。
+
+## 何时适合使用 TypeScript
+
+- 你希望在不同扩展上下文之间获得更安全的重构和更清晰的契约。
+- 你在后台脚本、内容脚本和 UI 之间共享逻辑。
+- 你在使用 AI 生成的代码时需要可预测的 API 使用方式。
+
+## 模板示例
+
+### `new-typescript`
+
+![new-typescript 模板截图](/images/examples/new-typescript/screenshot.png)
+
+最适合用于构建已配置好 TypeScript 默认设置的新标签页扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-typescript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-typescript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-typescript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-typescript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-typescript
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/new-typescript](https://github.com/extension-js/examples/tree/main/examples/new-typescript)
+
+### `content-typescript`
+
+![content-typescript 模板截图](/images/examples/content-typescript/screenshot.png)
+
+最适合用于将基于 TypeScript 的内容脚本注入现有页面。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-typescript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-typescript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-typescript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-typescript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-typescript
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-typescript](https://github.com/extension-js/examples/tree/main/examples/content-typescript)
+
+## 自动生成的环境类型
+
+对于 TypeScript 项目,Extension.js 会在项目根目录生成一个 `extension-env.d.ts` 文件,其中包含环境声明(浏览器/运行时全局变量、`EXTENSION_PUBLIC_*` 环境变量以及打包器相关类型)。[`dev`](/docs/commands/dev) 和 [`build`](/docs/commands/build) 都会重新生成它,因此编辑器中的类型和 CI 中的 `tsc --noEmit` 始终保持同步。提交它或将其加入 git 忽略都可以 —— 任意方式都不影响,它会在下次运行时重新生成。
+
+## 在已有扩展中使用
+
+按以下步骤将 TypeScript 添加到现有扩展中。
+
+### 安装
+
+1. 将 TypeScript 安装为开发依赖:
+
+<PackageManagerTabs command="install -D typescript" />
+
+2. 初始化 TypeScript 配置文件 `tsconfig.json`:
+
+<PackageManagerTabs command="tsc --init" />
+
+### 配置
+
+#### TypeScript 检测和要求
+
+Extension.js 会在 `package.json` 同级目录寻找 `tsconfig.json`。
+
+- 如果存在 TypeScript 源文件但缺少 `tsconfig.json`,Extension.js 会抛出错误并要求你创建一个。
+- 如果 Extension.js 通过依赖或配置检测到 TypeScript 但没有源文件,它可以脚手架生成一个基线的 `tsconfig.json`。
+
+基线配置示例:
+
+```json5
+{
+  compilerOptions: {
+    allowJs: true,
+    allowSyntheticDefaultImports: true,
+    esModuleInterop: true,
+    forceConsistentCasingInFileNames: true,
+    isolatedModules: false,
+    jsx: "react-jsx",
+    lib: ["dom", "dom.iterable", "esnext"],
+    moduleResolution: "node",
+    module: "esnext",
+    noEmit: true,
+    resolveJsonModule: true,
+    strict: true,
+    target: "esnext",
+    skipLibCheck: true,
+  },
+  exclude: ["node_modules", "dist"],
+}
+```
+
+#### 自动类型
+
+Extension.js 会在开发过程中在你的项目根目录生成 `extension-env.d.ts`。该文件包含 Extension.js API 的类型声明和浏览器 polyfill 的类型。
+
+```ts
+// Required Extension.js types for TypeScript projects.
+// This file is auto-generated and should not be excluded.
+// If you need additional types, consider creating a new *.d.ts file and
+// referencing it in the "include" array of your tsconfig.json file.
+// See https://www.typescriptlang.org/tsconfig#include for more information.
+/// <reference types="extension/types" />
+
+// Polyfill types for browser.* APIs.
+/// <reference types="extension/types/polyfill" />
+```
+
+#### 转译 vs 类型检查
+
+默认的打包器流水线会编译 TypeScript,但不会在打包过程中运行完整的 `tsc` 类型检查。
+
+推荐的脚本配置:
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "typecheck": "tsc --noEmit"
+  }
+}
+```
+
+## 后续步骤
+
+- 了解 Extension.js 如何处理 [ECMAScript modules](/docs/languages-and-frameworks/ecmascript-modules)。
+- 探索像 [Sass modules](/docs/languages-and-frameworks/sass) 这样的样式选项。
+- 阅读关于[浏览器扩展中的 JavaScript 和 TypeScript 文件](/docs/concepts/javascript-typescript-browser-extension-files)。
+- 比较各[浏览器扩展框架](/docs/compare)对 TypeScript 的支持。
+
+## 视频讲解
+
+{/* VIDEO_PLACEHOLDER_TODO: Show TypeScript template setup, generated type env file, and a successful typecheck run. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

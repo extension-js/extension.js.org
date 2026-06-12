@@ -1,0 +1,106 @@
+---
+title: "扩展性能手册"
+description: "在内容脚本、Service Worker 和 UI 表面之间保持扩展启动快速、运行时开销低。防止常见的性能回归。"
+keywords:
+  [
+    "browser",
+    "playwright",
+    "content script",
+    "service worker",
+    "popup",
+    "docs",
+    "workflows",
+    "performance playbook",
+  ]
+---
+
+扩展中的性能回归通常出自几个固定的位置。最常见的是 Service Worker 冷启动（初始启动延迟）、繁重的内容脚本注入、体积过大的 UI 包以及富媒体的 web-accessible 资源。
+
+下面的检查清单为每种类型提供了具体的解决方案。
+
+## 性能优化能力
+
+| 领域            | 它能帮助你优化什么                                                    |
+| --------------- | --------------------------------------------------------------------- |
+| 内容脚本        | 注入成本、DOM 工作时机以及 remount 开销                               |
+| Service Worker  | 启动路径、事件处理成本以及冷启动行为                                  |
+| UI 表面         | 初始渲染体积以及可选功能的延迟加载                                    |
+| 资源            | 包大小、图标/媒体重量以及 web-accessible 资源的占用                   |
+| 运维            | 持续集成（CI）检查与运行时回归追踪                                    |
+
+## 快速优化流程
+
+1. 在一个目标浏览器上测量首次运行行为。
+2. 精简内容脚本和后台处理函数中的同步启动工作。
+3. 将可选 UI 功能推迟到初始渲染之后再加载。
+4. 重新检查构建输出大小，并对关键流程进行冒烟测试。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show profiling a slow extension startup, applying focused optimizations, and validating improved runtime behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 内容脚本
+
+- 保持入口文件小，并延迟非关键工作。
+- 避免在 `document_start` 进行繁重的同步 DOM 扫描。
+- 限定 observer 和事件监听器的作用范围；在 remount/dispose 时进行清理。
+- 将可复用逻辑拆分到共享模块，但避免脆弱的动态 import 模式。
+
+## 后台/Service Worker
+
+- 启动时尽量减少工作；在事件到来时再延迟初始化。
+- 在安全的情况下缓存稳定的计算状态。
+- 避免在事件处理函数中执行长时间的同步任务。
+- 在积极开发时关注 Service Worker 依赖的频繁变动。
+
+## UI 表面（popup/options/新标签页/侧边栏）
+
+- 保持初始渲染路径轻量。
+- 按需加载大型可选 UI 功能。
+- 仅在本地调试会话需要时才使用框架开发者工具。
+- 保持样式模块化，避免大型的全局 CSS 负载。
+
+## 资源
+
+- 根据使用目标优化图标/图片大小。
+- 将 web-accessible 资源（WAR）暴露限定在必需的资源上。
+- 让公共资源保持有意为之；移除陈旧文件。
+- 定期验证生成的 `dist/<browser>` 输出大小。
+
+## 性能预算
+
+生产构建（`build`）在某个 bundle 超过对应类别的体积预算时会发出**警告**。预算仅作警告——它永远不会让构建失败——并在生产模式下默认启用。
+
+| 类别                                                | 默认预算 | 原因                                                       |
+| --------------------------------------------------- | -------- | ---------------------------------------------------------- |
+| 内容脚本                                            | 512 KiB  | 在每次匹配的页面导航时都会注入。                           |
+| Service Worker                                      | 512 KiB  | 每个事件都从冷启动唤醒；大体积会拖慢启动。                 |
+| 页面 / UI（popup、options、侧边栏、devtools、新标签页） | 1 MiB    | 按需打开。                                                 |
+
+通过 `perfBudgets`（值以字节为单位）可在 [`extension.config.js`](/docs/features/extension-configuration) 中覆盖任意类别：
+
+```js
+export default {
+  perfBudgets: {
+    "content-script": 768 * 1024,
+    "service-worker": 512 * 1024,
+    page: 2 * 1024 * 1024,
+  },
+};
+```
+
+## 运维检查
+
+- 在 CI 中运行多浏览器构建检查。
+- 跟踪端到端（E2E）运行时长的回归信号。
+- 为关键扩展流程（安装、打开 UI、内容脚本激活）添加冒烟测试。
+
+## 常见性能陷阱
+
+- 在每个匹配页面上加载的大型内容脚本包
+- 没有守卫条件就在 `document_start` 进行繁重工作
+- Service Worker 处理函数做同步的、非必要的初始化
+- UI 表面交付了大型全局 CSS/JS，而你只使用了部分功能
+
+## 下一步
+
+- 查看 [Playwright E2E](/docs/workflows/playwright-e2e)。
+- 查看[安全检查清单](/docs/workflows/security-checklist)。

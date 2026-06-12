@@ -1,0 +1,189 @@
+---
+title: "Chrome、Firefox 和 Edge 的浏览器启动标志"
+description: "在 Extension.js 中使用 firefox://flags、chrome://flags 以及浏览器启动标志。在扩展开发期间控制 Chrome、Firefox 和 Edge 的运行时行为。"
+keywords:
+  [
+    "firefox flags",
+    "firefox://flags",
+    "browser://flags",
+    "chrome://flags",
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "devtools",
+    "docs",
+    "browsers",
+  ]
+---
+
+<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
+为调试、自动化和运行时实验控制浏览器的启动行为。
+
+在不修改扩展源代码的情况下调整浏览器启动行为。Extension.js 会合并你 `extension.config.*` 中的浏览器标志,并在 `dev`、`preview` 和 `start` 流程中应用它们。
+
+## Firefox 有 `firefox://flags` 吗?
+
+Firefox 并不像 Chromium 系浏览器使用 `chrome://flags` 或 `edge://flags` 那样使用 `firefox://flags`。Firefox 通过 `about:config`(首选项)暴露运行时开关,并接受从命令行传入的启动标志。
+
+如果你搜索的是 `firefox://flags`、`firefox //flags`、`browser://flags`、`mozilla://flags` 或 `about flags firefox`,你大概率是想在扩展开发期间修改浏览器的行为。在 Extension.js 中,可以在两个地方做这件事:
+
+- 使用 [`browserFlags`](/docs/browsers/browser-flags) 设置 Extension.js 传给浏览器可执行文件的启动期标志。
+- 使用 [Firefox 首选项](/docs/browsers/browser-preferences) 设置原本应放在 `about:config` 中的可重复的 Gecko 运行时行为。
+
+二者都可以在同一个 Extension.js 项目中用于 Chrome、Edge 和 Firefox 的扩展开发。
+
+## 模板示例
+
+### `new-browser-flags`
+
+![new-browser-flags 模板截图](/images/examples/new-browser-flags/screenshot.png)
+
+通过一个配置启动行为的 new-tab 扩展查看浏览器标志的实际效果。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-browser-flags
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/new-browser-flags](https://github.com/extension-js/examples/tree/main/examples/new-browser-flags)
+
+## 工作原理
+
+在 `extension.config.*` 中配置标志:
+
+- `browser.<target>.browserFlags`
+- `commands.dev|start|preview.browserFlags`
+- 可选的 `excludeBrowserFlags`,用于移除默认或用户标志(具体行为取决于你目标是 Chromium 还是 Firefox)。
+
+覆盖顺序:浏览器默认值 → 命令默认值 → CLI 选择的命令上下文。
+
+## 标志能力
+
+| 配置键                                 | 作用                                                     |
+| -------------------------------------- | -------------------------------------------------------- |
+| `browser.<target>.browserFlags`        | 为某个特定浏览器目标设置默认启动标志。                   |
+| `commands.dev.browserFlags`            | 为 `dev` 运行添加或覆盖标志。                            |
+| `commands.start.browserFlags`          | 为 `start` 运行添加或覆盖标志。                          |
+| `commands.preview.browserFlags`        | 为 `preview` 运行添加或覆盖标志。                        |
+| `browser.<target>.excludeBrowserFlags` | 移除某个目标中匹配的默认或用户标志。                     |
+| `commands.<name>.excludeBrowserFlags`  | 在特定命令上下文中移除标志。                             |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show browser-level flags plus command-level overrides and the final launch flags used at runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 示例配置
+
+```js
+export default {
+  browser: {
+    chrome: {
+      browserFlags: ["--disable-web-security", "--auto-open-devtools-for-tabs"],
+      excludeBrowserFlags: ["--mute-audio"],
+    },
+    firefox: {
+      browserFlags: ["--devtools", "--new-instance"],
+      excludeBrowserFlags: ["--devtools"],
+    },
+  },
+};
+```
+
+## Chromium 与 Firefox 行为对比
+
+- **Chromium 家族(`chrome`、`edge`、`chromium`、`chromium-based`)**
+  - 从内部默认标志集开始,然后追加你的 `browserFlags`。
+  - `excludeBrowserFlags` 移除匹配的默认标志(完全匹配过滤)。
+  - Extension.js 管理 `--load-extension=...`,并会从用户提供的标志中将其过滤掉。
+
+- **Firefox/Gecko 家族(`firefox`、`gecko-based` / `firefox-based`)**
+  - 使用用户提供的 `browserFlags`(不像 Chromium 那样附带大量默认标志)。
+  - `excludeBrowserFlags` 通过前缀匹配移除用户标志。
+
+### Chromium 默认标志
+
+在启动 Chromium 家族浏览器时,Extension.js 会自动应用以下标志。可以使用 `excludeBrowserFlags` 移除任何你不需要的。
+
+| 标志                                                       | 用途                                                                    |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `--no-first-run`                                           | 禁用首次运行体验                                                        |
+| `--disable-client-side-phishing-detection`                 | 禁用钓鱼检测                                                            |
+| `--disable-sync`                                           | 禁用同步以避免账号弹窗                                                  |
+| `--disable-component-extensions-with-background-pages`     | 禁用不受 `--disable-extensions` 影响的内置扩展                          |
+| `--disable-default-apps`                                   | 禁用默认应用的安装                                                      |
+| `--disable-features=InterestFeedContentSuggestions`        | 禁用新标签页(NTP)上的 Discover 信息流                                 |
+| `--disable-features=Translate`                             | 禁用 Chrome 翻译                                                        |
+| `--hide-scrollbars`                                        | 在截图中隐藏滚动条                                                      |
+| `--mute-audio`                                             | 静音所有音频                                                            |
+| `--no-default-browser-check`                               | 禁用默认浏览器检查弹窗                                                  |
+| `--ash-no-nudges`                                          | 避免用户教育提示                                                        |
+| `--disable-search-engine-choice-screen`                    | 禁用搜索引擎选择屏幕                                                    |
+| `--disable-features=MediaRoute`                            | 禁用 Chrome Media Router 后台联网                                       |
+| `--use-mock-keychain`                                      | 在 Mac 上使用模拟钥匙串以避免阻塞对话框                                 |
+| `--disable-background-networking`                          | 禁用后台网络服务                                                        |
+| `--disable-breakpad`                                       | 禁用崩溃转储收集                                                        |
+| `--disable-component-update`                               | 禁用组件更新                                                            |
+| `--disable-domain-reliability`                             | 禁用域名可靠性监控                                                      |
+| `--no-pings`                                               | 禁用超链接审计 ping                                                     |
+| `--enable-features=SidePanelUpdates`                       | 确保侧边面板可见                                                        |
+| `--disable-features=DisableLoadExtensionCommandLineSwitch` | 允许在命令行使用 `--load-extension`                                     |
+| `--enable-unsafe-extension-debugging`                      | 允许通过 Chrome DevTools Protocol (CDP) 管理扩展(Chrome 126+)         |
+| `--silent-debugger-extension-api`                          | 抑制 "X 正在调试此浏览器" 的信息栏                                      |
+
+<Note>
+  在 Docker、持续集成(CI)或容器化环境中,Extension.js 还会自动应用
+  `--no-sandbox` 和 `--disable-setuid-sandbox`。
+</Note>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Chromium and Firefox launches using different flag behavior from the same config. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 支持的目标和参考资料
+
+| 浏览器         | 用法                                     | 更多信息                                                                                |
+| -------------- | ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| Chrome         | `extension dev --browser=chrome`         | [Chrome Flags](https://peter.sh/experiments/chromium-command-line-switches/)            |
+| Edge           | `extension dev --browser=edge`           | [Edge Flags](https://docs.microsoft.com/en-us/deployedge/microsoft-edge-policies)       |
+| Firefox        | `extension dev --browser=firefox`        | [Firefox Flags](https://developer.mozilla.org/en-US/docs/Mozilla/Command_Line_Options)  |
+| Chromium-based | `extension dev --browser=chromium-based` | [Chromium Flags](https://peter.sh/experiments/chromium-command-line-switches/)          |
+| Gecko-based    | `extension dev --browser=gecko-based`    | 基于 Firefox 的浏览器与 Firefox 共享相同的标志。                                        |
+
+需要时,可对基于引擎的目标使用二进制路径标志:
+
+- `--chromium-binary=...`
+- `--gecko-binary=...`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show engine-based target launch with custom browser binary and target-specific flags. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳实践
+
+- **只添加必要的标志**:尽量缩短标志列表,减少不稳定或不可移植的配置。
+- **优先使用 `excludeBrowserFlags` 而不是替换默认值**:只移除与你工作流冲突的内容。
+- **不要手动传入 `--load-extension`**:Extension.js 在内部管理扩展加载标志。
+- **针对每个浏览器家族进行验证**:在 Chromium 上有效的标志在 Firefox 中可能无效或被忽略。
+
+## 后续步骤
+
+- 进一步了解[浏览器首选项](/docs/browsers/browser-preferences)。
+- 进一步了解[浏览器配置文件](/docs/browsers/browser-profile)。
+- 在[可用浏览器](/docs/browsers/browsers-available)中选择一个目标。
+- 通过 [`extension.config.*`](/docs/features/extension-configuration) 接入标志配置。
+- 刚接触扩展工具链?可以先看一下[浏览器扩展框架](/docs/compare)概览。

@@ -1,0 +1,123 @@
+---
+title: "可預期的路徑解析"
+description: "以自然方式撰寫路徑,讓 Extension.js 將其正規化為執行時安全的輸出。涵蓋 manifest 欄位、公開資產與擴充功能 API 參照。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "javascript",
+    "popup",
+    "devtools",
+  ]
+---
+
+依照你自然撰寫的方式書寫路徑,讓 Extension.js 將它們正規化為執行時安全的輸出路徑。
+
+當你搬移檔案、重新命名入口或更換瀏覽器目標時,讓執行時路徑仍然可用。Extension.js 會在 manifest 欄位與擴充功能 API 使用處統一改寫支援的路徑,讓編譯後的資產可在 `dist/<browser>` 內正確解析。
+
+## 運作方式
+
+路徑解析會在兩個地方執行:
+
+- **manifest 編譯流程**:將 manifest 中宣告的路徑解析到輸出資產。
+- **JS/TS 路徑解析外掛**:改寫傳入受支援擴充功能 API 的靜態路徑字面值(例如 `runtime.getURL`、`tabs.update`、`scripting.*`、`action.*`、`sidePanel.*`)。
+
+## 支援的輸入樣式
+
+Extension.js 會以下列方式正規化常見的路徑輸入:
+
+| 輸入樣式                       | 範例                                                | 正規化後的輸出                                                   |
+| ------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------- |
+| 公開根目錄(絕對路徑)         | `/public/icons/icon.png`                            | `icons/icon.png`                                                 |
+| 公開根目錄(相對路徑)         | `public/icons/icon.png`、`./public/icons/icon.png`  | `icons/icon.png`                                                 |
+| 根層絕對路徑                   | `/foo/bar.js`                                       | `foo/bar.js`                                                     |
+| 根層特殊資料夾                 | `/pages/popup.njk`                                  | `pages/popup.html`                                               |
+| 特殊資料夾                     | `pages/popup.html`、`scripts/content.tsx`           | `pages/popup.html`、`scripts/content.js`                         |
+| 相對於作者檔案的父層路徑       | `../scripts/content.ts`                             | `scripts/content.js`(解析到專案根層特殊資料夾時)               |
+
+`pages/` 與 `scripts/` 的副檔名對應包含:
+
+- `.ts`、`.tsx`、`.js`、`.jsx` → `.js`
+- `.njk`、`.nunjucks`、`.html` → `.html`
+- `.scss`、`.sass`、`.less`、`.css` → `.css`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show the same authored path resolving correctly after build for Chrome and Firefox outputs. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Extension.js 不會改寫的情況
+
+為避免誤判,Extension.js 會刻意略過下列輸入:
+
+- `http://` 與 `https://` URL
+- `data:` URL
+- `chrome://` URL
+- `moz-extension://` URL
+- 萬用字元模式(`*`、`?`、`{}`、`[]`)
+- 建置流程無法安全解析的非靜態/動態運算式
+
+## Manifest 輸出範例
+
+假設目標瀏覽器為 `chrome`:
+
+| Manifest 欄位                  | 輸入路徑                   | 輸出路徑                        |
+| ------------------------------ | -------------------------- | ------------------------------- |
+| `action.default_popup`         | `/src/popup.html`          | `action/index.html`             |
+| `background.page`              | `/src/background.html`     | `background/index.html`         |
+| `background.service_worker`    | `/src/background.ts`       | `background/service_worker.js`  |
+| `browser_action.default_popup` | `/src/popup.html`          | `action/index.html`             |
+| `chrome_url_overrides.newtab`  | `/src/newtab.html`         | `newtab/index.html`             |
+| `content_scripts.js`           | `/src/content_script.ts`   | `content_scripts/content-0.js`  |
+| `content_scripts.css`          | `/src/content_style.css`   | `content_scripts/content-0.css` |
+| `devtools_page`                | `/src/devtools.html`       | `devtools/index.html`           |
+| `options_ui.page`              | `/src/options.html`        | `options/index.html`            |
+| `sandbox.pages`                | `/src/sandbox.html`        | `sandbox/page-0.html`           |
+| `side_panel.default_path`      | `/src/sidepanel.html`      | `sidebar/index.html`            |
+| `sidebar_action.default_panel` | `/src/sidebar_panel.html`  | `sidebar/index.html`            |
+| `storage.managed_schema`       | `/src/storage_schema.json` | `storage/managed_schema.json`   |
+| `user_scripts.api_script`      | `/src/user_script.ts`      | `user_scripts/api_script.js`    |
+
+並非每個 manifest 欄位都會對應到同名來源檔案的資料夾。Extension.js 以瀏覽器面向的擴充功能契約決定輸出路徑,而非以你原本的撰寫路徑為依據。
+
+Extension.js 會將所有編譯產物輸出到 `dist/<browser>`。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a manifest with source-style paths and the emitted manifest with normalized output paths. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 參照輸出檔案
+
+對於 `chrome.runtime.getURL()` 等瀏覽器 API,建議使用穩定的輸出根目錄路徑:
+
+```javascript
+const iconUrl = chrome.runtime.getURL("/icons/icon.png");
+console.log(iconUrl);
+```
+
+輸出:`chrome-extension:<extension-id>/icons/icon.png`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `runtime.getURL('/icons/icon.png')` resolving to packaged output at runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 診斷與安全檢查
+
+當解析器無法將參照的路徑解析到已封裝資產時(例如改寫後巢狀的 `src/pages/...`,或改寫後遺失的 `public/` 檔案),會向你發出警告。  
+Extension.js 會在每次檔案轉換 pass 內去重警告,以減少噪音。
+
+## 重要的路徑規則
+
+- 開頭的 `/` 代表擴充功能的輸出根目錄,而非檔案系統根目錄。
+- `public/...` 與 `/public/...` 會正規化為輸出根目錄的資產。
+- `pages/` 與 `scripts/` 是帶有副檔名對應規則的特殊資料夾。
+- Extension.js 會保留絕對的作業系統檔案路徑,而非將其視為擴充功能輸出路徑。
+- 當無法安全判斷最終封裝路徑時,Extension.js 會略過動態運算式。
+
+## 最佳實務
+
+- 將 `pages/`、`scripts/` 與 `public/` 保留在專案根目錄,以獲得可預期的改寫結果。
+- 在擴充功能 API 路徑上盡可能使用靜態字面值;Extension.js 可能會略過動態運算式。
+- 將 `/public/...` 視為輸出根目錄資產,避免在執行時依賴相對於原始碼的假設。
+- 在 `dev` 期間正視警告,因為它們通常意味著封裝前已出現路徑不符。
+
+## 後續步驟
+
+- 進一步了解[特殊資料夾](/docs/features/special-folders)。
+- 進一步了解 [web 可存取資源](/docs/implementation-guide/web-accessible-resources)。

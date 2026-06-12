@@ -1,0 +1,268 @@
+---
+title: "擴充功能設定(extension.config.js)"
+description: "在一份設定檔中設定瀏覽器預設值、命令行為與 Rspack 打包器選項。適用於 dev、start、preview 與 build 命令。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "rspack",
+    "devtools",
+  ]
+---
+
+用一份設定檔同時設定瀏覽器預設值、命令行為與打包器自訂內容。
+
+在團隊中共用瀏覽器預設值、命令選項與建置設定,不再重複輸入 CLI 旗標。Extension.js 會從你的專案根目錄讀取 `extension.config.js`(或 `.mjs` / `.cjs`),並將設定套用到每個命令與打包器。
+
+## 運作方式
+
+在專案根目錄(通常與 `package.json` 同層)加入 `extension.config.js`。
+
+支援的檔名:
+
+- `extension.config.js`
+- `extension.config.mjs`
+- `extension.config.cjs`
+
+頂層鍵:
+
+| 鍵                  | 說明                                                                         |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `browser`           | 以瀏覽器目標為鍵的瀏覽器預設值。                                             |
+| `commands`          | 各命令的預設值(`dev`、`start`、`preview`、`build`)。                       |
+| `extensions`        | 在各命令中套用的伴隨擴充功能(僅載入,不建置)。                             |
+| `transpilePackages` | 打包前需要先編譯的套件(適用於 monorepo/工作區情境)。                       |
+| `config`            | 用來擴充/覆寫所產生 Rspack 設定的 hook。                                     |
+
+### 設定檔的環境載入
+
+`extension.config.*` 會在 Node 中執行,應從 `process.env.*` 讀取值。
+
+- Extension.js 在評估 `extension.config.*` 之前會先預載 env 檔案。
+- 它會先檢查專案資料夾。
+- 在 monorepo 中,如果 Extension.js 在專案本地找不到 `.env*` 檔案,會回退到最近的工作區根目錄。所謂工作區根目錄,指含有 `pnpm-workspace.yaml` 的資料夾。
+- 請優先使用內建的 env 預載,而不要在設定檔中引入 `dotenv`。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show creating `extension.config.js` and running `extension dev` with defaults applied automatically. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 瀏覽器設定
+
+需要為不同目標設定不同的瀏覽器預設值嗎?請使用 `browser`:
+
+```js
+export default {
+  browser: {
+    chrome: {
+      profile: "path/to/profile",
+      preferences: { darkMode: true },
+      browserFlags: ["--disable-web-security"],
+      excludeBrowserFlags: ["--mute-audio"],
+    },
+    "chromium-based": {
+      chromiumBinary: "/path/to/brave-or-other-chromium-binary",
+    },
+    firefox: {
+      geckoBinary: "/path/to/firefox",
+    },
+  },
+};
+```
+
+支援的瀏覽器鍵包含:`chrome`、`edge`、`firefox`、`chromium`、`chromium-based`、`gecko-based`、`firefox-based`。
+
+常見的瀏覽器欄位:
+
+- `profile`、`persistProfile`
+- `preferences`
+- `browserFlags`、`excludeBrowserFlags`
+- `chromiumBinary`、`geckoBinary`
+- `extensions`(僅載入的伴隨擴充功能)
+
+#### 瀏覽器目標能力
+
+| 鍵                    | 功能                                                                     |
+| --------------------- | ------------------------------------------------------------------------ |
+| `profile`             | 設定啟動時要使用的瀏覽器 profile 路徑(或 profile 行為)。               |
+| `persistProfile`      | 在多次執行之間沿用 profile 資料。                                        |
+| `preferences`         | 套用瀏覽器偏好覆寫。                                                     |
+| `browserFlags`        | 為瀏覽器程序加入啟動旗標。                                               |
+| `excludeBrowserFlags` | 移除你不想要的預設啟動旗標。                                             |
+| `chromiumBinary`      | 使用自訂的 Chromium 家族執行檔路徑。                                     |
+| `geckoBinary`         | 使用自訂的 Gecko/Firefox 執行檔路徑。                                    |
+| `extensions`          | 與主擴充功能一起載入伴隨擴充功能。                                       |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching browser targets with config defaults and optional custom browser binary. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 命令設定
+
+使用 `commands` 為各命令定義預設值:
+
+```js
+export default {
+  transpilePackages: ["@workspace/ui"],
+  commands: {
+    dev: {
+      browser: "chrome",
+      polyfill: true,
+      logLevel: "info",
+      persistProfile: true,
+      browserFlags: ["--headless=new"],
+      extensions: { dir: "./extensions" },
+    },
+    start: {
+      browser: "firefox",
+      source: "https://example.com",
+    },
+    preview: {
+      browser: "edge",
+      noBrowser: false,
+    },
+    build: {
+      browser: "chrome",
+      zip: true,
+      zipSource: true,
+      zipFilename: "my-extension.zip",
+      transpilePackages: ["@workspace/ui", "@workspace/icons"],
+    },
+  },
+};
+```
+
+注意事項:
+
+- Extension.js 會將頂層的 `extensions` 與 `transpilePackages` 合併進命令預設值。
+- 命令層級的值會覆寫頂層的值。
+- `start` 命令會在內部先執行 `build` 再執行 `preview`。Extension.js 會套用 `commands.start` 中的設定,包含瀏覽器啟動選項,例如 `profile`、`browserFlags` 與 `startingUrl`。你也可以把建置相關設定放在 `commands.build`。
+
+#### 命令能力(共用)
+
+| 鍵                    | 適用                               | 功能                                                            |
+| --------------------- | ---------------------------------- | --------------------------------------------------------------- |
+| `browser`             | `dev`、`start`、`preview`、`build` | 設定瀏覽器或瀏覽器家族目標。                                    |
+| `profile`             | `dev`、`start`、`preview`          | 設定瀏覽器 profile 路徑/行為。                                  |
+| `persistProfile`      | `dev`、`start`、`preview`          | 在多次執行之間沿用瀏覽器 profile 資料。                         |
+| `chromiumBinary`      | `dev`、`start`、`preview`          | 使用自訂的 Chromium 家族執行檔。                                |
+| `geckoBinary`         | `dev`、`start`、`preview`          | 使用自訂的 Gecko 家族執行檔。                                   |
+| `polyfill`            | `dev`、`start`、`build`            | 在相關情境啟用相容性 polyfill 行為。                            |
+| `preferences`         | `dev`、`start`、`preview`          | 套用瀏覽器偏好覆寫。                                            |
+| `browserFlags`        | `dev`、`start`、`preview`          | 為瀏覽器程序加入啟動旗標。                                      |
+| `excludeBrowserFlags` | `dev`、`start`、`preview`          | 移除你不想要的預設啟動旗標。                                    |
+| `startingUrl`         | `dev`、`start`、`preview`          | 瀏覽器啟動時開啟特定的 URL。                                    |
+| `port`                | `dev`、`start`、`preview`          | 設定 runner/DevTools 連接埠。                                   |
+| `host`                | `dev`、`start`、`preview`          | 設定開發伺服器主機。Docker/開發容器請使用 `0.0.0.0`。           |
+| `noBrowser`           | `dev`、`start`、`preview`          | 停用瀏覽器啟動。                                                |
+| `extensions`          | `dev`、`start`、`preview`、`build` | 載入伴隨擴充功能(或擴充功能清單)。                            |
+| `install`             | `dev`、`start`、`build`            | 在執行前安裝缺漏的相依套件。                                    |
+| `transpilePackages`   | `dev`、`start`、`preview`、`build` | 編譯指定的工作區/外部套件。                                     |
+
+#### `build` 命令能力
+
+| 鍵            | 功能                                                       |
+| ------------- | ---------------------------------------------------------- |
+| `zip`         | 產生封裝後的 zip 產物。                                    |
+| `zipSource`   | 為審核/合規流程產生原始碼包/封存輸出。                     |
+| `zipFilename` | 設定自訂的 zip 輸出檔名。                                  |
+| `silent`      | 減少建置日誌輸出。                                         |
+
+#### `dev` 命令能力
+
+| 鍵                    | 功能                                                  |
+| --------------------- | ----------------------------------------------------- |
+| `noOpen`              | 啟動開發伺服器但不自動開啟瀏覽器。                    |
+| `source`              | 從遠端 source URL 啟用 source 檢查流程。              |
+| `watchSource`         | 當被監看項目更新時,重新執行 source 檢查。            |
+| `sourceFormat`        | 設定 source 輸出格式(`pretty`、`json`、`ndjson`)。  |
+| `sourceSummary`       | 輸出精簡的 source 摘要。                              |
+| `sourceMeta`          | 在 source 輸出中包含頁面中繼資料。                    |
+| `sourceProbe`         | 以特定 CSS 選擇器探測 source 輸出。                   |
+| `sourceTree`          | 控制精簡的擴充功能樹狀輸出。                          |
+| `sourceConsole`       | 在 source 輸出中包含 console 摘要。                   |
+| `sourceDom`           | 在 source 輸出中包含 DOM 快照/差異。                  |
+| `sourceMaxBytes`      | 限制 source 輸出 payload 的大小。                     |
+| `sourceRedact`        | 控制 source 的去敏感策略。                            |
+| `sourceIncludeShadow` | 控制 Shadow DOM 的包含策略。                          |
+| `sourceDiff`          | 在 source 監看更新中包含差異中繼資料。                |
+
+#### 日誌能力
+
+| 鍵           | 適用                       | 功能                                                  |
+| ------------ | -------------------------- | ----------------------------------------------------- |
+| `logs`       | `dev`、`start`、`preview`  | 設定最低日誌層級(從 `off` 到 `all`)。               |
+| `logContext` | `dev`、`start`、`preview`  | 依情境過濾日誌(`background`、`content` 等)。        |
+| `logFormat`  | `dev`、`start`、`preview`  | 設定輸出格式(`pretty`、`json`、`ndjson`)。          |
+| `logUrl`     | `dev`、`start`、`preview`  | 依 URL 模式過濾日誌。                                 |
+| `logTab`     | `dev`、`start`、`preview`  | 依 tab ID 過濾日誌。                                  |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `dev` and `build` using different command defaults from one config file. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### Rspack 設定
+
+需要更進階地自訂打包器?請使用 `config` 來修補所產生的 Rspack 設定:
+
+```js
+export default {
+  config: (config) => {
+    config.module.rules.push({
+      test: /\.mdx$/,
+      use: ["babel-loader", "@mdx-js/loader"],
+    });
+    return config;
+  },
+};
+```
+
+`config` 也可以是物件,Extension.js 會將它合併到所產生的設定之上。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show extending generated bundler config with a custom rule and validating build output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 完整範例
+
+```js
+export default {
+  browser: {
+    chrome: { browser: "chrome", profile: "default" },
+    firefox: { browser: "firefox", persistProfile: true },
+    "chromium-based": {
+      browser: "chromium-based",
+      chromiumBinary:
+        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    },
+  },
+  commands: {
+    dev: {
+      browser: "chrome",
+      polyfill: true,
+      host: "0.0.0.0",
+      extensions: { dir: "./extensions" },
+    },
+    start: { browser: "edge" },
+    preview: { browser: "firefox" },
+    build: {
+      zipFilename: "extension.zip",
+      zip: true,
+      zipSource: true,
+    },
+  },
+  extensions: { dir: "./extensions" },
+  transpilePackages: ["@workspace/ui"],
+  config: (config) => config,
+};
+```
+
+## 最佳實務
+
+- **將瀏覽器專屬值放進 `browser`**:讓命令定義專注於工作流程,而非瀏覽器內部細節。
+- **刻意使用頂層預設值**:在頂層放置共用的 `extensions` / `transpilePackages`,僅在必要時覆寫。
+- **優先使用 `chromiumBinary`/`geckoBinary` 命名**:它們與目前的命令與型別介面一致。
+- **保持 `config` hook 最精簡**:只加入 Extension.js 一等選項無法涵蓋的部分。
+
+## 後續步驟
+
+- 進一步了解[可用的瀏覽器](/docs/browsers/browsers-available)。
+- 進一步了解 [Rspack 設定](/docs/features/rspack-configuration)。
+- 透過[瀏覽器旗標](/docs/browsers/browser-flags)與[瀏覽器偏好](/docs/browsers/browser-preferences)調整啟動行為。
+- 透過[環境變數](/docs/features/environment-variables)管理 env 值。

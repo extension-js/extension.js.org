@@ -1,0 +1,102 @@
+---
+title: "擴充功能中的 JSON 資源"
+description: "在擴充功能中使用 declarative net request 規則集與 managed schema 等 JSON 資源。Extension.js 會驗證並輸出所引用的 JSON 資源。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "docs",
+    "implementation guide",
+    "json",
+    "capabilities",
+    "support",
+  ]
+---
+
+為規則集與 managed schema 等擴充功能使用 JSON 資源,並獲得驗證與可預期的輸出處理。
+
+Extension.js 會處理 manifest 所引用的 JSON 資源,並針對已知的功能類型進行驗證。在開發期間會監看它們,並在需要時輸出產物資源。
+
+## JSON 能力
+
+| 能力                  | 你可以獲得什麼                                                                       |
+| ------------------- | ----------------------------------------------------------------------------- |
+| 支援 manifest 資源宣告    | 乾淨地處理 Declarative Net Request (DNR) 規則集與 managed schema 檔案                    |
+| JSON 驗證             | 對格式錯誤的 JSON 與不合法資源結構及早失敗                                                       |
+| 開發期相依追蹤             | 在所引用的 JSON 資源變動時重新編譯                                                          |
+| 佔位符替換               | 在輸出的 JSON 中解析支援的 `$EXTENSION_*` 佔位符                                          |
+
+## JSON 支援
+
+常見的 manifest 欄位:
+
+| Manifest 欄位                              | 預期的檔案類型 |
+| ---------------------------------------- | ------- |
+| `declarative_net_request.rule_resources` | .json   |
+| `storage.managed_schema`                 | .json   |
+
+## `manifest.json` 中的 JSON 宣告範例
+
+在 `manifest.json` 中宣告 JSON 資源的範例:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules/ruleset.json"
+      }
+    ]
+  },
+  "storage": {
+    "managed_schema": "schema/storage-schema.json"
+  }
+}
+```
+
+## 輸出路徑
+
+Extension.js 依功能情境輸出 JSON 資源(例如 DNR 與 storage schema 輸出):
+
+```plaintext
+declarative_net_request/<ruleset-id>.json
+storage/managed_schema.json
+```
+
+## 開發期行為
+
+- Extension.js 會將 manifest 引用的 JSON 檔案視為檔案相依關係追蹤。
+- 編輯 JSON 會觸發重新編譯。
+- 部分與 JSON 相關的結構性 manifest 變更可能需要重新啟動開發伺服器。
+
+## 驗證行為
+
+Extension.js 會驗證:
+
+- 所引用 JSON 資源的語法
+- DNR 規則集的結構(基於陣列的預期)
+- managed storage schema 的結構(基於物件的預期)
+
+{/* VIDEO_PLACEHOLDER_TODO: Show editing a DNR ruleset JSON file, catching validation errors, then rebuilding with corrected output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 環境佔位符
+
+Extension.js 在編譯期間會替換輸出 `.json` 資源中的 `$EXTENSION_*` 佔位符,使用與靜態 HTML 佔位符替換相同的處理流程。
+
+## 最佳實務
+
+- 讓 manifest 引用的 JSON 聚焦於瀏覽器所需的資源格式。
+- 在打包前的持續整合 (CI) 中驗證 JSON 資源。
+- 在 manifest 中優先使用穩定的檔案路徑,以減少開發期間「需要重新啟動」的結構性變更。
+- 對於程式碼中使用的應用資料,可考慮在 JS/TS 模組中以 JSON 匯入處理,與 manifest 資源 JSON 分開。
+
+## 下一步
+
+- 接著閱讀 [開發中的圖示](/docs/implementation-guide/icons)。
+- 深入了解 [manifest 開發期行為](/docs/implementation-guide/manifest-json)。

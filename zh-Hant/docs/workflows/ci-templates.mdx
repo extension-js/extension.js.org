@@ -1,0 +1,136 @@
+---
+title: "擴充功能建置的 CI 範本"
+description: "使用為 GitHub Actions 與其他平台準備好的 CI 範本，透過 Extension.js 自動化執行瀏覽器擴充功能的 lint、建置與 E2E 檢查。"
+keywords:
+  [
+    "firefox",
+    "browser",
+    "playwright",
+    "docs",
+    "workflows",
+    "ci templates",
+    "templates",
+    "capabilities",
+  ]
+---
+
+自動化執行 lint、建置與端對端（E2E）檢查，讓擴充功能的每次變更都保持可發布的狀態。
+
+使用持續整合（CI）在每個 pull request 和發行分支上執行相同的品質關卡。
+
+## CI 能力
+
+| 能力             | 它能為你帶來什麼                            |
+| ---------------- | ------------------------------------------- |
+| 品質關卡         | 在合併前強制執行 lint、建置與測試檢查       |
+| 瀏覽器目標的信心 | 一致地建置並驗證多個瀏覽器目標              |
+| 可重現的環境     | 在本機與 CI 執行中鎖定工具鏈版本            |
+| 可除錯的失敗     | 發布測試報告與產物以便調查問題              |
+
+## 核心流水線階段
+
+1. 安裝相依套件
+2. 執行 lint/check 指令
+3. 建置瀏覽器目標
+4. 執行自動化測試（必要時包含 Playwright）
+5. 上傳產物/報告
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a pull request CI run executing lint, multi-browser build, and Playwright checks with uploaded failure artifacts. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最小 GitHub Actions 範例
+
+```yaml
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm extension build --browser=chromium
+```
+
+## 建置矩陣範例
+
+```yaml
+strategy:
+  matrix:
+    browser: [chromium, firefox]
+steps:
+  - run: pnpm extension build --browser=${{ matrix.browser }}
+```
+
+## 在 CI 中使用 Playwright
+
+- 在 CI 作業中安裝瀏覽器（`playwright install` 或等效指令）。
+- 在 CI 中將重試次數設為比本機略高。
+- 為失敗的執行發布 Playwright 報告/產物。
+- 在啟動 Playwright 之前，使用 `dist/extension-js/<browser>/ready.json` 作為就緒契約。
+- 避免在 CI 自動化指令稿中解析人類可讀的記錄檔。
+- 優先使用內建的等待指令：`extension dev --wait --browser=<browser>`（watch/dev）或 `extension start --wait --browser=<browser>`（正式/start）。
+- 對於指令稿或 CI 自動化，建議使用 `--wait-format=json`。
+
+### 就緒關卡範例
+
+```bash
+pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-format=json
+```
+
+## 測試不需瀏覽器 UI 的處理函式
+
+你不一定總是需要 Playwright。對於事件處理函式——工具列 action、鍵盤命令——Extension.js 可以直接針對一個 dev 工作階段觸發它們，由你對副作用進行斷言。這是決定性且無頭的，因此是一個可靠的關卡。
+
+```yaml
+- run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
+- run: pnpm extension open action --browser=chromium --output json
+- run: |
+    pnpm extension storage get --key lastClickedAt --browser=chromium --output json \
+      | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0)).value?.lastClickedAt ? 0 : 1)'
+```
+
+相同的方式也可以回放鍵盤命令（`extension open command --name <cmd>`）。回傳的結果負載以及唯一的注意事項（回放不帶使用者手勢，因此不會授予 `activeTab`），請參見[觸發 actions 與 commands](/docs/debugging/trigger-actions-and-commands)。
+
+## Docker 與容器 CI
+
+當 CI 在 Docker 或開發容器中執行時，傳入 `--host 0.0.0.0`，以便外部行程可以連到 dev 伺服器。如果另一個行程已經佔用預設連接埠，請使用 `--port 0` 自動指派連接埠。
+
+```bash
+pnpm extension dev --host 0.0.0.0 --port 0 --no-browser
+```
+
+對於慢速或資源受限的容器，可以透過環境變數提高瀏覽器傳輸逾時時間（參見[瀏覽器傳輸調校變數](/docs/features/environment-variables#browser-transport-tuning-variables)）。
+
+## 常見陷阱
+
+- CI 指令稿隨時間與本機指令稿產生分歧
+- 只建置單一瀏覽器目標，卻向多個引擎發行
+- 失敗的 E2E 作業缺少產物上傳
+- 在工作流程之間混用未固定版本的 Node/套件管理器
+
+你的儲存庫中包含一個 E2E 工作流程範例：
+
+- `.github/workflows/e2e.yml`
+
+## 最佳實踐
+
+- 讓 CI 指令貼近本機指令稿，以減少漂移。
+- 在昂貴的瀏覽器作業之前，對 lint/設定錯誤快速失敗。
+- 盡可能快取相依套件與瀏覽器二進位檔。
+- 在 CI 中鎖定 Node 與套件管理器版本以達成可重現性。
+
+## 下一步
+
+- 新增或完善 [Playwright E2E 測試](/docs/workflows/playwright-e2e)。
+- 查看[命令參考](/docs/commands/dev)以對齊指令稿。

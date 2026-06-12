@@ -1,0 +1,61 @@
+---
+title: "Dev 模式更新与重载行为"
+description: "了解开发期间哪些文件改动会热更新，哪些需要重启。Extension.js 会自动选择最轻量的安全更新模式。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+    "service worker",
+    "docs",
+    "workflows",
+  ]
+---
+
+通过了解哪些改动会即时生效、哪些需要重启来保持快速迭代。Extension.js 会针对每次文件改动选择最轻量的安全更新模式。
+
+## 更新模式
+
+| 模式                       | 发生了什么                                            | 典型影响                                              |
+| -------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
+| 热模块替换（HMR）          | 模块/样式更新就地生效                                 | 最快的迭代速度，无需完全重新启动扩展                  |
+| `Hard reload`              | 目标浏览器重新载入扩展运行时                          | 扩展上下文重启，但 dev 进程保持运行                   |
+| `Restart required`         | 编译期诊断要求你重启 `extension dev`                  | 用于入口点/列表的结构性改动                           |
+
+## 常见示例
+
+| 改动                                            | 预期行为                              |
+| ----------------------------------------------- | ------------------------------------- |
+| 编辑内容脚本/组件代码                           | HMR/remount 路径（受支持时）          |
+| 编辑被内容脚本/页面使用的样式 import            | HMR 风格的更新路径（视上下文而定）    |
+| 编辑 `manifest.json` 值（非结构性）             | Hard reload 流程                      |
+| 添加/移除 manifest 入口点引用                   | 需要重启                              |
+| 添加/移除 `pages/` 或 `scripts/` 入口点         | 需要重启                              |
+| 编辑 `_locales/*/messages.json`                 | Hard reload 流程                      |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show three edits in sequence (component change, manifest metadata change, entrypoint list change) and the resulting HMR/hard-reload/restart-required behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 当你需要重启时该怎么做
+
+当 Extension.js 报告 `Restart required` 时，停止并在继续之前重新运行 `extension dev`。
+
+典型触发条件：
+
+- 添加或移除 manifest 入口点引用
+- 添加或移除 `pages/` 或 `scripts/` 下作为扩展入口点使用的文件
+- HTML 入口点中的结构性 script/style 入口改动
+
+## 实践指南
+
+- 在活跃的开发会话中优先编辑已存在的模块/资源，以获得最快的反馈。
+- 将结构性的 manifest 改动（入口点列表编辑）批量进行，这样只需重启一次。
+- 将 restart required 的诊断视为权威；不重启而继续可能让你的运行时处于陈旧状态。
+
+## 下一步
+
+- [manifest.json](/docs/implementation-guide/manifest-json)
+- [内容脚本](/docs/implementation-guide/content-scripts)
+- [背景脚本 / Service Worker](/docs/implementation-guide/background)
+- [HTML](/docs/implementation-guide/html)

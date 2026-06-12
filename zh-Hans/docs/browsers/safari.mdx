@@ -1,0 +1,123 @@
+---
+title: "使用 Extension.js 构建 Safari 扩展"
+description: "在 macOS 上使用 Extension.js 将你的 web 扩展构建为 Safari 应用。涵盖要求、dev 和 build 工作流以及已知限制。"
+keywords:
+  [
+    "extension.js",
+    "safari",
+    "webkit",
+    "safari web extension",
+    "xcode",
+    "macos",
+    "browser",
+    "docs",
+    "browsers",
+  ]
+---
+
+<AvatarBrowsers browsers={["safari"]} />
+将你现有的 web 扩展打包为 macOS 上的原生 Safari 应用 —— 无需手动维护单独的 Xcode 项目。
+
+<Warning>
+  Safari 支持处于 **alpha** 阶段。build → convert → `xcodebuild` → open
+  流水线可用,但请预期会有粗糙的地方和破坏性变化。Chrome、Edge 和 Firefox
+  是稳定目标。
+</Warning>
+
+使用 `--browser=safari` 即可把发布到 Chrome 和 Firefox 的同一份扩展转换为 Safari App Extension。Extension.js 会打包你的代码、运行 Apple 的 `safari-web-extension-converter`、用 `xcodebuild` 编译生成的应用,并引导你完成启用流程。
+
+## 要求
+
+Safari 仅支持 **macOS**,并且需要**完整的 Xcode 应用**,不只是 Command Line Tools。转换器(`safari-web-extension-converter`)和 `xcodebuild` 都随 `Xcode.app` 一起发布。
+
+```bash
+# 从 Mac App Store 安装 Xcode,然后将工具链指向它:
+sudo xcode-select --switch /Applications/Xcode.app
+xcodebuild -runFirstLaunch
+```
+
+如果缺少 Xcode,`extension build`/`dev --browser=safari` 会在打包之前快速失败,并给出指导,而不是在后续出现令人困惑的错误。
+
+## 它会产出什么
+
+`extension build --browser=safari` 会在你的项目旁创建:
+
+| 路径                  | 是什么                                                          |
+| --------------------- | --------------------------------------------------------------- |
+| `dist/safari`         | 打包好的 web 扩展(manifest、脚本、资源)。                     |
+| `dist/safari-xcode`   | 生成的 Xcode 项目(应用 + Safari 扩展 target)。                |
+| `…/Release/<App>.app` | 编译完成、临时签名的应用,用于承载你的扩展。                    |
+
+整个流水线端到端运行:**打包 → 转换 → `xcodebuild` → 打开应用 → 引导启用**。
+
+```bash
+npx extension build --browser=safari
+```
+
+应用名和 bundle 标识符派生自你的 manifest `name`(例如 `React Sidebar Example` → bundle id `dev.extensionjs.React-Sidebar-Example`)。该项目默认面向 macOS。
+
+## 在 Safari 中启用扩展
+
+本地构建是**临时签名**的(无需 Apple Developer 账号),因此 Safari 需要你手动启用一次。构建打开应用后,Extension.js 会打印这些步骤,并在 macOS 注册扩展后进行确认:
+
+1. Safari ▸ 设置 ▸ 高级 ▸ 勾选 **"显示开发者功能"**。
+2. Safari ▸ 开发 ▸ **允许未签名的扩展**(每次重启 Safari 都会重置)。
+3. Safari ▸ 设置 ▸ 扩展 ▸ 启用你的扩展。
+
+<Note>
+  "允许未签名的扩展" 在每次启动 Safari 时都会重置。在开发期间重启 Safari
+  后需要重新启用。已签名的构建(Apple Developer ID)可以避免这一步,
+  这是分发工作流的一部分。
+</Note>
+
+## 使用 `dev` 进行开发
+
+`extension dev --browser=safari` 会运行监听循环:
+
+```bash
+npx extension dev --browser=safari
+```
+
+- **首次编译** —— 完整打包流程:转换、构建、打开应用,并打印启用步骤。
+- **每次保存** —— 增量 `xcodebuild` 重同步(通常几秒),用新构建出的 `dist/safari` 更新应用资源。
+
+Safari 没有像 Chromium 或 Firefox 那样的实时重载通道,因此重新构建后,需要在 Safari 中**刷新页面(或切换扩展开关)**来加载变更。Xcode 项目只生成一次然后复用,所以你在 Xcode 中所做的自定义(entitlements、capabilities)会在多次构建间保留。如需从头重新生成,删除 `dist/safari-xcode`。
+
+## 引擎目标
+
+`safari` 有一个引擎别名 **`webkit-based`**,与 `chromium-based` 和 `gecko-based` 对应:
+
+```bash
+npx extension build --browser=webkit-based
+```
+
+## 命令支持
+
+| 命令      | Safari 支持                                                                    |
+| --------- | ------------------------------------------------------------------------------ |
+| `build`   | ✅ 构建并打包 Safari 应用。                                                    |
+| `dev`     | ✅ 监听 + 增量重新构建(需要在 Safari 中刷新以应用)。                         |
+| `preview` | ❌ 不支持 —— Safari 扩展无法被自动加载到正在运行的浏览器中。                   |
+| `start`   | ❌ 不支持 —— 原因同 `preview`。                                                |
+
+`preview` 和 `start` 是为了把扩展启动到正在运行的浏览器中。Safari 需要上面的手动、受安全控制的启用步骤,因此这些命令会引导你改用 `build`。
+
+## 限制
+
+- **仅支持 macOS。** 构建 Safari 应用需要 macOS 和完整的 Xcode 应用。
+- **没有实时重载。** 重新构建很快,但需要在 Safari 中刷新以应用。
+- **需要手动一次性启用。** 允许未签名扩展和打开扩展是 Safari 的安全控制,无法自动化。
+- **本地构建是临时签名的。** 分发签名、公证和提交到 App Store 是此工作流之外的独立步骤。
+- **仅 macOS 目标。** 目前此工作流不会生成 iOS 应用。
+
+## 最佳实践
+
+- **正常构建其他目标**:Safari 是附加项 —— 继续在 `chromium`/`firefox` 中迭代,当需要验证 Safari 时再运行 `--browser=safari`。
+- **使用浏览器特定字段**通过浏览器前缀的 manifest 键表达真实的行为差异。
+- **保留生成的项目**,除非你需要从干净的状态重新开始 —— 重新生成会丢弃 Xcode 端的自定义内容。
+
+## 后续步骤
+
+- 查看所有[支持的浏览器](/docs/browsers/browsers-available)。
+- 使用[浏览器特定的 manifest 字段](/docs/features/browser-specific-fields)。
+- 阅读[多平台构建](/docs/features/multi-platform-builds)。

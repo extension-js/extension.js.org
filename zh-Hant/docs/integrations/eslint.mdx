@@ -1,0 +1,134 @@
+---
+title: "用於程式碼品質的 ESLint 整合"
+description: "使用 ESLint 讓擴充功能程式碼品質保持一致。它在 Extension.js 建置管線之外,透過你的指令稿或 CI 執行,以獲得可預期的結果。"
+keywords:
+  [
+    "browser",
+    "typescript",
+    "javascript",
+    "react",
+    "eslint",
+    "prettier",
+    "stylelint",
+    "docs",
+  ]
+---
+
+在問題到達執行階段之前,讓擴充功能程式碼品質保持可預期。ESLint 在建置管線之外執行。從你的指令稿或持續整合(CI)中執行它。
+
+## 何時適合使用 ESLint
+
+- 你希望團隊貢獻之間保持一致的程式碼標準。
+- 你需要 CI 檢查盡早捕捉常見的 JS/TS 錯誤。
+- 你正在發布前強制執行擴充功能特定的品質規則。
+
+## ESLint 能力
+
+| 能力                              | 它能為你提供什麼                                                          |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| JavaScript 與 TypeScript 檢查     | 捕捉常見錯誤並強制執行專案標準                                            |
+| 扁平設定支援                      | 在新專案中使用現代的 `eslint.config.mjs`                                  |
+| 適合 CI 的執行                    | 在本機指令稿和 pull request 管線中執行 lint 檢查                          |
+| 擴充功能特定的規則集              | 當團隊需要更嚴格的檢查時,加入瀏覽器擴充功能外掛/規則                      |
+
+## 範本範例
+
+### ESLint 設定範本
+
+可立即使用的預先設定 lint。
+
+![`new-config-eslint` 螢幕截圖](/images/examples/new-config-eslint/screenshot.png)
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-config-eslint
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-config-eslint
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-config-eslint
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-config-eslint
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-config-eslint
+```
+
+</CodeGroup>
+
+儲存庫:[examples/new-config-eslint](https://github.com/extension-js/examples/tree/main/examples/new-config-eslint)
+
+## 與既有擴充功能一起使用
+
+安裝核心套件:
+
+<PackageManagerTabs command="install -D eslint @eslint/js globals typescript-eslint" />
+
+建立 `eslint.config.mjs`:
+
+```js
+import globals from "globals";
+import pluginJs from "@eslint/js";
+import tseslint from "typescript-eslint";
+
+export default [
+  { files: ["**/*.{js,mjs,cjs,ts,tsx,jsx}"] },
+  {
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+  pluginJs.configs.recommended,
+  ...tseslint.configs.recommended,
+];
+```
+
+從你的指令稿執行 lint 命令:
+
+<CodeGroup>
+
+```bash npm
+npm run lint
+```
+
+```bash pnpm
+pnpm lint
+```
+
+```bash yarn
+yarn lint
+```
+
+```bash bun
+bun run lint
+```
+
+```bash bun
+bun run lint
+```
+
+</CodeGroup>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show lint errors in an extension project, then fix and rerun ESLint successfully. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+如果還沒有指令稿,執行:
+
+<PackageManagerTabs command="eslint ." />
+
+## 最佳實務
+
+- 將 lint 規則保留在原始碼控制中,並在 CI 中套用。
+- 使用 lint-staged 或預先 commit hook 獲得更快的本機回饋。
+- 僅在需要時加入框架特定外掛(例如 React)。
+
+## 後續步驟
+
+- 整合 [Prettier](/docs/integrations/prettier) 以避免格式化規則衝突。
+- 加入 [Stylelint](/docs/integrations/stylelint) 用於樣式表 lint。

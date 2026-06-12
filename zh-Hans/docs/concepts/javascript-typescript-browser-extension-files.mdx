@@ -1,0 +1,89 @@
+---
+title: "浏览器扩展中的 JavaScript 与 TypeScript 文件"
+description: "了解 .js、.ts、.tsx、manifest.json、后台脚本和内容脚本在使用 Extension.js 构建的 Chrome、Firefox 和 Edge 扩展中如何工作。"
+keywords:
+  [
+    "javascript extension",
+    "typescript extension",
+    "js extension",
+    ".js extension",
+    ".ts extension",
+    "react file extension",
+    "extension of javascript",
+    "typescript file extension",
+    "browser extension files",
+    "extension.js",
+  ]
+---
+
+浏览器扩展使用 JavaScript、TypeScript、HTML、CSS 和 `manifest.json` 来定义行为、UI、权限以及浏览器集成。本页介绍你在浏览器扩展项目中会看到的文件扩展名,以及它们各自落在哪里。
+
+如果你寻找的是作为 Chrome 或 Firefox 软件附加组件的"扩展",请改从 [什么是浏览器扩展?](/docs/concepts/what-is-a-browser-extension) 开始。
+
+## JavaScript 文件扩展名:`.js` 和 `.mjs`
+
+浏览器扩展接受与其他 Web 平台相同的 JavaScript 文件扩展名:
+
+| 文件扩展名 | 含义                                                                                |
+| ---------- | ----------------------------------------------------------------------------------- |
+| `.js`      | 普通 JavaScript。根据加载方式被视为 ES 模块或经典脚本。                              |
+| `.mjs`     | ES 模块。当你想强制使用模块语义时很有用,尤其在 service worker 中。                  |
+| `.cjs`     | CommonJS。在扩展源代码中很少见;有时出现在 `extension.config.cjs` 中。              |
+
+在 Manifest V3 中,当 `manifest.json` 在 `background` 块中包含 `"type": "module"` 时,后台的 `service_worker` 以模块方式运行。详见 [Manifest V3 排错](/docs/concepts/manifest-v3)。
+
+## TypeScript 文件扩展名:`.ts` 和 `.tsx`
+
+TypeScript 在 Extension.js 中是一等公民:
+
+| 文件扩展名 | 含义                                                |
+| ---------- | --------------------------------------------------- |
+| `.ts`      | 不含 JSX 的 TypeScript。                            |
+| `.tsx`     | 包含 JSX 的 TypeScript(React、Preact)。           |
+| `.d.ts`    | 类型声明文件。不会被发出到构建输出。                |
+
+你不需要从零编写 `tsconfig.json`。Extension.js 自带合理的默认值。`chrome.*`、`browser.*`、`import.meta.env` 以及公开环境变量键的类型来自 `@types/chrome` 和 Extension.js 自己的环境类型。参见 [TypeScript](/docs/languages-and-frameworks/typescript)。
+
+## React 文件扩展名:`.jsx` 和 `.tsx`
+
+浏览器扩展中的 React 使用标准的 JSX 文件扩展名:
+
+| 文件扩展名 | 含义                        |
+| ---------- | --------------------------- |
+| `.jsx`     | 包含 JSX 的 JavaScript。    |
+| `.tsx`     | 包含 JSX 的 TypeScript。    |
+
+React 可以在扩展页面(弹窗、选项、侧边栏、新标签页)中使用,也可以在注入到网页中的内容脚本里使用。参见 [React](/docs/languages-and-frameworks/react) 了解配置和 shadow-DOM 模式。
+
+## 浏览器扩展文件:`manifest.json`、后台脚本、内容脚本、页面
+
+除了 JavaScript 和 TypeScript 源代码,浏览器扩展目录通常还包含:
+
+| 文件或文件夹     | 用途                                                                |
+| ---------------- | ------------------------------------------------------------------- |
+| `manifest.json`  | 声明名称、版本、权限、入口点和元数据。                              |
+| 后台入口         | 长期存活的事件处理程序。在 Chromium 上为 Manifest V3 service worker。|
+| 内容脚本         | 注入到匹配 URL 模式的网页中的代码。                                 |
+| 扩展页面         | 弹窗、选项、侧边栏或新标签页 HTML。                                 |
+| 区域             | `_locales/<lang>/messages.json` 用于翻译字符串。                    |
+| 图标和资源       | 工具栏图标、Web 可访问资源、字体、图像。                            |
+
+Extension.js 把你的 `.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte`、`.css`、`.less`、`.scss` 和 `.module.*` 源文件编译为磁盘上的该布局。它会按浏览器目标产出独立文件夹(`dist/chrome`、`dist/firefox`、`dist/edge`)。
+
+## Extension.js 如何编译 JavaScript 和 TypeScript 扩展
+
+当你运行 `extension dev` 或 `extension build` 时,Extension.js 会:
+
+1. 读取 `manifest.json` 并找到每个入口点(后台、内容脚本、弹窗、选项、侧边栏、新标签页、Web 可访问 HTML)。
+2. 解析这些入口引用的源文件,包括跨 `.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte` 和样式表类型的导入。
+3. 通过 Rspack 编译,使用对扩展感知的默认值:在有帮助的地方进行代码拆分,在浏览器拒绝的地方不分块(service worker、内容脚本)。
+4. 把结果发出到 `dist/<browser>`,并使用按该目标过滤的清单。
+
+你以上面任意文件扩展名编写源代码,Extension.js 负责打包、polyfill、保存即重载循环以及按浏览器打包。
+
+## 下一步
+
+- 尝试 [`extension create`](/docs/commands/create) 搭建一个 TypeScript 或 React 扩展。
+- 阅读 [TypeScript](/docs/languages-and-frameworks/typescript) 和 [React](/docs/languages-and-frameworks/react)。
+- 阅读 [Manifest V3 排错](/docs/concepts/manifest-v3) 了解 service worker 和模块规则。
+- 使用 [`extension build`](/docs/commands/build) 构建。

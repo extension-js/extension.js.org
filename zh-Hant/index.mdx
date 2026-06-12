@@ -1,0 +1,918 @@
+---
+title: "跨瀏覽器擴充功能框架"
+description: "用一個專案為 Chrome、Edge 與 Firefox 建構瀏覽器擴充功能，提供 manifest 編譯、儲存即快速重新載入，以及可上架的打包能力。"
+mode: "custom"
+---
+
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "Extension.js",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Windows, macOS, Linux",
+      description:
+        "適用於 Chrome、Edge 與 Firefox 的跨瀏覽器擴充功能框架。一個專案、一份 manifest.json、依瀏覽器輸出，並針對 service worker 與內容指令稿調校的重新載入行為。",
+      url: "https://extension.js.org",
+      downloadUrl: "https://www.npmjs.com/package/extension",
+      softwareVersion: "latest",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+      author: {
+        "@type": "Organization",
+        name: "Extension.js authors",
+        url: "https://github.com/extension-js",
+      },
+      license: "https://github.com/extension-js/extension.js/blob/main/LICENSE",
+    }),
+  }}
+/>
+
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "什麼是瀏覽器擴充功能？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "瀏覽器擴充功能是為 Chrome、Firefox、Edge 或其他瀏覽器增加功能的軟體。擴充功能可以注入 UI、回應瀏覽器事件，並呼叫頁面本身無法使用的特權 API。",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Extension.js 是 Chrome 擴充功能框架嗎？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "是。Extension.js 既是 Chrome 擴充功能框架，也是 Firefox 與 Edge 擴充功能框架，且皆來自同一個專案。透過 --browser=chrome、--browser=firefox 或 --browser=edge 選擇目標瀏覽器。",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Extension.js 在開發期間如何處理模組熱替換？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "執行 npx extension dev，CLI 會監看專案的變更。對 popup、內容指令稿、service worker 與選項頁的編輯，會觸發最快且安全的更新路徑：在支援時採用 HMR，否則進行定向重新載入。",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "我要如何為 Chrome、Edge 與 Firefox 建置同一個擴充功能？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Extension.js 將單一程式碼庫編譯為特定瀏覽器的輸出。一組指令即可為 Chrome、Edge、Firefox 以及其他 Chromium 系瀏覽器產出正確打包的建置。每個建置都會得到正確的 manifest 格式、路徑與平台調整。",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "我可以使用 React、Preact、Vue、Svelte 或 TypeScript 嗎？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "可以。Extension.js 提供面向 React、Preact、Vue、Svelte、TypeScript 與原生 JavaScript 的可用於生產的範本。框架選擇不會影響核心工作流。",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Extension.js 支援 Manifest V3 嗎？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "支援。工具鏈圍繞 Manifest V3 以及瀏覽器商店目前強制執行的限制設計：service worker、宣告式 API、更新後的權限與更嚴格的打包。",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Extension.js 是免費的嗎？",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "是。Extension.js 是 MIT 授權下的開源專案。沒有付費方案，也沒有使用量上限。",
+          },
+        },
+      ],
+    }),
+  }}
+/>
+
+<div className="mx-auto flex w-full max-w-6xl flex-col gap-24 px-6 py-16 sm:py-24">
+  {/* ─────────── Hero ─────────── */}
+
+  <section className="flex flex-col items-center text-center gap-8">
+    {/* Browser dock logo grid (two rows) */}
+
+    <div className="ext-dock mx-auto w-full">
+      <div className="ext-dock-row ext-dock-row-top">
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/brave.svg"
+            alt="Brave"
+            style={{ padding: "5%" }}
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/chrome.svg"
+            alt="Chrome"
+          />
+        </div>
+        <div className="ext-dock-tile plain">
+          <img
+            src="https://media.extension.land/track/extension-js.png"
+            alt="Extension.js"
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/edge.svg"
+            alt="Edge"
+          />
+        </div>
+        <div className="ext-dock-tile" style={{ border: "none" }}>
+          <img
+            src="https://media.extension.land/logos/browsers/safari.svg"
+            alt="Safari"
+            style={{ padding: 0 }}
+          />
+        </div>
+      </div>
+      <div className="ext-dock-row ext-dock-row-bottom">
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/opera.svg"
+            alt="Opera"
+            style={{ padding: "5%" }}
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/firefox.svg"
+            alt="Firefox"
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/chromium.svg"
+            alt="Chromium"
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="/images/waterfox.png"
+            alt="Waterfox"
+            style={{ borderRadius: "50%" }}
+          />
+        </div>
+      </div>
+    </div>
+
+    <h1 className="text-5xl sm:text-6xl lg:text-[4rem] font-semibold tracking-tight leading-tight max-w-3xl text-neutral-900 dark:text-white">
+      跨瀏覽器擴充功能框架
+    </h1>
+
+    <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-xl leading-relaxed">
+      以一個現代化工作流，跨所有主流瀏覽器建構擴充功能。Extension.js 處理 manifest 編譯、依瀏覽器輸出與打包。
+    </p>
+
+    <div className="ext-hero-badges">
+      <a
+        href="https://github.com/extension-js/extension.js"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="GitHub stars"
+      >
+        <img
+          src="https://img.shields.io/github/stars/extension-js/extension.js?style=flat&logo=github&logoColor=white&color=0e62f7&labelColor=0b1220"
+          alt="GitHub stars"
+          loading="lazy"
+        />
+      </a>
+      <a
+        href="https://www.npmjs.com/package/extension"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="npm weekly downloads"
+      >
+        <img
+          src="https://img.shields.io/npm/dw/extension?style=flat&logo=npm&logoColor=white&color=0e62f7&labelColor=0b1220"
+          alt="npm weekly downloads"
+          loading="lazy"
+        />
+      </a>
+      <a
+        href="https://www.npmjs.com/package/extension"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="npm version"
+      >
+        <img
+          src="https://img.shields.io/npm/v/extension?style=flat&logo=npm&logoColor=white&color=0e62f7&labelColor=0b1220"
+          alt="latest version on npm"
+          loading="lazy"
+        />
+      </a>
+      <a
+        href="https://github.com/extension-js/extension.js/blob/main/LICENSE"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="MIT license"
+      >
+        <img
+          src="https://img.shields.io/github/license/extension-js/extension.js?style=flat&color=0e62f7&labelColor=0b1220"
+          alt="MIT license"
+          loading="lazy"
+        />
+      </a>
+    </div>
+
+    <div className="ext-hero-cmd">
+      <span className="ext-hero-cmd-prompt" aria-hidden="true">
+        $
+      </span>
+      <code className="ext-hero-cmd-code">
+        npx extension@latest create my-extension
+      </code>
+      <button
+        type="button"
+        className="ext-hero-cmd-copy"
+        aria-label="複製指令"
+        onClick={(e) => {
+          navigator.clipboard.writeText(
+            "npx extension@latest create my-extension",
+          );
+          const el = e.currentTarget;
+          const original = el.innerText;
+          el.innerText = "已複製";
+          setTimeout(() => {
+            el.innerText = original;
+          }, 1500);
+        }}
+      >
+        複製
+      </button>
+    </div>
+
+    <div className="flex flex-wrap items-center justify-center gap-3">
+      <a
+        href="/docs"
+        className="inline-flex items-center gap-3 rounded-lg bg-[#0e62f7] px-12 py-4 text-white text-lg font-semibold hover:opacity-90 transition no-underline"
+      >
+        開始使用 ⏵⏵⏵
+      </a>
+      <a
+        href="/docs/compare/extension-js-vs-wxt"
+        className="inline-flex items-center gap-3 rounded-lg border border-gray-300 dark:border-neutral-700 px-12 py-4 text-neutral-900 dark:text-white text-lg font-semibold hover:opacity-90 transition no-underline"
+      >
+        對比 WXT ⏵
+      </a>
+    </div>
+  </section>
+
+  {/* ─────────── Code preview: one manifest, three browsers ─────────── */}
+
+  <section className="w-full">
+    <div className="ext-codepreview">
+      <div className="ext-codepreview-text">
+        <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+          一份 manifest.json。<br />所有瀏覽器。
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 mt-3 text-lg leading-relaxed max-w-md">
+          帶瀏覽器前綴的鍵（<code>chrome:</code>、<code>firefox:</code>、{" "}
+          <code>edge:</code>）會在編譯期被過濾。不帶前綴的鍵則在各處皆生效。
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <a
+            href="/docs/features/browser-specific-fields"
+            className="text-[#0e62f7] hover:opacity-80 font-medium no-underline"
+          >
+            閱讀完整模式 ⏵
+          </a>
+        </div>
+      </div>
+      <pre className="ext-codepreview-code">
+        <code>
+          <span className="ext-cp-punc">{"{"}</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-key">"manifest_version"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-num">3</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-key">"name"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-str">"My Extension"</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-key">"version"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-str">"1.0.0"</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-key">"action"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-punc">{"{"}</span>
+          <span className="ext-cp-key"> "default_popup"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-str">"popup.html"</span>{" "}
+          <span className="ext-cp-punc">{"}"}</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-prefix">"chrome:background"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-punc">{"{"}</span>
+          <span className="ext-cp-key"> "service_worker"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-str">"sw.ts"</span>{" "}
+          <span className="ext-cp-punc">{"}"}</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-prefix">"firefox:background"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-punc">{"{"}</span>
+          <span className="ext-cp-key"> "scripts"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-punc">[</span>
+          <span className="ext-cp-str">"sw.ts"</span>
+          <span className="ext-cp-punc">]</span>{" "}
+          <span className="ext-cp-punc">{"}"}</span>
+          {"\n"}
+          <span className="ext-cp-punc">{"}"}</span>
+        </code>
+      </pre>
+
+    </div>
+
+  </section>
+
+{/* ─────────── Why a framework ─────────── */}
+
+<section className="w-full">
+  <div className="rounded-3xl bg-neutral-100 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/5 px-8 py-12 sm:px-14 sm:py-16 flex flex-col sm:flex-row items-start gap-10 text-left">
+    <div className="shrink-0 aspect-square w-24 sm:w-28">
+      <img
+        src="https://media.extension.land/track/extension-js.png"
+        alt="Extension.js"
+        width="112"
+        height="112"
+        className="block w-full h-full object-contain"
+      />
+    </div>
+    <div className="flex flex-col gap-6">
+      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-neutral-900 dark:text-white">
+        為什麼要使用瀏覽器擴充功能框架？
+      </h2>
+      <p className="text-neutral-600 dark:text-neutral-400 text-lg leading-relaxed max-w-3xl">
+        瀏覽器擴充功能與一般網頁應用相比，需要不同的檔案、瀏覽器 API、manifest 格式、權限與建置輸出。一個{" "}
+        <a
+          href="/docs/compare"
+          className="text-[#0e62f7] hover:opacity-80 no-underline"
+        >
+          瀏覽器擴充功能框架
+        </a>{" "}
+        能去掉這層「黏合層」：一個工作流即可涵蓋 Chrome、Edge 與 Firefox 的擴充功能開發、依目標的 manifest 過濾、針對 service worker 與內容指令稿調校的重新載入行為，以及面向 Chrome Web Store、addons.mozilla.org 與 Edge Add-ons 商店的可上架打包。
+      </p>
+      <p className="text-neutral-600 dark:text-neutral-400 text-lg leading-relaxed max-w-3xl">
+        Extension.js 為你提供這樣的工作流。一個 JavaScript 或 TypeScript 專案、一份{" "}
+        <code className="text-neutral-800 dark:text-neutral-200">
+          manifest.json
+        </code>
+        、獨立的{" "}
+        <code className="text-neutral-800 dark:text-neutral-200">
+          dist/&lt;browser&gt;
+        </code>{" "}
+        輸出，以及一個不擋你路的 CLI，讓把單一程式碼庫發行為跨瀏覽器擴充功能變得毫不費力。
+      </p>
+    </div>
+  </div>
+</section>
+
+{/* ─────────── Workflow Video ─────────── */}
+
+<section className="flex flex-col items-center text-center gap-8">
+  <div>
+    <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+      觀看完整的開發者工作流
+    </h2>
+    <p className="text-gray-600 dark:text-gray-300 mt-3 text-lg">
+      從鷹架到執行擴充功能，全部在一個現代化的工具鏈中完成。
+    </p>
+  </div>
+  <div className="w-full max-w-5xl">
+    <iframe
+      className="w-full aspect-video rounded-2xl shadow-2xl ring-1 ring-black/5"
+      src="https://www.loom.com/embed/58e21900d693417db1e0e59c0a96c4b3?sid=80cf1003-7ed1-4f9d-a3fb-01c7876983ad"
+      title="Extension.js developer workflow"
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+      allow="clipboard-write; encrypted-media; fullscreen"
+      allowFullScreen
+    />
+  </div>
+</section>
+
+{/* ─────────── Core Features (asymmetric 3-col) ─────────── */}
+
+  <section className="flex flex-col gap-10">
+    <div className="text-center max-w-3xl mx-auto">
+      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        涵蓋{" "}
+        <span className="text-[#0e62f7]">擴充功能完整生命週期</span> 的核心特性
+      </h2>
+      <p className="text-gray-600 dark:text-gray-300 mt-3 text-lg">
+        以一個現代化的擴充功能工作流，為每個瀏覽器建置、測試與發行。
+      </p>
+    </div>
+
+    <div className="ext-feature-grid">
+      {/* A — wide, media: engines */}
+      <a
+        href="/docs/features/cross-browser-compatibility"
+        className="ext-feature-card ext-fa"
+      >
+        <div className="flex items-center -space-x-2">
+          <img
+            src="https://media.extension.land/logos/browsers/chromium.svg"
+            alt="Chromium"
+            className="h-10 w-10"
+          />
+          <img
+            src="https://media.extension.land/logos/browsers/firefox.svg"
+            alt="Firefox"
+            className="h-10 w-10"
+          />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            將一個擴充功能編譯為各瀏覽器專屬的輸出
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            一次建置即可面向 Chrome、Edge、Firefox 以及自訂的 Chromium 或 Gecko 目標。依瀏覽器輸出能在開發、測試與發行建置之間保持一致與可預期。{" "}
+          </p>
+        </div>
+      </a>
+
+      {/* B — narrow, media: browsers */}
+      <a
+        href="/docs/implementation-guide/manifest-json"
+        className="ext-feature-card ext-fb"
+      >
+        <div className="flex items-center -space-x-2">
+          <img
+            src="/images/vendor/chrome.svg"
+            alt="Chrome"
+            className="h-10 w-10"
+          />
+          <img
+            src="/images/vendor/firefox.svg"
+            alt="Firefox"
+            className="h-10 w-10"
+          />
+          <img
+            src="/images/vendor/edge.svg"
+            alt="Edge"
+            className="h-10 w-10"
+          />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            保持擴充功能結構清晰明確
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            隨著擴充功能規模成長，manifest、路徑與輸出資產維持同步。
+          </p>
+        </div>
+      </a>
+
+      {/* C — narrow */}
+      <a
+        href="/docs/features/extension-configuration"
+        className="ext-feature-card ext-fc"
+      >
+        <img
+          src="https://media.extension.land/track/extension-js.png"
+          alt="Extension.js"
+          className="h-10 w-10 object-contain"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            透過設定微調行為
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            透過 <code>extension.config.js</code> 覆寫預設值，以實現自訂建置。{" "}
+          </p>
+        </div>
+      </a>
+
+      {/* D — wide, media: frameworks */}
+      <a
+        href="/docs/getting-started/templates"
+        className="ext-feature-card ext-fd"
+      >
+        <div className="flex items-center -space-x-2">
+          <img
+            src="/images/vendor/react-original.svg"
+            alt="React"
+            className="h-10 w-10"
+          />
+          <img
+            src="/images/vendor/vuejs-original.svg"
+            alt="Vue"
+            className="h-10 w-10"
+          />
+          <img
+            src="/images/vendor/svelte-original.svg"
+            alt="Svelte"
+            className="h-10 w-10"
+          />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            帶上你偏好的技術堆疊
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            從 React、Vue、Svelte、TypeScript 或 JavaScript 起步。保持一套工作流，讓你的團隊在不更換擴充功能工具鏈的前提下選擇合適的 UI 模型。{" "}
+          </p>
+        </div>
+      </a>
+
+      {/* E — wide, media: env */}
+      <a
+        href="/docs/features/environment-variables"
+        className="ext-feature-card ext-fe"
+      >
+        <img
+          src="/images/vendor/env-vars.png"
+          alt="環境變數"
+          className="h-10 w-10 object-contain"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            乾淨地注入環境值
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            依瀏覽器與模式載入環境值，並在 JavaScript、JSON 與 HTML 中完成替換。開發環境的密鑰不會外洩到生產組合包中。{" "}
+          </p>
+        </div>
+      </a>
+
+      {/* F — narrow, media: stores */}
+      <a
+        href="/docs/features/multi-platform-builds"
+        className="ext-feature-card ext-ff"
+      >
+        <div className="flex items-center -space-x-2">
+          <img
+            src="https://media.extension.land/logos/stores/chrome-web-store.png"
+            alt="Chrome Web Store"
+            className="h-10 w-10"
+          />
+          <img
+            src="https://media.extension.land/logos/stores/firefox-addons.png"
+            alt="Firefox Add-ons"
+            className="h-10 w-10"
+          />
+          <img
+            src="https://media.extension.land/logos/stores/microsoft-edge-addons.png"
+            alt="Microsoft Edge Add-ons"
+            className="h-10 w-10"
+          />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            建置、預覽、打包
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            一條流程，從本機檢查直達每個瀏覽器的可上架產物。{" "}
+          </p>
+        </div>
+      </a>
+    </div>
+
+    <div className="flex justify-center">
+      <a
+        href="/docs/features"
+        className="inline-flex items-center gap-3 rounded-lg bg-[#0e62f7] px-12 py-4 text-white text-lg font-semibold hover:opacity-90 transition no-underline"
+      >
+        探索全部特性 ⏵⏵⏵
+      </a>
+    </div>
+
+  </section>
+
+{/* ─────────── Templates ─────────── */}
+
+  <section className="flex flex-col gap-10">
+    <div className="text-center max-w-3xl mx-auto">
+      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        選擇你的 <span className="text-[#0e62f7]">框架</span>。保留你的工作流。
+      </h2>
+      <p className="text-gray-600 dark:text-gray-300 mt-3 text-lg">
+        從面向 React、Preact、Vue、Svelte、TypeScript 或 JavaScript 的生產級範本開始。
+      </p>
+    </div>
+
+    <div className="ext-template-grid">
+      <a
+        href="/docs/languages-and-frameworks/react"
+        className="ext-feature-card"
+      >
+        <img
+          src="/images/vendor/react-original.svg"
+          alt="React"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">React</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            元件化 UI，完整相容 Manifest V3（MV3）。開箱即用的 popup、選項頁與內容指令稿。{" "}
+          </p>
+        </div>
+      </a>
+      <a
+        href="/docs/languages-and-frameworks/preact"
+        className="ext-feature-card"
+      >
+        <img
+          src="https://preactjs.com/branding/symbol.svg"
+          alt="Preact"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Preact</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            相同的 React API，執行階段僅 3kB。非常適合對組合包大小敏感的內容指令稿。{" "}
+          </p>
+        </div>
+      </a>
+      <a href="/docs/languages-and-frameworks/vue" className="ext-feature-card">
+        <img
+          src="/images/vendor/vuejs-original.svg"
+          alt="Vue"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Vue</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            帶單檔元件的漸進式框架，開箱即用地適配擴充功能情境。{" "}
+          </p>
+        </div>
+      </a>
+      <a
+        href="/docs/languages-and-frameworks/svelte"
+        className="ext-feature-card"
+      >
+        <img
+          src="/images/vendor/svelte-original.svg"
+          alt="Svelte"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Svelte</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            編譯期 UI，執行階段更小。當內容指令稿的每一 KB 都重要時，是理想選擇。{" "}
+          </p>
+        </div>
+      </a>
+      <a
+        href="/docs/languages-and-frameworks/typescript"
+        className="ext-feature-card"
+      >
+        <img
+          src="/images/vendor/typescript-original.svg"
+          alt="TypeScript"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">TypeScript</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            為 popup、內容與背景指令稿提供靜態型別。在編譯期就攔截 manifest 與訊息傳遞的 bug。{" "}
+          </p>
+        </div>
+      </a>
+      <a
+        href="/docs/languages-and-frameworks/ecmascript-modules"
+        className="ext-feature-card"
+      >
+        <img
+          src="/images/vendor/javascript-original.svg"
+          alt="JavaScript"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">JavaScript</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            原生 ES 模組，無需編譯步驟。先快速起步，再依需求加入工具。{" "}
+          </p>
+        </div>
+      </a>
+    </div>
+
+    <div className="flex justify-center">
+      <a
+        href="/docs/getting-started/templates"
+        className="inline-flex items-center gap-3 rounded-lg bg-[#0e62f7] px-12 py-4 text-white text-lg font-semibold hover:opacity-90 transition no-underline"
+      >
+        瀏覽範本 ⏵⏵⏵
+      </a>
+    </div>
+
+  </section>
+
+{/* ─────────── Coming from another framework ─────────── */}
+
+<section className="w-full">
+  <div className="ext-migrate-callout">
+    <div>
+      <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+        來自其他框架？
+      </h2>
+      <p className="text-gray-600 dark:text-gray-400 mt-3 text-base sm:text-lg max-w-2xl">
+        大多數 React、Vue 與 Svelte 原始檔不需重寫即可遷移。工作量主要在於替換打包器設定，並把產生的 manifest 改回真正的 manifest.json。
+      </p>
+    </div>
+    <div className="ext-migrate-actions">
+      <a href="/docs/compare/extension-js-vs-wxt" className="ext-migrate-btn">
+        與 WXT 對比 ⏵
+      </a>
+      <a href="/docs/migrate/from-crxjs" className="ext-migrate-btn">
+        從 CRXJS 遷移 ⏵
+      </a>
+    </div>
+  </div>
+</section>
+
+{/* ─────────── Sponsors ─────────── */}
+
+<section className="flex flex-col items-center text-center gap-6">
+  <div>
+    <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+      支持開源核心
+    </h2>
+    <p className="text-gray-600 dark:text-gray-300 mt-3 text-lg max-w-2xl">
+      贊助者協助專案更快地發布，提供更好的開發者體驗（DX），並為擴充功能團隊帶來長期可靠性。
+    </p>
+  </div>
+  <div className="ext-sponsors">
+    <a
+      href="https://extension.dev/?utm_medium=sponsor&utm_source=extensionjs"
+      rel="noreferrer"
+      target="_blank"
+      className="ext-sponsor-tile"
+      aria-label="extension.dev"
+    >
+      <img
+        alt="extension.dev"
+        src="/images/sponsors/extensiondev.svg"
+        loading="lazy"
+        className="ext-sponsor-logo block dark:hidden"
+      />
+      <img
+        alt="extension.dev"
+        src="/images/sponsors/extensiondev_dark.svg"
+        loading="lazy"
+        className="ext-sponsor-logo hidden dark:block"
+      />
+    </a>
+    <a
+      href="https://mintlify.com/?utm_medium=sponsor&utm_source=extensionjs"
+      rel="noreferrer"
+      target="_blank"
+      className="ext-sponsor-tile"
+      aria-label="Mintlify"
+    >
+      <img
+        alt="Mintlify"
+        src="/images/sponsors/mintlify.svg"
+        loading="lazy"
+        className="ext-sponsor-logo block dark:hidden"
+      />
+      <img
+        alt="Mintlify"
+        src="/images/sponsors/mintlify_dark.svg"
+        loading="lazy"
+        className="ext-sponsor-logo hidden dark:block"
+      />
+    </a>
+  </div>
+  <a
+    href="https://github.com/sponsors/extension-js"
+    target="_blank"
+    rel="noreferrer"
+    className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+  >
+    成為贊助者 ⏵
+  </a>
+</section>
+
+{/* ─────────── FAQ ─────────── */}
+
+  <section className="flex flex-col gap-8 max-w-3xl mx-auto w-full">
+    <div className="text-center">
+      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        常見問題
+      </h2>
+    </div>
+    <AccordionGroup>
+      <Accordion title="什麼是瀏覽器擴充功能？">
+        瀏覽器擴充功能是為 Chrome、Firefox、Edge 或其他瀏覽器新增功能的軟體。擴充功能可以注入 UI、回應瀏覽器事件，並呼叫頁面本身無法使用的特權 API。完整入門請參見 [什麼是瀏覽器擴充功能？](/docs/concepts/what-is-a-browser-extension)。
+      </Accordion>
+      <Accordion title="Extension.js 是 Chrome 擴充功能框架嗎？">
+        是。Extension.js 既是 Chrome 擴充功能框架，也是 Firefox 與 Edge 擴充功能框架，且皆來自同一個專案。透過 `--browser=chrome`、`--browser=firefox` 或 `--browser=edge` 選擇目標。參見 [可用瀏覽器](/docs/browsers/browsers-available)。
+      </Accordion>
+      <Accordion title="Extension.js 在開發期間如何處理模組熱替換？">
+        執行 `npx extension dev`，CLI 會監看專案變更。對 popup、內容指令稿、service worker 與選項頁的編輯，會觸發最快且安全的更新路徑。CLI 在支援時採用模組熱替換（HMR），否則進行定向重新載入。它會自動解決常見痛點，例如過時的 service worker 與漏掉的內容指令稿更新。
+      </Accordion>
+      <Accordion title="我要如何為 Chrome、Edge 與 Firefox 建置同一個擴充功能？">
+        Extension.js 將單一程式碼庫編譯為特定瀏覽器的輸出。一組指令即可為 Chrome、Edge、Firefox 以及其他 Chromium 系瀏覽器產出正確打包的建置。每個建置都會得到正確的 manifest 格式、路徑與平台調整。你的持續整合（CI）流水線只需在同一個建置步驟使用不同的瀏覽器旗標。這能減少各商店送審之間的落差。
+      </Accordion>
+      <Accordion title="我可以使用 React、Preact、Vue、Svelte 或 TypeScript 嗎？">
+        可以。Extension.js 提供面向 React、Preact、Vue、Svelte、TypeScript 與原生 JavaScript 的生產級範本。你可以用與其他前端專案一樣的方式撰寫元件。框架選擇不會影響核心工作流。
+      </Accordion>
+      <Accordion title="Extension.js 支援 Manifest V3 嗎？">
+        支援。工具鏈圍繞 Manifest V3 以及瀏覽器商店目前強制執行的限制設計：service worker、宣告式 API、更新後的權限與更嚴格的打包。Manifest V3（MV3）是預設選項，而非事後補丁。常見陷阱請參見 [Manifest V3 疑難排解](/docs/concepts/manifest-v3)。
+      </Accordion>
+      <Accordion title="如何排除 Manifest V3 的 service worker 與權限問題？">
+        大多數 Manifest V3 疑難排解可歸納為幾類：service worker 註冊與 `type: "module"`、新的 `web_accessible_resources` 結構、`permissions` 與 `host_permissions` 的拆分，以及 Firefox 中 `declarative_net_request` 的差異。修復方式請參見 [Manifest V3 疑難排解](/docs/concepts/manifest-v3)。
+      </Accordion>
+      <Accordion title="如何從自訂的 webpack 或 Vite 設定遷移？">
+        Extension.js 取代了手寫打包器設定中與擴充功能相關的「黏合層」。它負責 manifest 版本管理、多瀏覽器輸出、內容指令稿注入與重新載入編排。將原始檔與 manifest 移入 Extension.js 專案，CLI 會處理其餘工作。你的 React/Vue/Svelte/TS 程式碼無需重寫。
+      </Accordion>
+      <Accordion title="Extension.js 是否支援 monorepo 與環境變數？">
+        Extension.js 支援 pnpm、npm 與 Yarn 的 workspaces。路徑解析與共享依賴可跨工作區邊界運作。Extension.js 依瀏覽器與建置模式注入環境變數，在 JS、JSON 與 HTML 中完成替換。開發環境的密鑰不會外洩到生產組合包中。
+      </Accordion>
+      <Accordion title="Extension.js 是免費的嗎？">
+        是。Extension.js 在
+        [MIT 授權](https://github.com/extension-js/extension.js/blob/main/LICENSE) 下開源。
+        沒有付費方案、使用量上限或需強制開啟遙測的模式。本框架由贊助者與貢獻者資助。具體資料結構請查看
+        [遙測契約](/docs/features/telemetry-and-privacy)。
+      </Accordion>
+      <Accordion title="Extension.js 支援 Safari 嗎？">
+        目前還不支援。`--browser=safari` 目前不是 CLI 目標。你仍然可以用共享的 Web 程式碼撰寫 Safari 擴充功能，並在此工作流外加入 Safari 專屬的建置步驟。目前範圍請參見 [可用瀏覽器](/docs/browsers/browsers-available#safari-and-other-webkit-targets)。
+      </Accordion>
+      <Accordion title="Extension.js 會為我的組合包增加多少內容？">
+        生產建置（`extension build`）只輸出擴充功能引用到的程式碼，外加一個小型的重新載入執行階段（在生產中會被移除）。開發建置則包含額外的 HMR 與重新載入黏合程式碼。輸出位於 `dist/<browser>` 下，方便你比較各瀏覽器之間的體積。內容指令稿組合包的體積接近於「你的原始碼 + 你選擇的 UI 框架」自身產出的體積。
+      </Accordion>
+      <Accordion title="如何從 CRXJS、WXT 或 Plasmo 遷移？">
+        大多數 React、Vue 與 Svelte 原始檔不需重寫即可遷移。工作量集中在三處：替換打包器設定、將產生的 manifest 改回手寫的 `manifest.json`（使用
+        [帶瀏覽器前綴的鍵](/docs/features/browser-specific-fields)），以及更新
+        `package.json` 中的指令稿。詳細步驟請參見 [從 CRXJS 遷移](/docs/migrate/from-crxjs)。
+      </Accordion>
+    </AccordionGroup>
+  </section>
+
+  <div className="ext-footer">
+    <div className="ext-footer-inner">
+      <div className="ext-footer-cmd">
+        <code>npx extension@latest create my-extension</code>
+      </div>
+      <div className="ext-footer-right">
+        <ul className="ext-footer-links">
+          <li>
+            <a
+              href="https://github.com/extension-js/extension.js/blob/main/CODE_OF_CONDUCT.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              行為準則{" "}
+              <Icon icon="arrow-up-right-from-square" size={10} />
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://github.com/extension-js/extension.js/releases"
+              target="_blank"
+              rel="noreferrer"
+            >
+              變更紀錄 <Icon icon="arrow-up-right-from-square" size={10} />
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://github.com/extension-js/extension.js/security"
+              target="_blank"
+              rel="noreferrer"
+            >
+              安全 <Icon icon="arrow-up-right-from-square" size={10} />
+            </a>
+          </li>
+        </ul>
+        <p className="ext-footer-copy">
+          MIT (c) Cezar Augusto 與{" "}
+          <a href="/docs/hall-of-fame">Extension.js 作者群</a>。
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

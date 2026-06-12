@@ -1,0 +1,170 @@
+---
+title: "面向浏览器扩展的 Svelte"
+description: "使用 Svelte 组件构建扩展 UI。Extension.js 会根据你的依赖自动配置 .svelte 文件解析、loader 设置和别名。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "typescript",
+    "react",
+    "svelte",
+    "content script",
+    "popup",
+    "docs",
+  ]
+---
+
+使用 Svelte 组件构建扩展 UI,框架的接线由 Extension.js 负责。
+
+Extension.js 会从你的项目依赖中检测到 Svelte,并自动配置 `.svelte` 解析、loader 设置和 Svelte 客户端别名。
+
+## 何时适合使用 Svelte
+
+- 你希望弹窗、选项页、侧边栏或新标签页 UI 拥有更小的运行时。
+- 你倾向于使用简洁语法、以组件为先的编写方式。
+- 你需要一个能同时支持扩展页面和内容脚本 UI 挂载的框架方案。
+
+## 模板示例
+
+### `new-svelte`
+
+![new-svelte 模板截图](/images/examples/new-svelte/screenshot.png)
+
+当你希望以极少的配置获得一个框架优先的扩展 UI 时,使用 Svelte 启动模板。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-svelte
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-svelte
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-svelte
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-svelte
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-svelte
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/new-svelte](https://github.com/extension-js/examples/tree/main/examples/new-svelte)
+
+### `content-svelte`
+
+![content-svelte 模板截图](/images/examples/content-svelte/screenshot.png)
+
+通过内容脚本将 Svelte 组件注入到 Web 页面。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-svelte
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-svelte
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-svelte
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-svelte
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-svelte
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-svelte](https://github.com/extension-js/examples/tree/main/examples/content-svelte)
+
+## 在已有扩展中使用
+
+安装 Svelte:
+
+<PackageManagerTabs command="install svelte" />
+
+如需在已有项目中显式配置,还需安装 Svelte 的 loader:
+
+<PackageManagerTabs command="install -D svelte-loader typescript" />
+
+## 开发行为
+
+当 Extension.js 检测到 Svelte 时,它会:
+
+- 启用 `.svelte` 文件解析。
+- 在 JS 框架流水线中配置 Svelte loader。
+- 应用 Svelte 客户端别名(例如 `svelte`、`svelte/store` 和 `svelte/reactivity`)。
+
+如果你的项目缺少可选工具,Extension.js 会自动安装所需依赖并要求重启。
+
+## 使用示例
+
+### 在扩展页面中
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Svelte Extension</title>
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+  <script src="./main.ts"></script>
+</html>
+```
+
+```ts
+import App from "./App.svelte";
+
+new App({
+  target: document.getElementById("app")!,
+});
+```
+
+### 在 `content_script` 文件中
+
+对于内容脚本,创建一个挂载节点并从默认导出返回一个清理函数。这样 Extension.js 在开发环境中可以安全地重新挂载:
+
+```ts
+import App from "./App.svelte";
+
+export default function main() {
+  const target = document.createElement("div");
+  target.id = "extension-root";
+  document.body.appendChild(target);
+
+  const app = new App({ target });
+
+  return () => {
+    app.$destroy();
+    target.remove();
+  };
+}
+```
+
+## 最佳实践
+
+- 让 Svelte 组件专注于 UI,把浏览器 API 的编排放到独立的模块中。
+- 在内容脚本中始终返回清理函数,使重新挂载的行为保持可预测。
+- 先在扩展页面中使用 Svelte,等内容脚本的功能边界清晰后再扩展到 UI。
+
+## 后续步骤
+
+- 进一步了解 [TypeScript 支持](/docs/languages-and-frameworks/typescript)。
+- 查看[内容脚本](/docs/implementation-guide/content-scripts)中的内容脚本约定。

@@ -1,6 +1,6 @@
 ---
-title: "不用點擊就能測試工具列動作或鍵盤指令"
-description: "從終端機或 CI 觸發 chrome.action.onClicked 與 chrome.commands.onCommand — 無頭、可重現、支援 Chrome 與 Firefox。當你需要 activeTab 時，還能在 Chromium 149+ 上發出真實手勢的點擊。"
+title: "不必點擊就能測試工具列 action 或鍵盤指令"
+description: "從終端機或 CI 以無頭方式觸發 chrome.action.onClicked 與 chrome.commands.onCommand,在 Chrome 與 Firefox 上執行,並對 activeTab 提供真實手勢的點擊。"
 keywords:
   [
     "test chrome.action.onClicked",
@@ -14,21 +14,21 @@ keywords:
   ]
 ---
 
-在 CI 中你無法點擊工具列圖示，而沒有 popup 的動作只有在 `onClicked` 觸發時才會做事。Extension.js 讓你能直接觸發這些處理函式 — 工具列動作與鍵盤快速鍵指令 — 讓你可以無頭執行它們，並對結果進行斷言。
+你無法在 CI 中點擊工具列圖示,而沒有 popup 的 action 只有在其 `onClicked` 觸發時才會做事。Extension.js 讓你可以直接觸發這些處理器 —— 工具列 action 與鍵盤捷徑指令 —— 讓你能無頭執行它們,並對它們做了什麼進行斷言。
 
-這之所以可行，是因為 Extension.js 會在建置時擷取你的 `chrome.action.onClicked` 與 `chrome.commands.onCommand` 監聽器（開發期執行階段會在你的 background 程式碼之前載入），並在需要時重播它們。沒有視窗、沒有滑鼠、沒有 flaky 測試。
+之所以行得通,是因為 Extension.js 在建構時捕捉你的 `chrome.action.onClicked` 與 `chrome.commands.onCommand` 監聽器(開發執行階段比你的背景程式碼先載入),並按需重播它們。沒有視窗、沒有滑鼠、不會出包。
 
 <Note>
-  需要以 `--allow-control` 啟動的開發 session — 參見[除錯總覽](/docs/debugging)。
+  需要以 `--allow-control` 啟動的開發工作階段 —— 參見 [除錯總覽](/docs/debugging)。
 </Note>
 
-## 觸發工具列動作
+## 觸發工具列 action
 
 ```bash
 pnpm extension open action --allow-control --output json
 ```
 
-如果該動作有 `default_popup`，這會將它開啟。如果沒有，就會重播 `onClicked` 監聽器：
+如果該 action 有 `default_popup`,這會將它開啟。如果沒有,它會重播 `onClicked` 監聽器:
 
 ```json
 {
@@ -39,7 +39,7 @@ pnpm extension open action --allow-control --output json
 
 ## 觸發鍵盤指令
 
-依名稱重播任何 `chrome.commands.onCommand` 處理函式 — 快速鍵本身完全不會被按下：
+依名稱重播任何 `chrome.commands.onCommand` 處理器 —— 捷徑本身從未被按下:
 
 ```bash
 pnpm extension open command --name toggle-theme --allow-control --output json
@@ -57,19 +57,19 @@ pnpm extension open command --name toggle-theme --allow-control --output json
 }
 ```
 
-## 唯一的注意事項：沒有使用者手勢
+## 唯一注意事項:沒有使用者手勢
 
-重播會呼叫你的處理函式，但它**不是**真正的使用者點擊，所以瀏覽器不會附帶使用者手勢。實際影響如下：
+重播會呼叫你的處理器,但它 **不是** 真實的使用者點擊,所以瀏覽器不會附帶使用者手勢。實際後果是:
 
 <Warning>
-  真正的工具列點擊會授予暫時性的 **`activeTab`** 權限，並能滿足需要手勢的 API
-  （`chrome.permissions.request`、互動式的
-  `chrome.identity.getAuthToken`）。重播不會。所以依賴 `activeTab` 的處理函式 —
-  在作用中分頁上呼叫 `chrome.scripting.executeScript`、
-  `chrome.tabs.captureVisibleTab` — 行為會與真實點擊不同。
+  真實的工具列點擊會授予暫時的 **`activeTab`**,並滿足受手勢門檻控管的 API
+  (`chrome.permissions.request`、互動式
+  `chrome.identity.getAuthToken`)。重播不會。所以依賴
+  `activeTab` 的處理器 —— 例如對作用分頁的 `chrome.scripting.executeScript`、
+  `chrome.tabs.captureVisibleTab` —— 行為會與真實點擊不同。
 </Warning>
 
-Extension.js 會在這件事重要時告訴你：結果會回報 `gesture: false`，並在你的 manifest 宣告了 `activeTab` 時加上 `warning`：
+Extension.js 在這點重要時會告知你:結果會回報 `gesture: false`,並在你的 manifest 宣告了 `activeTab` 時加上 `warning`:
 
 ```json
 {
@@ -83,17 +83,17 @@ Extension.js 會在這件事重要時告訴你：結果會回報 `gesture: false
 }
 ```
 
-對大多數處理邏輯而言 — 切換狀態、寫入儲存空間、開啟分頁、傳訊息 — 重播正是你想要的：可重現且可寫成腳本。只有在你明確需要手勢語意時，才需要採用下面所說的真實點擊。
+對於大多數處理器邏輯 —— 切換狀態、寫入儲存、開啟分頁、傳訊息 —— 重播就是你要的:可確定且可指令稿化。只有當你確實需要手勢語意時,才使用下面的真實點擊。
 
-## 需要真正帶手勢的點擊？
+## 需要真正的手勢點擊?
 
-真正的動作點擊會授予 `activeTab` — 已在 Chrome 149 上確認。重播刻意**不**帶有該手勢（因此依賴 `activeTab` 的處理函式行為會不同）。在極少數真的需要手勢語意的情況下，使用 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 的 `trigger_extension_action`（僅限 Chromium），它會透過 Puppeteer 經由支援的 pipe transport 進行真實呼叫。
+真實的 action 點擊會授予 `activeTab` —— 已在 Chrome 149 上確認。重播刻意 **不** 帶該手勢(所以仰賴 `activeTab` 的處理器行為不同)。在罕見需要真實手勢語意的情況下,請使用 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 的 `trigger_extension_action`(僅 Chromium),它透過支援的 pipe 傳輸由 Puppeteer 驅動真實呼叫。
 
-無論如何，我們建議[與 Extension.js 並行使用](/docs/integrations/chrome-devtools-mcp)：讓它負責真正帶手勢的瀏覽器驅動，Extension.js 則負責你日常會用到的、感知建置、跨瀏覽器、無頭的重播。
+我們仍然建議 [與 Extension.js 並排執行它](/docs/integrations/chrome-devtools-mcp):讓它負責真實手勢的瀏覽器驅動,而 Extension.js 負責你日常使用、建構感知、跨瀏覽器、無頭的重播。
 
-## 在 CI 中：斷言你的動作處理函式有執行
+## 在 CI 中:斷言你的 action 處理器有跑
 
-啟動 session、觸發動作、對副作用進行斷言 — 不需要瀏覽器 UI、不需要 Playwright。這就是一個 GitHub Actions job 的完整流程：
+啟動工作階段、觸發 action,然後對副作用做斷言 —— 沒有瀏覽器 UI、沒有 Playwright。這就是 GitHub Actions 工作中完整的迴圈:
 
 ```yaml
 - run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
@@ -103,16 +103,16 @@ Extension.js 會在這件事重要時告訴你：結果會回報 `gesture: false
       | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0)).value?.lastClickedAt ? 0 : 1)'
 ```
 
-由於觸發是可重現且無頭的，它是個可靠的檢核點 — Extension.js 自家的 `smoke:open-action` 檢查正是走相同路徑，它會觸發動作 _以及_ 一個指令，再讀回 `chrome.storage` 來證明每個處理函式確實有執行。
+因為觸發是可確定且無頭的,所以它是可靠的門檻 —— Extension.js 自己的 `smoke:open-action` 檢查也走相同路徑,它會觸發 action _以及_ 一個指令,然後讀回 `chrome.storage` 來證明每個處理器確實執行了。
 
-完整 pipeline 請見 [CI 範本](/docs/workflows/ci-templates#test-handlers-without-a-browser-ui)。
+參見 [CI 範本](/docs/workflows/ci-templates#test-handlers-without-a-browser-ui) 了解完整流程。
 
 ## 跨瀏覽器
 
-`open action` 與 `open command` 建構在瀏覽器內伴隨程式之上，因此能在 **Chrome 與 Firefox** 上執行 — 它們只觸及 `addListener`，沒有任何引擎專屬的程式碼，且兩個瀏覽器都已驗證。同一份 `background.service_worker` 原始碼也能在 Firefox 上運作：Extension.js 會在 Firefox 建置時把它轉換成 `background.scripts` 的 event page。（真實帶手勢的點擊僅限 Chromium，由 chrome-devtools-mcp 提供 — 見前述。）
+`open action` 與 `open command` 都建構於瀏覽器內夥伴之上,所以它們可以在 **Chrome 與 Firefox** 上執行 —— 它們只觸碰 `addListener`,沒有任何引擎特定的東西,並已在兩者上驗證。同一份 `background.service_worker` 原始碼也適用於 Firefox:Extension.js 會將它翻譯成 Firefox 建構的 `background.scripts` 事件頁面。(真正的手勢點擊僅限 Chromium,並位於 chrome-devtools-mcp 中 —— 見上文。)
 
 ## 下一步
 
-- [除錯總覽](/docs/debugging) — 完整的控制介面。
-- [CI 範本](/docs/workflows/ci-templates) — 將此整合進 PR 檢核流程。
-- [同時執行兩個 MCP server](/docs/integrations/chrome-devtools-mcp) — 並列比較還原度與可攜性。
+- [除錯總覽](/docs/debugging) —— 完整的控制介面。
+- [CI 範本](/docs/workflows/ci-templates) —— 將其串到 PR 門檻。
+- [同時執行兩個 MCP 伺服器](/docs/integrations/chrome-devtools-mcp) —— 保真度與可攜性並列。

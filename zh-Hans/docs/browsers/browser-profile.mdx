@@ -1,0 +1,122 @@
+---
+title: "用于隔离开发运行的浏览器 profile 管理"
+description: "在扩展开发期间通过托管、持久或自定义 profile 路径管理 Chrome 和 Firefox 的浏览器状态隔离。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "devtools",
+    "docs",
+    "browsers",
+    "browser profile",
+  ]
+---
+
+通过托管、持久或自定义 profile 控制开发期间的浏览器状态隔离。
+
+根据你的工作流保持浏览器会话隔离或持久化。Extension.js 会以感知 profile 的默认值启动浏览器。你可以选择干净的运行、可复用的状态,或显式的本地 profile 路径。
+
+## 工作原理
+
+Extension.js 按以下顺序选择 profile 模式:
+
+1. 显式的 `profile` 路径(若已提供)
+2. 托管 profile 模式(默认)
+   - 默认临时(短暂)
+   - 当 `persistProfile: true` 时持久化
+3. 当 `EXTENSION_USE_SYSTEM_PROFILE=true` 时使用系统 profile 模式
+
+## Profile 能力
+
+| 配置 / 选项                         | 作用                                                            |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `browser.<target>.profile`          | 为该浏览器目标使用显式的 profile 文件夹。                       |
+| `commands.dev.profile`              | 仅为 `dev` 使用显式 profile。                                   |
+| `commands.start.profile`            | 仅为 `start` 使用显式 profile。                                 |
+| `commands.preview.profile`          | 仅为 `preview` 使用显式 profile。                               |
+| `browser.<target>.persistProfile`   | 在该目标的多次运行间复用托管 profile 状态。                     |
+| `commands.<name>.persistProfile`    | 在特定命令上下文中复用托管 profile 状态。                       |
+| `--profile=/abs/path`               | 通过 CLI 覆盖,指定显式 profile 路径。                          |
+| `EXTENSION_USE_SYSTEM_PROFILE=true` | 使用操作系统/浏览器的系统 profile 而不是托管 profile。          |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching between managed ephemeral, persistent, and explicit profile modes in development. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Profile 模式
+
+| 模式                | 启用方式                                        | 典型用途                                       |
+| ------------------- | ----------------------------------------------- | ---------------------------------------------- |
+| 托管临时            | 默认                                            | 状态隔离的干净运行                             |
+| 托管持久            | `persistProfile: true`                          | 需要稳定浏览器状态的迭代调试                   |
+| 显式自定义 profile  | `profile: "/abs/path"` 或 `--profile=/abs/path` | 复用已有的 profile                             |
+| 系统 profile        | `EXTENSION_USE_SYSTEM_PROFILE=true`             | 使用操作系统/浏览器默认 profile 启动           |
+
+Extension.js 会在以下位置创建托管 profile:
+
+- `dist/extension-js/profiles/<browser>-profile/<...>`
+
+持久模式使用:
+
+- `dist/extension-js/profiles/<browser>-profile/dev`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show profile directories created under `dist/extension-js/profiles` and reused when `persistProfile` is enabled. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 在 `extension.config.*` 中配置
+
+```js
+export default {
+  browser: {
+    chrome: {
+      // 使用你自己的 profile 文件夹:
+      profile: "path/to/custom/profile",
+    },
+    firefox: {
+      // 在多次会话间保留稳定的托管 profile:
+      persistProfile: true,
+    },
+  },
+};
+```
+
+你也可以按命令限定 profile 默认值:
+
+```js
+export default {
+  commands: {
+    dev: {
+      persistProfile: true,
+    },
+  },
+};
+```
+
+## CLI 用法
+
+直接使用显式 profile 路径:
+
+```bash
+extension dev --browser=chrome --profile=/path/to/custom/profile
+```
+
+`start` 和 `preview` 的用法类似。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CLI `--profile` override applied in `dev`, then reused in `start`/`preview`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 生命周期说明
+
+- Extension.js 为每次运行创建临时的托管 profile。
+- Extension.js 在多次运行间复用持久托管 profile(`dev`)。
+- Extension.js 会自动移除过期的托管 profile 文件夹。可设置 `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` 控制最大保留时长。
+
+## 最佳实践
+
+- **基线测试使用托管临时 profile**:减少隐藏状态和不稳定的复现。
+- **长期调试会话使用 `persistProfile`**:在多次运行间保留认证/会话/devtools 状态。
+- **按浏览器家族隔离自定义 profile**:避免跨浏览器污染。
+- **有意识地使用系统 profile 模式**:适合复现问题,但隔离性不如托管 profile。
+
+## 后续步骤
+
+- 进一步了解[浏览器首选项](/docs/browsers/browser-preferences)。
+- 进一步了解[浏览器标志](/docs/browsers/browser-flags)。

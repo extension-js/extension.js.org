@@ -1,0 +1,99 @@
+---
+title: "通过 MCP 和 llms.txt 接入 AI"
+description: "通过托管的 MCP 服务器将 Extension.js 文档连接到你的 AI 工具，或从 llms.txt 端点获取结构化摘要。"
+keywords:
+  [
+    "extension.js",
+    "mcp",
+    "ai",
+    "claude",
+    "cursor",
+    "chatgpt",
+    "llms.txt",
+    "docs",
+  ]
+---
+
+通过两种标准的 AI 可访问接口访问 Extension.js 文档。这能让你的编辑器和助手根据最新文档而非过时的训练数据来回答问题。
+
+<Note>
+  本页讨论的是把 **文档** 提供给助手 —— 让它根据当前内容回答"我该如何……"的问题。如果你希望让助手 **驱动工具链**（运行开发会话、流式查看日志、检查 DOM、触发操作、重新加载），请参阅独立的控制服务器：[Chrome DevTools MCP with
+  Extension.js](/docs/integrations/chrome-devtools-mcp)。
+</Note>
+
+## 托管的 MCP（Model Context Protocol）服务器
+
+文档站点在以下地址提供了 [Model Context Protocol](https://modelcontextprotocol.io) 服务器：
+
+```
+https://extensionjs.mintlify.app/mcp
+```
+
+将任意兼容 MCP 的客户端指向此 URL，它就能获得搜索文档、抓取特定页面、并根据当前内容回答问题的工具。
+
+### 一键安装
+
+每个页面都有一个上下文菜单（页面右上角），其中包含常见客户端的安装按钮：**Claude**、**Cursor**、**VS Code** 和 **ChatGPT**。这是最便捷的方式。
+
+### 手动安装
+
+<CodeGroup>
+
+```json Claude Desktop (claude_desktop_config.json)
+{
+  "mcpServers": {
+    "extensionjs": {
+      "url": "https://extensionjs.mintlify.app/mcp"
+    }
+  }
+}
+```
+
+```json Cursor (.cursor/mcp.json)
+{
+  "mcpServers": {
+    "extensionjs": {
+      "url": "https://extensionjs.mintlify.app/mcp"
+    }
+  }
+}
+```
+
+```jsonc VS Code (settings.json)
+"mcp.servers": {
+  "extensionjs": {
+    "url": "https://extensionjs.mintlify.app/mcp"
+  }
+}
+```
+
+```bash Claude Code
+claude mcp add --transport http extensionjs https://extensionjs.mintlify.app/mcp
+```
+
+</CodeGroup>
+
+安装后，向你的助手提问，例如 _"如何在 Extension.js 中配置特定浏览器的 manifest 字段？"_ 助手会查阅 MCP 工具并引用文档页面。
+
+## llms.txt
+
+文档提供了一个静态的、对机器友好的索引：
+
+- [`/llms.txt`](https://extensionjs.mintlify.app/llms.txt)：所有页面的简短索引
+- [`/llms-full.txt`](https://extensionjs.mintlify.app/llms-full.txt)：用于摄取的完整内容包
+
+当你希望将文档直接输入检索管线，或在自定义 Agent 中进行摘要时，可以使用它们。Extension.js 会在每次文档部署时重新生成。
+
+## 每页面 AI 操作
+
+页面级的上下文菜单还提供：
+
+- **Copy page：** 将当前页面复制为 Markdown，便于粘贴到聊天中
+- **View as Markdown：** 在新标签页中打开原始 Markdown 源码
+- **Ask ChatGPT / Claude / Perplexity：** 打开对应的助手，并将该页面作为上下文预加载
+
+## 最佳实践
+
+- 当你希望助手跨多个页面进行推理并保持答案最新时，优先选用 MCP 服务器。
+- 在离线工具、评测或自定义 RAG（检索增强生成）管线中，优先选用 `llms-full.txt`。
+- 对你正在阅读的页面，使用每页面的快捷操作进行即时提问。

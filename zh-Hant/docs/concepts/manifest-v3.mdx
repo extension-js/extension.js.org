@@ -1,0 +1,129 @@
+---
+title: "瀏覽器擴充功能的 Manifest V3 疑難排解"
+description: "修復 Chrome 與 Firefox 中常見的 Manifest V3 問題:service worker、web_accessible_resources、host_permissions 以及瀏覽器特定行為。"
+keywords:
+  [
+    "manifest v3",
+    "manifest v3 troubleshooting",
+    "manifest v3 background service_worker",
+    "manifest v3 background type module",
+    "service_worker type module",
+    "web_accessible_resources",
+    "web_accessible_resources example",
+    "host_permissions",
+    "permissions",
+    "declarative_net_request firefox",
+    "background.js",
+    "content script",
+    "extension.js",
+  ]
+---
+
+Manifest V3(MV3)以 service worker 取代了背景頁面、收緊了內容安全政策,並重新塑造了擴充功能宣告網路與主機存取的方式。大多數日常痛點都有一個共同根源:MV3 假設背景程式碼是短暫且事件驅動的。Chrome 與 Firefox 在幾個鍵的詮釋上也有所不同。
+
+本頁匯集了建構 MV3 擴充功能時最常出現的問題,並提供確切修復方法,以及 Extension.js 為你處理了哪些事情。
+
+## Manifest V3 背景 `service_worker` 與 `type: "module"`
+
+Chromium 使用 service worker 作為 MV3 背景。若要從中匯入 ES 模組,manifest 需要 `type: "module"`:
+
+```json
+{
+  "manifest_version": 3,
+  "background": {
+    "service_worker": "service_worker.js",
+    "type": "module"
+  }
+}
+```
+
+若沒有 `"type": "module"`,`import` 陳述句會在註冊時失敗,擴充功能主控台中也不會有明確的錯誤訊息。加上後,你就能在 worker 檔中撰寫現代 ES 模組語法。
+
+當你的背景進入點使用 ES 模組語法時,Extension.js 會自動設定 `type: "module"`。它也會把 `.ts`/`.tsx` worker 編譯成單一打包輸出,讓模組解析在正式環境也能運作。
+
+## 為何 `background.js` 在 Manifest V3 中行為不同
+
+在 Manifest V2 中,`background.js` 執行於帶有 DOM 的常駐背景頁面。在 Chromium 上的 Manifest V3 中,背景以 service worker 執行:
+
+- 沒有 DOM。`window`、`document`、`XMLHttpRequest` 與 `localStorage` 都不存在。請使用 `fetch` 與 `chrome.storage`。
+- worker 在閒置時 **可能隨時被終止**,並在下次事件時被喚醒。不要把狀態存到模組層級變數;請持久化到 `chrome.storage`。
+- 頂層 `await` 是被允許的,但長時間的初始化本身並不會讓 worker 保持存活。
+- 請在檔案頂部 **同步** 註冊事件監聽器,而不要放在非同步回呼中。在非同步回呼中註冊的監聽器不會在載入該 worker 的喚醒事件上觸發。
+
+Firefox 保留了非持久化事件頁面,而不是 service worker。Extension.js 從相同來源把 Chromium 路由到 `service_worker`、把 Firefox 路由到 `scripts`,所以同一份背景進入點可以正確地依目標編譯。
+
+## Manifest V3 中的 `web_accessible_resources`
+
+Manifest V3 將 `web_accessible_resources` 從扁平的檔案陣列改為 `{ resources, matches }` 區塊清單:
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["images/logo.png", "pages/injected.html"],
+      "matches": ["https://example.com/*"]
+    }
+  ]
+}
+```
+
+常見錯誤:
+
+- 列出不在建構輸出中的路徑。Extension.js 只會輸出由 `manifest.json`、進入點 HTML 或匯入程式碼所參照的檔案。請把該檔案加入為資源,讓它落到 `dist/<browser>`。
+- 忘記 `matches`。沒有它,資源就不會對任何來源公開。
+- 使用 V2 風格的扁平字串。瀏覽器在 MV3 中會默默忽略它們。
+
+參見 [`web_accessible_resources` 實作](/docs/implementation-guide/web-accessible-resources) 了解完整模式,包含把擴充功能 URL 注入到內容腳本。
+
+## `host_permissions` 與 `permissions`
+
+Manifest V3 把主機存取從 `permissions` 陣列中拆分出來:
+
+| 鍵                                                     | 控制範圍                                                                                      |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `permissions`                                          | 命名 API 介面(`storage`、`tabs`、`cookies`、`scripting`、`alarms` 等)。                    |
+| `host_permissions`                                     | 擴充功能可讀取或修改的 URL 比對樣式(`https://*/*`、`*://api.example.com/*`)。               |
+| `optional_permissions` 與 `optional_host_permissions`  | 透過 `chrome.permissions.request` 在執行期間請求的權限。                                      |
+
+混淆後的症狀:
+
+- `chrome.cookies.get` 對你已有存取權的網站回傳空值:該 URL 需要 `host_permissions`,不只是 `cookies`。
+- `chrome.scripting.executeScript` 失敗並出現「Cannot access contents of url」:將該 URL 加入 `host_permissions`。
+- 你只需要單一來源,但 Web Store 卻警告使用者有「全站」存取:請收緊主機樣式。
+
+參見 [權限與主機權限](/docs/implementation-guide/permissions-and-host-permissions) 取得各 API 的對照參考。
+
+## Firefox 中的 `declarative_net_request`
+
+`declarative_net_request`(DNR)是 MV3 用來取代阻塞式 `webRequest` 的方案。Firefox 支援它,但有一些限制:
+
+- 靜態規則資源檔(`rule_resources`)必須是有效的 JSON 陣列。對於空或格式錯誤的規則檔,Firefox 比 Chrome 更嚴格。
+- Chrome 支援的某些規則動作與條件,在 Firefox 中仍是部分實作。請查看 [MDN 的 `declarativeNetRequest` 參考](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/declarativeNetRequest) 了解目前支援的對應表。
+- DNR 規則要套用於跨來源請求時,需要 `host_permissions`(或 `<all_urls>`)。
+
+Extension.js 在建構期間驗證 DNR 資源,並依瀏覽器輸出成品,讓 Firefox 專用的規則檔不會出現在 Chrome 的建構中。
+
+## 內容腳本、worker 與擴充功能 URL
+
+MV3 中常見的三個地雷:
+
+- **內容腳本無法存取頁面的 JavaScript 範圍。** 它們共享 DOM,不共享 window。要與頁面程式碼溝通,請使用 `window.postMessage`(或一個指向 `web_accessible_resources` 條目的 `<script>` 標籤)。
+- **Service worker 在安裝期間無法穩定地取得 `chrome.runtime.getURL`。** 請在需要該 URL 的事件處理器內部延後解析。
+- **擴充功能 URL 是以來源為範圍的。** 你擴充功能中的兩個頁面可以互相溝通,但除非它們被列入 `web_accessible_resources`,否則你無法從頁面 fetch 它們。
+
+## Extension.js 如何協助你應對 Manifest V3
+
+- 自動將背景進入點路由至 `service_worker`(Chromium)或 `scripts`(Firefox)。
+- 當背景使用 ES 模組語法時設定 `type: "module"`。
+- 在建構期間,依目前 manifest 版本驗證 `web_accessible_resources`、`permissions` 與 `host_permissions`。
+- 依瀏覽器輸出 `dist/<browser>` 成品,將 Chrome 與 Firefox 之間的 MV3 差異隔離開來。
+- 在 `extension dev` 期間,於存檔時重新載入內容腳本、service worker 與 HTML 頁面。
+
+## 下一步
+
+- 閱讀 [權限與主機權限](/docs/implementation-guide/permissions-and-host-permissions)。
+- 閱讀 [背景腳本](/docs/implementation-guide/background) 與 [內容腳本](/docs/implementation-guide/content-scripts)。
+- 閱讀 [`web_accessible_resources`](/docs/implementation-guide/web-accessible-resources)。
+- 參見 [跨瀏覽器相容性](/docs/features/cross-browser-compatibility) 了解建構流程。
+- 參見 [瀏覽器特定的 manifest 欄位](/docs/features/browser-specific-fields) 了解帶前綴的 manifest 鍵。
+- 了解每個 [瀏覽器擴充功能框架](/docs/compare) 如何處理 MV3 差異。

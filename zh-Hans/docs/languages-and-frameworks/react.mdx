@@ -1,0 +1,219 @@
+---
+title: "面向浏览器扩展的 React"
+description: "使用 Extension.js 构建 React 浏览器扩展 UI。获得自动配置的 JSX 转换、别名以及开发时的 fast refresh。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "browser",
+    "typescript",
+    "javascript",
+    "react",
+    "rspack",
+    "content script",
+  ]
+---
+
+Extension.js 会从你的项目依赖中检测到 React,并自动为开发环境配置 JSX/TSX 转换、React 模块别名以及 fast-refresh 支持。
+
+## 何时适合使用 React
+
+- 你正在构建丰富的 UI 界面,如弹窗、选项页、侧边栏或新标签页。
+- 你希望在扩展页面与内容脚本 UI 挂载之间复用组件。
+- 你已经在 Web 项目中使用 React,并希望在扩展中获得相同的开发模型。
+
+## 模板示例
+
+### `new-react`
+
+![new-react 模板截图](/images/examples/new-react/screenshot.png)
+
+使用现成可运行的项目结构来构建一个 React 新标签页体验。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-react
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-react
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-react
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/new-react](https://github.com/extension-js/examples/tree/main/examples/new-react)
+
+### `content-react`
+
+![content-react 模板截图](/images/examples/content-react/screenshot.png)
+
+使用以内容脚本为先的方案,将 React UI 注入到现有页面中。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-react
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-react
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-react](https://github.com/extension-js/examples/tree/main/examples/content-react)
+
+### `new-react-router`
+
+![new-react-router 模板截图](/images/examples/new-react-router/screenshot.png)
+
+使用 React Router 实现客户端路由的 React 扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-react-router
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-react-router
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-react-router
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-react-router
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-react-router
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/new-react-router](https://github.com/extension-js/examples/tree/main/examples/new-react-router)
+
+## 在已有扩展中使用
+
+按以下步骤将 React 添加到现有扩展中。
+
+### 安装
+
+安装 React 运行时依赖:
+
+<PackageManagerTabs command="install react react-dom" />
+
+如果你使用 TypeScript,还需安装 React 的类型包:
+
+<PackageManagerTabs command="install -D @types/react @types/react-dom" />
+
+### 配置
+
+常见的 React 文件模式:
+
+- JavaScript:`*.jsx`
+- TypeScript:`*.tsx`
+
+## 开发行为
+
+在开发模式下,当 Extension.js 检测到 React 时,会启用 React refresh 集成。
+
+- Extension.js 使用 `react-refresh` 和 `@rspack/plugin-react-refresh` 来实现 refresh 行为。
+- 如果你的项目缺少可选的 refresh 依赖,Extension.js 会自动安装并要求重启。
+- Extension.js 会应用 React 别名,以确保你的产物中只保留单一的 React/运行时实例。
+
+## 使用示例
+
+### 在新标签页扩展中
+
+示例页面入口:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this extension.</noscript>
+    <div id="root"></div>
+  </body>
+  <script src="./index.tsx"></script>
+</html>
+```
+
+```tsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
+```
+
+```tsx
+export default function App() {
+  return <h1>Hello, Extension!</h1>;
+}
+```
+
+### 在 `content_script` 文件中
+
+对于内容脚本,将 React 渲染到一个注入的根元素中:
+
+```tsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./content.css";
+
+const rootDiv = document.createElement("div");
+rootDiv.id = "extension-root";
+document.body.appendChild(rootDiv);
+
+const root = ReactDOM.createRoot(rootDiv);
+root.render(<App />);
+```
+
+## 后续步骤
+
+- 进一步了解 [TypeScript 支持](/docs/languages-and-frameworks/typescript)。
+- 探索 Extension.js 如何处理 [Sass modules](/docs/languages-and-frameworks/sass)。
+
+## 视频讲解
+
+{/* VIDEO_PLACEHOLDER_TODO: Show React template creation, dev run, and one hot-update cycle in a browser extension UI. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

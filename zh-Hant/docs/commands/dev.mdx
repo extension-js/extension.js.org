@@ -1,0 +1,440 @@
+---
+title: "用於監看模式與即時重新載入的 Dev 指令"
+description: "透過 Extension.js 的 dev 指令開發瀏覽器擴充功能,支援監看模式、熱模組替換、自動啟動瀏覽器,以及具情境感知的重新載入。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "hmr",
+  ]
+---
+
+`dev` 用於日常的瀏覽器擴充功能開發,提供監看模式、瀏覽器啟動以及具情境感知的更新行為。
+
+`dev` 會執行開發管線並監看你的專案檔案。它會依據變更內容套用相應的更新策略:熱模組替換 (HMR)、硬重新載入,或在必要時進行完整重啟。
+
+## 何時使用 `dev`
+
+- 即時建構功能並驗證變更。
+- 在一個或多個瀏覽器目標中除錯擴充功能行為。
+- 使用 `--source` 執行原始碼檢視工作流程。
+
+使用 `build` 產生生產產物;使用 `start` 進行生產建置並啟動;使用 `preview` 只執行既有的建置輸出。
+
+如果你的擴充功能位於 monorepo/子模組中,請查看 `extension.config.*` 如何載入環境變數檔(含工作區根目錄回退):[環境變數](/docs/features/environment-variables#how-it-works)。
+
+## Dev 指令能力
+
+| 能力               | 它能提供什麼                                          |
+| ------------------ | ----------------------------------------------------- |
+| 監看模式迭代       | 編碼時獲得緊湊的編輯 → 重建 → 驗證循環                |
+| 瀏覽器目標控制     | 每條指令都能明確進行跨瀏覽器驗證                      |
+| 設定檔感知的執行   | 依工作流程需要使用可靠的全新或持久化設定檔            |
+| 原始碼檢視模式     | 透過原始碼相關選項取得結構化輸出與診斷                |
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension dev [path-or-url] [options]
+```
+
+```bash pnpm
+extension dev [path-or-url] [options]
+```
+
+```bash yarn
+extension dev [path-or-url] [options]
+```
+
+```bash bun
+extension dev [path-or-url] [options]
+```
+
+```bash bun
+extension dev [path-or-url] [options]
+```
+
+</CodeGroup>
+
+如果省略路徑,Extension.js 會使用目前的工作目錄。你也可以傳入一個 **GitHub tree URL**(例如 `https://github.com/user/repo/tree/main/path`)。Extension.js 會下載該存放庫並在本機副本上執行開發模式。
+
+## 最常用的選項
+
+它們涵蓋了 80% 的使用情境。完整內容請參考 [完整參考](#arguments-and-flags)。
+
+| 選項                   | 作用                                                                          | 預設值     |
+| ---------------------- | ----------------------------------------------------------------------------- | ---------- |
+| `--browser <target>`   | 指定 Chrome、Edge、Firefox 或以逗號分隔的目標清單。                            | `chromium` |
+| `--polyfill`           | 在 Chromium 目標上橋接 `browser.*` API,以適配 Firefox 風格的程式碼。          | `false`    |
+| `--port <port>`        | 開發伺服器埠號。使用 `0` 表示由作業系統分配。                                  | `8080`     |
+| `--starting-url <url>` | 瀏覽器啟動時開啟該 URL。                                                      | 未設定     |
+| `--no-reload`          | 略過自動重新載入。當你需要乾淨的開發打包時使用。                              | 預設重新載入 |
+
+## 參數與選項
+
+| 選項                           | 別名               | 作用                                                                                                          | 預設值                   |
+| ------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `[path or url]`                | -                  | 擴充功能路徑或遠端 URL。                                                                                      | `process.cwd()`          |
+| `--browser <browser>`          | `-b`               | 瀏覽器/引擎目標(`chromium`、`chrome`、`edge`、`firefox`、引擎別名或以逗號分隔的多個值)。                   | `chromium`               |
+| `--profile <path\|boolean>`    | -                  | 瀏覽器設定檔路徑或布林型設定檔模式。                                                                          | 全新設定檔               |
+| `--chromium-binary <path>`     | -                  | [自訂 Chromium 家族的二進位檔路徑](/docs/browsers/running-other-browsers)。                                   | 系統預設                 |
+| `--gecko-binary <path>`        | `--firefox-binary` | [自訂 Gecko 家族的二進位檔路徑](/docs/browsers/running-other-browsers)。                                      | 系統預設                 |
+| `--polyfill [boolean]`         | -                  | 在 Chromium 目標上啟用 `browser.*` API 相容性 polyfill。                                                      | `false`                  |
+| `--starting-url <url>`         | -                  | 在啟動的瀏覽器中開啟的初始 URL。                                                                              | 未設定                   |
+| `--port <port>`                | -                  | 開發伺服器埠號。使用 `0` 表示由作業系統分配。                                                                 | `8080`                   |
+| `--host <host>`                | -                  | 開發伺服器繫結的主機。在 Docker/開發容器中使用 `0.0.0.0`。                                                    | `127.0.0.1`              |
+| `--no-open`                    | -                  | 不要自動啟動瀏覽器。                                                                                          | 預設啟動瀏覽器           |
+| `--no-browser`                 | -                  | 不要啟動瀏覽器。                                                                                              | 預設啟用瀏覽器啟動       |
+| `--no-reload`                  | -                  | 略過內容腳本的重新載入執行階段,以及重建後的重新載入分發。手動重新載入分頁才能看到變更。                      | 預設啟用重新載入執行階段 |
+| `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 後結束。                                                        | 停用                     |
+| `--wait-timeout <ms>`          | -                  | `--wait` 模式的逾時時間。                                                                                     | `60000`                  |
+| `--wait-format <pretty\|json>` | -                  | 等待結果的輸出格式(`json` 適合機器讀取)。                                                                   | `pretty`                 |
+| `--extensions <list>`          | -                  | 以逗號分隔的伴隨擴充功能清單或商店 URL。                                                                      | 未設定                   |
+| `--install [boolean]`          | -                  | 缺少相依套件時安裝專案相依套件。                                                                              | 指令預設行為             |
+| `--author`                     | `--author-mode`    | 啟用維護者診斷模式。                                                                                          | 停用                     |
+
+## 自動化中繼資料(建議用於指令稿/代理)
+
+`dev` 執行時,Extension.js 會在以下位置輸出機器可讀的中繼資料:
+
+- `dist/extension-js/<browser>/ready.json`
+- `dist/extension-js/<browser>/events.ndjson`(以換行分隔的 JSON)
+
+對於自動化情境(Playwright、持續整合 (CI)、AI 代理),建議優先使用這些檔案,而不是剖析終端記錄。
+
+把 `ready.json` 視為就緒契約:
+
+- 啟動過程中為 `status: "starting"`
+- 執行階段就緒時為 `status: "ready"`
+- 啟動/編譯失敗時為 `status: "error"`
+- `runId` 用以唯一識別一次執行階段工作階段
+- `startedAt` 紀錄執行階段工作階段的開始時間戳記
+
+### `--no-browser` 與就緒同步
+
+`--no-browser` 只會停用瀏覽器啟動,不會在編譯完成前阻擋外部執行器。
+
+對於 Playwright/CI/AI 工作流程:
+
+1. 將 `extension dev --no-browser` 作為長時間執行的處理程序。
+2. 將 `extension dev --wait --browser=<browser>` 作為就緒閘道。
+3. 僅在出現 `status: "ready"` 之後再啟動外部瀏覽器自動化。
+
+`--wait` 是針對第二個處理程序(或 CI 步驟),在 `error`/逾時情況下以非零狀態結束。
+當 `--wait` 偵測到來自已結束處理程序的過期 `ready.json`(`pid` 已不存在)時,會繼續等待存活的產生者。
+若在同一條指令中同時傳入 `--wait` 與 `--no-browser`,`--wait` 優先生效,指令會以僅等待模式執行。
+
+### 使用 `--no-reload` 取得乾淨的開發打包
+
+`--no-reload` 會略過內容腳本的重新注入包裝,以及重建後的重新載入分發。開發 `dist` 會更接近生產打包,且檔案變更也不會打擾已開啟的分頁。請自行重新載入擴充功能或頁面以套用變更。
+
+`--no-reload` 僅在 `extension dev` 中支援。將其傳給 `start`、`preview` 或 `build` 都會以錯誤結束。內部會設定 `EXTENSION_NO_RELOAD=true`,以便開發處理程序可以從 CLI argv 之外讀取它。
+
+## 原始碼檢視工作流程
+
+原始碼相關選項只能與 `dev` 一起使用。原始碼檢視會在瀏覽器中開啟一個目標 URL,並在你的內容腳本執行 **之後** 列印完整、即時的 HTML。用它來驗證你的擴充功能實際變更了哪些內容。
+
+- `--source [url]` 用以檢視頁面(預設為 `--starting-url` 或 `https://example.com`)
+- `--watch-source` / `--no-watch-source` 用以在每次重建後重新列印 HTML
+
+`start` 與 `preview` 不支援原始碼檢視相關選項。
+
+### 原始碼選項
+
+| 選項                                            | 作用                                       | 預設行為                              |
+| ----------------------------------------------- | ------------------------------------------ | ------------------------------------- |
+| `--source [url]`                                | 啟用原始碼檢視流程。                       | 停用                                  |
+| `--watch-source [boolean]`                      | 在被監看的更新發生時重新列印原始碼輸出。   | 啟用 `--source` 時為 `true`           |
+| `--source-format <pretty\|json\|ndjson>`        | 原始碼檢視的輸出格式。                     | 回退到記錄格式或 `json`               |
+| `--source-summary [boolean]`                    | 輸出緊湊的摘要。                           | 停用                                  |
+| `--source-meta [boolean]`                       | 包含頁面中繼資料。                         | 啟用原始碼時啟用                      |
+| `--source-probe <selectors>`                    | 以逗號分隔的 CSS 選擇器進行探測。          | 未設定                                |
+| `--source-tree <off\|root-only>`                | 包含緊湊的擴充功能樹狀詳細資訊。           | 未設定                                |
+| `--source-console [boolean]`                    | 包含主控台摘要。                           | 停用                                  |
+| `--source-dom [boolean]`                        | 包含 DOM 快照/差異。                       | 啟用 watch-source 時啟用              |
+| `--source-max-bytes <bytes>`                    | 限制輸出酬載大小。                         | 未設定                                |
+| `--source-redact <off\|safe\|strict>`           | 原始碼輸出的去識別化策略。                 | 取決於格式                            |
+| `--source-include-shadow <off\|open-only\|all>` | 控制是否包含 Shadow DOM。                  | 啟用原始碼時為 `open-only`            |
+| `--source-diff [boolean]`                       | 在監看更新時包含差異中繼資料。             | 啟用 watch-source 時啟用              |
+
+## 記錄選項
+
+| 選項                                                 | 作用                                                                                         | 預設值             |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
+| `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | 最低記錄層級。                                                                               | `off`              |
+| `--log-context <list\|all>`                          | 情境過濾器(`background`、`content`、`page`、`sidebar`、`popup`、`options`、`devtools`)。   | `all`              |
+| `--log-format <pretty\|json\|ndjson>`                | 記錄輸出格式。                                                                               | `pretty`           |
+| `--no-log-timestamps`                                | 在 pretty 模式中停用時間戳記。                                                               | 預設啟用時間戳記   |
+| `--no-log-color`                                     | 在 pretty 模式中停用色彩。                                                                   | 預設啟用色彩       |
+| `--log-url <pattern>`                                | 以 URL 子字串/正規表示式過濾記錄事件。                                                       | 未設定             |
+| `--log-tab <id>`                                     | 以 tab ID 過濾記錄事件。                                                                     | 未設定             |
+
+## 共用的全域選項
+
+也支援 [全域選項](/docs/workflows/global-flags)。
+
+## Monorepo 與工作區根目錄
+
+你可以將 `dev`(以及 `build`)指向 **monorepo 的根目錄**,而不是擴充功能套件本身。Extension.js 會偵測工作區根目錄並自動解析其中的擴充功能套件:
+
+```bash
+extension dev .            # run from the monorepo root
+```
+
+當剛好找到一個擴充功能套件時,Extension.js 會解析它並列印:
+
+```text
+Workspace root detected — resolved extension package: packages/my-extension
+```
+
+當有多個候選時,會列出讓你指明要使用哪一個:
+
+```bash
+extension dev packages/my-extension
+```
+
+## 範例
+
+### 執行本機擴充功能
+
+{/* VIDEO_PLACEHOLDER_TODO: Show local extension dev startup with watch mode and live update behavior after editing a UI file. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension
+```
+
+```bash pnpm
+extension dev ./my-extension
+```
+
+```bash yarn
+extension dev ./my-extension
+```
+
+```bash bun
+extension dev ./my-extension
+```
+
+```bash bun
+extension dev ./my-extension
+```
+
+</CodeGroup>
+
+### 從 GitHub 執行遠端擴充功能
+
+將 GitHub tree URL 作為引數傳入,即可在本機開發遠端擴充功能:
+
+<CodeGroup>
+
+```bash npm
+extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
+```
+
+```bash pnpm
+extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
+```
+
+```bash yarn
+extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
+```
+
+```bash bun
+extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
+```
+
+```bash bun
+extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
+```
+
+</CodeGroup>
+
+### 使用原始碼模式檢視頁面 HTML
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `--source` flow for page inspection and output updates while watching source changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --source https://example.com
+```
+
+```bash pnpm
+extension dev ./my-extension --source https://example.com
+```
+
+```bash yarn
+extension dev ./my-extension --source https://example.com
+```
+
+```bash bun
+extension dev ./my-extension --source https://example.com
+```
+
+```bash bun
+extension dev ./my-extension --source https://example.com
+```
+
+</CodeGroup>
+
+### 在 Firefox 中執行
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching browser target to Firefox and validating extension behavior in that runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --browser firefox
+```
+
+```bash pnpm
+extension dev ./my-extension --browser firefox
+```
+
+```bash yarn
+extension dev ./my-extension --browser firefox
+```
+
+```bash bun
+extension dev ./my-extension --browser firefox
+```
+
+```bash bun
+extension dev ./my-extension --browser firefox
+```
+
+</CodeGroup>
+
+### 在多個瀏覽器中依序執行
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running dev in Chrome then Firefox with explicit browser targets for cross-browser validation. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --browser=chrome,firefox
+```
+
+```bash pnpm
+extension dev ./my-extension --browser=chrome,firefox
+```
+
+```bash yarn
+extension dev ./my-extension --browser=chrome,firefox
+```
+
+```bash bun
+extension dev ./my-extension --browser=chrome,firefox
+```
+
+```bash bun
+extension dev ./my-extension --browser=chrome,firefox
+```
+
+</CodeGroup>
+
+### 在 Docker 或開發容器中執行
+
+當你在 Docker、開發容器或 GitHub Codespaces 中執行時,需要將開發伺服器繫結到 `0.0.0.0`,如此主機機器才能連線:
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --host 0.0.0.0
+```
+
+```bash pnpm
+extension dev ./my-extension --host 0.0.0.0
+```
+
+```bash yarn
+extension dev ./my-extension --host 0.0.0.0
+```
+
+```bash bun
+extension dev ./my-extension --host 0.0.0.0
+```
+
+```bash bun
+extension dev ./my-extension --host 0.0.0.0
+```
+
+</CodeGroup>
+
+可以搭配 `--port 0` 讓作業系統自動選擇可用的埠號:
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --host 0.0.0.0 --port 0
+```
+
+```bash pnpm
+extension dev ./my-extension --host 0.0.0.0 --port 0
+```
+
+```bash yarn
+extension dev ./my-extension --host 0.0.0.0 --port 0
+```
+
+```bash bun
+extension dev ./my-extension --host 0.0.0.0 --port 0
+```
+
+```bash bun
+extension dev ./my-extension --host 0.0.0.0 --port 0
+```
+
+</CodeGroup>
+
+### 將 Brave 作為自訂二進位檔執行
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running `dev` with a custom Chromium binary and validating that the extension launches in that browser. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension dev ./my-extension --chromium-binary /path/to/brave
+```
+
+```bash pnpm
+extension dev ./my-extension --chromium-binary /path/to/brave
+```
+
+```bash yarn
+extension dev ./my-extension --chromium-binary /path/to/brave
+```
+
+```bash bun
+extension dev ./my-extension --chromium-binary /path/to/brave
+```
+
+```bash bun
+extension dev ./my-extension --chromium-binary /path/to/brave
+```
+
+</CodeGroup>
+
+## 最佳實務
+
+- **瀏覽器相容性:** 在不同瀏覽器中測試擴充功能,以確認它在每個目標上都能運作。
+- **Polyfill:** 如果目標包含 Firefox 或基於 Gecko 的瀏覽器,請使用 `--polyfill`。這個選項會在基於 Chromium 的瀏覽器中啟用 `browser.*` API 相容。
+- **原始碼檢視工作流程:** 需要原始碼檢視相關選項時,請使用 `dev`(而非 `start`/`preview`)。
+- **自動化可靠性:** 將 `dev` 視為監看模式夥伴(`--no-browser` + `dev --wait`),將 `start` 視為生產夥伴(`--no-browser` + `start --wait`)。在指令稿與 CI 自動化中使用 `--wait-format=json`。
+
+## 下一步
+
+- 使用 [`build`](/docs/commands/build) 建置生產產物。
+- 使用 [`start`](/docs/commands/start) 驗證生產啟動流程。
+- 在 [瀏覽器特定的 manifest 欄位](/docs/features/browser-specific-fields) 中檢視瀏覽器鎖定。
+- 在 [`extension.config.js`](/docs/features/extension-configuration) 中設定共用的預設值。
+- 在 [環境變數](/docs/features/environment-variables#how-it-works) 中檢視設定環境變數的載入行為。

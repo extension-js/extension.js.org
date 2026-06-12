@@ -1,0 +1,168 @@
+---
+title: "浏览器扩展中的 CSS、Sass 和 Less"
+description: "使用 CSS、Sass 或 Less 为扩展页面与内容脚本设置样式。Extension.js 会按上下文路由样式并自动处理重载行为。"
+keywords:
+  [
+    "extension.js",
+    "manifest",
+    "hmr",
+    "postcss",
+    "content script",
+    "popup",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+Extension.js 无需配置即可支持纯 CSS 以及 Sass 和 Less 预处理器。它会针对页面上下文(popup、options、side panel)和内容脚本上下文采用不同的路由方式。
+
+页面样式会作为链接资源发布。Extension.js 会将内容脚本样式注入到网页文档中,使其在当前活动标签页生效。
+
+## 模板示例
+
+### `content-sass`
+
+![content-sass 模板截图](/images/examples/content-sass/screenshot.png)
+
+带 Sass 样式的内容脚本,将样式注入网页。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-sass
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-sass
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-sass
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-sass
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-sass
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-sass](https://github.com/extension-js/examples/tree/main/examples/content-sass)
+
+### `content-custom-font`
+
+![content-custom-font 模板截图](/images/examples/content-custom-font/screenshot.png)
+
+演示通过 CSS 加载自定义字体的内容脚本。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-custom-font
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-custom-font
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-custom-font
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-custom-font
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-custom-font
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-custom-font](https://github.com/extension-js/examples/tree/main/examples/content-custom-font)
+
+## CSS 能力
+
+| 能力              | 你可以获得什么                                                     |
+| --------------- | ----------------------------------------------------------- |
+| 多上下文样式          | 对页面和内容脚本使用同一种编写模型                                            |
+| Sass/Less 编译    | 当依赖存在时编译 Sass/Less                                          |
+| 上下文感知的输出        | 将页面 CSS 与内容脚本 CSS 输出到正确目标                                    |
+| 开发期更新流程         | 在受支持时通过热模块替换 (HMR)/remount 应用样式更新                            |
+
+## 在哪里引用 CSS
+
+- `manifest.json`(`content_scripts[].css`)
+- HTML 文件(`<link rel="stylesheet" href="...">`)
+- 脚本导入(`import "./styles.css"`,启用相关依赖后包括 Sass/Less)
+
+## CSS 支持
+
+Manifest CSS 入口:
+
+| Manifest 字段          | 期望的文件类型                          |
+| --------------------- | --------------------------------- |
+| `content_scripts.css` | `.css`、`.scss`、`.sass`、`.less` |
+
+## 示例:`manifest.json` 中的 CSS
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["./styles/content.css"],
+      "js": ["./scripts/content.ts"]
+    }
+  ]
+}
+```
+
+## 示例:在扩展页面脚本中引入 CSS
+
+```ts
+import "./styles/popup.scss";
+```
+
+## 按上下文的输出行为
+
+| 上下文           | 输出行为                                                                       |
+| ------------- | -------------------------------------------------------------------------- |
+| HTML/页面上下文    | Extension.js 把 CSS 与页面入口一起打包(`feature.css`)                                 |
+| 内容脚本          | Extension.js 把 CSS 作为 `content_scripts/[name].[contenthash:8].css` 资产输出 |
+
+Extension.js 会根据引入 CSS 的入口自动区分上下文。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CSS changes in a popup page and a content script, highlighting different output/update behavior for each context. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 开发期行为
+
+- 内容脚本中的 CSS 导入会参与内容脚本的 HMR/remount 流程。
+- Extension.js 为仅 CSS 的内容脚本入口添加开发辅助脚本,以便样式更新可以传播。
+- 页面 CSS 遵循常规的页面 HMR 流水线行为。
+- manifest/内容脚本的结构性变化仍可能需要扩展的完整重载或重启。
+
+## 模块化与预处理器
+
+- CSS 模块在扩展页面上下文中表现最佳。
+- 当你安装相关依赖后,Extension.js 会启用 Sass/Less 支持。
+- 当 Extension.js 检测到项目中存在 PostCSS 配置或你显式配置了它时,会自动运行 PostCSS。
+
+## 最佳实践
+
+- 有意识地为内容脚本样式限定作用域,减少与宿主页面冲突。
+- 对扩展页面 UI,优先使用组件本地的 module 样式。
+- 让预处理器和 PostCSS 的配置保持显式,避免构建设置随时间发生意外变化。
+- 在持续集成 (CI) 中校验 manifest 字段引用的 CSS 路径。
+
+## 下一步
+
+- 了解更新结果:[开发期更新行为](/docs/workflows/dev-update-behavior)。
+- 详细了解 [CSS 模块](/docs/languages-and-frameworks/css-modules)。
+- 详细了解 [PostCSS 集成](/docs/integrations/postcss)。

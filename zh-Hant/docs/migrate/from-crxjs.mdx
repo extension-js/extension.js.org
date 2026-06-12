@@ -1,0 +1,159 @@
+---
+title: "從 CRXJS 遷移到 Extension.js"
+description: "從 Vite + CRXJS 瀏覽器擴充功能設定逐步遷移到 Extension.js。乾淨地對應 manifest、進入點、腳本與 HMR 行為。"
+keywords:
+  [
+    "crxjs migration",
+    "crxjs to extension.js",
+    "vite chrome extension migration",
+    "replace crxjs",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+[CRXJS](https://crxjs.dev) 是用於 Chrome 擴充功能的 Vite 外掛。如果你已經超出了僅限 Chrome 的範圍、希望取得一流的 Firefox 輸出,或遇到重新載入迴圈的怪異現象,本指南會將典型的 CRXJS 專案遷移到 Extension.js,而不必重寫你的 UI 程式碼。
+
+<Note>
+  你會看到這頁是因為 `vite build` 在 Vite 8 上以
+  `[crx:manifest-post] Content script fileName is undefined` 失敗嗎?在遷移之前,
+  請參見 [專屬修復頁](/docs/migrate/crxjs-content-script-filename-undefined)
+  了解解決方法。
+</Note>
+
+## 什麼會改變、什麼不變
+
+**維持不變:** 你的 React/Vue/Svelte 元件、Tailwind 設定、測試、`chrome.*` API 呼叫。
+
+**會改變:**
+
+- `vite.config.ts` + `@crxjs/vite-plugin` 變成 `extension.config.js`(或完全不需要設定)。
+- `manifest.config.ts`(TypeScript 模組)變成帶有 [瀏覽器前綴鍵](/docs/features/browser-specific-fields) 的純 `manifest.json`。
+- `vite` / `vite build` 腳本變成 `extension dev` / `extension build`。
+- Extension.js dev 取代 Vite 開發伺服器,內建瀏覽器啟動、設定檔管理與依目標重新載入。
+
+## 步驟 1:安裝 Extension.js
+
+```bash
+npm install extension@latest --save-dev
+npm uninstall @crxjs/vite-plugin vite
+```
+
+如果你的專案還在非擴充功能介面(例如一個行銷網站)使用 Vite,請把 Vite 限定在該工作區內保留。
+
+## 步驟 2:轉換 manifest
+
+CRXJS 使用 TypeScript 模組:
+
+```ts manifest.config.ts
+import { defineManifest } from "@crxjs/vite-plugin";
+import pkg from "./package.json";
+
+export default defineManifest({
+  manifest_version: 3,
+  name: pkg.name,
+  version: pkg.version,
+  action: { default_popup: "src/popup/index.html" },
+  background: { service_worker: "src/background/index.ts" },
+  content_scripts: [{ matches: ["<all_urls>"], js: ["src/content/index.ts"] }],
+});
+```
+
+在 Extension.js 中,寫一份真正的 `manifest.json` 並參照真實檔案:
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "my-extension",
+  "version": "1.0.0",
+  "action": { "default_popup": "popup/index.html" },
+  "background": { "service_worker": "background/index.ts" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content/index.ts"] }]
+}
+```
+
+注意:
+
+- manifest 中的副檔名維持 `.ts`/`.tsx`。Extension.js 會在建構時編譯它們。
+- 如果你把目錄扁平化,可以去掉 `src/` 字首。Extension.js 會遵循 manifest 宣告的任何路徑。
+- 對於瀏覽器特定的值,使用 [帶前綴的鍵](/docs/features/browser-specific-fields)(`firefox:browser_specific_settings`),而不是每個建構一份 manifest。
+
+## 步驟 3:更新 package.json 腳本
+
+將:
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  }
+}
+```
+
+替換為:
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "start": "extension start"
+  }
+}
+```
+
+參見 [指令參考](/docs/commands/index) 取得完整集合。
+
+## 步驟 4:移除 vite.config.ts
+
+如果你的 `vite.config.ts` 只是為了串接 CRXJS 而存在,直接刪除它。如果它還有其他外掛,請把對應的東西搬到 [`extension.config.js`](/docs/features/extension-configuration),或者為了進階打包工具客製化,搬到 [Rspack 設定](/docs/features/rspack-configuration)。
+
+## 步驟 5:處理 HMR 差異
+
+CRXJS HMR 透過 Vite WebSocket 推送更新。Extension.js 使用不同的模型,文件在 [重新載入與 HMR](/docs/features/reload-and-hmr):
+
+- popup、options、devtools 頁面:HMR。
+- 內容腳本:針對性重新載入。
+- 背景 service worker:完全重啟。
+
+如果你的程式碼曾在內容腳本邏輯中仰賴 Vite 的 `import.meta.hot`,請改成一般的模組程式碼。Extension.js 會在你的原始碼之外協調重新載入。
+
+## 步驟 6:跨瀏覽器輸出
+
+CRXJS 以 Chromium 為目標。要同時開始輸出 Firefox:
+
+```bash
+extension build --browser=chrome,firefox --zip
+```
+
+你會得到 `dist/chrome` 與 `dist/firefox`,搭配各瀏覽器正確的 manifest,以及可上架 Chrome Web Store 與 addons.mozilla.org 的 `.zip` 壓縮檔。參見 [跨瀏覽器相容性](/docs/features/cross-browser-compatibility)。
+
+## 步驟 7:驗證
+
+```bash
+extension dev --browser=chrome
+```
+
+驗證 popup、options、內容腳本與背景行為。接著驗證 Firefox:
+
+```bash
+extension dev --browser=firefox
+```
+
+如果你的程式碼呼叫 `chrome.*` 且你希望相同的原始碼能在 Firefox 上無改動執行,請使用 `--polyfill`。
+
+## 常見地雷
+
+- **Service worker 的 `import` 陳述句:** 當你的背景進入點使用 ESM 語法時,Extension.js 會自動設定 `type: "module"`。CRXJS 也是如此。無須動作。
+- **`web_accessible_resources` 型別:** Manifest V3 使用 `[{resources, matches}]` 區塊。兩個框架都會輸出正確的形狀;直接照搬你既有的條目即可。
+- **帶雜湊的資源路徑:** Extension.js 在 [`dist/<browser>`](/docs/features/path-resolution) 下使用穩定路徑。如果你的程式碼硬編碼了 Vite 風格的雜湊檔名,請改為相對於 manifest 的路徑。
+
+## 另見
+
+- [跨瀏覽器相容性](/docs/features/cross-browser-compatibility)
+- [瀏覽器特定的 manifest 欄位](/docs/features/browser-specific-fields)
+- [重新載入與 HMR](/docs/features/reload-and-hmr)
+- [Manifest V3 疑難排解](/docs/concepts/manifest-v3)
