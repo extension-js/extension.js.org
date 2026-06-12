@@ -1,0 +1,86 @@
+---
+title: "擴充功能安全檢查清單"
+description: "用可重複的安全審查減少擴充功能在發佈前的攻擊面，涵蓋最小權限、受限的執行階段存取與輸入驗證。"
+keywords:
+  [
+    "browser",
+    "manifest",
+    "content script",
+    "docs",
+    "workflows",
+    "security checklist",
+    "security",
+    "checklist",
+  ]
+---
+
+擴充功能無法通過商店審查或內部評估，原因往往就那幾項：權限範圍超出功能所需、content scripts 不安全地信任頁面情境、web-accessible resources（WAR）把內部開放給任意來源，以及訊息處理器對未驗證的寄送者採取行動。
+
+每次發佈前都跑一次這份清單。
+
+## 安全審查能力
+
+| 領域                                    | 這幫你驗證什麼                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| 權限範圍                                | 申請的能力是最小且刻意的                                                  |
+| Content script 安全                     | 頁面情境行為避免不安全的注入模式                                          |
+| WAR（web-accessible resources）暴露     | 只有必要資產對外可讀                                                      |
+| 訊息邊界                                | 擴充功能會驗證特權操作並檢查寄送者                                        |
+| 發佈衛生                                | 持續整合（CI）與相依套件檢查能及早抓到回歸                                |
+
+## Manifest 與權限
+
+- 只申請你需要的權限。
+- 除非必要，避免廣泛的 host 權限。
+- 非核心能力優先使用 optional permissions。
+- 功能變更後重新檢查 `web_accessible_resources` 範圍。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a pre-release security pass that trims permissions and narrows web_accessible_resources before packaging. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Content scripts
+
+- 預設使用 isolated world（沙箱執行情境），除非你確實需要存取頁面 JavaScript 的 MAIN world。
+- 把選擇器與 DOM 修改限制在已知目標。
+- 對不受信任的頁面資料先消毒再進行繪製或儲存。
+- 避免把可執行字串注入頁面情境。
+
+## Web-accessible resources
+
+- 保持 WAR 條目明確且最小。
+- 避免萬用字元 `resources: ["*"]` 模式。
+- 把 `matches` 限制在必要的網域。
+- 用執行階段 URL 輔助函式（`runtime.getURL`）存取資產。
+
+## 訊息傳遞與資料流
+
+- 處理前驗證訊息 payload 的形狀。
+- 對特權操作驗證寄送者情境。
+- 避免直接把特權操作暴露給頁面腳本。
+- 為 content／background 通訊保留邊界模組。
+
+## 建置與發佈衛生
+
+- 在 CI 中執行 lint、型別檢查與測試。
+- 檢查正式 bundle 輸出是否有意料外的產物。
+- 保持相依套件更新並移除未使用的套件。
+- 輪替機密，避免把敏感值放進客戶端可見的環境變數。
+
+## 常見高風險反模式
+
+- 與功能無直接關聯卻使用廣泛萬用字元的 `host_permissions`
+- `web_accessible_resources` 用廣泛 glob 對應 `<all_urls>`
+- 訊息處理器在沒有寄送者或 schema 檢查的情況下信任 payload
+- 在可以使用 isolated world 時仍使用 MAIN-world 腳本
+
+## 發佈前快速檢查
+
+1. 權限審查
+2. WAR 審查
+3. Content script world 審查
+4. 訊息驗證審查
+5. 在目標瀏覽器矩陣上 CI 通過
+
+## 下一步
+
+- 檢視 [web-accessible resources](/docs/implementation-guide/web-accessible-resources)。
+- 檢視 [疑難排解](/docs/workflows/troubleshooting)。

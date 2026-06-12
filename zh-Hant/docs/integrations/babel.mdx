@@ -1,0 +1,95 @@
+---
+title: "用於自訂轉換的 Babel 整合"
+description: "只有在需要 SWC 無法涵蓋的轉換時，才將 Babel 加入 Extension.js 專案。將 SWC 維持為預設，並把 Babel 限縮在特定檔案。"
+keywords:
+  [
+    "extension.js",
+    "rspack",
+    "eslint",
+    "docs",
+    "integrations",
+    "babel",
+    "good",
+    "fit",
+  ]
+---
+
+只有在你需要 SWC（Speedy Web Compiler）無法涵蓋的轉換或外掛時，才加入 Babel。將 SWC 維持為預設的 pipeline，然後把 Babel 限縮在真正需要它的檔案。
+
+## 什麼情況下適合使用 Babel
+
+- 你依賴只在 Babel 上才有的外掛或 preset。
+- 你正在逐步遷移一個重度使用 Babel 的既有專案。
+- 你想針對特定檔案類型（例如 MDX）套用具針對性的轉換。
+
+## Babel 能做到的事
+
+| 能力                                | 帶來什麼好處                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| 針對性轉換                          | 只針對特定檔案類型（例如 MDX）執行 Babel，而不需替換整條建置 pipeline    |
+| 接通 Babel 外掛生態                 | 使用既有 web 專案中只在 Babel 上的 preset/plugin                          |
+| 漸進式遷移                          | 以更小的步驟把舊有的 Babel 擴充功能專案遷移到 Extension.js                |
+| 與 Rspack（Extension.js 打包工具）整合 | 透過 `extension.config.*` 的 `config` hook 設定 Babel                    |
+
+## 範例設定
+
+安裝 Babel 相依套件：
+
+<PackageManagerTabs command="install -D @babel/core @babel/preset-env babel-loader" />
+
+建立 `babel.config.json`：
+
+```json
+{
+  "presets": ["@babel/preset-env"]
+}
+```
+
+在 `extension.config.js` 中只把 Babel 串接到 MDX：
+
+```js
+export default {
+  config: (config) => {
+    config.module.rules.push({
+      test: /\.mdx$/,
+      use: ["babel-loader", "@mdx-js/loader"],
+    });
+    return config;
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show enabling Babel for MDX only while keeping SWC for JS/TS in the same extension build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 只在必要時才以 Babel 取代 SWC 處理 JS/TS
+
+只有在需要 Babel 直接處理 JS/TS 入口檔時，才使用以下模式：
+
+```js
+export default {
+  config: (config) => {
+    config.module.rules = [
+      {
+        test: /\.[jt]sx?$/,
+        exclude: /node_modules/,
+        use: [{ loader: "babel-loader" }],
+      },
+      ...config.module.rules.filter(
+        (rule) => !String(rule?.test || "").includes("[jt]sx"),
+      ),
+    ];
+    return config;
+  },
+};
+```
+
+## 最佳實務
+
+- 優先採用針對性的 Babel 用法，再考慮整體替換預設的 JS/TS pipeline。
+- 明確列出 Babel 規則，讓 loader 順序維持可預期。
+- 只在遷移或外掛相容性必要的地方重複使用 Babel。
+
+## 下一步
+
+- 了解如何自訂 [Rspack 設定](/docs/features/rspack-configuration)。
+- 透過 [ESLint](/docs/integrations/eslint) 維持高水準的程式碼品質。

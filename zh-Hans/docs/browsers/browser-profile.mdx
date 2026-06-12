@@ -1,0 +1,122 @@
+---
+title: "为隔离的开发运行管理浏览器 profile"
+description: "在扩展开发期间，通过受管理、持久或自定义路径的 profile 隔离 Chrome 与 Firefox 的浏览器状态。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "devtools",
+    "docs",
+    "browsers",
+    "browser profile",
+  ]
+---
+
+在开发期间，使用受管理、持久或自定义的 profile 来控制浏览器状态隔离。
+
+按你的工作流让浏览器会话保持隔离或保持持久。Extension.js 在启动浏览器时会带上感知 profile 的默认值。你可以选择全新运行、可复用的状态，或一个显式的本地 profile 路径。
+
+## 工作原理
+
+Extension.js 按以下顺序选择 profile 模式：
+
+1. 显式的 `profile` 路径（如果提供）
+2. 受管理的 profile 模式（默认）
+   - 默认是临时（ephemeral）
+   - 当 `persistProfile: true` 时则保持持久
+3. 当 `EXTENSION_USE_SYSTEM_PROFILE=true` 时，使用系统 profile 模式
+
+## profile 能力
+
+| 配置 / 选项                         | 作用                                                              |
+| ----------------------------------- | ----------------------------------------------------------------- |
+| `browser.<target>.profile`          | 为该浏览器目标使用显式的 profile 文件夹。                         |
+| `commands.dev.profile`              | 仅在 `dev` 中使用显式的 profile。                                 |
+| `commands.start.profile`            | 仅在 `start` 中使用显式的 profile。                               |
+| `commands.preview.profile`          | 仅在 `preview` 中使用显式的 profile。                             |
+| `browser.<target>.persistProfile`   | 为该目标在多次运行之间复用受管理的 profile 状态。                 |
+| `commands.<name>.persistProfile`    | 在特定命令上下文中复用受管理的 profile 状态。                     |
+| `--profile=/abs/path`               | 显式 profile 路径的 CLI 覆盖。                                    |
+| `EXTENSION_USE_SYSTEM_PROFILE=true` | 使用操作系统 / 浏览器系统 profile，而不是受管理的 profile。       |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching between managed ephemeral, persistent, and explicit profile modes in development. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## profile 模式
+
+| 模式                  | 启用方式                                          | 典型用途                                       |
+| --------------------- | ------------------------------------------------- | ---------------------------------------------- |
+| 受管理临时模式        | 默认                                              | 状态隔离的干净运行                             |
+| 受管理持久模式        | `persistProfile: true`                            | 在稳定的浏览器状态下迭代调试                   |
+| 显式自定义 profile    | `profile: "/abs/path"` 或 `--profile=/abs/path`   | 复用已有的 profile                             |
+| 系统 profile          | `EXTENSION_USE_SYSTEM_PROFILE=true`               | 使用系统 / 浏览器默认 profile 启动             |
+
+Extension.js 会在以下位置创建受管理的 profile：
+
+- `dist/extension-js/profiles/<browser>-profile/<...>`
+
+持久模式使用：
+
+- `dist/extension-js/profiles/<browser>-profile/dev`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show profile directories created under `dist/extension-js/profiles` and reused when `persistProfile` is enabled. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 在 `extension.config.*` 中配置
+
+```js
+export default {
+  browser: {
+    chrome: {
+      // Use your own profile folder:
+      profile: "path/to/custom/profile",
+    },
+    firefox: {
+      // Keep a stable managed profile for repeated sessions:
+      persistProfile: true,
+    },
+  },
+};
+```
+
+你也可以按命令为 profile 默认值划定作用域：
+
+```js
+export default {
+  commands: {
+    dev: {
+      persistProfile: true,
+    },
+  },
+};
+```
+
+## CLI 用法
+
+直接使用显式的 profile 路径：
+
+```bash
+extension dev --browser=chrome --profile=/path/to/custom/profile
+```
+
+在 `start` 与 `preview` 上用法类似。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CLI `--profile` override applied in `dev`, then reused in `start`/`preview`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 生命周期说明
+
+- Extension.js 为每次运行创建一个临时的受管理 profile。
+- Extension.js 在多次运行之间复用持久的受管理 profile（`dev`）。
+- Extension.js 会自动清理旧的受管理 profile 文件夹。可通过 `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` 控制最大保留时长。
+
+## 最佳实践
+
+- **基线测试用受管理临时 profile**：减少隐藏状态，降低不稳定复现的概率。
+- **长时间调试会话用 `persistProfile`**：在多次运行之间保留 auth / 会话 / devtools 状态。
+- **按浏览器家族保持各自的自定义 profile**：避免跨浏览器互相污染。
+- **有意识地使用系统 profile 模式**：适合复现，但隔离性不如受管理 profile。
+
+## 下一步
+
+- 进一步了解 [浏览器 preferences](/docs/browsers/browser-preferences)。
+- 进一步了解 [浏览器 flag](/docs/browsers/browser-flags)。

@@ -1,0 +1,135 @@
+---
+title: "在瀏覽器擴充功能中使用 Prettier"
+description: "用 Prettier 讓擴充功能程式碼庫的格式保持一致。它在 Extension.js pipeline 之外，透過 scripts、編輯器外掛與 CI 執行。"
+keywords:
+  [
+    "prettier for browser extensions",
+    "prettier",
+    "extension.js",
+    "eslint",
+    "stylelint",
+    "docs",
+    "integrations",
+  ]
+---
+
+以最少的人力，讓擴充功能程式碼庫的格式維持一致。Prettier 會透過 scripts、編輯器整合與持續整合（CI）執行，不會在 Extension.js 的建置 pipeline 中執行。
+
+## 什麼情況下適合使用 Prettier
+
+- 你希望在本機與 CI 流程中取得可重現的格式化結果。
+- 你正在引進新的貢獻者，需要低摩擦地維持樣式一致。
+- 你希望讓 ESLint 專注於正確性，並把格式化工作交給 Prettier。
+
+## Prettier 能做到的事
+
+| 能力                | 帶來什麼好處                                                |
+| ------------------- | ----------------------------------------------------------- |
+| 一致的格式          | 為 JS、TS、JSON、CSS、Markdown 套用同一套樣式               |
+| Script 與編輯器流程 | 在本機儲存時自動格式化，並在 CI 中強制檢查                  |
+| 降低 lint 衝突      | 搭配 `eslint-config-prettier` 避免規則重疊                  |
+| 低維護的預設值      | 採用穩定的基準設定，幾乎不需要額外設定                      |
+
+## 範本範例
+
+### Prettier 設定範本
+
+預先設定好的格式化工具，適合用於新專案。
+
+![`new-config-prettier` screenshot](/images/examples/new-config-prettier/screenshot.png)
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-config-prettier
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-config-prettier
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-config-prettier
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-config-prettier
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-config-prettier
+```
+
+</CodeGroup>
+
+Repository: [examples/new-config-prettier](https://github.com/extension-js/examples/tree/main/examples/new-config-prettier)
+
+## 在既有擴充功能中使用
+
+安裝 Prettier：
+
+<PackageManagerTabs command="install -D prettier" />
+
+建立設定檔（例如 `.prettierrc`）：
+
+```json
+{
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "none",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "arrowParens": "always"
+}
+```
+
+從 scripts 或手動執行 Prettier：
+
+<CodeGroup>
+
+```bash npm
+npm run format
+```
+
+```bash pnpm
+pnpm format
+```
+
+```bash yarn
+yarn format
+```
+
+```bash bun
+bun run format
+```
+
+```bash bun
+bun run format
+```
+
+</CodeGroup>
+
+如果尚未建立 format script：
+
+<PackageManagerTabs command="prettier --write ." />
+
+{/* VIDEO_PLACEHOLDER_TODO: Show formatting drift in files, then run Prettier to normalize output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 與 ESLint 整合
+
+為避免 ESLint 的格式化規則衝突，請安裝：
+
+<PackageManagerTabs command="install -D eslint-config-prettier" />
+
+接著在你的 ESLint 設定鏈中加入 `eslint-config-prettier`，讓 ESLint 把格式化工作交給 Prettier。
+
+## 最佳實務
+
+- 在編輯器與 CI 中自動執行格式化，不要靠手動。
+- CI 中使用 `--check`，本機開發使用 `--write`。
+- 在較大的儲存庫中，於 pre-commit 階段對 staged 檔案執行格式化。
+
+## 下一步
+
+- 了解如何設定 [ESLint](/docs/integrations/eslint)。
+- 透過 [Stylelint](/docs/integrations/stylelint) 加入樣式表檢查。

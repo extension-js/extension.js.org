@@ -1,0 +1,255 @@
+---
+title: "扩展页面的 HTML 入口"
+description: "使用纯 HTML 入口构建扩展 UI。Extension.js 负责资源接线、脚本与样式打包，并为页面提供开发期更新行为。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "browser",
+    "manifest",
+    "hmr",
+    "side panel",
+    "popup",
+    "devtools",
+  ]
+---
+
+Extension.js 从两个来源处理 HTML 入口：manifest 字段与特殊文件夹 `pages/`。Manifest 字段包括 popup、options、side panel、new tab 与 DevTools。对于 manifest 没有直接命名的路由，使用 `pages/`。
+
+Extension.js 会遍历每个入口的脚本、样式和关联资源。你编写纯 HTML，Extension.js 会自动完成全部配置。
+
+## 模板示例
+
+### `new`
+
+![new template screenshot](/images/examples/new/screenshot.png)
+
+带有 HTML 页面入口的最简 new-tab 扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/new](https://github.com/extension-js/examples/tree/main/examples/new)
+
+### `sidebar`
+
+![sidebar template screenshot](/images/examples/sidebar/screenshot.png)
+
+带有 HTML 页面入口的 side panel 扩展，用于持久性的伴随 UI。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/sidebar](https://github.com/extension-js/examples/tree/main/examples/sidebar)
+
+## HTML 能力
+
+| 能力          | 你会得到什么                                                |
+| ------------- | ----------------------------------------------------------- |
+| 入口发现      | 用统一流程编译 manifest 和 `pages/` 中声明的 HTML           |
+| 资源接线      | 从 HTML 标签中打包引用到的脚本与样式                        |
+| 公共路径处理  | 保持有意为之的 public-root 资源稳定                         |
+| 开发跟踪      | 在 HTML 与所引用资源被编辑时重新编译                        |
+
+## 受支持的 HTML 入口
+
+以下 manifest 字段使用 HTML 文件作为入口：
+
+| Manifest 字段                      | 期望的文件类型 |
+| ---------------------------------- | -------------- |
+| `action.default_popup`             | `.html`        |
+| `background.page`                  | `.html`        |
+| `chrome_url_overrides.*`           | `.html`        |
+| `devtools_page`                    | `.html`        |
+| `options_ui.page` / `options_page` | `.html`        |
+| `page_action.default_popup`        | `.html`        |
+| `sandbox.pages`                    | `.html`        |
+| `side_panel.default_path`          | `.html`        |
+| `sidebar_action.default_panel`     | `.html`        |
+
+你也可以把独立页面放在 `pages/` 下，无需为每个文件都扩展 manifest 入口字段。
+
+## HTML 入口示例
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Extension Page</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="./main.ts"></script>
+  </body>
+</html>
+```
+
+## Extension.js 如何处理 HTML
+
+对每个 HTML 入口，Extension.js 会：
+
+1. 把该 HTML 文件加入编译输出。
+2. 从标签中发现本地脚本/样式/静态资源。
+3. 将脚本/样式打包成合适的扩展产物。
+4. 修补 HTML，注入对编译后产物的引用。
+5. 保留 public-root 引用（例如 `/icon.png`）作为 public 资源。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show an HTML entrypoint importing a script and stylesheet, then inspect emitted compiled HTML and bundled assets. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 开发期行为
+
+- Extension.js 会把 HTML 与所引用的资源加入文件依赖跟踪，因此编辑会触发重新编译。
+- 在受支持时，脚本变更会在注入的脚本流程中使用热模块替换（HMR）。
+- 如果 HTML 中脚本/样式的入口列表发生变化（新增/删除入口），Extension.js 可能要求重启开发服务器。
+- 修改 manifest 中的 HTML 入口也可能触发需要重启的诊断信息。
+
+## 路径与环境变量
+
+- Extension.js 会按 HTML 文件位置解析相对路径。
+- Extension.js 把以 `/` 开头的路径视为扩展 public-root 路径。
+- 在编译期，Extension.js 会替换 emitted HTML 中的 `$EXTENSION_PUBLIC_*` 及相关占位符。
+
+## 使用额外页面
+
+把额外的文件放在 `pages/` 下：
+
+```plaintext
+pages/
+└── extra-page.html
+```
+
+## 常见的扩展表面
+
+大多数渲染 UI 的扩展表面都是 HTML 入口，只是 manifest 字段和运行时期望不同。先选与交互模型相匹配的表面，再让 HTML 页面本身保持精简。
+
+| 表面             | Manifest 字段                                               | 适用场景                                              |
+| ---------------- | ----------------------------------------------------------- | ----------------------------------------------------- |
+| Popup            | `action.default_popup` 或 `browser_action.default_popup`    | 从工具栏打开的简短、任务式 UI                         |
+| Options 页面     | `options_ui.page` 或 `options_page`                         | 持久的设置与偏好                                      |
+| Side panel       | `side_panel.default_path` 或 `sidebar_action.default_panel` | 与当前标签页并存的持久伴随 UI                         |
+| DevTools 页面    | `devtools_page`                                             | 为你的扩展提供的调试或审查工具                        |
+| New tab 重写     | `chrome_url_overrides.newtab`                               | 全屏的、由扩展拥有的浏览器表面                        |
+| Sandbox 页面     | `sandbox.pages`                                             | 当需要沙箱化执行时使用的隔离 HTML                     |
+
+### Popup
+
+将 popup 用于快速、聚焦的操作：
+
+- 快速查看状态。
+- 一步式命令。
+- 小型表单或开关。
+
+让 popup 保持小巧而稳健。Popup 经常被打开和关闭，因此不要依赖长时间存活的内存 UI 状态。
+
+### Options 页面
+
+当你需要配置持久行为时使用 options 页面：
+
+- 账户或集成设置。
+- 功能开关。
+- 键盘或工作流偏好。
+
+把 options 页面和浏览器存储搭配使用，让设置在重启之间保留，并能被 background 或 content script 读取。
+
+### Side panel
+
+当扩展需要在当前页面旁提供一个持久工作区时使用 side panel：
+
+- 研究或笔记伴侣。
+- 标签页感知的助手。
+- 在你浏览时应保持可见的页面分析结果。
+
+Side panel 的 HTML 仍然是扩展页面入口。区别在于表面语义，而不是构建管线。
+
+### DevTools 页面
+
+当扩展为开发者提供工具时使用 `devtools_page`：
+
+- 审查面板。
+- 请求或 DOM 诊断。
+- 项目特定的调试辅助。
+
+把它当作一种专门的表面。它通常需要更强的消息通信模式，因为它常常要协调 background 逻辑和被审查的标签页。
+
+### New tab 重写
+
+当扩展拥有整个 new-tab 体验时使用 `chrome_url_overrides.newtab`。
+
+对于 popup 显得太局促的、富应用式的 UI，它通常是最合适的选择。
+
+### Sandbox 页面
+
+只有当功能确实需要沙箱模型时才使用 sandbox 页面。它们也是 HTML 入口，但存在的目的是为了应对浏览器扩展中较窄的一组安全与执行约束。
+
+## 表面编写模式
+
+对任意 HTML 表面，一个不错的默认结构是：
+
+1. 让 HTML 文件保持最小化。
+2. 挂载一个脚本入口。
+3. 在该脚本中导入样式，或通过 `<link>` 引用样式表。
+4. 把浏览器 API 协调放进专门的模块。
+
+这个模式适用于 popup、options、side panel、DevTools 和 new-tab 表面。
+
+## 最佳实践
+
+- 让入口 HTML 保持最小化，并通过脚本引入应用代码。
+- 对项目资源使用相对路径，仅在确实意指 public 资源时才使用 `/` 路径。
+- 对于不是主要 manifest UI 入口的额外扩展页面，使用 `pages/`。
+- 把脚本/链接的新增/删除视为可能需要重启的结构性变更。
+- 先按用户交互模型选择表面，再用一个轻量的 HTML 页面入口去实现它。
+- 把表面特定的状态放在存储或 background 协调中，而不是假设 UI 页面始终挂载。
+
+## 下一步
+
+- 在 [dev 更新行为](/docs/workflows/dev-update-behavior) 中了解更新结果。
+- 用 [存储](/docs/implementation-guide/storage) 持久化设置与状态。
+- 用 [消息通信](/docs/implementation-guide/messaging) 协调 UI 页面。
+- 进一步了解 [特殊文件夹](/docs/features/special-folders)。
+- 继续阅读 [开发中的 CSS](/docs/implementation-guide/css)。

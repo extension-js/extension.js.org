@@ -1,0 +1,127 @@
+---
+title: "页面重载与热模块替换 (HMR)"
+description: "了解 Extension.js 是如何为每次文件变更选择最快、最安全的更新路径——从样式的 HMR 到硬重载，再到需要重启的变更。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+  ]
+---
+
+为每次文件变更选择最轻量的更新策略，让开发保持快速。
+
+需要在每次文件变更后获得快速反馈吗？Extension.js 会自动选择最安全、最快的更新路径：
+
+- **HMR(热模块替换)**：当模块更新是安全的时候使用
+- **硬扩展重载**：当运行时关键资产发生变化时使用
+- **需要重启错误/警告**：当入口结构发生变化时
+
+## 重载前置条件(devtools 设置对话框)
+
+在评估重载行为之前，请按照 Extension.js devtools **Confirm setup** 对话框中相同的检查项进行确认：
+
+| 设置步骤                                                   | 为什么它对重载/HMR 很重要                                                                                          |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 在 `chrome://extensions` 中启用开发者模式                  | 确保开发期间扩展运行时更新(包括 service worker 变更)能可靠地生效。                                                 |
+| 接受 content scripts 的本地网络访问提示                    | 当浏览器请求网络权限时，content-script 重载流程依赖此设置。                                                        |
+
+如果跳过其中任一步，即使构建流水线正常，重载行为也可能表现不一致。
+
+## 重载层级
+
+### 1) 热模块替换(最快路径)
+
+当代码可以在不重启扩展后台进程和事件监听器的情况下完成更新时，Extension.js 使用 HMR。
+
+常见示例：
+
+- 挂载在扩展 HTML 页面上的脚本(通过注入的 HMR 包装器接受更新)
+- 非 service-worker 流程中的后台脚本模块
+- 通过 [`userScripts` API](https://developer.chrome.com/docs/extensions/reference/api/userScripts) 注册的脚本
+- 在受支持的 content-script/运行时包装器中的 CSS 更新
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a small JS/CSS change applied instantly through HMR without full extension reload. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 2) 硬扩展重载
+
+部分文件变更需要重启扩展运行时本身。
+
+典型的硬重载触发条件：
+
+- `manifest.json`
+- `_locales/**.json`
+- service worker / 后台脚本中影响运行时的关键变更
+- content script 输出变化(Extension.js 浏览器运行器会强制扩展重载以保持一致)
+
+Extension.js 在内部应用浏览器特定的硬重载机制(Chromium 与 Firefox 内部流程不同)，但在 CLI 层级把行为统一起来。
+
+> **为什么开发模式下 content script 的文件名带哈希？**
+>
+> Chrome 会激进缓存 `chrome-extension://` 资源。即便完整地重载扩展后，像 `content-0.js` 这样的稳定文件名仍可能提供过期的代码。Extension.js 在开发期会在文件名后追加一段短的构建哈希(例如 `content-0.abcd1234.js`)。每次重新构建都会产生一个新 URL，从而绕过缓存。生产构建则使用干净的文件名。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a manifest or locale change triggering full extension reload during development. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 3) 需要重启(开发服务器)
+
+当扩展入口的引用发生变化(而不仅仅是模块内容)时，Extension.js 会报告需要重启的诊断。这可以防止你在依赖图过期的情况下继续工作。
+
+典型的"需要重启"场景：
+
+- manifest 中的脚本入口列表发生变化
+- HTML 入口的脚本/样式引用发生变化
+- watch 模式下 `pages/` / `scripts/` 的文件集合发生变化(尤其是删除)
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a file-entry change that triggers restart-required guidance in dev output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 行为矩阵
+
+| 变更类型                                                          | 默认行为                            |
+| ----------------------------------------------------------------- | ----------------------------------- |
+| 现有入口中的 JS/CSS 模块更新                                      | 在受支持的场景下使用 HMR            |
+| `manifest.json` / locale / service worker 关键更新                | 硬扩展重载                          |
+| 入口结构更新(manifest 列表、HTML 脚本/样式引用)                   | 需要重启                            |
+| watch 期间 `pages/` 或 `scripts/` 文件的增删                      | 警告/错误，并提示重启               |
+
+## 重载 manifest 之外的脚本与 HTML
+
+`pages/` 与 `scripts/` 与 manifest 声明的资产采用同样的重载策略。
+
+- 现有模块更新可以走热更新路径。
+- 入口集合变化(增删或引用图变化)可能需要重启。
+
+**示例：**
+
+```plaintext
+pages/
+└── extra-page.html
+scripts/
+└── extra-script.js
+```
+
+<Note>
+  Extension.js 会识别 `/pages` 和 `/scripts` 这两个文件夹用于热重载，并把每个条目当作一个可独立重载的页面或脚本。
+</Note>
+
+<Note>
+  你通过 `chrome.scripting.executeScript` 从 `/scripts/*` 动态注入的脚本，会在文件变更时被**重放**。当你修改 `/scripts/` 下的某个文件时，Extension.js 会在同一个 tab 上重新运行同一次注入，并卸载先前的挂载——因此动态注入的脚本可以像声明式 `content_scripts` 那样实时更新，而不会在你手动重新触发调用之前留下过期的 DOM。这是开发期的便利功能。
+</Note>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `pages/` and `scripts/` updates using HMR vs restart-required behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳实践
+
+- 在活跃开发会话期间保持入口引用稳定，以最大化 HMR 的命中率。
+- 集中编辑 `manifest.json` 与 locale，避免反复触发硬扩展重载。
+- 把 `pages/` 与 `scripts/` 用于 manifest 之外的资产，当文件集合或入口接线变化时再重启。
+- 把"需要重启"的诊断当作有意为之的安全检查，而不是临时警告。
+
+## 下一步
+
+- 在[特殊文件夹](/docs/features/special-folders) 中查看 manifest 之外的资产流程。
+- 在[开发更新行为](/docs/workflows/dev-update-behavior) 中理解结构性更新的结果。
