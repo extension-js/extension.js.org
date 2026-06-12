@@ -17,7 +17,7 @@ keywords:
 
 A browser extension is hard to debug because the interesting state lives in places you can't easily reach: an MV3 service worker that goes idle, an isolated content-script world, a popup that closes the moment it loses focus. Extension.js opens a small **local control channel** into your running dev session so you (or an AI agent, or a CI job) can reach those contexts directly — read what they logged, inspect what they rendered, call into them, and fire the events a user would.
 
-It's local, it needs no account, and observation is always free. Anything that *changes* state is opt-in per session.
+It's local, it needs no account, and observation is always free. Anything that _changes_ state is opt-in per session.
 
 ## Turn it on
 
@@ -35,27 +35,27 @@ Every operation below targets that session and addresses a context the same way,
 
 ## What you can do
 
-| Command | What it does | Gate |
-| --- | --- | --- |
-| `extension logs` | Stream logs from every context (SW, content, popup, options, sidebar, devtools) in one ordered timeline | — |
-| `extension inspect` | Read the live, post-injection DOM of a surface | — |
-| `extension storage get \| set` | Read or write your extension's `chrome.storage` | `--allow-control` |
-| `extension reload` | Reload the extension or a tab | `--allow-control` |
-| `extension open <popup\|options\|sidebar>` | Open an extension surface | `--allow-control` |
-| `extension open action` | [Trigger the toolbar action](/docs/debugging/trigger-actions-and-commands) — opens its popup, or replays `onClicked` | `--allow-control` |
-| `extension open command --name <cmd>` | [Replay a keyboard-shortcut command](/docs/debugging/trigger-actions-and-commands) | `--allow-control` |
-| `extension eval "<expr>" --context <c>` | Evaluate an expression in a context and return the value | `--allow-eval` |
+| Command                                    | What it does                                                                                                         | Gate              |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `extension logs`                           | Stream logs from every context (SW, content, popup, options, sidebar, devtools) in one ordered timeline              | —                 |
+| `extension inspect`                        | Read the live, post-injection DOM of a surface                                                                       | —                 |
+| `extension storage get \| set`             | Read or write your extension's `chrome.storage`                                                                      | `--allow-control` |
+| `extension reload`                         | Reload the extension or a tab                                                                                        | `--allow-control` |
+| `extension open <popup\|options\|sidebar>` | Open an extension surface                                                                                            | `--allow-control` |
+| `extension open action`                    | [Trigger the toolbar action](/docs/debugging/trigger-actions-and-commands) — opens its popup, or replays `onClicked` | `--allow-control` |
+| `extension open command --name <cmd>`      | [Replay a keyboard-shortcut command](/docs/debugging/trigger-actions-and-commands)                                   | `--allow-control` |
+| `extension eval "<expr>" --context <c>`    | Evaluate an expression in a context and return the value                                                             | `--allow-eval`    |
 
 ## Address a context
 
 Reading and acting share one vocabulary — you name the surface, Extension.js resolves it against the session it's already tracking.
 
-| Address | Means |
-| --- | --- |
-| `--context background` | the service worker (or MV2 background page) |
-| `--context popup` / `options` / `sidebar` | that extension surface, if it's open |
+| Address                                            | Means                                        |
+| -------------------------------------------------- | -------------------------------------------- |
+| `--context background`                             | the service worker (or MV2 background page)  |
+| `--context popup` / `options` / `sidebar`          | that extension surface, if it's open         |
 | `--context content --url "https://shop.example/*"` | the isolated content world on matching pages |
-| `--context content --tab 7` | the content world in a specific tab |
+| `--context content --tab 7`                        | the content world in a specific tab          |
 
 ## Example: did my background handler actually run?
 
@@ -67,17 +67,17 @@ pnpm extension eval "globalThis.__lastSyncAt" --context background --allow-eval
 { "ok": true, "value": 1718000000000 }
 ```
 
-Any `console.log` your expression triggers flows out through `extension logs` at the same time, correlated by sequence — so you see the return value *and* the side effects.
+Any `console.log` your expression triggers flows out through `extension logs` at the same time, correlated by sequence — so you see the return value _and_ the side effects.
 
 ## Cross-browser support
 
 Extension.js debugs through an **in-browser companion**, not the Chrome DevTools Protocol, so the core loop reaches your own surfaces on **both Chrome and Firefox** — the old "Firefox uses RDP, not supported" wall is gone for these tools.
 
-| Capability | Chromium | Firefox |
-| --- | --- | --- |
-| `logs`, `inspect`, `eval`, `storage`, `reload`, `open` (incl. `action`/`command`) | ✓ | ✓ (verified) |
-| `inspect --deep-dom` (closed shadow roots) | ✓ | — (uses CDP) |
-| `extension_list_extensions` (MCP tool) | ✓ | — (uses CDP) |
+| Capability                                                                        | Chromium | Firefox      |
+| --------------------------------------------------------------------------------- | -------- | ------------ |
+| `logs`, `inspect`, `eval`, `storage`, `reload`, `open` (incl. `action`/`command`) | ✓        | ✓ (verified) |
+| `inspect --deep-dom` (closed shadow roots)                                        | ✓        | — (uses CDP) |
+| `extension_list_extensions` (MCP tool)                                            | ✓        | — (uses CDP) |
 
 (`extension_list_extensions` is an MCP tool rather than a CLI verb — it connects over the DevTools Protocol, so it's Chromium-only.)
 
@@ -87,7 +87,7 @@ The gates are intentional, not bureaucratic:
 
 - **Observation needs nothing.** Reading logs and DOM is always available.
 - **Bounded operations need `--allow-control`.** `storage`, `reload`, and `open` change state, so you opt in per session.
-- **`eval` needs `--allow-eval` *and* a per-session token.** The token is written to a `0600` file outside `dist/` so it never ships in a build — a random local process can't quietly drive your service worker.
+- **`eval` needs `--allow-eval` _and_ a per-session token.** The token is written to a `0600` file outside `dist/` so it never ships in a build — a random local process can't quietly drive your service worker.
 - **Nothing reaches production.** The control channel exists only during `dev`/`preview`; it's gated on a port that isn't present in a built bundle.
 
 ## With an AI agent

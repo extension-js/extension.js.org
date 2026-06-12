@@ -3,6 +3,10 @@ title: "ECMAScript modules in extensions"
 description: "Use modern import/export syntax across background scripts, content scripts, and extension pages. Extension.js supports ESM through its Rspack pipeline."
 keywords:
   [
+    "ecmascript modules",
+    "esm file extensions",
+    "ecmascript modules mandatory file extensions",
+    "import file extension",
     "extension.js",
     "extensions",
     "manifest",
@@ -167,6 +171,22 @@ Use `EXTENSION_PUBLIC_` for variables you want available in extension code.
 console.log(import.meta.env.EXTENSION_PUBLIC_API_KEY);
 console.log(process.env.EXTENSION_PUBLIC_API_KEY);
 ```
+
+## Do imports need mandatory file extensions?
+
+Node.js requires explicit file extensions in ESM import specifiers (`import "./util.js"`, never `import "./util"`). That rule applies to code Node runs directly, and it confuses people coming to extensions from server code.
+
+In Extension.js the bundler resolves imports, not Node, so both styles work in extension code:
+
+```js
+import { parse } from "./util"; // resolved by the bundler
+import { parse } from "./util.js"; // also fine
+```
+
+Two places the Node rule still matters:
+
+- Scripts your `package.json` runs with Node directly (build helpers, codegen): extensions are mandatory there.
+- `.mjs` files shared between Node tooling and extension code: write extensions so both resolvers accept them.
 
 ## Next steps
 
