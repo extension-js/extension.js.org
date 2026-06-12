@@ -1,0 +1,86 @@
+---
+title: "Sandbox pages and the sandbox manifest key"
+description: "Configure sandboxed extension pages that can run eval and dynamic code, embed them in an iframe, and communicate with postMessage."
+keywords:
+  [
+    "sandbox page",
+    "manifest sandbox",
+    "sandbox.pages",
+    "extension eval csp",
+    "sandboxed iframe extension",
+    "background type module",
+    "extension.js",
+    "chrome",
+    "manifest v3",
+  ]
+---
+
+Extension pages run under a strict content security policy: no `eval`, no `new Function`, no dynamically compiled code. When a feature genuinely needs those (a templating engine, a code playground, running AI-generated snippets), Manifest V3 provides sandbox pages: extension pages that trade away `chrome.*` API access for a relaxed CSP.
+
+## Declare the page
+
+```json manifest.json
+{
+  "sandbox": {
+    "pages": ["sandbox.html"]
+  }
+}
+```
+
+Extension.js compiles `sandbox.html` like any other manifest-declared HTML entrypoint: reference your `.ts`/`.tsx` directly and it builds. See the [HTML guide](/docs/implementation-guide/html) for the entrypoint pattern.
+
+## What a sandbox page can and cannot do
+
+| Capability                          | Sandbox page |
+| ----------------------------------- | ------------ |
+| `eval`, `new Function`              | Yes          |
+| Unique origin (isolated from pages) | Yes          |
+| `chrome.*` extension APIs           | No           |
+| Direct `chrome.storage` access      | No           |
+| `postMessage` with its embedder     | Yes          |
+
+The sandbox page runs in a unique origin, so it cannot read extension storage, call extension APIs, or touch other pages' DOM. Everything flows through messaging.
+
+## Embed and communicate
+
+Load the sandbox in an iframe from a normal extension page, then talk over `postMessage`:
+
+```html newtab.html
+<iframe id="sandbox" src="sandbox.html"></iframe>
+```
+
+```ts newtab.ts
+const frame = document.getElementById("sandbox") as HTMLIFrameElement;
+
+frame.addEventListener("load", () => {
+  frame.contentWindow?.postMessage({ template: "Hello {{name}}" }, "*");
+});
+
+window.addEventListener("message", (event) => {
+  console.log("rendered:", event.data.html);
+});
+```
+
+```ts sandbox.ts
+window.addEventListener("message", (event) => {
+  const render = new Function("name", `return \`${event.data.template}\`;`);
+  event.source?.postMessage({ html: render("world") }, { targetOrigin: "*" });
+});
+```
+
+The embedding page keeps its `chrome.*` access and acts as the broker: it reads storage, calls APIs, and passes plain data in and out of the sandbox.
+
+## Not the same thing: `background.type`
+
+A common mix-up: `"background": {"type": "module"}` has nothing to do with sandboxing. It declares the background service worker as an ES module so `import` statements work at registration. Extension.js sets it automatically when your background entry uses ESM syntax, so you rarely write it by hand. If your confusion was about `import` failing in the service worker, see [Background scripts](/docs/implementation-guide/background); if it was about running dynamic code, you are in the right place.
+
+## Custom sandbox CSP
+
+You can loosen or tighten the sandbox CSP further with `content_security_policy.sandbox` in the manifest. Keep `script-src` as narrow as the feature allows; the sandbox exists to contain dynamic code, not to disable security review. The [security checklist](/docs/workflows/security-checklist) covers what reviewers look for.
+
+## See also
+
+- [HTML entrypoints](/docs/implementation-guide/html)
+- [Background scripts](/docs/implementation-guide/background)
+- [Messaging](/docs/implementation-guide/messaging)
+- [Security checklist](/docs/workflows/security-checklist)
