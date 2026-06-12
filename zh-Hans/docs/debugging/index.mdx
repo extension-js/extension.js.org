@@ -1,0 +1,101 @@
+---
+title: "从终端调试运行中的浏览器扩展"
+description: "无需点击即可驱动一个正在运行的扩展开发会话：跨上下文读取日志、检查实时 DOM、在 service worker 中求值、读取 chrome.storage、重载、触发工具栏按钮——支持 Chrome 与 Firefox，可无头、可脚本化。"
+keywords:
+  [
+    "debug chrome extension",
+    "service worker debugging",
+    "content script not injecting",
+    "reload extension programmatically",
+    "chrome.storage inspect",
+    "manifest v3 service worker inactive",
+    "extension.js",
+    "headless extension testing",
+    "firefox extension debugging",
+  ]
+---
+
+浏览器扩展之所以难调试，是因为关键状态藏在你不易触及的地方：会进入空闲的 MV3 service worker、与页面隔离的 content script 世界、一失去焦点就关闭的 popup。Extension.js 在你的开发会话中开了一个小小的**本地控制通道**，让你（或者一个 AI agent，或者一个 CI 任务）能够直接访问这些上下文——读取它们打印的日志、检查它们渲染的内容、调用它们，并触发用户会触发的事件。
+
+它运行在本地，不需要账号，观察始终是免费的。任何会**改变**状态的操作都需要按会话显式开启。
+
+## 启用
+
+启动一个开发会话时带上你需要的控制开关：
+
+```bash
+# 只读模式始终开启。加上控制开关以对扩展执行操作：
+pnpm extension dev --allow-control
+
+# 再加上 eval 以在某个上下文中执行任意表达式：
+pnpm extension dev --allow-control --allow-eval
+```
+
+下面所有操作都指向这个会话，并以同样的方式定位上下文，无论是读取还是执行操作。
+
+## 你可以做什么
+
+| 命令                                       | 作用                                                                                                                 | 门控              |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `extension logs`                           | 在一条按时间排序的时间线中聚合每个上下文(SW、content、popup、options、sidebar、devtools)的日志                       | —                 |
+| `extension inspect`                        | 读取某个界面注入后的实时 DOM                                                                                         | —                 |
+| `extension storage get \| set`             | 读取或写入扩展的 `chrome.storage`                                                                                    | `--allow-control` |
+| `extension reload`                         | 重载扩展或某个标签页                                                                                                 | `--allow-control` |
+| `extension open <popup\|options\|sidebar>` | 打开扩展的某个界面                                                                                                   | `--allow-control` |
+| `extension open action`                    | [触发工具栏按钮](/docs/debugging/trigger-actions-and-commands)——会打开它的 popup，或重放 `onClicked`                 | `--allow-control` |
+| `extension open command --name <cmd>`      | [重放某个键盘快捷键命令](/docs/debugging/trigger-actions-and-commands)                                                | `--allow-control` |
+| `extension eval "<expr>" --context <c>`    | 在指定上下文中求值一个表达式并返回结果                                                                               | `--allow-eval`    |
+
+## 指定上下文
+
+读取和执行操作共享同一套词汇——你只需说明界面名称，Extension.js 会根据它正在跟踪的会话进行解析。
+
+| 地址                                               | 含义                                          |
+| -------------------------------------------------- | --------------------------------------------- |
+| `--context background`                             | service worker（或 MV2 background 页面）       |
+| `--context popup` / `options` / `sidebar`          | 对应的扩展界面（如果已打开）                  |
+| `--context content --url "https://shop.example/*"` | 匹配页面上的隔离 content 世界                 |
+| `--context content --tab 7`                        | 特定标签页中的 content 世界                   |
+
+## 示例：我的后台处理器到底有没有运行？
+
+```bash
+pnpm extension eval "globalThis.__lastSyncAt" --context background --allow-eval
+```
+
+```json
+{ "ok": true, "value": 1718000000000 }
+```
+
+你的表达式触发的任何 `console.log` 都会同时通过 `extension logs` 输出，并按序号相关联——这样你能同时看到返回值**和**副作用。
+
+## 跨浏览器支持
+
+Extension.js 通过**浏览器内伴侣进程**进行调试，而不是 Chrome DevTools Protocol，因此核心循环可以在 **Chrome 与 Firefox** 上都到达你自己的界面——曾经那堵“Firefox 用 RDP，所以不支持”的墙在这些工具上已经不存在了。
+
+| 能力                                                                              | Chromium | Firefox      |
+| --------------------------------------------------------------------------------- | -------- | ------------ |
+| `logs`、`inspect`、`eval`、`storage`、`reload`、`open`（含 `action`/`command`）   | ✓        | ✓（已验证）  |
+| `inspect --deep-dom`（闭合 shadow root）                                          | ✓        | —（依赖 CDP）|
+| `extension_list_extensions`（MCP 工具）                                           | ✓        | —（依赖 CDP）|
+
+（`extension_list_extensions` 是 MCP 工具而不是 CLI 子命令——它通过 DevTools Protocol 连接，因此仅支持 Chromium。）
+
+## 安全性
+
+这些门控是有意为之，而不是官僚式的限制：
+
+- **观察无需任何开关。** 读取日志和 DOM 始终可用。
+- **有边界的操作需要 `--allow-control`。** `storage`、`reload` 与 `open` 会改变状态，因此你需要按会话主动开启。
+- **`eval` 需要 `--allow-eval` 以及一个按会话生成的 token。** 该 token 写入 `dist/` 之外的一个 `0600` 文件中，因此绝不会随构建产物发出——本地随机进程无法悄悄驱动你的 service worker。
+- **任何东西都不会进入生产环境。** 控制通道只在 `dev` / `preview` 期间存在；它依赖一个不会出现在打包产物中的端口。
+
+## 配合 AI agent
+
+同样这些操作通过 [`@extension.dev/mcp`](/docs/integrations/chrome-devtools-mcp) 以 MCP 工具的形式暴露出来（`extension_logs`、`extension_eval`、`extension_storage`、`extension_reload`、`extension_open`、`extension_list_extensions`）。门控完全一致——助手可以自由地观察，但只有在你为本次会话启用后才能执行操作。
+
+## 下一步
+
+- [触发动作和键盘命令](/docs/debugging/trigger-actions-and-commands)——无需点击即可测试处理器，无头并可在 CI 中运行。
+- [同时运行两个 MCP 服务器](/docs/integrations/chrome-devtools-mcp)——Extension.js 控制能力与 Chrome DevTools MCP 并存。
+- [CI 模板](/docs/workflows/ci-templates)——将这些能力接入 pull request 的检查。
