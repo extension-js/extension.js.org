@@ -1,0 +1,116 @@
+---
+title: "Manifest V3 中的 offscreen 文档"
+description: "在 service worker 中创建、复用并关闭 chrome.offscreen 文档。借助 pages/ 文件夹打包 offscreen 页面，并可靠地与它通信。"
+keywords:
+  [
+    "offscreen document",
+    "chrome.offscreen",
+    "offscreen api",
+    "manifest v3 offscreen",
+    "offscreen document caching",
+    "service worker dom access",
+    "extension.js",
+    "chrome",
+    "manifest v3",
+  ]
+---
+
+Manifest V3 的 service worker 没有 DOM。当后台逻辑需要解析 DOM、播放音频、访问剪贴板，或者使用其他只在 window 中才有的 API 时，Chrome 给出的方案是 offscreen 文档：一个通过 `chrome.offscreen` 按需创建的不可见扩展页面。
+
+## 准备工作
+
+在 `manifest.json` 中申请权限：
+
+```json manifest.json
+{
+  "permissions": ["offscreen"]
+}
+```
+
+offscreen 页面并不是 manifest 入口，所以要通过 [`pages/` 特殊文件夹](/docs/features/special-folders)来声明，Extension.js 会像处理其他 HTML 入口一样把它编译出来：
+
+```plaintext
+pages/
+└── offscreen.html
+```
+
+```html pages/offscreen.html
+<!doctype html>
+<html>
+  <body>
+    <script src="./offscreen.ts" type="module"></script>
+  </body>
+</html>
+```
+
+## 创建、复用、关闭
+
+Chrome 每个扩展只允许存在一个 offscreen 文档，已经存在时再调用 `createDocument` 会抛错。可靠的写法是一个先检查是否已有文档的 ensure 函数：
+
+```ts background.ts
+let creating: Promise<void> | null = null;
+
+async function ensureOffscreen() {
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT" as chrome.runtime.ContextType],
+  });
+  if (contexts.length > 0) return;
+
+  if (!creating) {
+    creating = chrome.offscreen.createDocument({
+      url: "pages/offscreen.html",
+      reasons: [chrome.offscreen.Reason.DOM_PARSER],
+      justification: "Parse HTML strings that the service worker cannot",
+    });
+  }
+  await creating;
+  creating = null;
+}
+```
+
+这里的 `creating` 锁很关键：两个事件可能在文档还没创建好之前同时进入 `ensureOffscreen`，第二次 `createDocument` 调用就会抛错。
+
+工作做完后记得关闭它，以释放内存：
+
+```ts
+await chrome.offscreen.closeDocument();
+```
+
+## 选择一个 reason
+
+`reasons` 数组告诉 Chrome 这个文档为何存在。常见取值：
+
+| Reason           | 用途                              |
+| ---------------- | --------------------------------- |
+| `DOM_PARSER`     | 解析或净化 HTML 字符串            |
+| `AUDIO_PLAYBACK` | 在后台播放声音                    |
+| `CLIPBOARD`      | 读写剪贴板                        |
+| `DOM_SCRAPING`   | 从已渲染的标记中抓取数据          |
+| `BLOBS`          | 创建并管理 blob URL               |
+| `USER_MEDIA`     | 通过 getUserMedia 进行录制        |
+
+有一个行为值得了解：使用 `AUDIO_PLAYBACK` 时，Chrome 会在音频停止播放约 30 秒后自动关闭该文档。其他 reason 下，文档会一直存在，直到你主动关闭它或扩展被卸载。
+
+## 与 offscreen 文档通信
+
+offscreen 文档使用标准的 runtime 消息机制。给消息加上范围标识，让其他界面可以直接忽略：
+
+```ts pages/offscreen.ts
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.target !== "offscreen") return;
+  const doc = new DOMParser().parseFromString(message.html, "text/html");
+  sendResponse({ title: doc.title });
+  return true;
+});
+```
+
+## Firefox
+
+Firefox 没有实现 `chrome.offscreen`。它的 Manifest V3 后台是以事件页面形式运行的，本身就具备 DOM 访问能力，所以同样的 DOM 工作可以直接在 Firefox 的后台脚本里完成。可以使用[浏览器专属的 manifest 字段](/docs/features/browser-specific-fields)，再加上能力检测（`typeof chrome.offscreen !== "undefined"`）来分支处理。
+
+## 延伸阅读
+
+- [Background 脚本](/docs/implementation-guide/background)
+- [特殊文件夹](/docs/features/special-folders)
+- [消息通信](/docs/implementation-guide/messaging)
+- [按需加载重型库](/docs/implementation-guide/lazy-loading)

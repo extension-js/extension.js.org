@@ -1,0 +1,94 @@
+---
+title: "在扩展中按需加载重型库"
+description: "让 Manifest V3 的 service worker 保持精简。看看动态 import 在扩展里哪些场景能用、哪些用不了，以及按需加载大型库的几种模式。"
+keywords:
+  [
+    "lazy loading service worker",
+    "dynamic import service worker",
+    "manifest v3 large library",
+    "code splitting browser extension",
+    "import() content script",
+    "extension.js",
+    "manifest v3",
+    "performance",
+  ]
+---
+
+Manifest V3 的 service worker 经常冷启动：浏览器会在大约 30 秒没活动后把它杀掉，并在下一次事件到来时再重启它。你在 worker 顶部 import 的每一个字节，都会在每次唤醒时被重新解析一次。如果你在 worker 入口里打包了解析器、wasm 运行时或某个 AI SDK，那每次 alarm、消息和点击都得为此买单。
+
+## 动态 `import()` 在哪些场景可用
+
+先抛开打包工具不谈，平台层面的规则如下：
+
+| 场景                                                  | 运行时支持动态 `import()` |
+| ----------------------------------------------------- | ------------------------- |
+| Service worker（background）                          | 否，规范不允许            |
+| 扩展页面（popup、options、新标签页、side panel）       | 是                        |
+| Offscreen 文档                                        | 是                        |
+| Content scripts                                       | 是，但需要多一步处理      |
+
+最让人意外的就是 service worker 的限制：在平台层面，所有浏览器的 service worker 里都不支持动态 `import()`。worker 顶部的静态 `import` 语句是没问题的（Extension.js 会把它们打进 bundle），但你没法把某个 chunk 的加载推迟到事件触发时再做。
+
+## 模式 1：按界面拆分，而不是按 chunk 拆分
+
+service worker 应该负责调度，而不是亲自做计算。让它的静态 import 只包含粘合代码（路由消息、注册监听器），并把所有重活搬到能用按需加载的地方：
+
+- 跟 UI 紧密相关的工作放到真正需要它的页面里。一个用来格式化代码的 popup，应该在 popup 里 import 格式化器，而不是在 worker 里。
+- 只有 background 才会做的重型工作（解析、编码、推理）放到 [offscreen 文档](/docs/implementation-guide/offscreen-documents)里，按需创建、用完即关。worker 保持成一个轻量的消息路由器。
+
+```ts background.ts
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "parse-feed") {
+    ensureOffscreen()
+      .then(() =>
+        chrome.runtime.sendMessage({ target: "offscreen", ...message }),
+      )
+      .then(sendResponse);
+    return true;
+  }
+});
+```
+
+之后 offscreen 页面在第一次被请求时再去 `import()` 那个重型库，开销就摊到了每个文档的生命周期里一次，而不是每次 worker 唤醒都来一次。
+
+## 模式 2：在扩展页面里按需 import
+
+在任何扩展页面里，普通的动态 import 都能用，打包工具会自动把 chunk 拆出来：
+
+```ts popup.ts
+button.addEventListener("click", async () => {
+  const { highlight } = await import("./heavy/highlighter");
+  output.innerHTML = highlight(input.value);
+});
+```
+
+这里没有任何扩展特有的处理：chunk 会被产出到你的构建输出里，并从扩展自身的 origin 加载。
+
+## 模式 3：在 content scripts 里按需 import
+
+Content scripts 是在页面里执行的，所以它们按需加载的 chunk 必须能被那个页面 fetch 到。两步走：
+
+1. 通过 `web_accessible_resources` 暴露这些 chunk 的路径。
+2. 用 `chrome.runtime.getURL` 来 import，让 URL 解析到你的扩展 origin：
+
+```ts content.ts
+async function loadAnalyzer() {
+  const src = chrome.runtime.getURL("content_scripts/analyzer.js");
+  return import(src);
+}
+```
+
+对应的 manifest 块见 [web_accessible_resources](/docs/implementation-guide/web-accessible-resources)。如果不配置它，import 会以网络错误失败，因为宿主页面无法 fetch 那些没有显式暴露的扩展文件。
+
+## 哪些东西干脆不要放进 worker
+
+- 任何跟 DOM 相关的（`DOMParser`、canvas、音频）：worker 根本没有 DOM，请用 offscreen 文档。
+- 几兆大的 wasm：在 offscreen 文档或者一个[额外页面](/docs/features/special-folders)里实例化，并把结果缓存到 `chrome.storage`，这样重启的代价就很低。
+- 一次性工具（导入、迁移、导出）：放到 `pages/` 下的一个独立页面里，免得它出现在每条启动路径上。
+
+## 另见
+
+- [Background scripts](/docs/implementation-guide/background)
+- [Offscreen 文档](/docs/implementation-guide/offscreen-documents)
+- [web_accessible_resources](/docs/implementation-guide/web-accessible-resources)
+- [性能实战手册](/docs/workflows/performance-playbook)
