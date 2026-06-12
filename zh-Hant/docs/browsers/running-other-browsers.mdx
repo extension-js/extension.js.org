@@ -1,0 +1,130 @@
+---
+title: "以執行檔路徑執行其他瀏覽器"
+description: "提供明確的執行檔路徑給 Extension.js,即可在 Brave、Vivaldi、Waterfox 或其他 Chromium 與 Gecko 瀏覽器中測試擴充功能。"
+keywords:
+  [
+    "extension.js",
+    "firefox",
+    "browser",
+    "docs",
+    "browsers",
+    "running other browsers",
+    "running",
+    "other",
+  ]
+---
+
+<AvatarBrowsers browsers={["waterfox", "opera", "brave"]} />
+透過提供明確的執行檔路徑,在預設具名目標之外執行 Chromium 與 Gecko 家族的
+瀏覽器。
+
+在同一個 Extension.js 工作流中測試自訂瀏覽器執行檔(例如 Brave、Vivaldi 或 Waterfox)。在 `dev`、`start` 與 `preview` 中使用執行檔 flag 與 `extension.config.*`。
+
+## 運作方式
+
+使用下列其中一個 flag:
+
+- `--chromium-binary <path>`
+- `--gecko-binary <path>`(別名:`--firefox-binary <path>`)
+
+不論你選的是哪個具名瀏覽器目標,這些執行檔 flag 都會覆寫 Extension.js 啟動的瀏覽器執行檔。
+
+## 執行檔能做什麼
+
+| 選項 / 鍵                         | 用途                                              |
+| --------------------------------- | ------------------------------------------------- |
+| `--chromium-binary <path>`        | 啟動自訂的 Chromium 家族瀏覽器執行檔。            |
+| `--gecko-binary <path>`           | 啟動自訂的 Gecko 家族瀏覽器執行檔。               |
+| `--firefox-binary <path>`         | `--gecko-binary` 的別名。                         |
+| `browser.<target>.chromiumBinary` | 在設定中設定預設的自訂 Chromium 執行檔。          |
+| `browser.<target>.geckoBinary`    | 在設定中設定預設的自訂 Gecko 執行檔。             |
+| `commands.<name>.chromiumBinary`  | 設定指令專屬的自訂 Chromium 執行檔。              |
+| `commands.<name>.geckoBinary`     | 設定指令專屬的自訂 Gecko 執行檔。                 |
+
+### CLI 範例
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/path/to/brave"
+```
+
+```bash
+extension dev --browser=firefox --gecko-binary="/path/to/firefox-developer-edition"
+```
+
+也可以搭配 `start` 與 `preview` 使用。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show launching the same extension in Brave and Firefox Developer Edition using binary flags. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 在 `extension.config.*` 中設定
+
+```js
+export default {
+  browser: {
+    "chromium-based": {
+      chromiumBinary: "/path/to/custom-chromium-browser",
+    },
+    "gecko-based": {
+      geckoBinary: "/path/to/custom-gecko-browser",
+    },
+  },
+};
+```
+
+執行檔路徑也可以放在指令區塊裡:
+
+```js
+export default {
+  commands: {
+    dev: {
+      chromiumBinary: "/path/to/custom-chromium-browser",
+    },
+    preview: {
+      geckoBinary: "/path/to/custom-gecko-browser",
+    },
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show config-based binary defaults applied automatically in `dev` and `preview`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 目標對應行為
+
+執行檔提示會對應到引擎目標:
+
+- `chromiumBinary` → `chromium-based`
+- `geckoBinary` / `firefoxBinary` → `gecko-based`
+
+如果你同時提供兩者,Extension.js 會先套用 Chromium 執行檔的解析。
+
+## 可用瀏覽器
+
+可以用執行檔 flag 執行的常見瀏覽器:
+
+| 瀏覽器名稱                    | 類型                   | CLI flag            | 官方網站                                                  |
+| ----------------------------- | ---------------------- | ------------------- | --------------------------------------------------------- |
+| **Brave**                     | Chromium 系瀏覽器      | `--chromium-binary` | [brave.com](https://brave.com)                            |
+| **Opera**                     | Chromium 系瀏覽器      | `--chromium-binary` | [opera.com](https://www.opera.com)                        |
+| **Vivaldi**                   | Chromium 系瀏覽器      | `--chromium-binary` | [vivaldi.com](https://vivaldi.com)                        |
+| **Waterfox**                  | Gecko 系瀏覽器         | `--gecko-binary`    | [Waterfox](https://www.waterfox.net)                      |
+| **Firefox Developer Edition** | Gecko 系瀏覽器         | `--gecko-binary`    | [firefox.com](https://www.mozilla.org/firefox/developer/) |
+
+## 重要限制
+
+- `chromium-based` 需要有效的 `chromiumBinary` 路徑。
+- `gecko-based` / `firefox-based` 需要有效的 `geckoBinary` 路徑。
+- 無效路徑會以明確的 CLI/runtime 錯誤訊息立即失敗。
+- `build` 不接受執行檔 flag。基於執行檔的啟動只能搭配 `dev`、`start` 與 `preview`。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show invalid binary path error handling and then successful launch after fixing the path. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳實務
+
+- **執行檔搭配明確的瀏覽器目標**:用 `--browser=chromium-based` 或 `--browser=gecko-based` 讓意圖更明確。
+- **使用絕對路徑**:避免依賴 shell 的路徑解析問題。
+- **在持續整合 (CI) runner 上鎖定版本**:讓自動化檢查中的瀏覽器執行檔路徑可預期。
+- **小心搭配 profile/flag**:沿用與具名瀏覽器目標相同的 profile 與 flag 策略。
+
+## 下一步
+
+- 進一步了解 [瀏覽器 preferences](/zh-Hant/docs/browsers/browser-preferences)。
+- 進一步了解 [瀏覽器 profile](/zh-Hant/docs/browsers/browser-profile)。

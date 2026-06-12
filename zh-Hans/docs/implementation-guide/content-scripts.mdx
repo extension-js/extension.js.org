@@ -1,0 +1,389 @@
+---
+title: "支持 HMR 与 manifest 入口的 content scripts"
+description: "用 content scripts 构建与页面集成的功能。Extension.js 编译 manifest 入口、为其包装 HMR，并产出可预期的输出。"
+keywords:
+  [
+    "manifest v3 content scripts",
+    "chrome extension content scripts",
+    "content scripts documentation",
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "javascript",
+    "react",
+    "hmr",
+  ]
+---
+
+构建与页面集成的扩展功能，同时为 JS 和 CSS 更新保留可靠的 dev 循环。
+
+Extension.js 会从 `manifest.json` 编译 content script 入口，并为运行时挂载和热模块替换（HMR）行为对其进行包装。它会产出可预期的 `content_scripts/*` 产物。
+
+## Content script 能力
+
+| 能力                              | 它给你带来什么                                                                            |
+| --------------------------------- | ----------------------------------------------------------------------------------------- |
+| 由 manifest 驱动的入口            | 直接从 manifest 编译 JS/CSS content script 列表                                           |
+| 开发期重新挂载流程                | 通过 wrapper 驱动的行为快速更新脚本/样式                                                  |
+| 支持 MAIN 世界与隔离世界          | 使用 MAIN 世界（页面 JavaScript 上下文）或隔离世界（沙箱化的扩展上下文）                  |
+| 可预期的输出布局                  | 产出规范化的 `content_scripts/*` 产物                                                     |
+
+## 模板示例
+
+### `content`
+
+![content template screenshot](/images/examples/content/screenshot.png)
+
+基于原生 JS 的最简 content script 配置。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+### `content-react`
+
+![content-react template screenshot](/images/examples/content-react/screenshot.png)
+
+通过 content scripts 将 React 驱动的 UI 注入网页。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-react
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-react
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content-react](https://github.com/extension-js/examples/tree/main/examples/content-react)
+
+## 支持的 manifest 字段
+
+| Manifest 字段         | 期望的文件类型                       |
+| --------------------- | ------------------------------------ |
+| `content_scripts.js`  | `.js`、`.jsx`、`.ts`、`.tsx`、`.mjs` |
+| `content_scripts.css` | `.css`、`.scss`、`.sass`、`.less`    |
+
+## Content script 声明示例
+
+`manifest.json` 中的 content script 声明示例：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/content-script.ts"],
+      "css": ["./styles/content-style.css"]
+    }
+  ]
+}
+```
+
+## 编写契约
+
+对于每一个类 content-script 的入口，Extension.js 期望一个挂载风格的默认导出。它是一个负责建立行为的函数，并可选地返回一个清理回调：
+
+- 模块应当 `export default` 一个同步函数。
+- 该函数应负责完成初始化工作。
+- 它可以返回一个同步的清理回调。
+- Extension.js 不支持类作为默认导出。
+
+这适用于：
+
+- 被 `manifest.json > content_scripts[*].js` 引用的文件。
+- 你放在项目 `scripts/` 文件夹下作为脚本入口的文件。
+
+### 合法形态
+
+```ts
+export default function main() {
+  return () => {};
+}
+```
+
+```ts
+const main = () => {};
+export default main;
+```
+
+### 非法形态
+
+```ts
+export default class App {}
+```
+
+```ts
+export default {};
+```
+
+### 异步 content script 的建议
+
+即使功能内部执行异步工作，也应保持默认导出为同步函数。在函数内部启动异步工作，并返回一个同步的清理函数。
+
+为什么这点重要：Extension.js 在开发期会重新挂载 content scripts。如果没有清理函数，你可能会复制出 UI、事件监听器、observer 与定时器。
+
+## 违反契约时会发生什么
+
+- 没有默认导出：Extension.js 在开发期发出警告并跳过挂载。
+- 默认导出不是函数：Extension.js 在开发期发出警告并跳过挂载。
+- 默认导出返回的是 Promise：模块仍然会运行，但 Extension.js 不会把该 `Promise` 视为清理函数。
+
+如果你的 content script 看起来能编译但从未挂载，请先检查默认导出。
+
+## 运行时 wrapper 行为
+
+- Extension.js 用挂载/运行时辅助逻辑包装 content script 模块。
+- 在开发模式下，Extension.js 添加 HMR 的 accept/dispose 行为以及重新挂载流程。
+- 在开发期，CSS 更新触发重新挂载事件（`__EXTENSIONJS_CSS_UPDATE__`）。
+- Extension.js 尊重 manifest 中的 `run_at` 时机。
+
+## 多入口 content scripts
+
+你可以在单个 manifest 中声明多个 content script 入口。每个入口都独立编译，拥有各自的 match 模式、运行时机与 world 设置。
+
+### `content-multi-one-entry`
+
+![content-multi-one-entry template screenshot](/images/examples/content-multi-one-entry/screenshot.png)
+
+多个 content script 共用一条 `content_scripts` manifest 入口。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content-multi-one-entry](https://github.com/extension-js/examples/tree/main/examples/content-multi-one-entry)
+
+### `content-multi-three-entries`
+
+![content-multi-three-entries template screenshot](/images/examples/content-multi-three-entries/screenshot.png)
+
+三条独立的 `content_scripts` manifest 入口，各自拥有独立的 match 模式。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content-multi-three-entries](https://github.com/extension-js/examples/tree/main/examples/content-multi-three-entries)
+
+## `scripts/` 文件夹行为
+
+`scripts/` 文件夹用于没有任何 HTML 页面入口声明的脚本入口。实际上，这些入口遵循与 content scripts 相同的默认导出模式。
+
+也就是说，`scripts/` 不是用来放散落 JavaScript 文件的通用文件夹：
+
+- 当脚本入口文件挂载行为时，仍应当导出一个默认函数。
+- Extension.js 把在 `scripts/` 下增删受支持的文件视为 watch 模式下的结构性变更。
+- 入口集合变化时，Extension.js 可能要求重启 dev server。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show isolated-world and MAIN-world content script behavior differences, plus live update flow for JS and CSS changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 输出路径
+
+Extension.js 按 manifest 索引规范化 content script 入口：
+
+```plaintext
+content_scripts/
+├── content-0.js          # production
+├── content-0.abcd1234.js # development (hash-based cache busting)
+├── content-0.css
+└── ...
+```
+
+在**开发模式**下，content script 的 JS 文件名包含一个短哈希后缀（例如 `content-0.abcd1234.js`）。这会强制浏览器在每次重新构建后加载一个全新的 `chrome-extension://` URL。
+
+Chrome 对扩展资源有非常激进的缓存，哈希可以防止加载到陈旧代码。生产构建使用干净的 `content-0.js` 命名。
+
+## MAIN 世界说明
+
+### `content-main-world`
+
+通过一个可直接运行的示例查看 MAIN 世界 content script 的实际行为，它会把 UI 直接注入页面上下文：
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-main-world
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-main-world
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-main-world
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-main-world
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-main-world
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content-main-world](https://github.com/extension-js/examples/tree/main/examples/content-main-world)
+
+- **`world: "MAIN"` 仅适用于 Chromium。** Firefox 不支持 `world` 字段并会忽略它。脚本在 Firefox 上仍然运行在隔离世界中。
+- **跨浏览器的 MAIN 世界行为：** 使用 `chromium:` manifest 前缀，让 MAIN 世界仅对 Chromium 目标声明。然后为 Firefox 提供一个隔离世界的 fallback。
+- 在开发期，MAIN 世界脚本使用内部桥接机制加载代码 chunk 并解析 public path。
+- 扩展 API（`chrome.runtime`、`chrome.storage` 等）在 MAIN 世界中**不可用**；你只能访问页面上下文的全局变量。
+- 把 MAIN 世界当作进阶路径。尽早在每个目标浏览器上验证其行为。
+
+### 隔离世界 vs MAIN 世界的快速示例
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/main-world.ts"],
+      "world": "MAIN"
+    }
+  ]
+}
+```
+
+默认使用隔离世界。仅在需要访问页面上下文时使用 `MAIN`，并考虑扩展 API/运行时的约束。
+
+### 跨浏览器的 MAIN 世界模式
+
+使用[浏览器特定前缀](/zh-Hans/docs/features/browser-specific-fields)，仅为 Chromium 声明 MAIN 世界，并为 Firefox 提供一个隔离世界的 fallback：
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "chromium:js": ["./scripts/main-world.ts"],
+      "chromium:world": "MAIN"
+    }
+  ]
+}
+```
+
+Firefox 会完全跳过带 `chromium:` 前缀的字段，因此只有 Chromium 目标会得到 MAIN 世界脚本。
+
+## 匹配与执行建议
+
+content script 实际在哪里运行仍由浏览器控制。Extension.js 只负责打包文件，manifest 入口仍然定义脚本运行在何处、何时运行。
+
+- 把 `matches` 收紧到功能允许的最小范围。
+- 仅在功能确实需要时加入 `exclude_matches`、`all_frames` 或 `match_about_blank`。
+- 把 `run_at` 和 `world` 视为功能契约的一部分，而不是实现细节。
+- 当 content script 的运行位置变化时，重新测试权限与 host 权限的范围。
+
+## 开发期行为
+
+- 编辑 content script 代码通常通过 wrapper 驱动的 HMR/重新挂载流程更新。
+- 仅含 CSS 的入口会获得 dev 辅助行为，使样式更新得以传播。
+- 如果 manifest 中 content script 的入口列表发生变化，Extension.js 可能要求重启 dev server。
+
+## 最佳实践
+
+- 让 content script 入口文件保持小巧，把逻辑委托给共享模块。
+- 谨慎控制选择器/样式的作用域，避免与宿主页面冲突。
+- 当行为依赖时机/上下文时，优先显式声明 `run_at` 与 `world` 值。
+- 把 manifest 中 content script 列表的修改视为结构性开发变更。
+- 通过经过校验的消息传递来传输页面派生的数据，而不是在 content script 中直接执行带特权的工作。
+- 默认使用隔离世界，仅在严格需要页面上下文时切到 `MAIN`。
+
+## 下一步
+
+- 在 [dev update behavior](/zh-Hans/docs/workflows/dev-update-behavior) 中理解更新结果。
+- 在 [Messaging](/zh-Hans/docs/implementation-guide/messaging) 中设计跨上下文通信。
+- 在 [Permissions and host permissions](/zh-Hans/docs/implementation-guide/permissions-and-host-permissions) 中复核访问范围。
+- 了解 [web-accessible resources](/zh-Hans/docs/implementation-guide/web-accessible-resources)。
+- 继续阅读 [locales in development](/zh-Hans/docs/implementation-guide/locales)。

@@ -1,0 +1,219 @@
+---
+title: "瀏覽器擴充功能的 React"
+description: "使用 Extension.js 以 React 打造瀏覽器擴充功能 UI。自動配置 JSX 轉譯、別名,並在開發期間提供 fast refresh。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "browser",
+    "typescript",
+    "javascript",
+    "react",
+    "rspack",
+    "content script",
+  ]
+---
+
+Extension.js 會從你的專案相依套件中偵測 React,並自動為開發環境配置 JSX/TSX 轉譯、React 模組別名,以及 fast-refresh 支援。
+
+## 何時適合使用 React
+
+- 你正在打造功能豐富的 UI 介面,例如 popup、options、側邊欄或新分頁。
+- 你希望在擴充功能頁面與 content script UI 掛載點之間共用元件。
+- 你已經在 Web 專案中使用 React,並希望在擴充功能中沿用相同的開發模型。
+
+## 範本範例
+
+### `new-react`
+
+![new-react template screenshot](/images/examples/new-react/screenshot.png)
+
+以可直接執行的專案結構,打造 React 新分頁體驗。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-react
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-react
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-react
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/new-react](https://github.com/extension-js/examples/tree/main/examples/new-react)
+
+### `content-react`
+
+![content-react template screenshot](/images/examples/content-react/screenshot.png)
+
+以 content script 為主的設定,把 React UI 注入到既有頁面中。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-react
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-react
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/content-react](https://github.com/extension-js/examples/tree/main/examples/content-react)
+
+### `new-react-router`
+
+![new-react-router template screenshot](/images/examples/new-react-router/screenshot.png)
+
+使用 React Router 提供客戶端路由的 React 擴充功能。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-react-router
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-react-router
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-react-router
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-react-router
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-react-router
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/new-react-router](https://github.com/extension-js/examples/tree/main/examples/new-react-router)
+
+## 在既有擴充功能中使用
+
+依下方步驟,將 React 加入既有擴充功能。
+
+### 安裝
+
+安裝 React 執行階段相依套件:
+
+<PackageManagerTabs command="install react react-dom" />
+
+如果你使用 TypeScript,也請安裝 React 的型別套件:
+
+<PackageManagerTabs command="install -D @types/react @types/react-dom" />
+
+### 設定
+
+常見的 React 檔案副檔名:
+
+- JavaScript:`*.jsx`
+- TypeScript:`*.tsx`
+
+## 開發階段行為
+
+在開發模式下,Extension.js 偵測到 React 時會啟用 React refresh 整合。
+
+- Extension.js 使用 `react-refresh` 與 `@rspack/plugin-react-refresh` 來提供 refresh 行為。
+- 若你的專案缺少選用的 refresh 相依套件,Extension.js 會自動安裝並要求重新啟動。
+- Extension.js 會套用 React 別名,確保打包結果中只保留單一 React/執行階段實例。
+
+## 使用範例
+
+### 在新分頁擴充功能中
+
+頁面進入點範例:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this extension.</noscript>
+    <div id="root"></div>
+  </body>
+  <script src="./index.tsx"></script>
+</html>
+```
+
+```tsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
+```
+
+```tsx
+export default function App() {
+  return <h1>Hello, Extension!</h1>;
+}
+```
+
+### 在 `content_script` 檔案中
+
+對於 content script,將 React 渲染到注入的根元素內:
+
+```tsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./content.css";
+
+const rootDiv = document.createElement("div");
+rootDiv.id = "extension-root";
+document.body.appendChild(rootDiv);
+
+const root = ReactDOM.createRoot(rootDiv);
+root.render(<App />);
+```
+
+## 後續步驟
+
+- 進一步了解 [TypeScript 支援](/zh-Hant/docs/languages-and-frameworks/typescript)。
+- 探索 Extension.js 如何處理 [Sass modules](/zh-Hant/docs/languages-and-frameworks/sass)。
+
+## 影片導覽
+
+{/* VIDEO_PLACEHOLDER_TODO: Show React template creation, dev run, and one hot-update cycle in a browser extension UI. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

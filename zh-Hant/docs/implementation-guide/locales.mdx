@@ -1,0 +1,162 @@
+---
+title: "語系與國際化"
+description: "用 _locales 處理交付在地化的擴充功能後設資料與 UI 字串。Extension.js 會在每次建置時探索、驗證並輸出語系 JSON。"
+keywords:
+  [
+    "extension.js",
+    "manifest",
+    "hmr",
+    "docs",
+    "implementation guide",
+    "locales",
+    "template",
+    "example",
+  ]
+---
+
+Extension.js 會探索 manifest 旁邊的語系檔,並驗證每個宣告的語系是否有 `messages.json`。它會把語系 JSON 資產輸出到瀏覽器專屬的建置中。在開發期間,它能在不重新啟動的前提下立即抓到任何語系檔的編輯。
+
+## 範本範例
+
+### `action-locales`
+
+![action-locales template screenshot](/images/examples/action-locales/screenshot.png)
+
+透過 `_locales` 支援,展示在地化的擴充功能後設資料與 UI 字串。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action-locales
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action-locales
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action-locales
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action-locales
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action-locales
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/action-locales](https://github.com/extension-js/examples/tree/main/examples/action-locales)
+
+## 語系能力
+
+| 能力                | 帶給你什麼                                                          |
+| ------------------- | ------------------------------------------------------------------- |
+| 語系探索            | 從 manifest 所在位置偵測 `_locales/<locale>/messages.json`           |
+| 驗證                | 抓出缺漏的預設語系檔與無法解析的 `__MSG_*__` 鍵                       |
+| 建置輸出對應        | 把語系檔輸出到擴充功能期望的目錄結構                                 |
+| 開發監看支援        | 在開發期間語系檔變動時重新載入                                       |
+
+## 預期的目錄結構
+
+```plaintext
+manifest.json
+_locales/
+  en/
+    messages.json
+  fr/
+    messages.json
+```
+
+`manifest.json` 中的 `default_locale` 應該對應到一個實際存在的 `_locales/<default>/messages.json`。
+
+## `manifest.json` 中的語系宣告範例
+
+以下示範如何在 `manifest.json` 中宣告語系:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "default_locale": "en",
+  "description": "__MSG_extension_description__"
+}
+```
+
+接著,在 `_locales` 資料夾中為每個語系放入 JSON 檔案:
+
+```plaintext
+_locales/
+└── en/
+    └── messages.json
+```
+
+## `messages.json` 檔案範例
+
+翻譯用的 `messages.json` 檔案範例:
+
+```json
+{
+  "extension_name": {
+    "message": "My Extension"
+  },
+  "extension_description": {
+    "message": "This is a localized description of my extension."
+  }
+}
+```
+
+## 輸出路徑
+
+Extension.js 會把語系 JSON 檔輸出到:
+
+```plaintext
+_locales/<locale>/messages.json
+```
+
+## 開發行為
+
+- Extension.js 會把語系 JSON 檔加入編譯相依並監看它們。
+- 語系變動會觸發擴充功能的重新載入行為(硬重新載入),不是元件風格的熱模組替換 (HMR)。
+- 當必要的語系檔缺漏或無效時,Extension.js 會以可立即採取行動的診斷訊息讓驗證失敗。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show adding a new locale key, updating manifest `__MSG_*__` usage, and validating locale output across builds. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 驗證行為
+
+Extension.js 會驗證:
+
+- 專案使用 `_locales` 時,`default_locale` 是否存在
+- `_locales/<default>/messages.json` 是否存在
+- 語系檔的 JSON 是否合法
+- manifest 中的 `__MSG_*__` 參照是否能在預設語系鍵中找到
+
+### 排除缺漏的語系鍵
+
+如果你的 manifest 用到 `__MSG_extension_description__`,請確保預設語系檔中包含 `extension_description`:
+
+```json
+{
+  "extension_description": {
+    "message": "Localized extension description"
+  }
+}
+```
+
+如果預設語系沒有定義該鍵,Extension.js 會發出說明不一致情況的診斷訊息。
+
+## 最佳實務
+
+- 維持各語系 `messages.json` 鍵的一致性。
+- 先更新預設語系,再把鍵推進到其他語系。
+- 在持續整合 (CI) 中驗證語系 JSON,以在打包前抓出格式錯誤的檔案。
+- 把語系檔放在靠近 manifest 的位置(`manifestDir/_locales`),以維持可預期的解析。
+
+## 下一步
+
+- 在 [開發更新行為](/zh-Hant/docs/workflows/dev-update-behavior) 中了解更新結果。
+- 繼續閱讀 [開發中的 JSON](/zh-Hant/docs/implementation-guide/json)。
+- 了解 [manifest 開發行為](/zh-Hant/docs/implementation-guide/manifest-json)。

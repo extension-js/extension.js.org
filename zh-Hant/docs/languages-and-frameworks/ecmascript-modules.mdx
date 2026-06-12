@@ -1,0 +1,198 @@
+---
+title: "在擴充功能中使用 ECMAScript 模組"
+description: "在背景腳本、content script 與擴充功能頁面中使用現代的 import/export 語法。Extension.js 透過 Rspack 管線支援 ESM。"
+keywords:
+  [
+    "ecmascript modules",
+    "esm file extensions",
+    "ecmascript modules mandatory file extensions",
+    "import file extension",
+    "extension.js",
+    "extensions",
+    "manifest",
+    "typescript",
+    "react",
+    "rspack",
+    "content script",
+    "service worker",
+  ]
+---
+
+在所有擴充功能環境中,以現代的 `import`/`export` 語法撰寫擴充功能程式碼。
+
+Extension.js 在背景腳本、content script 與擴充功能頁面中都支援 ECMAScript Modules(ESM),模組解析則沿用預設的 Rspack 管線。
+
+## 何時適合使用 ESM
+
+- 你希望擴充功能與 Web 程式碼共用一致的模組語法。
+- 你正與優先採用 ESM 的現代套件共用程式碼。
+- 你需要更乾淨的 tree-shaking(自動移除未使用的程式碼)與更明確的相依界線。
+
+## 範本範例
+
+### `new`
+
+![new template screenshot](/images/examples/new/screenshot.png)
+
+用最少設定,搭配現代模組語法,啟動一個新分頁擴充功能。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/new](https://github.com/extension-js/examples/tree/main/examples/new)
+
+### `content`
+
+![content template screenshot](/images/examples/content/screenshot.png)
+
+將腳本邏輯注入頁面內容,同時保持 ESM 風格的撰寫方式。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+## 在既有擴充功能中使用
+
+你可以直接在擴充功能的原始檔(`.js`、`.mjs`、`.ts`、`.tsx` 等)中使用 ESM 語法,不需要任何自訂的打包工具設定。
+
+如果你希望 Node.js 專案的設定檔也以 ESM 方式執行,請在 `package.json` 中設定 `"type": "module"`。這會套用至自訂腳本與設定慣例:
+
+```json
+{
+  "name": "my-extension",
+  "version": "1.0",
+  "description": "My Extension Example",
+  "type": "module",
+  "devDependencies": {
+    "extension": "latest"
+  },
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  }
+}
+```
+
+## Manifest 與 service worker 注意事項
+
+針對 Manifest V3 的背景 worker:
+
+- 當你希望 service worker 以原生 ES 模組方式載入時,將 `background.type` 設為 `"module"`。
+- 若未指定模組型別 worker,Extension.js 會使用傳統的 worker 載入方式(打包後的腳本,不含原生模組語法)。
+
+```json
+{
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  }
+}
+```
+
+## ESM 與 CommonJS 的提醒
+
+撰寫 ESM 模組時,請注意:
+
+### 在相對匯入中加上副檔名
+
+```diff
+// my-file.mjs
+import React from 'react'
+
+// local imports
+- import myImport from './myImport'
++ import myImport from './myImport.js'
+```
+
+### 與非 ESM 模組的互通性可能不同
+
+從 ESM 匯入 CommonJS 套件時,請依照各套件提供的相容性指引處理。
+
+### 嚴格 ESM 環境中沒有 CommonJS 全域變數
+
+避免在 ESM 模組內依賴 `require`、`module.exports`、`__filename` 與 `__dirname`。
+
+## 在 ECMAScript 模組中處理環境變數
+
+Extension.js 同時支援:
+
+- `process.env.EXTENSION_PUBLIC_*`
+- `import.meta.env.EXTENSION_PUBLIC_*`
+
+對於希望在擴充功能程式碼中能存取的變數,請使用 `EXTENSION_PUBLIC_` 前綴。
+
+```js
+// example.mjs
+
+console.log(import.meta.env.EXTENSION_PUBLIC_API_KEY);
+console.log(process.env.EXTENSION_PUBLIC_API_KEY);
+```
+
+## 匯入是否一定要加上副檔名?
+
+Node.js 在 ESM 匯入路徑中要求明確的副檔名(`import "./util.js"`,而不是 `import "./util"`)。這條規則只適用於 Node 直接執行的程式碼,常讓從伺服器端轉進來寫擴充功能的人感到困惑。
+
+在 Extension.js 中,負責解析匯入的是打包工具,而不是 Node,因此擴充功能程式碼中兩種寫法都行得通:
+
+```js
+import { parse } from "./util"; // resolved by the bundler
+import { parse } from "./util.js"; // also fine
+```
+
+但 Node 的規則在以下兩個情況仍然重要:
+
+- 你的 `package.json` 透過 Node 直接執行的腳本(建置輔助、程式碼產生等):這些情境下副檔名是必要的。
+- 在 Node 工具與擴充功能程式碼之間共用的 `.mjs` 檔:撰寫時應確保兩種解析器都能接受。
+
+## 後續步驟
+
+- 進一步了解 [TypeScript](/zh-Hant/docs/languages-and-frameworks/typescript)。
+- 探索 Extension.js 如何處理 [CSS modules](/zh-Hant/docs/languages-and-frameworks/css-modules)。
+
+## 影片導覽
+
+{/* VIDEO_PLACEHOLDER_TODO: Show authoring ESM modules across background, content, and page contexts with a successful dev run. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

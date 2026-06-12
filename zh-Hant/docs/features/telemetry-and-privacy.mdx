@@ -1,0 +1,96 @@
+---
+title: "Extension.js 的遙測與隱私控制"
+description: "查看 Extension.js 的遙測契約:會收集哪些匿名資料、絕不收集哪些資料,以及如何完全退出遙測。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "typescript",
+    "docs",
+    "features",
+  ]
+---
+
+Extension.js 會收集極少量的匿名遙測,用來了解你執行了哪些命令,以及哪些命令會失敗。它絕不會收集原始碼、檔案路徑、URL 或專案內容。
+
+隱私的標準從一開始就嚴格設計:
+
+- 總共兩個事件:`command_executed` 與 `command_failed`
+- 每個事件三個屬性:`command`、`success`、`version`
+- 可透過環境變數、CLI 旗標,或持久的同意命令來退出
+- Extension.js 會做取樣與事件上限,確保穩定落在 [PostHog](https://posthog.com/)(開源分析服務)的免費方案內
+
+## Extension.js 會收集的資料
+
+每次執行 CLI,最多送出下列其中之一:
+
+| 事件               | 取樣比例                                  | 屬性                                   |
+| ------------------ | ----------------------------------------- | -------------------------------------- |
+| `command_executed` | 20%(可設定,見下文)                       | `command`、`success: true`、`version`  |
+| `command_failed`   | 100%(Extension.js 一定回報失敗)            | `command`、`success: false`、`version` |
+
+每個事件都會附上的共通內容:`os`(`darwin`/`linux`/`win32`)、`arch`、`node_major`、`is_ci`。其他都不會送。
+
+## 流量控制
+
+有三項獨立的控制機制,限制離開機器的資料量:
+
+- **取樣:** Extension.js 預設以 20% 對 `command_executed` 取樣。可用 `EXTENSION_TELEMETRY_SAMPLE_RATE`(0.0–1.0)覆寫。失敗永遠不取樣。
+- **每次執行上限:** 每個 CLI 程序最多 **3 個事件**。可用 `EXTENSION_TELEMETRY_MAX_EVENTS` 覆寫。
+- **去重(壓制重複):** Extension.js 會在 60 秒內捨棄重複的 `(event, command, success)` 三元組。可用 `EXTENSION_TELEMETRY_DEBOUNCE_MS` 覆寫。
+
+## Extension.js 絕不會收集的資料
+
+Extension.js 的遙測契約明確排除:
+
+- 原始碼、manifest 內容、HTML 輸出或 `package.json` 內容
+- 儲存庫名稱、Git remote、GitHub 組織/使用者名稱、分支名稱、commit SHA 或預覽 URL
+- 相依套件清單、權限清單或自由格式的專案識別資料
+- 環境變數值、檔案系統路徑或機器本機 URL
+- Stack trace、錯誤訊息或自由文字的錯誤名稱
+- IP 位址(Extension.js 在每個 payload 上都會把 `$ip` 設為 `null`)
+
+## 退出方式
+
+依優先順序,有三種方式可以停用遙測:
+
+```bash
+# 1. 環境變數(優先於其他所有方式)
+EXTENSION_TELEMETRY_DISABLED=1 extension dev   # preferred
+EXTENSION_TELEMETRY=0 extension dev            # back-compat, also honored
+
+# 2. 單次執行旗標
+extension dev --no-telemetry
+
+# 3. 透過 telemetry 命令的持久同意檔
+extension telemetry disable
+extension telemetry enable
+extension telemetry status    # show current state (default when no argument)
+```
+
+同意檔案位於 `$XDG_CONFIG_HOME/extensionjs/telemetry/consent`(或等同的平台路徑)。
+
+## 預設行為
+
+遙測屬於**預設啟用、可退出**。在第一次執行且未套用上述任一覆寫時,Extension.js 會印出一行訊息說明如何停用。它也會寫入一個 `enabled` 同意標記,讓這段訊息不再重複出現。
+
+持續整合(CI)環境遵循相同規則。在 CI 環境中設定 `EXTENSION_TELEMETRY=0` 就能全面停用遙測。
+
+## 本機審計日誌
+
+Extension.js 會把所有它考慮送出的事件(無論最終有沒有送出)附加到同意檔旁邊的 `events.jsonl`。你隨時可以檢視,也可以自由刪除。
+
+## 最佳實務
+
+- 當政策要求不傳送遙測時,在 CI 中設定 `EXTENSION_TELEMETRY_DISABLED=1`。
+- 把隱私退化視為產品退化來處理。
+- 閱讀儲存庫層級的契約,以取得確切的事件清單。
+
+## 後續步驟
+
+- 在 [全域旗標](/zh-Hant/docs/workflows/global-flags) 中查看 `--no-telemetry` 與環境變數覆寫。
+- 為發佈與自動化流程使用 [build](/zh-Hant/docs/commands/build) 與 [dev](/zh-Hant/docs/commands/dev)。
+- 閱讀儲存庫層級的 [`TELEMETRY.md`](https://github.com/extension-js/extension.js/blob/main/TELEMETRY.md) 契約,以取得確切的事件清單。

@@ -1,0 +1,94 @@
+---
+title: "在擴充功能中延遲載入大型函式庫"
+description: "讓 Manifest V3 的 Service Worker 維持精簡。介紹擴充功能中動態匯入可用與不可用的情境,以及按需載入大型函式庫的模式。"
+keywords:
+  [
+    "lazy loading service worker",
+    "dynamic import service worker",
+    "manifest v3 large library",
+    "code splitting browser extension",
+    "import() content script",
+    "extension.js",
+    "manifest v3",
+    "performance",
+  ]
+---
+
+Manifest V3 的 Service Worker 經常冷啟動:瀏覽器會在大約 30 秒沒有活動後關閉它,並在下一個事件到來時再次啟動。你在 worker 頂部匯入的每一 KB,都會在每次喚醒時被重新解析。把 parser、wasm runtime 或 AI SDK 打包進 worker 進入點,代表每個 alarm、訊息與點擊都要付出這個代價。
+
+## 動態 `import()` 在哪裡可用
+
+在 bundler 介入之前,平台層級的規則:
+
+| 情境                                                  | 執行階段的動態 `import()` |
+| ----------------------------------------------------- | ------------------------- |
+| Service Worker(背景)                                | 不行,規格不允許          |
+| 擴充功能頁面(popup、選項頁、新分頁、側欄)            | 可以                      |
+| Offscreen 文件                                        | 可以                      |
+| Content scripts                                       | 可以,但要多一步          |
+
+Service Worker 的限制最讓人意外:在平台層級上,任何瀏覽器的 Service Worker 中都無法使用動態 `import()`。worker 頂部的靜態 `import` 沒問題(Extension.js 會打包它們),但你無法把 chunk 的載入延後到事件發生時。
+
+## 模式 1:依介面拆分,而不是依 chunk 拆分
+
+Service Worker 應該負責協調,而不是運算。把它的靜態匯入限制在黏合用的程式碼(路由訊息、註冊監聽器),把任何沉重的工作搬到可以延遲載入的介面:
+
+- 與 UI 接近的工作屬於需要它的頁面。要做程式碼格式化的 popup,應該在 popup 中匯入格式化工具,不要在 worker 中匯入。
+- 只有在背景需要、且工作沉重的部分(解析、編碼、推論),屬於 [offscreen 文件](/zh-Hant/docs/implementation-guide/offscreen-documents):按需建立、完成後關閉。worker 則維持為輕薄的訊息路由器。
+
+```ts background.ts
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "parse-feed") {
+    ensureOffscreen()
+      .then(() =>
+        chrome.runtime.sendMessage({ target: "offscreen", ...message }),
+      )
+      .then(sendResponse);
+    return true;
+  }
+});
+```
+
+接著 offscreen 頁面可以在第一次被要求時 `import()` 該大型函式庫,成本是每個文件生命週期付一次,而不是每次 worker 喚醒都付一次。
+
+## 模式 2:在擴充功能頁面中延遲匯入
+
+在任何擴充功能頁面中,純粹的動態匯入就能運作,bundler 也會自動把 chunk 拆分出來:
+
+```ts popup.ts
+button.addEventListener("click", async () => {
+  const { highlight } = await import("./heavy/highlighter");
+  output.innerHTML = highlight(input.value);
+});
+```
+
+這裡沒有任何擴充功能專屬的細節:chunk 會輸出到你的建置中,並從擴充功能自己的來源載入。
+
+## 模式 3:在 content scripts 中延遲匯入
+
+Content scripts 在頁面中執行,因此它們延遲載入的 chunk 必須能被該頁面擷取。兩個步驟:
+
+1. 透過 `web_accessible_resources` 暴露 chunk 路徑。
+2. 透過 `chrome.runtime.getURL` 匯入,讓 URL 解析到你的擴充功能來源:
+
+```ts content.ts
+async function loadAnalyzer() {
+  const src = chrome.runtime.getURL("content_scripts/analyzer.js");
+  return import(src);
+}
+```
+
+對應的 manifest 區塊請參考 [web_accessible_resources](/zh-Hant/docs/implementation-guide/web-accessible-resources)。沒有它,匯入會以網路錯誤失敗,因為宿主頁面無法擷取未明確開放的擴充功能檔案。
+
+## 完全不該放進 worker 的東西
+
+- 任何 DOM 形狀的東西(`DOMParser`、canvas、audio):worker 完全沒有 DOM,改用 offscreen 文件。
+- 數 MB 等級的 wasm:在 offscreen 文件或 [額外頁面](/zh-Hant/docs/features/special-folders) 中實例化,並把結果快取在 `chrome.storage`,讓重新啟動成本變得很低。
+- 一次性的工具(匯入、遷移、匯出):放在 `pages/` 下的專屬頁面,可以避免它出現在每個啟動路徑中。
+
+## 另請參閱
+
+- [背景指令碼](/zh-Hant/docs/implementation-guide/background)
+- [Offscreen 文件](/zh-Hant/docs/implementation-guide/offscreen-documents)
+- [web_accessible_resources](/zh-Hant/docs/implementation-guide/web-accessible-resources)
+- [效能 playbook](/zh-Hant/docs/workflows/performance-playbook)

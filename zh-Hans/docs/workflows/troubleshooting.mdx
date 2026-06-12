@@ -1,0 +1,122 @@
+---
+title: "排查 Extension.js 常见问题"
+description: "用一条实用的分流路径修复 Extension.js 常见问题。覆盖重启诊断、依赖设置、浏览器启动与 manifest 错误。"
+keywords:
+  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows"]
+---
+
+通过优先检查最常见的失败原因，快速解除本地开发的阻塞。在进入更深入的调试之前，把这一页当作实用的分流路径。
+
+## 排查能力
+
+| 区域                | 这能帮你确认什么                                          |
+| ------------------- | --------------------------------------------------------- |
+| 重启诊断            | 结构性变化是否需要重启                                    |
+| 依赖设置            | 当前技术栈是否缺少可选工具                                |
+| 浏览器启动          | 目标/浏览器二进制配置是否有效                             |
+| 构建/预览流程       | 预览所需的产物是否存在并与目标匹配                        |
+| manifest 路径       | 引用的文件是否能正确解析                                  |
+
+## 快速分流流程
+
+1. 在单个目标上复现（`--browser=chromium`）。
+2. 去掉自定义 profile 与二进制选项。
+3. 确认问题出现在 `dev`、`build`，还是两者都出现。
+4. 一次只修复一类错误（重启、依赖、路径或启动）。
+
+## 快速诊断决策树
+
+| 当这一项失败时...        | 优先检查                                                          | 下一步                                                                                                |
+| ------------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 扩展无法加载             | 构建与 manifest 错误                                              | 校验被引用文件并重新运行 `dev`                                                                       |
+| 浏览器无法启动           | `--browser` 与二进制路径                                          | 移除自定义二进制/profile 选项后重试                                                                  |
+| 改动没有生效             | 更新类型（热模块替换 vs 需要重启）                                | 复习 [Dev 更新行为](/zh-Hans/docs/workflows/dev-update-behavior) 并在需要时重启                       |
+| `preview` 失败           | 已有的 `dist/<browser>` 产物                                      | 先运行 `extension build --browser=<target>`                                                          |
+| 运行时仍然异常           | 最小可复现配置                                                    | 缩小范围，记录精确命令与错误信息                                                                     |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a failing dev run, identify the error class, apply one fix, and rerun successfully. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 常见问题
+
+### 需要重启的诊断
+
+如果看到"需要重启"错误，请停止并重新运行 `extension dev`。
+
+典型触发：
+
+- manifest 入口列表发生变化。
+- 在 `pages/` 或 `scripts/` 中添加/移除文件。
+- HTML 中脚本/样式入口的结构性变化。
+
+完整矩阵参见 [Dev 更新行为](/zh-Hans/docs/workflows/dev-update-behavior)。
+
+### 缺失可选依赖
+
+CLI 会按需安装一些集成（例如 Vue/Preact 的 refresh 工具、样式预处理器）。
+
+如果 CLI 提示安装可选依赖：
+
+1. 允许安装。
+2. 重启 `extension dev`。
+3. 等依赖装完再运行一次。
+
+### 浏览器二进制问题
+
+如果目标浏览器启动失败：
+
+- 检查自定义二进制路径（`--chromium-binary` / `--gecko-binary`）。
+- 确认浏览器目标与所提供的二进制兼容。
+- 退回到默认的 `chromium` 目标，以隔离配置问题。
+
+### 构建可以运行但 preview 失败
+
+`preview` 期望已有构建产物。
+
+- 运行 `extension build --browser=<target>`。
+- 然后运行 `extension preview --browser=<target>`。
+
+### manifest 引用错误
+
+如果构建报告 manifest 文件缺失：
+
+- 检查路径是否相对于 manifest 的位置。
+- 检查前导 `/` 的用法（公共根目录语义）。
+- 确认文件在源代码/`public` 中确实存在。
+
+### Docker、dev containers 与 Codespaces
+
+在容器内运行时，dev 服务器默认绑定到 `127.0.0.1`，宿主机器无法访问。
+
+- 传入 `--host 0.0.0.0` 以绑定到所有网卡。
+- 如果默认 `8080` 被占用，用 `--port 0` 让操作系统分配空闲端口。
+- 如果在持续集成 (CI) 容器中浏览器连接缓慢或不稳定，请通过 [浏览器传输调优变量](/zh-Hans/docs/features/environment-variables#浏览器传输调优变量) 增大连接超时。
+
+```bash
+extension dev --host 0.0.0.0 --port 0
+```
+
+### `scripts/` 文件夹中的 Node.js 脚本
+
+如果构建失败并提示 `scripts/ is a reserved folder in Extension.js`，说明你在 `scripts/` 特殊文件夹中放了 Node.js 文件。Extension.js 会为 `scripts/` 中的每个文件加上浏览器 content script 运行时包装，仅供 Node.js 使用的文件在该上下文中会出错。
+
+请把该文件移动到项目根目录下的其它文件夹（例如 `bin/`、`tools/` 或 `ci-scripts/`）。详见 [特殊文件夹](/zh-Hans/docs/features/special-folders#scripts-中不允许放-nodejs-脚本)。
+
+### 修复后仍被阻塞
+
+如果问题仍然存在：
+
+- 清掉临时性的假设，从一个干净的终端会话开始复现。
+- 缩小到仍然失败的最小 manifest/入口配置。
+- 记录精确的命令 + 错误输出，用于提交 issue。
+
+## 调试清单
+
+- 先在单个浏览器目标上复现（`--browser=chromium`）。
+- 在不带自定义 profile/二进制选项的情况下复现。
+- 检查问题是否同时出现在 `dev` 与 `build` 中。
+- 同时改动 manifest 与入口文件时，保持每次只改一处。
+
+## 后续步骤
+
+- 复习 [安全检查清单](/zh-Hans/docs/workflows/security-checklist)。
+- 复习 [性能手册](/zh-Hans/docs/workflows/performance-playbook)。

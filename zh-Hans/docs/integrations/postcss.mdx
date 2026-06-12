@@ -1,0 +1,135 @@
+---
+title: "在浏览器扩展中使用 PostCSS"
+description: "用 Autoprefixer 等 PostCSS 插件在扩展页面与 content script 之间统一转换 CSS。Extension.js 会自动检测你的配置与 loader 设置。"
+keywords:
+  [
+    "postcss in browser extensions",
+    "postcss",
+    "extension.js",
+    "tailwindcss",
+    "stylelint",
+    "content script",
+    "popup",
+    "docs",
+    "integrations",
+  ]
+---
+
+用同一条管线在扩展页面与 content script 之间一致地转换 CSS。当你需要 Autoprefixer 这类插件或现代 CSS 转换时，请使用 PostCSS。
+
+Extension.js 会检测 PostCSS 配置，并在需要时应用 `postcss-loader`。
+
+## 何时适合使用 PostCSS
+
+- 你需要在扩展样式中做 autoprefix 或现代 CSS 转换。
+- 你希望在 popup/options/sidebar/content script 之间共享一条 CSS 转换管线。
+- 你在使用 Tailwind 或基于插件的样式处理。
+
+## PostCSS 能力
+
+| 能力                  | 你能得到什么                                                                  |
+| --------------------- | ----------------------------------------------------------------------------- |
+| 共享的 CSS 管线       | 在 popup、options、新标签页与 content script 之间使用相同的转换               |
+| 灵活的配置发现        | 从专用配置文件或 `package.json` 中加载 PostCSS 配置                           |
+| Tailwind 兼容         | 通过 PostCSS 插件与基于 Tailwind 的方案协同工作                               |
+| 基于插件的转换        | 引入 `autoprefixer`、`postcss-preset-env` 等工具                              |
+
+## 模板示例
+
+### Tailwind + PostCSS 起步项目
+
+如果你想要一个可工作的 PostCSS + Tailwind + 组件驱动 UI 的配置，使用此模板。
+
+![`sidebar-shadcn` 截图](/images/examples/sidebar-shadcn/screenshot.png)
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+</CodeGroup>
+
+仓库：[examples/sidebar-shadcn](https://github.com/extension-js/examples/tree/main/examples/sidebar-shadcn)
+
+## 检测与配置文件
+
+Extension.js 会检查以下 PostCSS 配置文件：
+
+- `.postcssrc`
+- `.postcssrc.json`
+- `.postcssrc.yaml`
+- `.postcssrc.yml`
+- `postcss.config.mjs`
+- `.postcssrc.js` / `.postcssrc.cjs`
+- `postcss.config.js` / `postcss.config.cjs`
+
+它也会识别 `package.json` 中的 `postcss` 配置。
+
+## 在已有扩展中使用 PostCSS
+
+安装 PostCSS 依赖：
+
+<PackageManagerTabs command="install -D postcss postcss-loader autoprefixer" />
+
+### 创建 `postcss.config.js`
+
+```js
+export default {
+  plugins: {
+    autoprefixer: {},
+  },
+};
+```
+
+## 使用方式
+
+在扩展页面中正常导入样式：
+
+```ts
+import "./styles/globals.css";
+```
+
+对于 content script，在 content-script 入口中以相同方式导入：
+
+```ts
+import "./styles/content.css";
+```
+
+Extension.js 在两种上下文中都会应用 PostCSS，但输出的打包方式不同（页面走 `css` 管线，content script 走 asset 管线）。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one CSS file processed by PostCSS for both a popup page and a content script entry. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 与 Tailwind 的交互
+
+- 当 Extension.js 检测到 Tailwind 时，可以自动触发 PostCSS 的搭建。
+- Extension.js 同时处理 Tailwind v3 和 v4，根据检测到的版本选择插件。
+- 在 ECMAScript Module（ESM）项目中，如果使用了不兼容的 CommonJS（CJS）PostCSS 配置模式，Extension.js 可能绕过你的配置，转而注入兼容性插件。
+
+## 最佳实践
+
+- 让插件链保持精简且显式（例如 `autoprefixer`、`postcss-preset-env`）。
+- 确认配置文件格式（`.mjs`/`.cjs`）与项目的模块类型匹配。
+- 让 Tailwind 与 PostCSS 的版本保持一致，避免插件解析不匹配。
+- 倾向使用共享的样式入口文件，让各扩展界面的处理可预期。
+
+## 下一步
+
+- 用 PostCSS 配置 [Tailwind CSS](/zh-Hans/docs/integrations/tailwindcss)。
+- 用 [Stylelint](/zh-Hans/docs/integrations/stylelint) 添加样式表 lint。

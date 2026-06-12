@@ -1,0 +1,164 @@
+---
+title: "擴充功能中的 JavaScript 與 TypeScript"
+description: "用 Rspack 與 SWC 轉換驅動的 Extension.js 統一管線,在背景、content scripts 與 UI 頁面之間交付 JavaScript 與 TypeScript。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "typescript",
+    "javascript",
+    "hmr",
+    "content script",
+    "service worker",
+  ]
+---
+
+用同一套 JavaScript/TypeScript 管線,在背景、content scripts 與 UI 頁面之間交付擴充功能行為。
+
+Extension.js 會從 `manifest.json`、HTML 頁面與特殊資料夾收集指令碼進入點,並用預設以 SWC (Speedy Web Compiler) 為基礎的設定編譯它們。
+
+## 範本範例
+
+### `javascript`
+
+![javascript template screenshot](/images/examples/javascript/screenshot.png)
+
+含有新分頁頁面的純 JavaScript 擴充功能。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=javascript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=javascript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=javascript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=javascript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=javascript
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/javascript](https://github.com/extension-js/examples/tree/main/examples/javascript)
+
+### `content`
+
+![content template screenshot](/images/examples/content/screenshot.png)
+
+注入到網頁的純 JavaScript content script。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+## JavaScript 能力
+
+| 能力                  | 帶給你什麼                                                       |
+| --------------------- | ---------------------------------------------------------------- |
+| 共用的 JS/TS 管線     | 用同一套預設轉換器設定編譯擴充功能指令碼                          |
+| 進入點探索            | 從 manifest、頁面與特殊資料夾載入指令碼進入點                     |
+| 執行階段安全的輸出    | 為每個擴充功能情境輸出可預期的指令碼構件                          |
+| 路徑正規化            | 把支援的擴充功能路徑字面值改寫成輸出安全的路徑                    |
+
+## 支援的指令碼進入點
+
+| Manifest 欄位                | 預期檔案類型                  |
+| ---------------------------- | ---------------------------- |
+| `background.service_worker`  | `.js`, `.ts`, `.mjs`, `.tsx` |
+| `background.scripts`         | `.js`, `.ts`, `.mjs`, `.tsx` |
+| `content_scripts.js`         | `.js`, `.ts`, `.mjs`, `.tsx` |
+| `user_scripts.api_script`    | `.js`, `.ts`, `.mjs`, `.tsx` |
+
+## `manifest.json` 中的指令碼宣告範例
+
+`manifest.json` 中的指令碼宣告範例:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./scripts/background.ts"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/content-script.ts"]
+    }
+  ]
+}
+```
+
+## 開發行為
+
+- **Content scripts:** Extension.js 會注入熱模組替換 (HMR)/remount 流程,讓更新快速完成。
+- **擴充功能頁面:** 頁面指令碼遵循頁面 HMR 行為。
+- **背景 / Service Worker:** 視變更類型而定,指令碼更新可能觸發硬重新載入。
+- **進入點清單變動:** 變更 manifest 指令碼結構可能需要重新啟動 dev server。
+
+## 指令碼位置與慣例
+
+- 把以指令碼為主的擴充功能進入點放在專案根目錄的 `scripts/` 底下。
+- 把附帶自有指令碼的 HTML 進入點放在 `pages/`。
+- 維持 manifest 引用的路徑穩定;若要搬移進入檔案,也記得同步更新 manifest。
+
+## 轉換與打包預設值
+
+- JS/TS/JSX/TSX 的預設轉換器是 SWC。
+- Extension.js 使用以瀏覽器為優先的 `package.json` 欄位解析(`browser`、`module`、`main`)。
+- Extension.js 會可預期地輸出進入點,且預設不會把程式碼拆分到獨立的輸出檔。
+- 路徑解析會改寫支援 API 中的靜態擴充功能路徑字面值。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one feature script reused across popup, content script, and background contexts with target-safe compiled output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 動態匯入的注意事項
+
+- Content script 的動態匯入有執行階段限制;Extension.js 會盡可能採用 loader 替代方案。
+- Service Worker 的延遲載入有瀏覽器層級的限制;對 Service Worker 啟動時就必須可用的程式碼,優先使用即時匯入。
+
+## 最佳實務
+
+- 把進入點指令碼保持輕薄,把功能邏輯放到共用模組。
+- 對擴充功能 API 採用靜態匯入路徑,讓路徑解析能安全地正規化。
+- 避免在 content scripts 與 Service Worker 中使用非必要的動態匯入。
+- 在開發流程中把 manifest 指令碼清單的編輯視為結構性變更。
+
+## 下一步
+
+- 在 [開發更新行為](/zh-Hant/docs/workflows/dev-update-behavior) 中了解更新結果。
+- 學習如何用 [特殊資料夾](/zh-Hant/docs/features/special-folders) 安排檔案結構。
+- 繼續閱讀 [背景指令碼與 Service Worker](/zh-Hant/docs/implementation-guide/background)。

@@ -1,0 +1,268 @@
+---
+title: "擴充功能頁面的 HTML 進入點"
+description: "用純 HTML 進入點打造擴充功能 UI。Extension.js 會自動處理資源連結、指令碼與樣式打包,以及頁面開發時的更新行為。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "browser",
+    "manifest",
+    "hmr",
+    "side panel",
+    "popup",
+    "devtools",
+  ]
+---
+
+Extension.js 會處理兩種來源的 HTML 進入點:manifest 欄位與特殊資料夾 `pages/`。manifest 欄位包含 popup、選項頁、側欄、新分頁與 DevTools。對於 manifest 沒有直接指名的路由,則使用 `pages/`。
+
+Extension.js 會掃描每個進入點中的指令碼、樣式與連結資源。你撰寫純 HTML,其他的設定就交給 Extension.js 自動處理。
+
+## 範本範例
+
+### `new`
+
+![new template screenshot](/images/examples/new/screenshot.png)
+
+最簡單的新分頁擴充功能,使用 HTML 頁面進入點。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new](https://github.com/extension-js/examples/tree/main/examples/new)
+
+### `sidebar`
+
+![sidebar template screenshot](/images/examples/sidebar/screenshot.png)
+
+具有 HTML 頁面進入點的側欄擴充功能,用於常駐的伴隨 UI。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/sidebar](https://github.com/extension-js/examples/tree/main/examples/sidebar)
+
+## HTML 能力
+
+| 能力                | 帶給你什麼                                                       |
+| ------------------- | ---------------------------------------------------------------- |
+| 進入點探索          | 以同一流程編譯 manifest 與 `pages/` 中宣告的 HTML                 |
+| 資源連結            | 自動打包 HTML 標籤所引用的指令碼與樣式                            |
+| 公開路徑處理        | 維持你刻意放在 public 根目錄的資源穩定                            |
+| 開發追蹤            | 在 HTML 與其引用資源變動時重新編譯                                |
+
+## 支援的 HTML 進入點
+
+以下 manifest 欄位以 HTML 檔案作為進入點:
+
+| Manifest 欄位                       | 預期檔案類型       |
+| ----------------------------------- | ------------------ |
+| `action.default_popup`              | `.html`            |
+| `background.page`                   | `.html`            |
+| `chrome_url_overrides.*`            | `.html`            |
+| `devtools_page`                     | `.html`            |
+| `options_ui.page` / `options_page`  | `.html`            |
+| `page_action.default_popup`         | `.html`            |
+| `sandbox.pages`                     | `.html`            |
+| `side_panel.default_path`           | `.html`            |
+| `sidebar_action.default_panel`      | `.html`            |
+
+你也可以在 `pages/` 底下加入獨立頁面,而不需要為每個檔案擴充 manifest 進入點欄位。
+
+## HTML 進入點範例
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Extension Page</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="./main.ts"></script>
+  </body>
+</html>
+```
+
+## Extension.js 如何處理 HTML
+
+對每個 HTML 進入點,Extension.js 會:
+
+1. 把 HTML 檔案納入編譯。
+2. 從標籤中發現本地的指令碼 / 樣式 / 靜態資源。
+3. 把指令碼 / 樣式打包成正確的擴充功能輸出。
+4. 修補 HTML,注入編譯後的 bundle 參照。
+5. 保留 public 根目錄的參照(例如 `/icon.png`)作為 public 資源。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show an HTML entrypoint importing a script and stylesheet, then inspect emitted compiled HTML and bundled assets. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 開發行為
+
+- Extension.js 會把 HTML 與其引用的資源納入檔案相依關係,因此編輯會觸發重新編譯。
+- 在支援的注入指令碼流程中,指令碼變動會透過熱模組替換 (HMR) 套用。
+- 如果 HTML 的指令碼 / 樣式進入清單改變(新增或移除項目),Extension.js 可能需要重新啟動 dev server。
+- 變更 manifest 中的 HTML 進入點也可能觸發「需要重新啟動」的診斷。
+
+## 路徑與環境變數
+
+- Extension.js 會以 HTML 檔案所在位置為基準解析相對路徑。
+- Extension.js 會把開頭為 `/` 的路徑視為擴充功能 public 根目錄的路徑。
+- Extension.js 會在編譯時取代輸出 HTML 中的 `$EXTENSION_PUBLIC_*` 等佔位符。
+
+## 使用額外頁面
+
+把額外的檔案放在 `pages/`:
+
+```plaintext
+pages/
+└── extra-page.html
+```
+
+## 常見的擴充功能介面
+
+大多數負責渲染 UI 的擴充功能介面,都是搭配不同 manifest 欄位與執行階段預期的 HTML 進入點。先依互動模式選擇對應介面,再把 HTML 頁面本身保持輕薄。
+
+| 介面             | Manifest 欄位                                                | 適合用途                                                |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------- |
+| Popup            | `action.default_popup` 或 `browser_action.default_popup`     | 從工具列開啟、短促且任務聚焦的 UI                       |
+| 選項頁           | `options_ui.page` 或 `options_page`                          | 持久的設定與偏好                                         |
+| 側欄             | `side_panel.default_path` 或 `sidebar_action.default_panel`  | 在目前分頁旁常駐的伴隨 UI                                |
+| DevTools 頁面    | `devtools_page`                                              | 給擴充功能本身的除錯或檢查工具                           |
+| 新分頁覆寫       | `chrome_url_overrides.newtab`                                | 由擴充功能擁有的全螢幕瀏覽器介面                         |
+| 沙箱頁面         | `sandbox.pages`                                              | 需要沙箱化執行環境時使用的隔離 HTML                       |
+
+### Popup
+
+把 popup 用在快速、聚焦的操作:
+
+- 快速查看狀態。
+- 一步完成的指令。
+- 小型表單或切換按鈕。
+
+讓 popup 保持小巧、健壯。Popup 會頻繁開啟與關閉,因此不要假設它能長時間保留記憶體中的 UI 狀態。
+
+#### Popup 大小與寬度
+
+manifest 沒有設定 popup 尺寸的欄位。瀏覽器會依你渲染的 HTML 調整 popup 大小,但有 25x25 最小到 800x600 最大 CSS 像素的硬限制。要控制寬度,把它設在標記的根元素:
+
+```css
+body {
+  width: 360px;
+  margin: 0;
+}
+```
+
+不要在根元素上使用 `width: 100vw` 或百分比寬度:popup 的視口是從你的內容推導而來,循環式的尺寸計算會讓 popup 萎縮或抖動。如果 UI 想超過 800x600,就代表它已經超出 popup 介面所能容納;改用側欄或新分頁頁面。
+
+### 選項頁
+
+當你需要設定持久行為時使用選項頁:
+
+- 帳號或整合設定。
+- 功能切換。
+- 鍵盤或工作流程偏好。
+
+把選項頁搭配瀏覽器儲存,讓設定在重新啟動後仍然存在,且背景或 content script 程式碼可以讀取。
+
+### 側欄
+
+當擴充功能需要與目前頁面並列的常駐工作區時使用側欄:
+
+- 研究或筆記伴侶。
+- 與分頁相關的助理。
+- 在你瀏覽不同頁面時也應保持可見的頁面分析結果。
+
+側欄 HTML 仍然是擴充功能頁面的進入點。差異在於介面語意,而不是建置流程。
+
+### DevTools 頁面
+
+當擴充功能要為開發者提供工具時使用 `devtools_page`:
+
+- 檢查面板。
+- 請求或 DOM 診斷。
+- 專案特定的除錯助手。
+
+把它視為特別的介面。它通常需要更強的訊息傳遞模式,因為它經常要與背景邏輯及被檢查的分頁協同。
+
+### 新分頁覆寫
+
+當擴充功能要掌管整個新分頁體驗時使用 `chrome_url_overrides.newtab`。
+
+對於 popup 顯得受限、需要像應用程式般豐富 UI 的場景,這通常是最合適的選擇。
+
+### 沙箱頁面
+
+只在功能確實需要沙箱模型時使用沙箱頁面。它們同樣是 HTML 進入點,但僅針對較窄的瀏覽器擴充功能安全性與執行限制存在。設定、能力與 postMessage 模式請參考 [沙箱頁面](/zh-Hant/docs/implementation-guide/sandbox-pages)。
+
+## 介面撰寫模式
+
+任何 HTML 介面的良好預設結構是:
+
+1. 讓 HTML 檔案保持最小。
+2. 掛載一個指令碼入口。
+3. 從該指令碼或連結的樣式表匯入樣式。
+4. 把瀏覽器 API 協調工作移入專屬模組。
+
+這個模式對 popup、選項頁、側欄、DevTools 與新分頁介面都很適用。
+
+## 最佳實務
+
+- 讓進入點 HTML 保持最小,透過指令碼匯入應用程式碼。
+- 對專案資源使用相對路徑,對刻意公開的資源才使用 `/` 路徑。
+- 對於非主要 manifest UI 進入點的額外頁面,使用 `pages/`。
+- 把指令碼或連結的新增 / 移除視為結構性變更,可能需要重新啟動。
+- 先依使用者互動模式選擇介面,再以輕薄的 HTML 頁面進入點實作。
+- 把介面相關狀態放在儲存或背景協調中,而不是假設 UI 頁面會一直掛載。
+
+## 下一步
+
+- 在 [開發更新行為](/zh-Hant/docs/workflows/dev-update-behavior) 中了解更新結果。
+- 用 [儲存](/zh-Hant/docs/implementation-guide/storage) 保存設定與狀態。
+- 用 [訊息傳遞](/zh-Hant/docs/implementation-guide/messaging) 協調 UI 頁面。
+- 了解更多 [特殊資料夾](/zh-Hant/docs/features/special-folders) 的內容。
+- 繼續閱讀 [開發中的 CSS](/zh-Hant/docs/implementation-guide/css)。

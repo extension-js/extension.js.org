@@ -1,0 +1,221 @@
+---
+title: "浏览器扩展中的 Sass 与 SCSS modules"
+description: "用 Sass 变量、嵌套与 SCSS modules 扩展浏览器扩展的样式体系。Extension.js 通过 Rspack 支持 .scss、.sass 以及 .module 变体。"
+keywords:
+  [
+    "sass modules",
+    "scss modules",
+    "css modules vs sass modules",
+    "sass in browser extensions",
+    "extension.js",
+    "react",
+    "vue",
+    "svelte",
+    "preact",
+    "rspack",
+    "stylelint",
+    "content script",
+  ]
+---
+
+用 Sass 通过变量、嵌套与 SCSS modules 扩展浏览器扩展的样式体系，同时保持单一的构建工作流。
+
+Extension.js 通过基于 Rspack 的样式管线支持 `.scss` 与 `.sass`，以及 SCSS module 变体（`.module.scss`、`.module.sass`）。
+
+## Sass 适合什么场景
+
+- 你的设计系统已经依赖 Sass 变量与 mixin。
+- 你需要为组件化的扩展 UI 提供模块化样式。
+- 你希望与 Web 应用中已有的 Sass 工作流保持一致。
+
+## 模板示例
+
+### `new-sass`
+
+![new-sass template screenshot](/images/examples/new-sass/screenshot.png)
+
+开始一个已经预配置好 Sass 支持的新标签页扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-sass
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-sass
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-sass
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-sass
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-sass
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/new-sass](https://github.com/extension-js/examples/tree/main/examples/new-sass)
+
+## 在已有扩展中使用
+
+按下面的步骤把 Sass 加到一个已有扩展中。
+
+### 安装
+
+安装所需依赖：
+
+<PackageManagerTabs command="install -D sass sass-loader" />
+
+### 在 HTML 文件中的使用示例
+
+在扩展页面（popup/options/新标签页）中，从入口脚本导入 Sass：
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+    <script src="./main.ts"></script>
+  </head>
+  <body>
+    <h1 class="title">Hello, Extension.</h1>
+  </body>
+</html>
+```
+
+```ts
+import "./styles/globals.scss";
+
+console.log("Sass loaded");
+```
+
+## Sass modules
+
+像 CSS modules 一样用 Sass modules 让样式局部作用域化。使用 `.module.scss` 或 `.module.sass` 来启用作用域，避免样式表中的命名冲突。
+
+### `content-sass-modules`
+
+![content-sass-modules template screenshot](/images/examples/content-sass-modules/screenshot.png)
+
+当你需要为注入的 UI 提供作用域样式时，在 content scripts 中使用 Sass modules。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-sass-modules
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-sass-modules
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-sass-modules
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-sass-modules
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-sass-modules
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content-sass-modules](https://github.com/extension-js/examples/tree/main/examples/content-sass-modules)
+
+## 在已有扩展中使用 Sass modules
+
+要启用 Sass modules，把 Sass 文件重命名为带 `.module.scss` 或 `.module.sass` 后缀。这样样式会自动作用于你的组件。
+
+```diff
+- button.scss
++ button.module.scss
+```
+
+### 使用示例
+
+重命名 Sass 文件后，在脚本里导入它：
+
+```ts
+import styles from "./styles/button.module.scss";
+
+const element = document.createElement("h1");
+element.className = styles.primaryColor;
+element.innerText = "Hello, Extension!";
+document.body.appendChild(element);
+```
+
+在 Sass 文件中：
+
+```scss
+/* styles/button.module.scss */
+
+$primary-color: #64ff00;
+
+:export {
+  primaryColor: $primary-color;
+}
+```
+
+## React/Preact 使用示例
+
+把 Sass module 导入到 React 或 Preact 组件中，使用其中带作用域的类名：
+
+```jsx
+import styles from "./styles/button.module.scss";
+
+export default function MyComponent() {
+  return <h1 className={styles.primaryColor}>Hello, Extension!</h1>;
+}
+```
+
+## Vue 使用示例
+
+在 Vue SFC 中，优先使用带 `lang="scss"` 的 module 样式：
+
+```vue
+<template>
+  <h1 :class="$style.primaryColor">Hello, Extension!</h1>
+</template>
+
+<style lang="scss" module>
+@import "./styles/button.module.scss";
+</style>
+```
+
+## Svelte 使用示例
+
+在 Svelte 中，导入 Sass module 的映射并应用类名：
+
+```svelte
+<script>
+  import styles from "./styles/button.module.scss";
+</script>
+
+<h1 class={styles.primaryColor}>Hello, Extension!</h1>
+```
+
+## 行为说明
+
+- 在扩展页面中，`.module.scss` 与 `.module.sass` 会为 JS/TS 导入提供类名映射。
+- 在 content scripts 中，Extension.js 会把 Sass 作为 CSS 资源输出，但不带 JavaScript 类名映射。
+- 如果项目缺少 Sass 工具，Extension.js 会安装可选依赖并提示重启。
+
+## 下一步
+
+- 进一步了解 [CSS modules](/zh-Hans/docs/languages-and-frameworks/css-modules)。
+- 使用 [Stylelint](/zh-Hans/docs/integrations/stylelint) 保证样式表质量。
+
+## 视频演示
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Sass and Sass modules applied in extension pages and content-script contexts. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

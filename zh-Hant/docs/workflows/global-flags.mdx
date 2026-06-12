@@ -1,0 +1,96 @@
+---
+title: "適用所有命令的全域 CLI 旗標"
+description: "用全域旗標跨命令一致地控制 Extension.js CLI 行為,包括退出遙測、機器可讀的 JSON 輸出與詳細日誌。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "docs",
+    "workflows",
+    "global flags",
+    "global",
+  ]
+---
+
+用全域旗標一致地控制跨命令的 CLI 行為,特別是在遙測與機器可讀輸出方面。
+
+Extension.js 的遙測在設計上就是匿名且尊重隱私的。它最多傳送兩種事件(`command_executed` 與 `command_failed`),每種各帶三個屬性(`command`、`success`、`version`)。
+
+## 全域旗標能力
+
+| 能力                  | 它能提供什麼                                                                      |
+| --------------------- | --------------------------------------------------------------------------------- |
+| 遙測控制              | 以單次執行、單一環境或持久方式停用遙測                                            |
+| AI/help 格式化        | 以可讀或結構化格式輸出說明                                                        |
+| 跨命令一致性          | 把同一組控制旗標套用到 `create`、`dev`、`start`、`preview` 與 `build`               |
+
+## 全域選項
+
+| 旗標                       | 說明                                                                                                | 預設            |
+| -------------------------- | --------------------------------------------------------------------------------------------------- | --------------- |
+| `--no-telemetry`           | 為單一命令執行停用匿名遙測。                                                                         | 預設啟用遙測    |
+| `--no-browser`             | 跳過瀏覽器啟動。適用於 `dev`、`start` 與 `preview`。會設定 `EXTENSION_CLI_NO_BROWSER=1`。            | 預設啟用瀏覽器  |
+| `--ai-help`                | 顯示給 AI 助理使用的說明輸出。                                                                       | 停用            |
+| `--format <pretty\|json>`  | 搭配 `--ai-help` 的輸出格式。                                                                       | `pretty`        |
+
+## 退出遙測的方式
+
+你有三種方式可以停用遙測(依優先順序列出):
+
+```bash
+# 1. 環境變數(優先於其他所有方式)
+EXTENSION_TELEMETRY_DISABLED=1 extension dev
+EXTENSION_TELEMETRY=0 extension dev            # back-compat
+
+# 2. 單次執行旗標
+extension build --browser=chrome,firefox --no-telemetry
+
+# 3. 持久同意命令
+extension telemetry disable
+```
+
+當政策要求所有執行都不傳送遙測時,請在持續整合(CI)中設定 `EXTENSION_TELEMETRY_DISABLED=1`。
+
+## 實務範例
+
+### 為 CI 建置停用遙測
+
+```bash
+EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=chrome,firefox
+```
+
+當政策要求自動化執行必須明確停用遙測時使用。
+
+### 為工具產生機器可讀的說明
+
+```bash
+extension dev --ai-help --format=json
+```
+
+適用於 AI 工具、包裝層或會解析命令說明的腳本。
+
+### 為本機除錯保留可讀的說明輸出
+
+```bash
+extension dev --ai-help --format=pretty
+```
+
+當你需要給助理閱讀、同時又能在終端機中良好閱讀的輸出時,使用 pretty 模式。
+
+## 行為注意事項
+
+- CLI 會在解析命令專屬選項之前,先解析全域旗標。
+- 遙測行為與隱私細節請參考儲存庫的 `TELEMETRY.md` 與 [遙測與隱私](/zh-Hant/docs/features/telemetry-and-privacy)。
+- 使用 `extension telemetry status` 檢查目前的同意狀態。
+- 各命令頁面會另行說明命令專屬旗標。
+- 可以把全域旗標與命令專屬選項合併使用。
+- 自動化工具(AI 助理與 CI 腳本)應從 `dist/extension-js/<browser>/ready.json` 讀取命令準備就緒狀態,而不是解析終端機日誌。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running the same command with and without `--no-telemetry` and `--ai-help --format=json` to compare output behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 後續步驟
+
+- 在 [create](/zh-Hant/docs/commands/create) 與 [dev](/zh-Hant/docs/commands/dev) 流程中套用這些旗標。
+- 在 [start](/zh-Hant/docs/commands/start)、[preview](/zh-Hant/docs/commands/preview) 與 [build](/zh-Hant/docs/commands/build) 的正式檢查中使用它們。

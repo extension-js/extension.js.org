@@ -1,0 +1,122 @@
+---
+title: "Extension.js 疑難排解"
+description: "用實務化的分類流程修復常見的 Extension.js 問題。涵蓋重新啟動診斷、相依套件設定、瀏覽器啟動與 manifest 錯誤。"
+keywords:
+  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows"]
+---
+
+優先檢查最常見的失敗,快速解除本機開發的卡關。在進一步偵錯前,把這頁當作實務化的分類流程。
+
+## 疑難排解能力
+
+| 範圍                  | 它能幫你驗證什麼                                          |
+| --------------------- | --------------------------------------------------------- |
+| 重新啟動診斷          | 結構性變更是否需要重新啟動                                 |
+| 相依套件設定          | 目前技術棧是否缺少選用工具                                 |
+| 瀏覽器啟動            | 目標/瀏覽器執行檔設定是否正確                              |
+| 建置/preview 流程     | preview 是否有對應的輸出,以及是否符合目標                  |
+| Manifest 路徑         | 被參照的檔案是否能正確解析                                 |
+
+## 快速分類流程
+
+1. 用單一目標重現問題(`--browser=chromium`)。
+2. 移除自訂的 profile 與 binary 旗標。
+3. 確認問題是發生在 `dev`、`build`,或兩者皆有。
+4. 一次修一類錯誤(重新啟動、相依套件、路徑或啟動)。
+
+## 快速診斷決策樹
+
+| 如果這個失敗...           | 先檢查                                                         | 下一步                                                                                          |
+| ------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 擴充功能無法載入          | 建置與 manifest 錯誤                                            | 確認被參照的檔案並重新執行 `dev`                                                                |
+| 瀏覽器無法啟動            | `--browser` + 執行檔路徑                                        | 移除自訂的 binary/profile 旗標後再試                                                            |
+| 變更未更新                | 更新類型(熱模組替換 vs 需要重新啟動)                            | 檢視 [Dev update behavior](/zh-Hant/docs/workflows/dev-update-behavior),在需要時重新啟動         |
+| `preview` 失敗            | 既有的 `dist/<browser>` 輸出                                    | 先執行 `extension build --browser=<target>`                                                     |
+| 執行階段仍然故障          | 最小可重現設定                                                  | 縮小範圍並擷取確切的命令 + 錯誤訊息                                                              |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a failing dev run, identify the error class, apply one fix, and rerun successfully. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 常見問題
+
+### 需要重新啟動的診斷
+
+如果看到需要重新啟動的錯誤,請停止並重新執行 `extension dev`。
+
+典型觸發條件:
+
+- Manifest 入口清單變更。
+- 在 `pages/` 或 `scripts/` 新增/移除檔案。
+- HTML 中結構性的 script/style 入口變更。
+
+完整對照表請見 [Dev update behavior](/zh-Hant/docs/workflows/dev-update-behavior)。
+
+### 缺少選用相依套件
+
+CLI 會視需要安裝部分整合(例如 Vue/Preact 的 refresh 工具、樣式預處理器)。
+
+如果 CLI 提示安裝選用相依套件:
+
+1. 同意安裝。
+2. 重新執行 `extension dev`。
+3. 相依套件安裝完成後再次執行。
+
+### 瀏覽器執行檔問題
+
+如果目標瀏覽器啟動失敗:
+
+- 確認自訂的執行檔路徑(`--chromium-binary` / `--gecko-binary`)。
+- 確認瀏覽器目標與提供的執行檔相容。
+- 退回預設的 `chromium` 目標,以隔離設定問題。
+
+### 建置可以,但 preview 失敗
+
+`preview` 需要既有的建置輸出。
+
+- 執行 `extension build --browser=<target>`。
+- 然後執行 `extension preview --browser=<target>`。
+
+### Manifest 參照錯誤
+
+當建置回報缺少 manifest 檔案時:
+
+- 確認路徑是相對於 manifest 位置。
+- 確認開頭 `/` 的用法(公開根目錄語意)。
+- 確認檔案確實存在於原始碼/public 位置。
+
+### Docker、dev container 與 Codespaces
+
+在容器內執行時,dev server 預設綁定 `127.0.0.1`,因此宿主機器無法連到它。
+
+- 傳入 `--host 0.0.0.0` 以綁定所有介面。
+- 若 `8080` 被佔用,用 `--port 0` 讓 OS 指派可用埠。
+- 在持續整合(CI)容器中,如果瀏覽器連線緩慢或不穩,請用 [瀏覽器傳輸調整變數](/zh-Hant/docs/features/environment-variables#browser-transport-tuning-variables) 增加連線逾時。
+
+```bash
+extension dev --host 0.0.0.0 --port 0
+```
+
+### `scripts/` 資料夾中的 Node.js 腳本
+
+若建置失敗並顯示 `scripts/ is a reserved folder in Extension.js`,表示你在 `scripts/` 特殊資料夾中放了 Node.js 檔案。Extension.js 會用瀏覽器 content script 執行階段把 `scripts/` 內的每個檔案包起來,僅供 Node.js 的檔案在這種情境下會失敗。
+
+請把該檔案移到專案根目錄下的其他資料夾(例如 `bin/`、`tools/` 或 `ci-scripts/`)。詳情請見 [特殊資料夾](/zh-Hant/docs/features/special-folders#nodejs-scripts-are-not-allowed-in-scripts)。
+
+### 修復後仍卡關
+
+如果問題持續存在:
+
+- 清除暫時性假設,在乾淨的終端機 session 中重新重現。
+- 縮減為仍會失敗的最小 manifest/入口情境。
+- 擷取確切的命令 + 錯誤輸出以供回報問題使用。
+
+## 偵錯檢查清單
+
+- 先用單一瀏覽器目標重現(`--browser=chromium`)。
+- 移除自訂 profile/binary 旗標後重現。
+- 確認問題是否同時出現在 `dev` 與 `build` 中。
+- 同時動到 manifest 與入口檔案時,一次只改一處。
+
+## 後續步驟
+
+- 檢視 [安全檢查清單](/zh-Hant/docs/workflows/security-checklist)。
+- 檢視 [效能 Playbook](/zh-Hant/docs/workflows/performance-playbook)。

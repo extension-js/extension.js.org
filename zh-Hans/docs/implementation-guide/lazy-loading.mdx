@@ -1,0 +1,94 @@
+---
+title: "在扩展中懒加载重型库"
+description: "让 Manifest V3 service worker 保持精简：动态 import 在扩展的哪些地方能用、在哪些地方不能用，以及按需加载大型库的模式。"
+keywords:
+  [
+    "lazy loading service worker",
+    "dynamic import service worker",
+    "manifest v3 large library",
+    "code splitting browser extension",
+    "import() content script",
+    "extension.js",
+    "manifest v3",
+    "performance",
+  ]
+---
+
+Manifest V3 的 service worker 经常冷启动：浏览器会在大约 30 秒无活动后杀掉它，并在下一个事件到来时重新启动。你在 worker 顶部 import 的每一千字节，每次唤醒时都会被重新解析。如果在 worker 入口里打包了一个 parser、wasm runtime 或 AI SDK，那么每一次 alarm、消息和点击都要为它付出代价。
+
+## 动态 `import()` 能用的位置
+
+在打包器介入之前，平台的规则如下：
+
+| 上下文                                                  | 运行时的动态 `import()` |
+| ------------------------------------------------------- | ----------------------- |
+| Service worker（background）                            | 不可以，规范不允许      |
+| 扩展页面（popup、options、新标签页、side panel）        | 可以                    |
+| Offscreen documents                                     | 可以                    |
+| Content scripts                                         | 可以，但需要额外一步    |
+
+service worker 的限制最让人意外：在平台层面，所有浏览器的 service worker 内部都无法使用动态 `import()`。worker 顶部的静态 `import` 语句没问题（Extension.js 会把它们打包进去），但你无法把一个 chunk 的加载延迟到事件触发之后。
+
+## 模式 1：按表面拆分，而不是按 chunk 拆分
+
+service worker 应当协调，而不是计算。把它的静态 import 控制在胶水代码（路由消息、注册监听器）范围内，把重型工作搬到能正常懒加载的表面：
+
+- 与 UI 相关的工作放在需要它的页面里。一个负责格式化代码的 popup，应当在 popup 中导入 formatter，而不是在 worker 中。
+- 仅后台需要的重型工作（解析、编码、推理）放到 [offscreen document](/zh-Hans/docs/implementation-guide/offscreen-documents) 中，按需创建、用完关闭。让 worker 保持为一个轻量的消息路由器。
+
+```ts background.ts
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "parse-feed") {
+    ensureOffscreen()
+      .then(() =>
+        chrome.runtime.sendMessage({ target: "offscreen", ...message }),
+      )
+      .then(sendResponse);
+    return true;
+  }
+});
+```
+
+之后 offscreen 页面可以在第一次被请求时 `import()` 那个重型库，于是这份代价是按 document 生命周期付一次，而不是按 worker 唤醒付一次。
+
+## 模式 2：在扩展页面内部懒 import
+
+在任何扩展页面内部，普通的动态 import 都能工作，打包器会自动拆分 chunk：
+
+```ts popup.ts
+button.addEventListener("click", async () => {
+  const { highlight } = await import("./heavy/highlighter");
+  output.innerHTML = highlight(input.value);
+});
+```
+
+这里没有任何扩展特有的东西：chunk 会被产出到构建结果中，从扩展自身的 origin 加载。
+
+## 模式 3：在 content scripts 中懒 import
+
+content scripts 在页面中执行，所以它们懒加载的 chunk 必须能被该页面获取。两步：
+
+1. 通过 `web_accessible_resources` 暴露 chunk 路径。
+2. 通过 `chrome.runtime.getURL` 进行 import，让 URL 解析到你的扩展 origin：
+
+```ts content.ts
+async function loadAnalyzer() {
+  const src = chrome.runtime.getURL("content_scripts/analyzer.js");
+  return import(src);
+}
+```
+
+对应的 manifest 块见 [web_accessible_resources](/zh-Hans/docs/implementation-guide/web-accessible-resources)。没有它，import 会因为宿主页面无法获取未显式暴露的扩展文件而失败，出现网络错误。
+
+## 完全不应放进 worker 的东西
+
+- 任何依赖 DOM 的内容（`DOMParser`、canvas、audio）：worker 根本没有 DOM；改用 offscreen document。
+- 体积达数 MB 的 wasm：在 offscreen document 或 [额外页面](/zh-Hans/docs/features/special-folders) 中实例化，并把结果缓存到 `chrome.storage`，让重启成本变得很低。
+- 一次性的工具任务（导入、迁移、导出）：在 `pages/` 下放一个专用页面，能把它从每次启动路径中剥离出去。
+
+## 另请参阅
+
+- [Background scripts](/zh-Hans/docs/implementation-guide/background)
+- [Offscreen documents](/zh-Hans/docs/implementation-guide/offscreen-documents)
+- [web_accessible_resources](/zh-Hans/docs/implementation-guide/web-accessible-resources)
+- [Performance playbook](/zh-Hans/docs/workflows/performance-playbook)

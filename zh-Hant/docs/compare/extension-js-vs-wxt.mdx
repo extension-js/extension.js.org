@@ -1,0 +1,120 @@
+---
+title: "Extension.js vs WXT"
+description: "並列比較 Extension.js 與 WXT 在開發跨瀏覽器擴充功能時的差異:CLI 體驗、manifest 模型、框架支援與重新載入行為。"
+keywords:
+  [
+    "extension.js vs wxt",
+    "wxt vs extension.js",
+    "browser extension framework comparison",
+    "wxt",
+    "extension.js",
+    "cross-browser extension",
+    "chrome extension framework",
+    "firefox extension framework",
+  ]
+---
+
+Extension.js 與 [WXT](https://wxt.dev) 都是開發跨瀏覽器擴充功能的現代框架。它們的任務目標重疊,但理念不同。本頁是基於事實的比較,讓你能依專案需求做選擇,而不是看行銷文字。
+
+## TL;DR:你該選哪一個?
+
+<CardGroup cols={2}>
+  <Card title="如果符合下列情況,請選 Extension.js…">
+    - 你希望 **`manifest.json` 作為唯一事實來源**,而不是從設定產生。
+    - 你喜歡貼近原生 WebExtension 模型(真實檔案、透明輸出)。
+    - 你想用一個指令開發遠端範例:`extension dev <github-url>`。
+    - 你想要 Rspack 的 Rust 等級建置速度,以及一流的 [AI/MCP 工具](/zh-Hant/docs/ai-access)。
+  </Card>
+  <Card title="如果符合下列情況,請選 WXT…">
+    - 你偏好 **檔案系統慣例**(`entrypoints/`)而非顯式的 manifest。
+    - 你需要把 **Manifest V2** 作為主要目標。
+    - 你希望預設就在所有地方自動 polyfill `browser.*` 命名空間。
+  </Card>
+</CardGroup>
+
+接下來這頁會按維度逐一支持上述總結。
+
+## 一目了然
+
+| 維度                 | Extension.js                                                                | WXT                                                                 |
+| -------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 打包工具             | [Rspack](/zh-Hant/docs/features/rspack-configuration)(以 Rust 為基礎)     | Vite(Rolldown 遷移進行中)                                         |
+| Manifest             | 單一 `manifest.json`,編譯時過濾帶有瀏覽器前綴的鍵                          | `wxt.config.ts` 在每次建置時產生 `manifest.json`                    |
+| Entrypoints          | 由 `manifest.json` 參照的檔案                                               | `entrypoints/` 下的檔案系統慣例                                     |
+| 瀏覽器目標           | Chrome、Edge、Firefox、Chromium、Gecko、自訂執行檔                          | Chrome、Edge、Firefox、Safari(社群)、自訂執行檔                   |
+| Manifest V3          | 預設                                                                        | 預設                                                                |
+| Manifest V2          | 不支援作為主要目標                                                          | 透過 `manifestVersion: 2` 支援                                      |
+| 重新載入模型         | popup/options/devtools 採用 HMR,content script 與 SW 採用精準重新載入      | popup/options/devtools 採用 HMR,content script 採用精準重新載入   |
+| `browser.*` polyfill | `--polyfill` 旗標                                                           | 自動 polyfill 的 `browser` 命名空間                                 |
+| 範本                 | React、Preact、Vue、Svelte、TypeScript、JavaScript、init                    | React、Vue、Svelte、Solid、Preact、vanilla                          |
+| TypeScript           | 一流支援                                                                    | 一流支援                                                            |
+| AI 介面              | 託管 MCP server + `llms.txt`([詳情](/zh-Hant/docs/ai-access))             | 提供 `llms.txt`                                                     |
+
+## 心智模型
+
+**Extension.js 貼近平台。** 你撰寫 `manifest.json`,並參照真實檔案。CLI 會編譯、按瀏覽器過濾,然後輸出。如果你已經了解擴充功能的結構,這個框架不會擋在你前面。
+
+**WXT 對平台做了抽象。** Entrypoints 是從目錄結構推導出來的(`entrypoints/popup/`、`entrypoints/content.ts`),manifest 則由你的設定與原始碼產生。如果你偏好慣例優先於設定,WXT 在你寫的每個檔案上幫你做的事比較多。
+
+兩種做法沒有哪一個是絕對較好。選擇取決於你想**看見**你的 manifest,還是想**宣告**你的 manifest。
+
+## CLI 介面
+
+### Extension.js
+
+```bash
+extension dev --browser=chrome,firefox
+extension build --browser=chrome,firefox --zip
+extension dev https://github.com/user/repo/tree/main/path
+```
+
+參數也可以是遠端 GitHub URL 或 ZIP 壓縮檔,適合在不 clone 的情況下快速跑範例。請參閱 [立即開始](/zh-Hant/docs/getting-started/immediately)。
+
+### WXT
+
+```bash
+wxt
+wxt build
+wxt build -b firefox
+wxt zip
+```
+
+WXT 把 dev/build/zip 切分成不同指令。Extension.js 則把打包整合到 `build --zip`。
+
+## 跨瀏覽器策略
+
+兩個框架都用同一份原始碼出貨到多個瀏覽器,但機制不同:
+
+- **Extension.js** 在單一 `manifest.json` 中使用[帶瀏覽器前綴的 manifest 欄位](/zh-Hant/docs/features/browser-specific-fields)(`chrome:`、`firefox:`、`gecko:` 等)。不帶前綴的鍵在所有地方都適用;帶前綴的鍵只會出現在對應的建置中。
+- **WXT** 從 `wxt.config.ts` 與各目標的覆寫設定計算 manifest。瀏覽器差異住在 TypeScript 設定裡,而不是在 manifest 中。
+
+如果你的團隊有設計師或 PM 會閱讀 `manifest.json`,帶前綴的鍵能讓那份檔案維持作為唯一事實來源。如果你的團隊希望擴充功能設定與其他 TypeScript 設定放在一起,WXT 的做法讀起來會比較自然。
+
+## 遷移路徑
+
+如果你已經在使用 WXT 並想評估 Extension.js,典型的遷移會碰到三件事:
+
+1. 把 `entrypoints/` 的內容搬回扁平檔案,並由手寫的 `manifest.json` 參照。
+2. 把 `wxt.config.ts` 換成 [`extension.config.js`](/zh-Hant/docs/features/extension-configuration) 來設定建置預設值。
+3. 把 `wxt`/`wxt build` 腳本換成 `extension dev`/`extension build`。
+
+大多數 React、Vue、Svelte 的原始碼檔案可以直接搬過去,不需修改。
+
+## 何時選擇 Extension.js
+
+- 你希望 manifest 是唯一事實來源,不是被產生出來的。
+- 你希望用一個 CLI 參數就能 dev 一個遠端範例(`extension dev <github-url>`)。
+- 你希望文件上有一流的託管 MCP 來搭配 AI 工具。
+- 你希望大型擴充功能能享受 Rspack 的 Rust 等級編譯速度。
+
+## 何時選擇 WXT
+
+- 你偏好檔案系統慣例,而非顯式的 manifest。
+- 你需要把 Manifest V2 作為主要目標。
+- 你希望預設就在所有地方自動 polyfill `browser.*`。
+
+## 另請參閱
+
+- [跨瀏覽器相容性](/zh-Hant/docs/features/cross-browser-compatibility)
+- [瀏覽器專屬的 manifest 欄位](/zh-Hant/docs/features/browser-specific-fields)
+- [範本](/zh-Hant/docs/getting-started/templates)

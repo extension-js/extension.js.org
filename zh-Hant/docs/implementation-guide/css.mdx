@@ -1,0 +1,168 @@
+---
+title: "瀏覽器擴充功能中的 CSS、Sass 與 Less"
+description: "為擴充功能頁面與 content scripts 設計樣式,支援 CSS、Sass 與 Less。Extension.js 會依情境路由樣式並自動處理重新載入行為。"
+keywords:
+  [
+    "extension.js",
+    "manifest",
+    "hmr",
+    "postcss",
+    "content script",
+    "popup",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+Extension.js 原生支援純 CSS 以及 Sass、Less 前置處理器,無需設定。它會把樣式以不同方式路由給頁面情境(popup、選項頁、側欄)與 content script 情境。
+
+頁面樣式以連結資源的形式輸出。Extension.js 會把 content script 樣式注入網頁的文件中,讓它們套用到目前的分頁。
+
+## 範本範例
+
+### `content-sass`
+
+![content-sass template screenshot](/images/examples/content-sass/screenshot.png)
+
+使用 Sass 樣式並注入到網頁的 content script。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-sass
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-sass
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-sass
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-sass
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-sass
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-sass](https://github.com/extension-js/examples/tree/main/examples/content-sass)
+
+### `content-custom-font`
+
+![content-custom-font template screenshot](/images/examples/content-custom-font/screenshot.png)
+
+示範如何在 content script 中透過 CSS 載入自訂字型。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-custom-font
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-custom-font
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-custom-font
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-custom-font
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-custom-font
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-custom-font](https://github.com/extension-js/examples/tree/main/examples/content-custom-font)
+
+## CSS 能力
+
+| 能力                  | 帶給你什麼                                                                       |
+| --------------------- | -------------------------------------------------------------------------------- |
+| 多情境樣式            | 用同一套撰寫模型處理頁面與 content scripts                                       |
+| Sass/Less 編譯        | 偵測到對應相依時自動編譯 Sass/Less                                                |
+| 情境感知的輸出        | 把頁面 CSS 與 content script CSS 輸出到正確目標                                   |
+| 開發更新流程          | 在支援的環境下,透過熱模組替換 (HMR)/remount 套用樣式更新                          |
+
+## 引用 CSS 的位置
+
+- `manifest.json`(`content_scripts[].css`)
+- HTML 檔案(`<link rel="stylesheet" href="...">`)
+- 指令碼匯入(`import "./styles.css"`,啟用時包括 Sass/Less)
+
+## CSS 支援
+
+manifest 中的 CSS 條目:
+
+| Manifest 欄位          | 預期檔案類型                       |
+| ---------------------- | ---------------------------------- |
+| `content_scripts.css`  | `.css`, `.scss`, `.sass`, `.less` |
+
+## 範例:在 `manifest.json` 中使用 CSS
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["./styles/content.css"],
+      "js": ["./scripts/content.ts"]
+    }
+  ]
+}
+```
+
+## 範例:在擴充功能頁面指令碼中使用 CSS
+
+```ts
+import "./styles/popup.scss";
+```
+
+## 依情境的輸出行為
+
+| 情境               | 輸出行為                                                                          |
+| ------------------ | --------------------------------------------------------------------------------- |
+| HTML / 頁面情境    | Extension.js 會把 CSS 與頁面進入點一起打包(`feature.css`)                         |
+| Content scripts    | Extension.js 會把 CSS 輸出成 `content_scripts/[name].[contenthash:8].css` 資產     |
+
+Extension.js 會依哪個進入點匯入該 CSS,自動拆分情境。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CSS changes in a popup page and a content script, highlighting different output/update behavior for each context. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 開發行為
+
+- Content script 的 CSS 匯入會參與 content script 的 HMR/remount 流程。
+- Extension.js 會為 CSS-only 的 content script 進入點加入開發輔助指令碼,以便傳遞更新。
+- 頁面 CSS 會依正常的頁面 HMR 流程運作。
+- 結構性的 manifest / content-script 變更仍可能需要完整重新載入或重新啟動擴充功能。
+
+## 模組與前置處理器
+
+- 在擴充功能頁面情境中,CSS 模組運作最佳。
+- 當你安裝相關相依時,Extension.js 會啟用 Sass/Less 支援。
+- 當 Extension.js 偵測到專案中的 PostCSS 設定,或你明確設定它時,會自動執行 PostCSS。
+
+## 最佳實務
+
+- 把 content script 樣式刻意限縮範圍,避免與宿主頁面衝突。
+- 對擴充功能頁面 UI,優先採用元件本地的模組樣式。
+- 把前置處理器與 PostCSS 設定保持明確,避免長期下來建置設定發生意外變動。
+- 在持續整合 (CI) 中驗證 manifest 欄位所引用的 CSS 路徑。
+
+## 下一步
+
+- 在 [開發更新行為](/zh-Hant/docs/workflows/dev-update-behavior) 中了解更新結果。
+- 了解更多關於 [CSS 模組](/zh-Hant/docs/languages-and-frameworks/css-modules) 的內容。
+- 了解更多關於 [PostCSS 整合](/zh-Hant/docs/integrations/postcss) 的內容。

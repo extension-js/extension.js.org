@@ -1,0 +1,193 @@
+---
+title: "背景指令碼與 MV3 Service Worker"
+description: "用 MV2 背景指令碼或 MV3 Service Worker 執行擴充功能邏輯。Extension.js 會從 manifest.json 編譯進入點,並套用對應的重新載入行為。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "firefox",
+    "browser",
+    "manifest",
+    "javascript",
+    "hmr",
+    "content script",
+  ]
+---
+
+在背景情境中執行擴充功能等級的邏輯,同時清楚地支援 Manifest V2 (MV2) 背景指令碼與 Manifest V3 (MV3) Service Worker。
+
+Extension.js 會從 `manifest.json` 讀取背景進入點,並編譯成專屬的背景輸出。它會在開發期間套用瀏覽器專屬的重新載入行為。
+
+## 範本範例
+
+### `action`
+
+![action template screenshot](/images/examples/action/screenshot.png)
+
+含有 action popup 的擴充功能,搭配處理瀏覽器事件的背景 Service Worker。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+### `action-chatgpt`
+
+![action-chatgpt template screenshot](/images/examples/action-chatgpt/screenshot.png)
+
+含有 action popup 的擴充功能,背景 Service Worker 整合了外部 API(ChatGPT)。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action-chatgpt
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/action-chatgpt](https://github.com/extension-js/examples/tree/main/examples/action-chatgpt)
+
+## 背景能力
+
+| 能力                          | 帶給你什麼                                                              |
+| ----------------------------- | ----------------------------------------------------------------------- |
+| MV2/MV3 相容                  | 支援 `background.scripts` 與 `background.service_worker` 進入點          |
+| 專屬的背景輸出                | 依目前的 manifest 形狀輸出背景執行階段檔案                              |
+| 具重新載入感知的開發體驗      | 對結構性變更套用硬重新載入 / 重新啟動行為                                |
+| Worker 模式控制               | 遵循 `background.type` 的 module 或 classic 執行階段行為                 |
+
+## 背景指令碼支援
+
+用以下 `manifest.json` 欄位宣告背景指令碼:
+
+| Manifest 欄位                | 預期檔案類型                  | 開發行為                                       |
+| ---------------------------- | ---------------------------- | ---------------------------------------------- |
+| `background.service_worker`  | `.js`, `.ts`, `.mjs`, `.tsx` | 硬重新載入流程                                  |
+| `background.scripts`         | `.js`, `.ts`, `.mjs`, `.tsx` | 相容於熱模組替換 (HMR) 的路徑                   |
+
+`background.type` 也會影響執行階段模式(`module` 與 classic Service Worker 行為的差異)。
+
+## 背景指令碼宣告範例
+
+`manifest.json` 中的背景指令碼宣告範例:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./scripts/background.ts"
+  }
+}
+```
+
+## 開發行為
+
+- Extension.js 會追蹤 Service Worker 與原始碼變更,可能觸發擴充功能的硬重新載入。
+- 影響背景進入點的 manifest 變更可能觸發「需要重新啟動」的診斷。
+- 瀏覽器啟動外掛會套用對應目標的硬重新載入策略(Chromium/Firefox)。
+- Extension.js 對結構性進入點變動的處理會比一般模組編輯更嚴格。
+
+## Firefox:Service Worker 會被轉譯成事件頁面
+
+Firefox 不會執行 MV3 的 `background.service_worker`(載入這類擴充功能會以 _「background.service_worker is currently disabled. Add background.scripts.」_ 失敗)。你不需要特別處理:在 Firefox 的建置中,Extension.js 會自動把 `background.service_worker` 進入點轉成 `background.scripts` 事件頁面,指向同一份編譯後的 bundle。你只要撰寫一個 `background.service_worker`,就能同時在 Chromium 與 Firefox 上載入。
+
+## MV3 Service Worker 生命週期
+
+`background.service_worker` 是在瀏覽器的 Service Worker 生命週期下執行,不是長時運行的處理程序。
+
+這意味著:
+
+- 記憶體中的狀態可能在事件之間消失。
+- 圍繞事件設計長時運行的工作,而不是處理程序的常駐。
+- 啟動工作應該保持小巧且可預期。
+- 你的程式碼應該從儲存還原重要狀態,或以安全方式重新計算。
+
+僅在 MV2 風格的相容情境下使用 `background.scripts`。對於以 MV3 為主的擴充功能,把 Service Worker 視為瀏覽器 API 呼叫與跨情境通訊的中央協調者。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show background service worker edit flow, including hard reload behavior and restart-required when background entry structure changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 輸出行為
+
+常見的輸出包含:
+
+- `background/service_worker.js`
+- `background/scripts.js`
+
+實際輸出取決於經過瀏覽器過濾後仍然啟用的是哪個 manifest 欄位。
+
+## Module 與 classic 注意事項
+
+- `background.type: "module"` 採用 module worker 的語意。
+- Classic Service Worker 模式採用基於 `importScripts` 的 chunk 載入行為。
+- 避免在背景程式碼中使用必須在啟動時立即載入的動態匯入。
+
+## 建議架構
+
+- 把背景進入點保持輕薄,把功能邏輯放到共用模組。
+- 把背景情境當成訊息傳遞、儲存存取與瀏覽器 API 呼叫的中央協調者。
+- 從儲存還原持久狀態,而不是假設背景指令碼會永久執行。
+- 用鬧鐘、明確的事件監聽器與小型功能模組,取代單一龐大的啟動流程。
+
+## 常見錯誤
+
+- 把 Service Worker 當成永久執行的伺服器程序看待。
+- 只把關鍵狀態保留在記憶體中。
+- 在每個事件喚醒時都進行昂貴的啟動工作。
+- 把過多功能邏輯放在 popup 或 content script 程式中,而它們其實需要背景等級的瀏覽器 API 存取。
+
+## 最佳實務
+
+- 對以 MV3 為主的擴充功能,優先使用 `background.service_worker`。
+- 讓背景進入檔案保持小巧,並將邏輯委派到共用模組。
+- 避免在 Service Worker 中執行昂貴的啟動工作;在安全的範圍內延後初始化。
+- 在開發流程中,把 manifest 背景欄位的編輯視為結構性變更。
+- 透過經過驗證的訊息處理器路由具特權的動作。
+- 把持久設定與快取存放在瀏覽器儲存,而不是只放在模組層級的變數中。
+
+## 下一步
+
+- 在 [開發更新行為](/zh-Hant/docs/workflows/dev-update-behavior) 中了解更新結果。
+- 用 [儲存](/zh-Hant/docs/implementation-guide/storage) 保存持久的執行階段狀態。
+- 用 [訊息傳遞](/zh-Hant/docs/implementation-guide/messaging) 協調各情境。
+- 了解更多關於 [開發中的 JavaScript](/zh-Hant/docs/implementation-guide/javascript) 的內容。
+- 繼續閱讀 [content scripts](/zh-Hant/docs/implementation-guide/content-scripts)。
+- 在 [Manifest V3 疑難排解](/zh-Hant/docs/concepts/manifest-v3) 中排除 Service Worker 行為的問題。

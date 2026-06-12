@@ -1,0 +1,229 @@
+---
+title: "為擴充功能做 Playwright E2E 測試"
+description: "用 Playwright 為瀏覽器擴充功能撰寫可重複的端對端測試。在 CI 與本機環境涵蓋擴充功能流程、UI 渲染與整合行為。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "playwright",
+    "popup",
+  ]
+---
+
+用可重複的端對端測試,跨瀏覽器驗證擴充功能行為。
+
+Extension.js 專案可以使用 Playwright 在持續整合(CI)與本機環境中測試擴充功能流程、UI 渲染與整合行為。
+
+## Playwright 測試能力
+
+| 能力                       | 它能提供什麼                                                          |
+| -------------------------- | --------------------------------------------------------------------- |
+| 跨瀏覽器執行階段檢查       | 在 Chromium 與 Firefox 引擎上驗證核心流程                              |
+| UI 與互動覆蓋              | 用真實瀏覽器 context 測試 popup/options/content script 行為            |
+| 適合 CI 的報告             | 為失敗測試擷取 trace/截圖/影片                                         |
+| 退化防護                   | 抓到單元測試通常會錯過的整合錯誤                                       |
+
+## 為什麼要用
+
+- 抓到單元測試錯過的執行階段退化。
+- 在真實瀏覽器引擎上驗證擴充功能行為。
+- 在發佈前驗證多瀏覽器變更。
+
+## 典型設定
+
+在專案中安裝 Playwright 的測試相依套件:
+
+<PackageManagerTabs command="install -D @playwright/test" />
+
+建立 `playwright.config.ts`,並定義瀏覽器專案與報告。
+
+## 建議的基線
+
+```ts
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "e2e",
+  retries: process.env.CI ? 2 : 0,
+  reporter: [["html"], ["list"]],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+  ],
+});
+```
+
+## 自動化契約(建議)
+
+為了確定性的自動化,請不要解析終端機文字。使用 Extension.js 產生的中繼資料檔案:
+
+- `dist/extension-js/<browser>/ready.json`
+- `dist/extension-js/<browser>/events.ndjson`(以換行分隔的 JSON,代表 watch/rebuild 事件)
+
+`ready.json` 包含適合腳本/代理使用的穩定欄位:
+
+- `status`:`starting` | `ready` | `error`
+- `command`:`dev` | `start` | `preview`
+- `browser`
+- `distPath`
+- `manifestPath`
+- `port`
+- `pid`
+- `runId`
+- `startedAt`
+- `compiledAt`
+- `errors`
+
+把這份契約當作準備就緒與失敗判定的權威來源。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running one Playwright E2E test that opens the extension UI, validates behavior, and captures trace on failure. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 執行測試
+
+<CodeGroup>
+
+```bash npm
+npx playwright test
+```
+
+```bash pnpm
+pnpm playwright test
+```
+
+```bash yarn
+yarn playwright test
+```
+
+```bash bun
+bunx playwright test
+```
+
+```bash bun
+bunx playwright test
+```
+
+</CodeGroup>
+
+## 標準的 Playwright 流程(對 AI 友善)
+
+1. 以 no-browser 模式啟動 Extension.js。
+2. 等到 `ready.json` 回報 `status: "ready"`。
+3. 以 `distPath` 的擴充功能輸出啟動 Playwright。
+4. 執行測試後關閉。
+
+### 開發模式 vs 測試模式
+
+- `dev` 用於 watch 模式的迭代(`extension dev --no-browser` + `extension dev --wait`)。
+- `start` 用於正式風格的檢查(`extension start --no-browser` + `extension start --wait`)。
+
+### 關鍵差別:執行模式 vs 準備就緒閘門
+
+- `--no-browser` 是**執行模式**:啟動擴充功能管線但不啟動瀏覽器。
+- 準備就緒閘門(`extension dev --wait --browser=<browser>`)是**同步步驟**,告訴 Playwright 何時可以開始。
+
+`--no-browser` 會產生建置輸出。wait 步驟會在測試繼續前確認就緒。如果你的環境無法啟動第二個 CLI 程序,請直接輪詢 `ready.json`。
+
+採用這個雙程序模式:
+
+1. 程序 A:`extension dev --no-browser`
+2. 程序 B:`extension dev --wait --browser=<browser> --wait-format=json`
+3. 在 wait 步驟成功結束後才啟動 Playwright
+
+針對正式版的變體:
+
+1. 程序 A:`extension start --no-browser`
+2. 程序 B:`extension start --wait --browser=<browser> --wait-format=json`
+3. 在 wait 步驟成功結束後才啟動 Playwright
+
+```ts
+import { spawn } from "node:child_process";
+import { chromium } from "@playwright/test";
+
+const browserName = "chromium";
+
+const child = spawn(
+  "pnpm",
+  ["extension", "dev", "--no-browser", `--browser=${browserName}`],
+  {
+    stdio: "inherit",
+    env: process.env,
+  },
+);
+
+async function waitForReady() {
+  return await new Promise<any>((resolve, reject) => {
+    let stdout = "";
+    let stderr = "";
+    const wait = spawn(
+      "pnpm",
+      [
+        "extension",
+        "dev",
+        "--wait",
+        `--browser=${browserName}`,
+        "--wait-timeout=60000",
+        "--wait-format=json",
+      ],
+      { stdio: ["ignore", "pipe", "pipe"], env: process.env },
+    );
+    wait.stdout.on("data", (chunk) => (stdout += chunk.toString()));
+    wait.stderr.on("data", (chunk) => (stderr += chunk.toString()));
+    wait.on("error", reject);
+    wait.on("close", (code) => {
+      if ((code ?? 1) !== 0) {
+        reject(
+          new Error(stderr || `wait command failed with code ${String(code)}`),
+        );
+        return;
+      }
+      const payload = JSON.parse(stdout.trim());
+      resolve(payload.results[0]);
+    });
+  });
+}
+
+const ready = await waitForReady();
+
+const context = await chromium.launchPersistentContext("", {
+  headless: false,
+  args: [
+    `--disable-extensions-except=${ready.distPath}`,
+    `--load-extension=${ready.distPath}`,
+  ],
+});
+
+// run tests using context/pages...
+
+await context.close();
+child.kill("SIGTERM");
+```
+
+## 擴充功能的實務指引
+
+- 讓測試的 fixture 保持確定性;擴充功能啟動對 profile 狀態可能很敏感。
+- 偏好對擴充功能 UI 條件做明確等待,而非固定時間 timeout。
+- 在 CI 中跑 Chromium 與 Firefox 專案,以取得跨引擎信心。
+- 失敗時擷取 trace/截圖/影片,方便除錯。
+- 為了機器可靠性,偏好 `ready.json`/`events.ndjson` 而非解析 stdout。
+
+## 常見陷阱
+
+- 依賴固定 timeout,而不是以狀態為基礎的等待
+- 在 CI 中只跑單一瀏覽器目標
+- 略過失敗執行的產物上傳
+- 把測試耦合到僅限本機的 profile 或環境假設
+
+## 儲存庫參考
+
+你的儲存庫會包含 Playwright 設定:
+
+- `playwright.config.ts`
+
+## 後續步驟
+
+- 設定 [CI 範本](/zh-Hant/docs/workflows/ci-templates)。
+- 讓命令流程與 [dev](/zh-Hant/docs/commands/dev) 與 [build](/zh-Hant/docs/commands/build) 對齊。

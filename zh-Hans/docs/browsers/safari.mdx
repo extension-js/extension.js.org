@@ -1,0 +1,124 @@
+---
+title: "使用 Extension.js 构建 Safari 扩展"
+description: "在 macOS 上通过 Extension.js 把你的 web 扩展构建为 Safari 应用。涵盖前置要求、dev 与 build 工作流，以及已知限制。"
+keywords:
+  [
+    "extension.js",
+    "safari",
+    "webkit",
+    "safari web extension",
+    "xcode",
+    "macos",
+    "browser",
+    "docs",
+    "browsers",
+  ]
+---
+
+<AvatarBrowsers browsers={["safari"]} />
+将你既有的 web 扩展打包成 macOS 原生的 Safari 应用 ——
+无需手动维护一个独立的 Xcode 工程。
+
+<Warning>
+  Safari 支持目前是 **alpha** 阶段。build → convert → `xcodebuild` → open
+  的流水线已经可用，但你应该预期会有粗糙之处和破坏性变更。Chrome、Edge 与
+  Firefox 才是当前稳定的目标。
+</Warning>
+
+使用 `--browser=safari` 可以把你交付给 Chrome 与 Firefox 的同一份扩展变成 Safari App Extension。Extension.js 会打包代码、运行 Apple 的 `safari-web-extension-converter`、用 `xcodebuild` 编译生成的 app，并引导你完成启用过程。
+
+## 前置要求
+
+Safari **仅限 macOS**，并且需要 **完整的 Xcode app** —— 仅有 Command Line Tools 不够。转换器（`safari-web-extension-converter`）和 `xcodebuild` 都随 `Xcode.app` 一起发布。
+
+```bash
+# 从 Mac App Store 安装 Xcode，然后让工具链指向它：
+sudo xcode-select --switch /Applications/Xcode.app
+xcodebuild -runFirstLaunch
+```
+
+如果缺少 Xcode，`extension build`/`dev --browser=safari` 会在打包之前就快速失败，并给出指引，而不是在后续阶段抛出令人困惑的错误。
+
+## 产物
+
+`extension build --browser=safari` 会在你的项目旁创建：
+
+| 路径                  | 含义                                                          |
+| --------------------- | ------------------------------------------------------------- |
+| `dist/safari`         | 打包后的 web 扩展（manifest、脚本、资源）。                   |
+| `dist/safari-xcode`   | 生成的 Xcode 工程（app + Safari 扩展 target）。               |
+| `…/Release/<App>.app` | 编译后的、经过 ad-hoc 签名的、用来承载你扩展的 app。          |
+
+整条流水线端到端运行：**打包 → 转换 → `xcodebuild` → 打开 app → 引导启用**。
+
+```bash
+npx extension build --browser=safari
+```
+
+App 名称与 bundle identifier 由你的 manifest `name` 派生（例如 `React Sidebar Example` → bundle id `dev.extensionjs.React-Sidebar-Example`）。工程默认面向 macOS。
+
+## 在 Safari 中启用扩展
+
+本地构建是 **ad-hoc 签名** 的（不需要 Apple Developer 账号），因此需要你在 Safari 中手动启用一次。当 build 打开 app 后，Extension.js 会打印以下步骤，并在 macOS 注册到扩展后给出确认：
+
+1. Safari ▸ 设置 ▸ 高级 ▸ 勾选 **“在菜单栏中显示开发”**（“Show features for web developers”）。
+2. Safari ▸ 开发 ▸ **允许未签名扩展**（每次重启 Safari 都会被重置）。
+3. Safari ▸ 设置 ▸ 扩展 ▸ 打开你的扩展。
+
+<Note>
+  “允许未签名扩展” 在每次启动 Safari 后都会被重置。开发过程中重启 Safari
+  之后需要重新启用。一个签名构建（Apple Developer ID）可以跳过这一步，并属于
+  分发流程的一部分。
+</Note>
+
+## 通过 `dev` 进行开发
+
+`extension dev --browser=safari` 会运行一个监听循环：
+
+```bash
+npx extension dev --browser=safari
+```
+
+- **首次编译** —— 完整流程：转换、构建、打开 app，并打印启用步骤。
+- **每次保存** —— 增量 `xcodebuild` 重新同步（通常只需几秒），把刚重新构建的 `dist/safari` 中的资源更新到 app。
+
+Safari 没有像 Chromium 或 Firefox 那样的热重载通道，因此每次重新构建之后，需要在 Safari 中**刷新页面（或重新切换扩展开关）** 才能看到改动。Xcode 工程只生成一次，之后会复用，因此你在 Xcode 里做的任何自定义（entitlements、capabilities）都会在多次重新构建之间保留。删除 `dist/safari-xcode` 可以从头重新生成。
+
+## 引擎目标
+
+`safari` 还有一个引擎别名 **`webkit-based`**，与 `chromium-based` 和 `gecko-based` 平行：
+
+```bash
+npx extension build --browser=webkit-based
+```
+
+## 命令支持情况
+
+| 命令      | Safari 支持                                                                   |
+| --------- | ----------------------------------------------------------------------------- |
+| `build`   | ✅ 构建并打包 Safari app。                                                    |
+| `dev`     | ✅ 监听 + 增量重新构建（在 Safari 中刷新即可应用）。                          |
+| `preview` | ❌ 不支持 —— Safari 扩展无法自动加载到运行中的浏览器。                        |
+| `start`   | ❌ 不支持 —— 原因同 `preview`。                                               |
+
+`preview` 与 `start` 的存在是为了在运行中的浏览器里启动你的扩展。Safari 需要上面那套受安全控制的手动启用步骤，因此这两个命令会引导你改用 `build`。
+
+## 限制
+
+- **仅限 macOS。** 构建 Safari app 需要 macOS 与完整的 Xcode app。
+- **没有热重载。** 重新构建很快，但应用更改时需要你在 Safari 中手动刷新。
+- **首次启用需手动操作。** “允许未签名扩展” 与扩展开关都是 Safari 的安全控制，无法被自动化。
+- **本地构建是 ad-hoc 签名。** 分发签名、公证以及 App Store 提交属于这个工作流之外的独立步骤。
+- **仅面向 macOS。** 当前流程不会生成 iOS app。
+
+## 最佳实践
+
+- **其他目标保持常规构建**：Safari 是补充项 —— 继续在 `chromium`/`firefox` 上迭代，等需要校验 Safari 时再运行 `--browser=safari`。
+- **真正存在行为差异时使用浏览器特定字段**：通过带浏览器前缀的 manifest 键来表达。
+- **保留生成的工程**，除非你需要一个干净状态 —— 重新生成会丢弃在 Xcode 一侧的自定义。
+
+## 下一步
+
+- 查看所有[支持的浏览器](/zh-Hans/docs/browsers/browsers-available)。
+- 使用[浏览器特定的 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)。
+- 回顾[多平台构建](/zh-Hans/docs/features/multi-platform-builds)。

@@ -1,0 +1,254 @@
+---
+title: "用 build 指令產出正式環境的擴充功能產物"
+description: "用 Extension.js 的 build 指令,為 Chrome、Edge 或 Firefox 建立正式環境就緒的擴充功能產物。支援多瀏覽器與 zip 輸出。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "javascript",
+  ]
+---
+
+為一個或多個瀏覽器目標建立正式環境的擴充功能產物。
+
+`build` 會以正式環境模式編譯你的擴充功能,並把輸出寫入 `dist/<browser>`。
+
+對於 monorepo/submodule 專案,請參閱 [環境變數](/zh-Hant/docs/features/environment-variables#how-it-works),了解設定階段的環境變數解析(優先從專案根目錄,再退回 workspace 根目錄)。
+
+## 何時使用 `build`
+
+- 為 Chrome Web Store、Edge Add-ons 或 Firefox Add-ons 準備擴充功能套件。
+- 執行可重複產出正式環境產物的持續整合(CI)工作。
+- 在送審前驗證正式環境的 bundle 輸出與各瀏覽器目標之間的差異。
+
+## Build 指令的能力
+
+| 能力           | 它能為你提供什麼                                              |
+| -------------- | ------------------------------------------------------------- |
+| 正式環境編譯   | 為每個目標產生最佳化過的擴充功能產物                          |
+| 多目標輸出     | 一個指令同時建置多個瀏覽器目標                                |
+| 打包支援       | 建立發行用的 zip 產物,並可選擇附上原始碼包                   |
+| 對 CI 友善     | 在自動化流程中保持建置輸出與命名的可預期性                    |
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension build [project-path] [options]
+```
+
+```bash pnpm
+extension build [project-path] [options]
+```
+
+```bash yarn
+extension build [project-path] [options]
+```
+
+```bash bun
+extension build [project-path] [options]
+```
+
+```bash bun
+extension build [project-path] [options]
+```
+
+</CodeGroup>
+
+## 建置輸出
+
+執行 `build` 之後,Extension.js 會為選定的瀏覽器目標產生最佳化過的檔案。輸出會放在 `dist/`,每個目標一個子資料夾。每個資料夾包含打包後的 JavaScript、CSS、HTML 與必要的執行期資產。
+
+<Note>
+  對 TypeScript 專案,`build` 也會重新產生 `extension-env.d.ts` ambient 型別宣告
+  (與 [`dev`](/zh-Hant/docs/commands/dev) 寫入的是同一份檔案),
+  讓 CI 上的 `tsc --noEmit` 不論你有沒有先跑過 `dev` 都能順利通過。
+  純 JavaScript 專案會略過這一步。
+</Note>
+
+**輸出結構範例:**
+
+```plaintext
+dist/
+├── chrome/
+│   ├── manifest.json
+│   ├── background/service_worker.js
+│   ├── content_scripts/content-0.js
+├── edge/
+│   ├── manifest.json
+│   ├── background/service_worker.js
+│   ├── content_scripts/content-0.js
+```
+
+## 瀏覽器目標對照表
+
+| 目標風格   | 範例                                             | 備註                              |
+| ---------- | ------------------------------------------------ | --------------------------------- |
+| 具名目標   | `chromium`、`chrome`、`edge`、`firefox`          | 建置單一指定的瀏覽器目標          |
+| 引擎目標   | `chromium-based`、`gecko-based`、`firefox-based` | 適合以引擎家族為單位的工作流程    |
+| 多目標     | `chrome,firefox`                                 | 以逗號分隔的目標                  |
+
+## 參數與旗標
+
+| 旗標                     | 別名            | 功能                                                                                                       | 預設值                   |
+| ------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `[path]`                 | -               | 建置本機的擴充功能專案。                                                                                   | `process.cwd()`          |
+| `--browser <browser>`    | -               | 瀏覽器/引擎目標(`chromium`、`chrome`、`edge`、`firefox`、引擎別名,或以逗號分隔的值)。                  | `chromium`               |
+| `--polyfill [boolean]`   | -               | 為 Chromium 目標啟用 `browser.*` API 相容 polyfill。                                                       | `false`                  |
+| `--zip [boolean]`        | -               | 建立打包好的 zip 產物。                                                                                    | `false`                  |
+| `--zip-source [boolean]` | -               | 在 zip 輸出中包含原始碼檔案。                                                                              | `false`                  |
+| `--zip-filename <name>`  | -               | 指定自訂 zip 檔名。                                                                                        | 擴充功能名稱 + 版本      |
+| `--silent [boolean]`     | -               | 抑制建置 log。                                                                                             | `false`                  |
+| `--mode <mode>`          | -               | 覆寫打包工具模式(`development`、`production` 或 `none`)。也會設定 `NODE_ENV`。                          | `production`             |
+| `--extensions <list>`    | -               | 以逗號分隔的伴隨擴充功能或商店 URL。                                                                       | 未設定                   |
+| `--install [boolean]`    | -               | 在相依套件缺漏時安裝專案相依套件。                                                                         | 指令的預設行為           |
+| `--author`               | `--author-mode` | 啟用維護者診斷。                                                                                           | 關閉                     |
+
+## 共用的全域選項
+
+同時支援 [全域旗標](/zh-Hant/docs/workflows/global-flags)。
+
+## 模式覆寫
+
+`--mode` 會在這次建置中覆寫打包工具模式與 `NODE_ENV`。接受 `development`、`production` 或 `none`。當你需要為 staging 或除錯產出非正式環境的 bundle 時,可以用它來對應 Vite/webpack 的工作流程。
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --mode development
+```
+
+```bash pnpm
+extension build ./my-extension --mode development
+```
+
+```bash yarn
+extension build ./my-extension --mode development
+```
+
+```bash bun
+extension build ./my-extension --mode development
+```
+
+```bash bun
+extension build ./my-extension --mode development
+```
+
+</CodeGroup>
+
+無效值會以錯誤離開;預設值仍是 `production`。
+
+## Zip 行為
+
+| 選項             | 效果                                    | 典型用途                              |
+| ---------------- | --------------------------------------- | ------------------------------------- |
+| `--zip`          | 建立打包好的產物 zip                    | 商店送審/手動發行                     |
+| `--zip-filename` | 指定自訂 zip 名稱                       | CI 命名慣例                           |
+| `--zip-source`   | 在產物旁附上原始碼壓縮檔                | 合規/審查流程                         |
+
+## 範例
+
+### 使用 zip 輸出與自訂檔名建置
+
+{/* VIDEO_PLACEHOLDER_TODO: Show build for multiple browser targets with zip artifacts and custom artifact naming in output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash pnpm
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash yarn
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash bun
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash bun
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+</CodeGroup>
+
+在這個範例中,建置目標為 Edge 與 Chrome,會將輸出打包成 zip,並儲存為 `my-extension.zip`。
+
+### 啟用 polyfill 支援的建置
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash pnpm
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash yarn
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash bun
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash bun
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+</CodeGroup>
+
+在這個範例中,建置目標為 Chrome 與 Firefox,並在適用之處包含 polyfill 支援。
+
+### 同時建置原始碼與產物 zip
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --zip --zip-source
+```
+
+```bash pnpm
+extension build ./my-extension --zip --zip-source
+```
+
+```bash yarn
+extension build ./my-extension --zip --zip-source
+```
+
+```bash bun
+extension build ./my-extension --zip --zip-source
+```
+
+```bash bun
+extension build ./my-extension --zip --zip-source
+```
+
+</CodeGroup>
+
+## 最佳實務
+
+- **檢查建置 log:** 每次建置後檢查 log,留意警告與缺失的資產。
+- **最佳化你的 manifest:** 讓 `manifest.json` 與每個目標瀏覽器都相容。
+- **有目的地命名產物:** 用 `--zip-filename` 為 CI 產物建立穩定命名。
+- **驗證各目標輸出:** 在發布前檢查每個 `dist/<browser>` 資料夾。
+
+## 下一步
+
+- 用 [`preview`](/zh-Hant/docs/commands/preview) 執行既有的建置輸出。
+- 用 [`start`](/zh-Hant/docs/commands/start) 一個指令建置並啟動。
+- 在 [`extension.config.js`](/zh-Hant/docs/features/extension-configuration) 中設定共用的預設值。
+- 在 [環境變數](/zh-Hant/docs/features/environment-variables#how-it-works) 中檢視設定的環境變數載入行為。
+- 在 [可用瀏覽器](/zh-Hant/docs/browsers/browsers-available) 中檢視支援的目標。

@@ -1,0 +1,86 @@
+---
+title: "扩展中的浏览器存储 API"
+description: "用浏览器存储 API 持久化设置与运行时状态。涵盖 local、sync 与 session 存储，以及它们对 service worker 可靠性的影响。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "browser",
+    "manifest",
+    "service worker",
+    "docs",
+    "implementation guide",
+    "storage",
+  ]
+---
+
+Extension.js 不替换也不包装浏览器存储 API，它只编译调用这些 API 的代码。但存储区域的选择仍然重要，它会影响 service worker 的可靠性、跨浏览器的一致性，以及未来数据结构的变更。
+
+## 选择合适的存储区域
+
+| 存储区域           | 何时使用                                         | 备注                                       |
+| ------------------ | ------------------------------------------------ | ------------------------------------------ |
+| `storage.local`    | 单设备上的持久化扩展状态                         | 大多数扩展数据的最佳默认选择               |
+| `storage.sync`     | 已登录浏览器之间同步的小型用户偏好               | 受配额约束，比 local 慢                    |
+| `storage.session`  | 短生命周期的会话状态                             | 适合临时的运行时协调                       |
+| `storage.managed`  | 企业管理的策略值                                 | 由 schema 驱动，对扩展只读                 |
+
+## 推荐默认值
+
+- 把 `storage.local` 用于功能状态、缓存以及持久化设置。
+- 只把 `storage.sync` 用于体积小、对用户有意义的偏好。
+- 把 `storage.session` 用于不应跨越完整浏览器重启的状态。
+- 把 `storage.managed` 当作单独的企业路径，而不是通用设置机制。
+
+## 对 service worker 友好的模式
+
+Manifest V3（MV3）的 background service worker 可能在事件之间停止再重启，所以不要只依赖内存中的状态。
+
+- 按需从存储中恢复关键状态。
+- 内存缓存只作为优化手段。
+- 让启动工作保持精简，使事件处理保持响应迅速。
+- 持久化带版本的设置变更，而不是假设 background 脚本会一直运行下去。
+
+## 设置模块示例
+
+```ts
+const SETTINGS_KEY = "settings";
+
+export async function getSettings() {
+  const result = await chrome.storage.local.get(SETTINGS_KEY);
+  return result[SETTINGS_KEY] ?? { theme: "system" };
+}
+
+export async function setSettings(nextSettings: {
+  theme: "system" | "light" | "dark";
+}) {
+  await chrome.storage.local.set({ [SETTINGS_KEY]: nextSettings });
+}
+```
+
+## 存储设计清单
+
+1. 确定哪些值必须在浏览器重启后仍然存在。
+2. 决定是否需要在设备之间同步某些值，如果需要，是哪些。
+3. 在首次发布前为存储的数据形状加上版本。
+4. 为重命名的键或结构变更准备好迁移路径。
+5. 不要在客户端可读的扩展存储中存放机密，除非你完全接受任何扩展代码都可以读取它们。
+
+## Managed storage
+
+如果你使用 `storage.managed`，请在运行时代码之外，于 `manifest.json` 中提供一个有效的 `storage.managed_schema` 文件。Extension.js 会校验并把该 schema 文件输出到目标路径。
+
+JSON 资源的详情见 [JSON](/zh-Hans/docs/implementation-guide/json)。
+
+## 常见错误
+
+- 把 `storage.sync` 用于大块数据集或缓存。
+- 假设 MV3 中 background 的内存变量是持久的。
+- 在没有版本策略的情况下，存放多个互不关联的键。
+- 把企业管理的存储与用户可编辑的设置混在一起，而不区分各自的访问模式。
+
+## 下一步
+
+- 在 [manifest.json](/zh-Hans/docs/implementation-guide/manifest-json) 中声明基于 schema 的企业存储。
+- 在 [JSON](/zh-Hans/docs/implementation-guide/json) 中复核资源处理。
+- 用 [Messaging](/zh-Hans/docs/implementation-guide/messaging) 在上下文之间移动状态。

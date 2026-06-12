@@ -1,0 +1,86 @@
+---
+title: "沙箱頁面與 sandbox manifest 鍵"
+description: "設定能執行 eval 與動態程式碼的沙箱化擴充功能頁面,將它嵌入 iframe,並透過 postMessage 通訊。"
+keywords:
+  [
+    "sandbox page",
+    "manifest sandbox",
+    "sandbox.pages",
+    "extension eval csp",
+    "sandboxed iframe extension",
+    "background type module",
+    "extension.js",
+    "chrome",
+    "manifest v3",
+  ]
+---
+
+擴充功能頁面運作在嚴格的內容安全政策下:不能用 `eval`、不能用 `new Function`、不能執行動態編譯的程式碼。當功能真的需要這些(模板引擎、程式碼遊樂場、執行 AI 產生的片段)時,Manifest V3 提供了沙箱頁面:用放棄 `chrome.*` API 存取的代價換來較寬鬆 CSP 的擴充功能頁面。
+
+## 宣告頁面
+
+```json manifest.json
+{
+  "sandbox": {
+    "pages": ["sandbox.html"]
+  }
+}
+```
+
+Extension.js 會像處理任何 manifest 宣告的 HTML 進入點一樣編譯 `sandbox.html`:直接引用你的 `.ts` / `.tsx` 即可建置。進入點模式請參考 [HTML 指南](/zh-Hant/docs/implementation-guide/html)。
+
+## 沙箱頁面能做什麼、不能做什麼
+
+| 能力                                | 沙箱頁面    |
+| ----------------------------------- | ----------- |
+| `eval`、`new Function`              | 可以        |
+| 獨立來源(與頁面隔離)              | 可以        |
+| `chrome.*` 擴充功能 API              | 不可以      |
+| 直接存取 `chrome.storage`           | 不可以      |
+| 與嵌入者之間的 `postMessage`         | 可以        |
+
+沙箱頁面運作在獨立來源中,因此它無法讀取擴充功能儲存、呼叫擴充功能 API,或觸碰其他頁面的 DOM。一切都透過訊息傳遞流通。
+
+## 嵌入與通訊
+
+從一個一般的擴充功能頁面用 iframe 載入沙箱,接著用 `postMessage` 溝通:
+
+```html newtab.html
+<iframe id="sandbox" src="sandbox.html"></iframe>
+```
+
+```ts newtab.ts
+const frame = document.getElementById("sandbox") as HTMLIFrameElement;
+
+frame.addEventListener("load", () => {
+  frame.contentWindow?.postMessage({ template: "Hello {{name}}" }, "*");
+});
+
+window.addEventListener("message", (event) => {
+  console.log("rendered:", event.data.html);
+});
+```
+
+```ts sandbox.ts
+window.addEventListener("message", (event) => {
+  const render = new Function("name", `return \`${event.data.template}\`;`);
+  event.source?.postMessage({ html: render("world") }, { targetOrigin: "*" });
+});
+```
+
+嵌入的頁面保留了 `chrome.*` 存取權限,扮演中介角色:它讀取儲存、呼叫 API,並把純資料傳入與傳出沙箱。
+
+## 不是同一件事:`background.type`
+
+常見的混淆:`"background": {"type": "module"}` 與沙箱化毫無關係。它是把背景 Service Worker 宣告為 ES module,讓 `import` 陳述在註冊時可運作。當你的背景進入點使用 ESM 語法時,Extension.js 會自動設定它,所以你很少需要親手寫。如果你的困擾是 Service Worker 中 `import` 失敗,請看 [背景指令碼](/zh-Hant/docs/implementation-guide/background);如果是想執行動態程式碼,那這頁就是對的地方。
+
+## 自訂沙箱 CSP
+
+你可以透過 manifest 中的 `content_security_policy.sandbox` 進一步放寬或加嚴沙箱 CSP。把 `script-src` 控制到功能能正常運作的最窄範圍;沙箱是用來容納動態程式碼,而不是用來省略安全審查。[安全性檢查清單](/zh-Hant/docs/workflows/security-checklist) 涵蓋審查者會關注的內容。
+
+## 另請參閱
+
+- [HTML 進入點](/zh-Hant/docs/implementation-guide/html)
+- [背景指令碼](/zh-Hant/docs/implementation-guide/background)
+- [訊息傳遞](/zh-Hant/docs/implementation-guide/messaging)
+- [安全性檢查清單](/zh-Hant/docs/workflows/security-checklist)

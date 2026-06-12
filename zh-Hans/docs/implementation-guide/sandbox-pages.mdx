@@ -1,0 +1,86 @@
+---
+title: "Sandbox pages 与 manifest 中的 sandbox 字段"
+description: "配置可以运行 eval 与动态代码的沙箱化扩展页面，将其嵌入 iframe，并通过 postMessage 通信。"
+keywords:
+  [
+    "sandbox page",
+    "manifest sandbox",
+    "sandbox.pages",
+    "extension eval csp",
+    "sandboxed iframe extension",
+    "background type module",
+    "extension.js",
+    "chrome",
+    "manifest v3",
+  ]
+---
+
+扩展页面运行在严格的内容安全策略下：不允许 `eval`，不允许 `new Function`，不允许动态编译代码。当某个功能确实需要这些（模板引擎、代码 playground、运行 AI 生成的代码片段）时，Manifest V3 提供了 sandbox pages：它们用放弃 `chrome.*` API 访问的代价，换取宽松的 CSP。
+
+## 声明页面
+
+```json manifest.json
+{
+  "sandbox": {
+    "pages": ["sandbox.html"]
+  }
+}
+```
+
+Extension.js 会像编译其他在 manifest 中声明的 HTML 入口一样编译 `sandbox.html`：直接引用你的 `.ts`/`.tsx` 就能构建。入口模式见 [HTML guide](/zh-Hans/docs/implementation-guide/html)。
+
+## sandbox page 能做什么、不能做什么
+
+| 能力                                | Sandbox page |
+| ----------------------------------- | ------------ |
+| `eval`、`new Function`              | 可以         |
+| 唯一的 origin（与页面隔离）         | 可以         |
+| `chrome.*` 扩展 API                 | 不可以       |
+| 直接访问 `chrome.storage`           | 不可以       |
+| 与嵌入它的页面之间的 `postMessage`  | 可以         |
+
+sandbox page 运行在唯一的 origin 下，因此它无法读取扩展存储、调用扩展 API，也无法访问其他页面的 DOM。一切都要经过消息传递。
+
+## 嵌入与通信
+
+从一个普通的扩展页面用 iframe 加载 sandbox，然后通过 `postMessage` 通信：
+
+```html newtab.html
+<iframe id="sandbox" src="sandbox.html"></iframe>
+```
+
+```ts newtab.ts
+const frame = document.getElementById("sandbox") as HTMLIFrameElement;
+
+frame.addEventListener("load", () => {
+  frame.contentWindow?.postMessage({ template: "Hello {{name}}" }, "*");
+});
+
+window.addEventListener("message", (event) => {
+  console.log("rendered:", event.data.html);
+});
+```
+
+```ts sandbox.ts
+window.addEventListener("message", (event) => {
+  const render = new Function("name", `return \`${event.data.template}\`;`);
+  event.source?.postMessage({ html: render("world") }, { targetOrigin: "*" });
+});
+```
+
+嵌入的页面保留 `chrome.*` 访问能力，并担任中介：它读取存储、调用 API，并在 sandbox 之间传入和传出纯数据。
+
+## 不要混为一谈：`background.type`
+
+一个常见的混淆：`"background": {"type": "module"}` 与沙箱毫无关系。它把 background service worker 声明为 ES module，让 `import` 语句在注册时能正常工作。当你的 background 入口使用 ESM 语法时，Extension.js 会自动设置它，所以你很少需要手写。如果你的困惑是 `import` 在 service worker 中失败，请看 [Background scripts](/zh-Hans/docs/implementation-guide/background)；如果是想运行动态代码，那你就来对了。
+
+## 自定义 sandbox CSP
+
+你可以通过 manifest 中的 `content_security_policy.sandbox` 进一步放宽或收紧 sandbox CSP。让 `script-src` 保持在功能允许的最小范围；sandbox 的存在是为了包住动态代码，而不是用来跳过安全审查的。[security checklist](/zh-Hans/docs/workflows/security-checklist) 列出了审核者关注的内容。
+
+## 另请参阅
+
+- [HTML entrypoints](/zh-Hans/docs/implementation-guide/html)
+- [Background scripts](/zh-Hans/docs/implementation-guide/background)
+- [Messaging](/zh-Hans/docs/implementation-guide/messaging)
+- [Security checklist](/zh-Hans/docs/workflows/security-checklist)

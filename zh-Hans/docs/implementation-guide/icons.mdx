@@ -1,0 +1,131 @@
+---
+title: "扩展图标与 manifest 声明"
+description: "在 manifest 字段中声明扩展图标，用于品牌与 action UI。Extension.js 会校验路径、重写引用并输出图标资源。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "docs",
+    "implementation guide",
+    "icons",
+    "template",
+    "example",
+  ]
+---
+
+通过在 manifest 字段中声明图标，让扩展的品牌与 action UI 保持一致，而 Extension.js 能可预期地对其进行校验、重写与输出。
+
+Extension.js 会处理 `manifest.json` 中的图标路径，解析 public/相对路径，输出图标资源，并在开发期 watch 这些图标文件。
+
+## 模板示例
+
+### `action`
+
+![action template screenshot](/images/examples/action/screenshot.png)
+
+一个在 `manifest.json` 中声明工具栏图标的 action 扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+## 图标能力
+
+| 能力                        | 它给你带来什么                                              |
+| --------------------------- | ----------------------------------------------------------- |
+| 支持 manifest 图标字段       | 为受支持的扩展表面校验并编译图标                            |
+| 路径解析                    | 一致地处理相对路径与 public-root 图标路径                   |
+| 开发期 watch 更新           | 在本地开发期间针对图标变更重新编译                          |
+| 浏览器安全的输出            | 在扩展输出中产出图标资源，并保留稳定的引用                  |
+
+## 支持的图标字段
+
+| Manifest 字段                 | 期望的文件类型        |
+| ----------------------------- | --------------------- |
+| `action.default_icon`         | .png、.jpg、.svg      |
+| `browser_action.default_icon` | .png、.jpg、.svg      |
+| `icons`                       | .png、.jpg、.svg      |
+| `page_action.default_icon`    | .png、.jpg、.svg      |
+| `sidebar_action.default_icon` | .png、.jpg、.svg (\*) |
+| `browser_action.theme_icons`  | .png、.jpg、.svg      |
+
+<Note>
+  目前部分浏览器对 `sidebar_action.default_icon` 的 `.svg` 支持并不完全。
+  在该场景下使用 SVG 之前，请先确认浏览器兼容性。
+</Note>
+
+## `manifest.json` 中的图标声明示例
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_icon": "icons/action-icon.png"
+  }
+}
+```
+
+## 输出路径
+
+典型的图标输出：
+
+```plaintext
+icons/<filename>
+browser_action/<theme-icon-filename>   # for theme_icons
+```
+
+## 路径行为
+
+- Extension.js 从 manifest 文件夹解析相对图标路径。
+- 前导 `/` 与 `public/...` 会按照扩展 public-root 语义解析。
+- Extension.js 可以 watch public 文件夹中的资源，而不必通过图标功能本身重新输出它们。
+
+## 开发期行为
+
+- 修改已有图标文件会触发重新编译。
+- 修改 manifest 中的图标入口引用可能要求重启 dev server。
+- 必需图标文件缺失会产生构建错误（部分可选的图标组可能改为警告）。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show replacing manifest icon files and verifying updated assets in extension UI surfaces across build output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳实践
+
+- 显式声明 manifest 中的图标字段，而不是依赖偶然的资源导入。
+- 提供多种图标尺寸（`16`、`32`、`48`、`128`），让 UI 在各浏览器表面更清晰。
+- 让图标文件名保持稳定，减少开发期 manifest 的频繁变动。
+- 有意识地使用 public-root 路径，并测试最终生成的 manifest 输出路径。
+
+## 下一步
+
+- 继续阅读 [web-accessible resources](/zh-Hans/docs/implementation-guide/web-accessible-resources)。
+- 进一步了解 [Special folders](/zh-Hans/docs/features/special-folders)。

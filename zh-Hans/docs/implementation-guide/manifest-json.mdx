@@ -1,0 +1,147 @@
+---
+title: "Manifest.json 编译与输出"
+description: "把 manifest.json 作为入口点和资源的唯一事实来源。Extension.js 会编译、重写路径，并为各浏览器产出可直接加载的 manifest。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+  ]
+---
+
+把 `manifest.json` 当作入口点、资源以及浏览器特定行为的唯一事实来源，让扩展构建保持可预期。
+
+Extension.js 编译你的 manifest 并过滤带浏览器前缀的字段。它会重写运行时路径、校验被引用的文件，并为每个目标浏览器产出可直接加载的 manifest。
+
+## Manifest 能力
+
+| 能力                       | 它给你带来什么                                                       |
+| -------------------------- | -------------------------------------------------------------------- |
+| 浏览器特定字段过滤         | 保留一份 manifest 文件，同时输出针对各目标的产物                     |
+| 路径规范化                 | 自动解析运行时安全的输出路径                                         |
+| 引用校验                   | 当 HTML/脚本/CSS/JSON/图标文件缺失时尽早失败                         |
+| 分目标产物                 | 在 `dist/<browser>` 下为每个浏览器目标生成 manifest 产物             |
+
+## Extension.js 从哪里读取 manifest
+
+- `src/manifest.json`（存在时优先）
+- 项目根目录的 `manifest.json`
+
+Extension.js 不会把 `public/manifest.json` 作为源 manifest 使用。
+
+当项目存在 `package.json` 时，Extension.js 会忽略 `public/manifest.json`。这样可以避免被复制过去的静态资源覆盖 Extension.js 生成的 manifest。
+
+## Extension.js 对它做了什么
+
+在 dev/build 阶段，manifest 流水线会：
+
+1. 从你的源文件生成 manifest 资源。
+2. 针对当前浏览器目标过滤带浏览器前缀的键。
+3. 对扩展产物应用 manifest 覆盖/路径规范化。
+4. 校验被引用的文件（HTML/脚本/CSS/图标/JSON），缺失时尽早失败。
+
+## 一份 manifest，多个浏览器
+
+带浏览器前缀的键让你在保留一份 manifest 的同时，仍然能针对特定浏览器的行为：
+
+- `chromium:*`、`chrome:*`、`edge:*`
+- `firefox:*`、`gecko:*`
+
+这些前缀既能用于顶层键，也能用于 manifest 的嵌套字段。
+
+示例：
+
+- `chromium:key`
+- `background.firefox:scripts`
+- `background.chromium:service_worker`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show editing one manifest file, running different browser targets, and inspecting target-specific emitted manifest output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 支持的 manifest 字段
+
+常见的入口点相关字段包括：
+
+| Manifest 字段                            | 期望的文件类型                     |
+| ---------------------------------------- | ---------------------------------- |
+| `action.default_popup`                   | .html                              |
+| `background.page`                        | .html                              |
+| `background.service_worker`              | .js, .jsx, .ts, .tsx, .mjs         |
+| `browser_action.default_popup`           | .html                              |
+| `chrome_url_overrides.bookmarks`         | .html                              |
+| `chrome_url_overrides.history`           | .html                              |
+| `chrome_url_overrides.newtab`            | .html                              |
+| `content_scripts.js`                     | .js, .jsx, .ts, .tsx, .mjs         |
+| `content_scripts.css`                    | .css, .scss, .sass, .less          |
+| `declarative_net_request.rule_resources` | .json                              |
+| `devtools_page`                          | .html                              |
+| `icons`                                  | .png, .jpg, ...其他图片格式         |
+| `options_ui.page`                        | .html                              |
+| `options_page`                           | .html                              |
+| `page_action.default_popup`              | .html                              |
+| `sandbox.pages`                          | .html                              |
+| `side_panel.default_path`                | .html                              |
+| `sidebar_action.default_panel`           | .html                              |
+| `storage.managed_schema`                 | .json                              |
+| `theme_icons`                            | .png, .jpg, ...其他图片格式         |
+| `user_scripts.api_script`                | .js, .jsx, .ts, .tsx, .mjs         |
+| `web_accessible_resources`               | .png, .jpg, .css, .js              |
+
+## 权限设计
+
+manifest 也是扩展声明自身能力的地方。Extension.js 会编译 manifest，但你仍然需要良好的权限设计。
+
+- 保持 `permissions` 精简且有意图。
+- 把 `host_permissions` 收紧到功能允许的最小范围。
+- 尽可能把非核心能力放到 `optional_permissions` 或 `optional_host_permissions`。
+- 每当 content script 匹配规则或后台能力变化时，重新审视权限范围。
+
+权限策略详见 [Permissions and host permissions](/zh-Hans/docs/implementation-guide/permissions-and-host-permissions)。
+
+## 输出行为
+
+Extension.js 会在需要时把 manifest 路径重写为可预期的输出位置。两个重要示例：
+
+- `background.service_worker` 会变为 `background/service_worker.js`
+- `side_panel.default_path` 会变为 `sidebar/index.html`
+
+Extension.js 还会按 manifest 中 content script 的索引来规范化路径：
+
+- `content_scripts/content-0.js`
+- `content_scripts/content-0.css`
+
+浏览器实际加载的就是这些生成的路径。编写时使用源码路径，让 Extension.js 在输出阶段帮你重写。
+
+## 开发期行为
+
+- 当 `manifest.json` 改变时，Extension.js 会重新编译并触发扩展硬重载流程。
+- 如果 manifest 的入口点结构变化（例如脚本列表变更），Extension.js 可能要求重启 dev server。
+- manifest 字段引用的文件缺失会让编译失败，并报出聚焦 manifest 的错误。
+
+### 变更结果矩阵
+
+| Manifest 变更类型                                                  | 典型结果                          |
+| ------------------------------------------------------------------ | --------------------------------- |
+| 更新非结构性的值（例如描述/权限元信息）                            | 硬重载流程                        |
+| 更新仍能正确解析的资源路径值                                       | 重新编译 + 硬重载流程             |
+| 在 manifest 中新增/删除脚本或页面入口点                            | 需要重启                          |
+| 引入无效或缺失的被引用文件                                         | 构建错误（先修复，再重新运行）    |
+
+## 最佳实践
+
+- 让 manifest 路径相对于扩展源码/输出模型；只有在确实指向扩展输出根时才使用前导 `/`。
+- 使用带浏览器前缀的键，而不是为每个浏览器维护一份单独的 manifest 文件。
+- 谨慎对待入口点变更；在 dev 中增删 manifest 脚本经常会改变重载语义。
+- 把图标、JSON 资源和 content script 资源的校验纳入持续集成（CI），尽早发现路径回归。
+- 不要把 `manifest.json` 放在 `public/` 下。
+
+## 下一步
+
+- 在 [dev update behavior](/zh-Hans/docs/workflows/dev-update-behavior) 中理解更新结果。
+- 在 [Permissions and host permissions](/zh-Hans/docs/implementation-guide/permissions-and-host-permissions) 中设计最小权限访问。
+- 了解 Extension.js 如何处理 [Browser-specific manifest fields](/zh-Hans/docs/features/browser-specific-fields)。
+- 在 [Page reload and hot module replacement (HMR)](/zh-Hans/docs/features/reload-and-hmr) 中理解 dev 更新流程。

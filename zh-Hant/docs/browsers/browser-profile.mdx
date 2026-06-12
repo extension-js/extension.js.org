@@ -1,0 +1,122 @@
+---
+title: "用於隔離開發執行的瀏覽器 profile 管理"
+description: "在擴充功能開發時,以受管、持久或自訂 profile 路徑管理 Chrome 與 Firefox 的瀏覽器狀態隔離。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "devtools",
+    "docs",
+    "browsers",
+    "browser profile",
+  ]
+---
+
+在開發期間,以受管、持久或自訂 profile 控制瀏覽器狀態的隔離。
+
+依你的工作流讓瀏覽器 session 保持隔離或持久。Extension.js 啟動瀏覽器時會帶有 profile 感知的預設值。可選擇乾淨執行、可重複使用的狀態,或明確的本機 profile 路徑。
+
+## 運作方式
+
+Extension.js 依下列順序選擇 profile 模式:
+
+1. 明確的 `profile` 路徑(若有提供)
+2. 受管 profile 模式(預設)
+   - 預設為臨時(ephemeral)
+   - 當 `persistProfile: true` 時為持久
+3. 當 `EXTENSION_USE_SYSTEM_PROFILE=true` 時使用系統 profile 模式
+
+## Profile 能做什麼
+
+| 設定 / 選項                          | 用途                                                            |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `browser.<target>.profile`          | 為該瀏覽器目標使用明確的 profile 資料夾。                       |
+| `commands.dev.profile`              | 只為 `dev` 使用明確的 profile。                                 |
+| `commands.start.profile`            | 只為 `start` 使用明確的 profile。                               |
+| `commands.preview.profile`          | 只為 `preview` 使用明確的 profile。                             |
+| `browser.<target>.persistProfile`   | 在執行之間為某個目標重用受管 profile 狀態。                     |
+| `commands.<name>.persistProfile`    | 在指令專屬 context 中重用受管 profile 狀態。                    |
+| `--profile=/abs/path`               | CLI 覆寫明確的 profile 路徑。                                   |
+| `EXTENSION_USE_SYSTEM_PROFILE=true` | 使用作業系統/瀏覽器的系統 profile,而非受管 profile。           |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching between managed ephemeral, persistent, and explicit profile modes in development. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Profile 模式
+
+| 模式                  | 啟用方式                                          | 典型用途                                  |
+| --------------------- | ------------------------------------------------- | ----------------------------------------- |
+| 受管臨時              | 預設                                              | 以隔離狀態做乾淨執行                      |
+| 受管持久              | `persistProfile: true`                            | 以穩定瀏覽器狀態進行迭代除錯              |
+| 明確自訂 profile      | `profile: "/abs/path"` 或 `--profile=/abs/path`   | 重用既有的 profile                        |
+| 系統 profile          | `EXTENSION_USE_SYSTEM_PROFILE=true`               | 以 OS/瀏覽器預設 profile 啟動             |
+
+Extension.js 在下列位置建立受管 profile:
+
+- `dist/extension-js/profiles/<browser>-profile/<...>`
+
+持久模式使用:
+
+- `dist/extension-js/profiles/<browser>-profile/dev`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show profile directories created under `dist/extension-js/profiles` and reused when `persistProfile` is enabled. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 在 `extension.config.*` 中設定
+
+```js
+export default {
+  browser: {
+    chrome: {
+      // 使用你自己的 profile 資料夾:
+      profile: "path/to/custom/profile",
+    },
+    firefox: {
+      // 為重複 session 保留穩定的受管 profile:
+      persistProfile: true,
+    },
+  },
+};
+```
+
+你也可以依指令範圍設定 profile 預設值:
+
+```js
+export default {
+  commands: {
+    dev: {
+      persistProfile: true,
+    },
+  },
+};
+```
+
+## CLI 用法
+
+直接使用明確的 profile 路徑:
+
+```bash
+extension dev --browser=chrome --profile=/path/to/custom/profile
+```
+
+`start` 與 `preview` 的用法類似。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CLI `--profile` override applied in `dev`, then reused in `start`/`preview`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 生命週期備註
+
+- Extension.js 會為每次執行建立臨時受管 profile。
+- Extension.js 會在多次執行間重用持久受管 profile(`dev`)。
+- Extension.js 會自動移除舊的受管 profile 資料夾。可設定 `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` 來控制最長保留時間。
+
+## 最佳實務
+
+- **基準測試使用受管臨時 profile**:降低隱藏狀態與不穩定的重現。
+- **長時間除錯 session 使用 `persistProfile`**:在執行之間保留驗證/session/devtools 狀態。
+- **自訂 profile 依瀏覽器家族區分**:避免跨瀏覽器污染。
+- **有目的地使用系統 profile 模式**:適合重現問題,但比受管 profile 隔離度低。
+
+## 下一步
+
+- 進一步了解 [瀏覽器 preferences](/zh-Hant/docs/browsers/browser-preferences)。
+- 進一步了解 [瀏覽器 flag](/zh-Hant/docs/browsers/browser-flags)。

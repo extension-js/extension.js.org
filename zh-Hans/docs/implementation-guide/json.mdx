@@ -1,0 +1,102 @@
+---
+title: "扩展中的 JSON 资源"
+description: "在扩展中使用诸如 Declarative Net Request 规则集和 managed schema 之类的 JSON 资源。Extension.js 会校验并产出被引用的 JSON 资源。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "docs",
+    "implementation guide",
+    "json",
+    "capabilities",
+    "support",
+  ]
+---
+
+把 JSON 资源用于规则集、managed schema 等扩展功能，并享受校验与可预期的输出处理。
+
+Extension.js 会处理 manifest 引用的 JSON 资源，并对已知的功能类型进行校验。它会在开发期 watch 这些文件，并在需要时输出产物。
+
+## JSON 能力
+
+| 能力                      | 它给你带来什么                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| 支持 manifest 资源        | 干净地处理 Declarative Net Request (DNR) 规则集与 managed schema 文件           |
+| JSON 校验                 | 对格式错误的 JSON 与非法的资源形态尽早失败                                      |
+| 开发期依赖跟踪            | 在被引用的 JSON 资源变化时重新编译                                              |
+| 占位符替换                | 在产出的 JSON 中解析受支持的 `$EXTENSION_*` 占位符                              |
+
+## JSON 支持
+
+常见 manifest 字段：
+
+| Manifest 字段                            | 期望的文件类型     |
+| ---------------------------------------- | ------------------ |
+| `declarative_net_request.rule_resources` | .json              |
+| `storage.managed_schema`                 | .json              |
+
+## `manifest.json` 中的 JSON 声明示例
+
+`manifest.json` 中的 JSON 声明示例：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules/ruleset.json"
+      }
+    ]
+  },
+  "storage": {
+    "managed_schema": "schema/storage-schema.json"
+  }
+}
+```
+
+## 输出路径
+
+Extension.js 按功能上下文输出 JSON 资源（例如 DNR 与 storage schema 的产物）：
+
+```plaintext
+declarative_net_request/<ruleset-id>.json
+storage/managed_schema.json
+```
+
+## 开发期行为
+
+- Extension.js 把 manifest 引用的 JSON 文件作为文件依赖进行跟踪。
+- JSON 修改触发重新编译。
+- 与 JSON 相关的某些结构性 manifest 变更可能要求重启 dev server。
+
+## 校验行为
+
+Extension.js 会校验：
+
+- 被引用资源的 JSON 语法
+- DNR 规则集形态（基于数组的规则集预期）
+- managed 存储 schema 形态（基于对象的预期）
+
+{/* VIDEO_PLACEHOLDER_TODO: Show editing a DNR ruleset JSON file, catching validation errors, then rebuilding with corrected output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 环境占位符
+
+Extension.js 在编译期会替换产出的 `.json` 资源中的 `$EXTENSION_*` 占位符，使用与静态 HTML 占位符替换相同的流程。
+
+## 最佳实践
+
+- 把 manifest 引用的 JSON 聚焦于浏览器所要求的资源格式。
+- 在打包前于持续集成（CI）中校验 JSON 资源。
+- 在 manifest 中优先使用稳定的文件路径，减少开发期“需要重启”的结构性变更。
+- 对于代码消费的应用数据，可考虑在 JS/TS 模块中通过 JSON 导入处理，与 manifest 资源 JSON 分开管理。
+
+## 下一步
+
+- 继续阅读 [icons in development](/zh-Hans/docs/implementation-guide/icons)。
+- 了解 [manifest development behavior](/zh-Hans/docs/implementation-guide/manifest-json)。

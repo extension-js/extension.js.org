@@ -1,0 +1,912 @@
+---
+title: "跨浏览器扩展框架"
+description: "用同一个项目为 Chrome、Edge 和 Firefox 构建浏览器扩展，自动编译 manifest、保存即时重载、并产出可上架的发布包。"
+mode: "custom"
+---
+
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "Extension.js",
+      applicationCategory: "DeveloperApplication",
+      operatingSystem: "Windows, macOS, Linux",
+      description:
+        "Cross-browser extension framework for Chrome, Edge, and Firefox. One project, one manifest.json, browser-specific output, and reload behavior tuned for service workers and content scripts.",
+      url: "https://extension.js.org",
+      downloadUrl: "https://www.npmjs.com/package/extension",
+      softwareVersion: "latest",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+      author: {
+        "@type": "Organization",
+        name: "Extension.js authors",
+        url: "https://github.com/extension-js",
+      },
+      license: "https://github.com/extension-js/extension.js/blob/main/LICENSE",
+    }),
+  }}
+/>
+
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "What is a browser extension?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "A browser extension is software that adds features to Chrome, Firefox, Edge, or another browser. Extensions inject UI, react to browser events, and call privileged APIs the page itself cannot.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Is Extension.js a Chrome extension framework?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes. Extension.js works as a Chrome extension framework, and also as a Firefox and Edge extension framework, from the same project. Choose a target with --browser=chrome, --browser=firefox, or --browser=edge.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "How does Extension.js handle hot module replacement during development?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Run npx extension dev and the CLI watches your project for changes. Edits to popups, content scripts, service workers, and options pages trigger the fastest safe update path: HMR when supported, targeted reloads otherwise.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "How do I build one extension for Chrome, Edge, and Firefox?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Extension.js compiles a single codebase into browser-specific output. One set of commands produces correctly packaged builds for Chrome, Edge, Firefox, and other Chromium-based browsers. Each build gets the right manifest format, paths, and platform adjustments.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Can I use React, Preact, Vue, Svelte, or TypeScript?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes. Extension.js ships production-ready templates for React, Preact, Vue, Svelte, TypeScript, and plain JavaScript. Framework choice does not affect the core workflow.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Does Extension.js support Manifest V3?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes. The toolchain is built around Manifest V3 and the constraints browser stores enforce today: service workers, declarative APIs, updated permissions, and stricter packaging.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Is Extension.js free to use?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes. Extension.js is open source under the MIT license. There is no paid tier or usage cap.",
+          },
+        },
+      ],
+    }),
+  }}
+/>
+
+<div className="mx-auto flex w-full max-w-6xl flex-col gap-24 px-6 py-16 sm:py-24">
+  {/* ─────────── Hero ─────────── */}
+
+  <section className="flex flex-col items-center text-center gap-8">
+    {/* Browser dock logo grid (two rows) */}
+
+    <div className="ext-dock mx-auto w-full">
+      <div className="ext-dock-row ext-dock-row-top">
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/brave.svg"
+            alt="Brave"
+            style={{ padding: "5%" }}
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/chrome.svg"
+            alt="Chrome"
+          />
+        </div>
+        <div className="ext-dock-tile plain">
+          <img
+            src="https://media.extension.land/track/extension-js.png"
+            alt="Extension.js"
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/edge.svg"
+            alt="Edge"
+          />
+        </div>
+        <div className="ext-dock-tile" style={{ border: "none" }}>
+          <img
+            src="https://media.extension.land/logos/browsers/safari.svg"
+            alt="Safari"
+            style={{ padding: 0 }}
+          />
+        </div>
+      </div>
+      <div className="ext-dock-row ext-dock-row-bottom">
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/opera.svg"
+            alt="Opera"
+            style={{ padding: "5%" }}
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/firefox.svg"
+            alt="Firefox"
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="https://media.extension.land/logos/browsers/chromium.svg"
+            alt="Chromium"
+          />
+        </div>
+        <div className="ext-dock-tile">
+          <img
+            src="/images/waterfox.png"
+            alt="Waterfox"
+            style={{ borderRadius: "50%" }}
+          />
+        </div>
+      </div>
+    </div>
+
+    <h1 className="text-5xl sm:text-6xl lg:text-[4rem] font-semibold tracking-tight leading-tight max-w-3xl text-neutral-900 dark:text-white">
+      跨浏览器扩展框架
+    </h1>
+
+    <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-xl leading-relaxed">
+      用一套现代工作流为所有主流浏览器构建扩展。Extension.js 帮你处理 manifest 编译、按浏览器分别产出，以及打包发布。
+    </p>
+
+    <div className="ext-hero-badges">
+      <a
+        href="https://github.com/extension-js/extension.js"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="GitHub stars"
+      >
+        <img
+          src="https://img.shields.io/github/stars/extension-js/extension.js?style=flat&logo=github&logoColor=white&color=0e62f7&labelColor=0b1220"
+          alt="GitHub stars"
+          loading="lazy"
+        />
+      </a>
+      <a
+        href="https://www.npmjs.com/package/extension"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="npm weekly downloads"
+      >
+        <img
+          src="https://img.shields.io/npm/dw/extension?style=flat&logo=npm&logoColor=white&color=0e62f7&labelColor=0b1220"
+          alt="npm weekly downloads"
+          loading="lazy"
+        />
+      </a>
+      <a
+        href="https://www.npmjs.com/package/extension"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="npm version"
+      >
+        <img
+          src="https://img.shields.io/npm/v/extension?style=flat&logo=npm&logoColor=white&color=0e62f7&labelColor=0b1220"
+          alt="latest version on npm"
+          loading="lazy"
+        />
+      </a>
+      <a
+        href="https://github.com/extension-js/extension.js/blob/main/LICENSE"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="MIT license"
+      >
+        <img
+          src="https://img.shields.io/github/license/extension-js/extension.js?style=flat&color=0e62f7&labelColor=0b1220"
+          alt="MIT license"
+          loading="lazy"
+        />
+      </a>
+    </div>
+
+    <div className="ext-hero-cmd">
+      <span className="ext-hero-cmd-prompt" aria-hidden="true">
+        $
+      </span>
+      <code className="ext-hero-cmd-code">
+        npx extension@latest create my-extension
+      </code>
+      <button
+        type="button"
+        className="ext-hero-cmd-copy"
+        aria-label="Copy command"
+        onClick={(e) => {
+          navigator.clipboard.writeText(
+            "npx extension@latest create my-extension",
+          );
+          const el = e.currentTarget;
+          const original = el.innerText;
+          el.innerText = "Copied";
+          setTimeout(() => {
+            el.innerText = original;
+          }, 1500);
+        }}
+      >
+        Copy
+      </button>
+    </div>
+
+    <div className="flex flex-wrap items-center justify-center gap-3">
+      <a
+        href="/zh-Hans/docs"
+        className="inline-flex items-center gap-3 rounded-lg bg-[#0e62f7] px-12 py-4 text-white text-lg font-semibold hover:opacity-90 transition no-underline"
+      >
+        立即开始 ⏵⏵⏵
+      </a>
+      <a
+        href="/zh-Hans/docs/compare/extension-js-vs-wxt"
+        className="inline-flex items-center gap-3 rounded-lg border border-gray-300 dark:border-neutral-700 px-12 py-4 text-neutral-900 dark:text-white text-lg font-semibold hover:opacity-90 transition no-underline"
+      >
+        对比 WXT ⏵
+      </a>
+    </div>
+  </section>
+
+  {/* ─────────── Code preview: one manifest, three browsers ─────────── */}
+
+  <section className="w-full">
+    <div className="ext-codepreview">
+      <div className="ext-codepreview-text">
+        <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+          一份 manifest.json。<br />所有浏览器。
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 mt-3 text-lg leading-relaxed max-w-md">
+          带浏览器前缀的键（<code>chrome:</code>、<code>firefox:</code>、{" "}
+          <code>edge:</code>）会在编译期过滤。没有前缀的键在所有目标上都生效。
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <a
+            href="/zh-Hans/docs/features/browser-specific-fields"
+            className="text-[#0e62f7] hover:opacity-80 font-medium no-underline"
+          >
+            查看完整用法 ⏵
+          </a>
+        </div>
+      </div>
+      <pre className="ext-codepreview-code">
+        <code>
+          <span className="ext-cp-punc">{"{"}</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-key">"manifest_version"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-num">3</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-key">"name"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-str">"My Extension"</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-key">"version"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-str">"1.0.0"</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-key">"action"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-punc">{"{"}</span>
+          <span className="ext-cp-key"> "default_popup"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-str">"popup.html"</span>{" "}
+          <span className="ext-cp-punc">{"}"}</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-prefix">"chrome:background"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-punc">{"{"}</span>
+          <span className="ext-cp-key"> "service_worker"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-str">"sw.ts"</span>{" "}
+          <span className="ext-cp-punc">{"}"}</span>
+          <span className="ext-cp-punc">,</span>
+          {"\n"}
+          {"  "}
+          <span className="ext-cp-prefix">"firefox:background"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-punc">{"{"}</span>
+          <span className="ext-cp-key"> "scripts"</span>
+          <span className="ext-cp-punc">:</span>{" "}
+          <span className="ext-cp-punc">[</span>
+          <span className="ext-cp-str">"sw.ts"</span>
+          <span className="ext-cp-punc">]</span>{" "}
+          <span className="ext-cp-punc">{"}"}</span>
+          {"\n"}
+          <span className="ext-cp-punc">{"}"}</span>
+        </code>
+      </pre>
+
+    </div>
+
+  </section>
+
+{/* ─────────── Why a framework ─────────── */}
+
+<section className="w-full">
+  <div className="rounded-3xl bg-neutral-100 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/5 px-8 py-12 sm:px-14 sm:py-16 flex flex-col sm:flex-row items-start gap-10 text-left">
+    <div className="shrink-0 aspect-square w-24 sm:w-28">
+      <img
+        src="https://media.extension.land/track/extension-js.png"
+        alt="Extension.js"
+        width="112"
+        height="112"
+        className="block w-full h-full object-contain"
+      />
+    </div>
+    <div className="flex flex-col gap-6">
+      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-neutral-900 dark:text-white">
+        为什么要用浏览器扩展框架？
+      </h2>
+      <p className="text-neutral-600 dark:text-neutral-400 text-lg leading-relaxed max-w-3xl">
+        浏览器扩展和普通 Web 应用相比，需要不同的文件结构、不同的浏览器 API、不同的 manifest 格式、不同的权限以及不同的构建产物。一个{" "}
+        <a
+          href="/zh-Hans/docs/compare"
+          className="text-[#0e62f7] hover:opacity-80 no-underline"
+        >
+          浏览器扩展框架
+        </a>{" "}
+        把这些胶水代码替你做掉：一套工作流同时处理 Chrome、Edge、Firefox 扩展开发，按目标过滤 manifest，针对 service worker 和 content script 调优重载行为，并生成可直接提交到 Chrome Web Store、addons.mozilla.org 和 Edge Add-ons 商店的发布包。
+      </p>
+      <p className="text-neutral-600 dark:text-neutral-400 text-lg leading-relaxed max-w-3xl">
+        Extension.js 提供的正是这样一套工作流。一个 JavaScript 或 TypeScript 项目，一份{" "}
+        <code className="text-neutral-800 dark:text-neutral-200">
+          manifest.json
+        </code>
+        ，按浏览器分开的{" "}
+        <code className="text-neutral-800 dark:text-neutral-200">
+          dist/&lt;browser&gt;
+        </code>{" "}
+        产物，加上一个不会挡在你前面的 CLI，让一份代码以跨浏览器扩展的形式发布变得毫不费力。
+      </p>
+    </div>
+  </div>
+</section>
+
+{/* ─────────── Workflow Video ─────────── */}
+
+<section className="flex flex-col items-center text-center gap-8">
+  <div>
+    <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+      完整的开发者工作流演示
+    </h2>
+    <p className="text-gray-600 dark:text-gray-300 mt-3 text-lg">
+      从脚手架到运行中的扩展，全部在一条现代工具链里完成。
+    </p>
+  </div>
+  <div className="w-full max-w-5xl">
+    <iframe
+      className="w-full aspect-video rounded-2xl shadow-2xl ring-1 ring-black/5"
+      src="https://www.loom.com/embed/58e21900d693417db1e0e59c0a96c4b3?sid=80cf1003-7ed1-4f9d-a3fb-01c7876983ad"
+      title="Extension.js developer workflow"
+      loading="lazy"
+      referrerPolicy="no-referrer-when-downgrade"
+      allow="clipboard-write; encrypted-media; fullscreen"
+      allowFullScreen
+    />
+  </div>
+</section>
+
+{/* ─────────── Core Features (asymmetric 3-col) ─────────── */}
+
+  <section className="flex flex-col gap-10">
+    <div className="text-center max-w-3xl mx-auto">
+      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        覆盖<span className="text-[#0e62f7]">扩展完整生命周期</span>的核心能力
+      </h2>
+      <p className="text-gray-600 dark:text-gray-300 mt-3 text-lg">
+        用一套现代扩展工作流为每一个浏览器构建、测试并发布。
+      </p>
+    </div>
+
+    <div className="ext-feature-grid">
+      {/* A — wide, media: engines */}
+      <a
+        href="/zh-Hans/docs/features/cross-browser-compatibility"
+        className="ext-feature-card ext-fa"
+      >
+        <div className="flex items-center -space-x-2">
+          <img
+            src="https://media.extension.land/logos/browsers/chromium.svg"
+            alt="Chromium"
+            className="h-10 w-10"
+          />
+          <img
+            src="https://media.extension.land/logos/browsers/firefox.svg"
+            alt="Firefox"
+            className="h-10 w-10"
+          />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            把一个扩展编译成每个浏览器各自的产物
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            一次构建即可面向 Chrome、Edge、Firefox 以及自定义的 Chromium 或 Gecko 目标。每个浏览器的产物在开发、测试和发布构建之间都保持可预期。{" "}
+          </p>
+        </div>
+      </a>
+
+      {/* B — narrow, media: browsers */}
+      <a
+        href="/zh-Hans/docs/implementation-guide/manifest-json"
+        className="ext-feature-card ext-fb"
+      >
+        <div className="flex items-center -space-x-2">
+          <img
+            src="/images/vendor/chrome.svg"
+            alt="Chrome"
+            className="h-10 w-10"
+          />
+          <img
+            src="/images/vendor/firefox.svg"
+            alt="Firefox"
+            className="h-10 w-10"
+          />
+          <img
+            src="/images/vendor/edge.svg"
+            alt="Edge"
+            className="h-10 w-10"
+          />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            让扩展结构始终保持明确
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            随着扩展不断成长，manifest、路径和产出的资源始终保持一致。
+          </p>
+        </div>
+      </a>
+
+      {/* C — narrow */}
+      <a
+        href="/zh-Hans/docs/features/extension-configuration"
+        className="ext-feature-card ext-fc"
+      >
+        <img
+          src="https://media.extension.land/track/extension-js.png"
+          alt="Extension.js"
+          className="h-10 w-10 object-contain"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            用配置微调行为
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            通过 <code>extension.config.js</code> 覆盖默认设置，满足自定义构建需求。{" "}
+          </p>
+        </div>
+      </a>
+
+      {/* D — wide, media: frameworks */}
+      <a
+        href="/zh-Hans/docs/getting-started/templates"
+        className="ext-feature-card ext-fd"
+      >
+        <div className="flex items-center -space-x-2">
+          <img
+            src="/images/vendor/react-original.svg"
+            alt="React"
+            className="h-10 w-10"
+          />
+          <img
+            src="/images/vendor/vuejs-original.svg"
+            alt="Vue"
+            className="h-10 w-10"
+          />
+          <img
+            src="/images/vendor/svelte-original.svg"
+            alt="Svelte"
+            className="h-10 w-10"
+          />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            用你喜欢的技术栈
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            从 React、Vue、Svelte、TypeScript 或 JavaScript 起步。统一工作流，让团队按需选择合适的 UI 模型，而不必更换扩展工具链。{" "}
+          </p>
+        </div>
+      </a>
+
+      {/* E — wide, media: env */}
+      <a
+        href="/zh-Hans/docs/features/environment-variables"
+        className="ext-feature-card ext-fe"
+      >
+        <img
+          src="/images/vendor/env-vars.png"
+          alt="Environment variables"
+          className="h-10 w-10 object-contain"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            干净地注入环境变量
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            按浏览器和模式加载环境变量，并在 JavaScript、JSON 和 HTML 中完成替换。开发期的敏感信息绝不会泄漏进生产包。{" "}
+          </p>
+        </div>
+      </a>
+
+      {/* F — narrow, media: stores */}
+      <a
+        href="/zh-Hans/docs/features/multi-platform-builds"
+        className="ext-feature-card ext-ff"
+      >
+        <div className="flex items-center -space-x-2">
+          <img
+            src="https://media.extension.land/logos/stores/chrome-web-store.png"
+            alt="Chrome Web Store"
+            className="h-10 w-10"
+          />
+          <img
+            src="https://media.extension.land/logos/stores/firefox-addons.png"
+            alt="Firefox Add-ons"
+            className="h-10 w-10"
+          />
+          <img
+            src="https://media.extension.land/logos/stores/microsoft-edge-addons.png"
+            alt="Microsoft Edge Add-ons"
+            className="h-10 w-10"
+          />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold mb-2">
+            构建、预览、打包
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            一条流水线，从本地校验直达每个浏览器的可上架产物。{" "}
+          </p>
+        </div>
+      </a>
+    </div>
+
+    <div className="flex justify-center">
+      <a
+        href="/zh-Hans/docs/features"
+        className="inline-flex items-center gap-3 rounded-lg bg-[#0e62f7] px-12 py-4 text-white text-lg font-semibold hover:opacity-90 transition no-underline"
+      >
+        浏览全部特性 ⏵⏵⏵
+      </a>
+    </div>
+
+  </section>
+
+{/* ─────────── Templates ─────────── */}
+
+  <section className="flex flex-col gap-10">
+    <div className="text-center max-w-3xl mx-auto">
+      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        选你的 <span className="text-[#0e62f7]">框架</span>，保留你的工作流。
+      </h2>
+      <p className="text-gray-600 dark:text-gray-300 mt-3 text-lg">
+        从可直接发布的 React、Preact、Vue、Svelte、TypeScript 或 JavaScript 模板起步。
+      </p>
+    </div>
+
+    <div className="ext-template-grid">
+      <a
+        href="/zh-Hans/docs/languages-and-frameworks/react"
+        className="ext-feature-card"
+      >
+        <img
+          src="/images/vendor/react-original.svg"
+          alt="React"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">React</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            组件化 UI，完整兼容 Manifest V3（MV3）。开箱即用的 popup、options 与 content script。{" "}
+          </p>
+        </div>
+      </a>
+      <a
+        href="/zh-Hans/docs/languages-and-frameworks/preact"
+        className="ext-feature-card"
+      >
+        <img
+          src="https://preactjs.com/branding/symbol.svg"
+          alt="Preact"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Preact</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            同款 React API，运行时仅 3kB。适合对包体积敏感的 content script。{" "}
+          </p>
+        </div>
+      </a>
+      <a href="/zh-Hans/docs/languages-and-frameworks/vue" className="ext-feature-card">
+        <img
+          src="/images/vendor/vuejs-original.svg"
+          alt="Vue"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Vue</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            渐进式框架，单文件组件，已为扩展运行环境预先连接好。{" "}
+          </p>
+        </div>
+      </a>
+      <a
+        href="/zh-Hans/docs/languages-and-frameworks/svelte"
+        className="ext-feature-card"
+      >
+        <img
+          src="/images/vendor/svelte-original.svg"
+          alt="Svelte"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Svelte</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            编译期 UI，更小的运行时。content script 里每一 KB 都关键时的理想选择。{" "}
+          </p>
+        </div>
+      </a>
+      <a
+        href="/zh-Hans/docs/languages-and-frameworks/typescript"
+        className="ext-feature-card"
+      >
+        <img
+          src="/images/vendor/typescript-original.svg"
+          alt="TypeScript"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">TypeScript</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            为 popup、content、background 脚本提供静态类型。把 manifest 和消息通信的 bug 在编译期拦下。{" "}
+          </p>
+        </div>
+      </a>
+      <a
+        href="/zh-Hans/docs/languages-and-frameworks/ecmascript-modules"
+        className="ext-feature-card"
+      >
+        <img
+          src="/images/vendor/javascript-original.svg"
+          alt="JavaScript"
+          className="h-10 w-10"
+        />
+        <div>
+          <h3 className="text-lg font-semibold mb-2">JavaScript</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+            原生 ES 模块，无需编译步骤。快速起步，按需再加工具链。{" "}
+          </p>
+        </div>
+      </a>
+    </div>
+
+    <div className="flex justify-center">
+      <a
+        href="/zh-Hans/docs/getting-started/templates"
+        className="inline-flex items-center gap-3 rounded-lg bg-[#0e62f7] px-12 py-4 text-white text-lg font-semibold hover:opacity-90 transition no-underline"
+      >
+        浏览模板 ⏵⏵⏵
+      </a>
+    </div>
+
+  </section>
+
+{/* ─────────── Coming from another framework ─────────── */}
+
+<section className="w-full">
+  <div className="ext-migrate-callout">
+    <div>
+      <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+        从其他框架迁移过来？
+      </h2>
+      <p className="text-gray-600 dark:text-gray-400 mt-3 text-base sm:text-lg max-w-2xl">
+        大多数 React、Vue、Svelte 源文件可以直接复制过来，无需重写。需要做的事在于替换打包器配置，并把自动生成的 manifest 改回真实的 manifest.json。
+      </p>
+    </div>
+    <div className="ext-migrate-actions">
+      <a href="/zh-Hans/docs/compare/extension-js-vs-wxt" className="ext-migrate-btn">
+        对比 WXT ⏵
+      </a>
+      <a href="/zh-Hans/docs/migrate/from-crxjs" className="ext-migrate-btn">
+        从 CRXJS 迁移 ⏵
+      </a>
+    </div>
+  </div>
+</section>
+
+{/* ─────────── Sponsors ─────────── */}
+
+<section className="flex flex-col items-center text-center gap-6">
+  <div>
+    <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+      支持开源核心
+    </h2>
+    <p className="text-gray-600 dark:text-gray-300 mt-3 text-lg max-w-2xl">
+      赞助者让项目能更快发布版本、提供更好的开发者体验（DX），并为扩展团队带来长期可靠性。
+    </p>
+  </div>
+  <div className="ext-sponsors">
+    <a
+      href="https://extension.dev/?utm_medium=sponsor&utm_source=extensionjs"
+      rel="noreferrer"
+      target="_blank"
+      className="ext-sponsor-tile"
+      aria-label="extension.dev"
+    >
+      <img
+        alt="extension.dev"
+        src="/images/sponsors/extensiondev.svg"
+        loading="lazy"
+        className="ext-sponsor-logo block dark:hidden"
+      />
+      <img
+        alt="extension.dev"
+        src="/images/sponsors/extensiondev_dark.svg"
+        loading="lazy"
+        className="ext-sponsor-logo hidden dark:block"
+      />
+    </a>
+    <a
+      href="https://mintlify.com/?utm_medium=sponsor&utm_source=extensionjs"
+      rel="noreferrer"
+      target="_blank"
+      className="ext-sponsor-tile"
+      aria-label="Mintlify"
+    >
+      <img
+        alt="Mintlify"
+        src="/images/sponsors/mintlify.svg"
+        loading="lazy"
+        className="ext-sponsor-logo block dark:hidden"
+      />
+      <img
+        alt="Mintlify"
+        src="/images/sponsors/mintlify_dark.svg"
+        loading="lazy"
+        className="ext-sponsor-logo hidden dark:block"
+      />
+    </a>
+  </div>
+  <a
+    href="https://github.com/sponsors/extension-js"
+    target="_blank"
+    rel="noreferrer"
+    className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+  >
+    成为赞助者 ⏵
+  </a>
+</section>
+
+{/* ─────────── FAQ ─────────── */}
+
+  <section className="flex flex-col gap-8 max-w-3xl mx-auto w-full">
+    <div className="text-center">
+      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        常见问题
+      </h2>
+    </div>
+    <AccordionGroup>
+      <Accordion title="什么是浏览器扩展？">
+        浏览器扩展是为 Chrome、Firefox、Edge 或其他浏览器添加功能的软件。扩展可以注入 UI、响应浏览器事件，并调用页面本身无法使用的特权 API。详细介绍见[什么是浏览器扩展？](/zh-Hans/docs/concepts/what-is-a-browser-extension)。
+      </Accordion>
+      <Accordion title="Extension.js 算 Chrome 扩展框架吗？">
+        是的。Extension.js 既是 Chrome 扩展框架，也是 Firefox 和 Edge 的扩展框架，全部基于同一份项目。用 `--browser=chrome`、`--browser=firefox` 或 `--browser=edge` 指定目标。参见[支持的浏览器](/zh-Hans/docs/browsers/browsers-available)。
+      </Accordion>
+      <Accordion title="Extension.js 在开发时如何处理热模块替换？">
+        运行 `npx extension dev`，CLI 会监听项目变更。对 popup、content script、service worker 和 options 页面的修改都会走"在安全前提下尽可能快的更新路径"。CLI 在支持的情况下使用热模块替换（HMR），否则使用定向的重载。它会自动解决 service worker 残留、content script 漏更新等常见痛点。
+      </Accordion>
+      <Accordion title="如何用一份代码同时构建 Chrome、Edge 和 Firefox 扩展？">
+        Extension.js 把同一份代码编译成各浏览器对应的产物。一组命令就能为 Chrome、Edge、Firefox 以及其他基于 Chromium 的浏览器生成正确打包的构建。每份构建都会拿到对应的 manifest 格式、路径和平台调整。你的持续集成（CI）流水线用同一个构建步骤、传不同的浏览器参数即可。这能减少各商店提交版本之间的漂移。
+      </Accordion>
+      <Accordion title="可以用 React、Preact、Vue、Svelte 或 TypeScript 吗？">
+        可以。Extension.js 提供可直接发布的 React、Preact、Vue、Svelte、TypeScript 以及原生 JavaScript 模板。你编写组件的方式和在任何前端项目里一样，框架选择不会影响核心工作流。
+      </Accordion>
+      <Accordion title="Extension.js 支持 Manifest V3 吗？">
+        支持。整条工具链都是围绕 Manifest V3，以及当今各应用商店强制的限制构建的：service worker、声明式 API、新版权限模型，以及更严格的打包。Manifest V3（MV3）是默认设定，不是事后补丁。常见问题见 [Manifest V3 排错](/zh-Hans/docs/concepts/manifest-v3)。
+      </Accordion>
+      <Accordion title="如何排查 Manifest V3 的 service worker 和权限问题？">
+        Manifest V3 的大部分问题集中在几类：service worker 注册与 `type: "module"`、新版 `web_accessible_resources` 结构、`permissions` 和 `host_permissions` 的拆分，以及 Firefox 里的 `declarative_net_request` 差异。修复办法见 [Manifest V3 排错](/zh-Hans/docs/concepts/manifest-v3)。
+      </Accordion>
+      <Accordion title="如何从手写的 webpack 或 Vite 配置迁移过来？">
+        Extension.js 替你处理那些扩展专有的胶水代码：manifest 版本、跨浏览器产物、content script 注入和重载协调。把源码和 manifest 放进 Extension.js 项目里，剩下的交给 CLI。你的 React/Vue/Svelte/TS 代码无需重写。
+      </Accordion>
+      <Accordion title="Extension.js 支持 monorepo 和环境变量吗？">
+        Extension.js 支持 pnpm、npm 和 Yarn 工作区。路径解析与共享依赖可以跨工作区工作。Extension.js 会按浏览器和构建模式注入环境变量，并在 JS、JSON、HTML 中替换值。开发期的敏感信息绝不会泄漏进生产包。
+      </Accordion>
+      <Accordion title="Extension.js 是免费的吗？">
+        是的。Extension.js 是基于 [MIT 协议](https://github.com/extension-js/extension.js/blob/main/LICENSE)的开源项目。没有付费档位、用量上限，也没有"必须启用遥测"的模式。框架由赞助者与贡献者资助。具体的数据契约请参阅[遥测与隐私](/zh-Hans/docs/features/telemetry-and-privacy)。
+      </Accordion>
+      <Accordion title="Extension.js 支持 Safari 吗？">
+        目前还不支持。`--browser=safari` 目前不是 CLI 的目标之一。你仍然可以基于共享的 Web 代码编写 Safari 扩展，并在本工作流之外加入 Safari 专有的构建步骤。当前覆盖范围见[支持的浏览器](/zh-Hans/docs/browsers/browsers-available#safari-and-other-webkit-targets)。
+      </Accordion>
+      <Accordion title="Extension.js 会给我的包加什么？">
+        生产构建（`extension build`）只会输出扩展实际引用的代码，加上一段在生产中会被移除的小型重载运行时。开发构建额外包含 HMR 和重载胶水。产物位于 `dist/<browser>` 下，方便你在浏览器之间比对体积。content script 的体积接近于"你的源码 + 所选 UI 框架"的预期产物。
+      </Accordion>
+      <Accordion title="如何从 CRXJS、WXT 或 Plasmo 迁移？">
+        大多数 React、Vue、Svelte 源文件可以直接复制过来，无需重写。工作主要集中在三处：替换打包器配置、把自动生成的 manifest 改回手写的 `manifest.json`（配合[带浏览器前缀的键](/zh-Hans/docs/features/browser-specific-fields)），以及更新 `package.json` 的脚本。逐步指南见[从 CRXJS 迁移](/zh-Hans/docs/migrate/from-crxjs)。
+      </Accordion>
+    </AccordionGroup>
+  </section>
+
+  <div className="ext-footer">
+    <div className="ext-footer-inner">
+      <div className="ext-footer-cmd">
+        <code>npx extension@latest create my-extension</code>
+      </div>
+      <div className="ext-footer-right">
+        <ul className="ext-footer-links">
+          <li>
+            <a
+              href="https://github.com/extension-js/extension.js/blob/main/CODE_OF_CONDUCT.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              行为准则{" "}
+              <Icon icon="arrow-up-right-from-square" size={10} />
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://github.com/extension-js/extension.js/releases"
+              target="_blank"
+              rel="noreferrer"
+            >
+              更新日志 <Icon icon="arrow-up-right-from-square" size={10} />
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://github.com/extension-js/extension.js/security"
+              target="_blank"
+              rel="noreferrer"
+            >
+              安全 <Icon icon="arrow-up-right-from-square" size={10} />
+            </a>
+          </li>
+        </ul>
+        <p className="ext-footer-copy">
+          MIT (c) Cezar Augusto 与{" "}
+          <a href="/zh-Hans/docs/hall-of-fame">Extension.js 作者们</a>。
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

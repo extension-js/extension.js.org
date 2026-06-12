@@ -1,0 +1,127 @@
+---
+title: "頁面重新載入與熱模組替換(HMR)"
+description: "了解 Extension.js 如何在開發期間挑選最快又安全的更新路徑,從樣式的 HMR、強制重新載入,到需要重新啟動的變更皆涵蓋。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+  ]
+---
+
+針對每個檔案變更採用最輕量的更新策略,讓開發過程保持快速。
+
+每次檔案變更後想要快速看到結果嗎?Extension.js 會自動挑選最安全也最快的更新路徑:
+
+- **HMR(熱模組替換)** :當模組更新是安全的時候
+- **強制重新載入擴充功能**:當執行階段關鍵的資源變更時
+- **需要重新啟動的錯誤/警告**:當入口點結構變更時
+
+## 重新載入的前置條件(devtools 設定對話框)
+
+在評估重新載入行為之前,先確認 Extension.js devtools 中**Confirm setup** 對話框列出的設定檢查:
+
+| 設定步驟                                                 | 為何對重新載入/HMR 重要                                                                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 在 `chrome://extensions` 中啟用 Developer mode           | 確保開發期間擴充功能執行階段的更新(包含 service worker 變更)能可靠地套用。                                  |
+| 允許 content script 的本機網路存取提示                   | 當瀏覽器請求網路權限時,content script 的重新載入流程需要這項權限。                                            |
+
+如果略過其中任何一步,即使建置管線本身正常,重新載入行為仍可能看起來不一致。
+
+## 重新載入層級
+
+### 1)熱模組替換(最快路徑)
+
+當程式碼能在不重啟擴充功能背景程序與事件監聽器的前提下更新,Extension.js 會使用 HMR。
+
+常見例子:
+
+- 附加在擴充功能 HTML 頁面上的腳本(透過注入的 HMR 包覆層接收更新)
+- 在非 service worker 流程中的 background 腳本模組
+- 透過 [`userScripts` API](https://developer.chrome.com/docs/extensions/reference/api/userScripts) 註冊的腳本
+- 在支援的 content script/執行階段包覆層中進行的 CSS 更新
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a small JS/CSS change applied instantly through HMR without full extension reload. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 2)強制重新載入擴充功能
+
+部分檔案變更需要重新載入擴充功能本身的執行階段。
+
+常見的強制重新載入觸發條件:
+
+- `manifest.json`
+- `_locales/**.json`
+- Service worker/background 執行階段關鍵變更
+- Content script 輸出變更(Extension.js 的瀏覽器執行器會強制重新載入擴充功能以維持一致性)
+
+Extension.js 在內部會套用各瀏覽器專屬的強制重新載入機制(Chromium 與 Firefox 的底層流程不同),但在 CLI 層級統一行為。
+
+> **為什麼開發時 content script 檔名會包含 hash?**
+>
+> Chrome 會積極快取 `chrome-extension://` 的資源。像 `content-0.js` 這種固定的檔名,即使在完整重新載入擴充功能後,仍可能提供過時的程式碼。Extension.js 會在開發期附加短的建置 hash(例如 `content-0.abcd1234.js`)。每次重新建置都會產生新的 URL,繞過快取。正式建置則使用乾淨的檔名。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a manifest or locale change triggering full extension reload during development. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 3)需要重新啟動(dev server)
+
+當擴充功能入口點的參照變動(不是只有模組內容變動)時,Extension.js 會回報「需要重新啟動」的診斷。這能避免你帶著過時的相依性圖繼續開發。
+
+典型的需重新啟動情境:
+
+- Manifest 腳本入口清單變動
+- HTML 入口的腳本/樣式參照變動
+- 在 watch 模式下,`pages/` / `scripts/` 的檔案集合變動(特別是移除)
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a file-entry change that triggers restart-required guidance in dev output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 行為對照表
+
+| 變更類型                                                                       | 預設行為                       |
+| ------------------------------------------------------------------------------ | ------------------------------ |
+| 既有入口中 JS/CSS 的模組更新                                                   | 在支援處走 HMR                 |
+| `manifest.json` / 語系檔 / service worker 關鍵更新                              | 強制重新載入擴充功能           |
+| 入口點結構更新(manifest 清單、HTML 中的 script/style 參照)                     | 需要重新啟動                   |
+| 在 watch 期間於 `pages/` 或 `scripts/` 新增/移除檔案                            | 警告/錯誤並附上重新啟動指引     |
+
+## 重新載入位於 manifest 之外的腳本與 HTML
+
+`pages/` 與 `scripts/` 採用與 manifest 宣告資源相同的重新載入策略。
+
+- 既有的模組更新可走 hot-update 路徑。
+- 入口集合變動(新增/移除或參照圖變更)可能需要重新啟動。
+
+**範例:**
+
+```plaintext
+pages/
+└── extra-page.html
+scripts/
+└── extra-script.js
+```
+
+<Note>
+  Extension.js 會辨識 `/pages` 與 `/scripts` 資料夾以進行 hot-reloading,並把每個入口視為可獨立重新載入的頁面或腳本。
+</Note>
+
+<Note>
+  從 `/scripts/*` 透過 `chrome.scripting.executeScript` 程式化注入的腳本會在修改時**重新播放**。當你修改 `/scripts/` 下的檔案時,Extension.js 會在同一個分頁重新執行相同的注入,並拆解前一次的掛載——讓動態注入的腳本能像宣告式 `content_scripts` 一樣即時更新,而不會留下過時 DOM,直到你手動重新觸發為止。這是僅在開發時的便利功能。
+</Note>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `pages/` and `scripts/` updates using HMR vs restart-required behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳實務
+
+- 在開發過程中盡量維持入口點參照穩定,以最大化 HMR。
+- 將 `manifest.json` 與語系檔的修改集中處理,避免一再觸發強制重新載入。
+- 將不在 manifest 中的資源放在 `pages/` 與 `scripts/`,並在檔案集合或入口串接變更時重新啟動。
+- 把「需要重新啟動」的診斷當作刻意設計的安全檢查,而不是暫時性的警告。
+
+## 後續步驟
+
+- 在 [特殊資料夾](/zh-Hant/docs/features/special-folders) 中檢視非 manifest 資源的流程。
+- 在 [Dev update behavior](/zh-Hant/docs/workflows/dev-update-behavior) 中了解結構更新的結果。

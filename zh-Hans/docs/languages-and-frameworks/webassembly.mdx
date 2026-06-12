@@ -1,0 +1,152 @@
+---
+title: "浏览器扩展中的 WebAssembly"
+description: "在浏览器扩展中使用 WebAssembly，无需自定义打包器配置。Extension.js 在其 Rspack 构建管线中内置了 Wasm 支持。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "typescript",
+    "javascript",
+  ]
+---
+
+在你的扩展中使用 WebAssembly，无需自定义打包器配置。
+
+Extension.js 在其 Rspack 管线中内置了 WebAssembly（Wasm）的默认配置，常见的 Wasm 工作流无需额外配置即可工作。
+
+## WebAssembly 适合什么场景
+
+- 你需要在扩展中运行计算密集型任务（解析、媒体处理、光学字符识别（OCR）、各类转换）。
+- 你需要让频繁执行的代码路径接近原生性能。
+- 你在复用来自 Web 项目的现有 Wasm 模块。
+
+## WebAssembly 能力
+
+| 能力                          | 你能获得什么                                                |
+| ----------------------------- | ----------------------------------------------------------- |
+| 内置 Wasm 管线默认值          | 无需手动接线即可运行常见的 Wasm 工作流                      |
+| 异步 Wasm 支持                | 在扩展上下文中加载 `.wasm` 模块                             |
+| 运行时兼容性辅助              | 处理常见的 Wasm 生态资源模式                                |
+| 一致的命令工作流              | 使用相同的 `dev` 和 `build` 命令运行 Wasm                   |
+
+## 模板示例
+
+### `sidebar-transformers-js`
+
+![sidebar-transformers-js template screenshot](/images/examples/sidebar-transformers-js/screenshot.png)
+
+使用 Transformers.js 并由 WebAssembly 驱动推理的 AI/ML 侧边栏扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/sidebar-transformers-js](https://github.com/extension-js/examples/tree/main/examples/sidebar-transformers-js)
+
+## Extension.js 启用了什么
+
+Wasm 插件会配置：
+
+- `experiments.asyncWebAssembly = true`
+- 把 `.wasm` 加入模块解析的扩展名列表
+- 为常见 Wasm 库设置路径别名（例如用于媒体处理的 ffmpeg、用于图像处理的 imagemagick、用于 OCR 的 tesseract），以便在运行时正确解析导入。
+
+这减少了在扩展脚本/页面中导入 Wasm 模块时的样板代码。
+
+## 如何使用
+
+像平常的开发/构建流程一样，在扩展代码中使用 Wasm 模块：
+
+<CodeGroup>
+
+```bash npm
+npx extension dev ./my-extension
+```
+
+```bash pnpm
+pnpx extension dev ./my-extension
+```
+
+```bash yarn
+yarn dlx extension dev ./my-extension
+```
+
+```bash bun
+bunx extension dev ./my-extension
+```
+
+```bash bun
+bunx extension dev ./my-extension
+```
+
+</CodeGroup>
+
+你也可以拿一个已知的公开 Wasm 示例来测试：
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash pnpm
+pnpx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash yarn
+yarn dlx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash bun
+bunx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash bun
+bunx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+</CodeGroup>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running a Wasm sample extension, loading it in the browser, and verifying Wasm-powered behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 典型使用场景
+
+- 计算密集型的解析/转换。
+- 媒体处理流水线。
+- OCR / 图像处理工作流。
+- 在 Web/运行时上下文之间共享的、对性能敏感的算法。
+
+## 最佳实践
+
+- 让 Wasm 模块专注于热点路径；把编排逻辑留在 JavaScript/TypeScript 中。
+- 针对扩展上下文（background、content scripts、页面）验证输出体积和加载时机。
+- 在你要发布的所有浏览器目标（`chrome`、`edge`、`firefox`）上测试 Wasm 密集的流程。
+
+## 下一步
+
+- 进一步了解 [WebAssembly](https://webassembly.org/)。
+- 了解 Extension.js 如何处理 [ECMAScript Modules](/zh-Hans/docs/languages-and-frameworks/ecmascript-modules)。

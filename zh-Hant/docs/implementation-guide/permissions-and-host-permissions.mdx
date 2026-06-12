@@ -1,0 +1,96 @@
+---
+title: "權限與主機權限"
+description: "為擴充功能設計最小權限組合。涵蓋必要、可選與主機權限,提升使用者信任度與商店審核成功率。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "content script",
+    "popup",
+    "docs",
+    "implementation guide",
+    "permissions and host permissions",
+  ]
+---
+
+讓擴充功能保有應有的能力,同時不索取超出功能所需的權限。
+
+Extension.js 會編譯並驗證你的擴充功能,但瀏覽器仍然會依 `manifest.json` 中的 `permissions`、`host_permissions` 與 `optional_*` 欄位強制執行權限規則。良好的權限設計能提升信任感,也能減少商店審核時的問題。
+
+## 權限策略
+
+| 需求                                                  | 建議選擇                    |
+| ----------------------------------------------------- | --------------------------- |
+| 擴充功能運作所需的核心 API 存取                       | `permissions`               |
+| 安裝時就需要的主機存取                                | `host_permissions`          |
+| 之後再要求的能力                                      | `optional_permissions`      |
+| 只有部分使用者需要的網域存取                          | `optional_host_permissions` |
+
+## 常見模式
+
+### 背景驅動的功能
+
+把所需的瀏覽器 API 放在 `permissions`,僅加入該功能必要的主機比對:
+
+```json
+{
+  "manifest_version": 3,
+  "permissions": ["storage", "tabs", "scripting"],
+  "host_permissions": ["https://example.com/*"]
+}
+```
+
+### 可選的能力
+
+如果首次使用體驗不需要某個功能,把它保留為可選:
+
+```json
+{
+  "manifest_version": 3,
+  "permissions": ["storage"],
+  "optional_permissions": ["notifications"],
+  "optional_host_permissions": ["https://api.example.com/*"]
+}
+```
+
+## 實務規則
+
+- 只有在功能真正需要時,才申請 API 權限。
+- 把 `host_permissions` 限縮到能正常運作的最小來源集合。
+- 對次要或進階功能,優先採用可選權限。
+- 每當新增背景動作、content script 注入或遠端 API 呼叫時,都重新審視權限。
+
+## 依功能類型規劃權限
+
+| 功能                                       | 通常涉及                                                |
+| ------------------------------------------ | ------------------------------------------------------- |
+| 在特定網站上的 content script 增強功能      | 該網站的 `host_permissions`,有時加上 `scripting`        |
+| 僅有 popup 或選項頁的介面                  | 通常完全不需要主機權限                                   |
+| 透過程式注入                                | `scripting` 搭配對應的主機權限                          |
+| 跨分頁工作流程                             | `tabs`,有時也會用 `activeTab`                          |
+| 永久保存設定                               | `storage`                                              |
+| 通知或徽章                                 | `notifications` 及 `action` 相關 manifest 欄位          |
+
+## 常見錯誤
+
+- 當你其實只需要一兩個來源時,卻使用 `<all_urls>` 這類過寬的萬用字元。
+- 把 `host_permissions` 加到原本可以改用更小範圍、由使用者觸發的工作流程的功能上。
+- 忘了 content scripts、Web Accessible Resources,以及透過 `chrome.scripting` 注入的指令碼,三者在安全性上有不同的影響。
+- 在功能文件中只列出權限,卻沒有說明每個權限為什麼存在。
+
+## 審查檢查清單
+
+1. 列出每個面向使用者的功能。
+2. 把每個功能對應到實際需要的 API 與主機權限。
+3. 將非核心權限盡可能移到可選權限。
+4. 移除舊實驗遺留下來、已無用途的權限。
+5. 變更後重新測試安裝提示與瀏覽器商店預期行為。
+
+## 下一步
+
+- 在 [manifest.json](/zh-Hant/docs/implementation-guide/manifest-json) 中維持單一 manifest 正確無誤。
+- 在 [Web Accessible Resources](/zh-Hant/docs/implementation-guide/web-accessible-resources) 中審視頁面存取。
+- 在 [訊息傳遞](/zh-Hant/docs/implementation-guide/messaging) 中驗證邊界處理。
+- 以 [安全性檢查清單](/zh-Hant/docs/workflows/security-checklist) 進行發行前審視。
+- 在 [Manifest V3 疑難排解](/zh-Hant/docs/concepts/manifest-v3) 中比較 `permissions` 與 `host_permissions` 的行為。

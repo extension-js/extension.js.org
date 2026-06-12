@@ -1,0 +1,164 @@
+---
+title: "扩展中的 JavaScript 与 TypeScript"
+description: "用 Extension.js 的统一流水线交付横跨 background、content scripts 与 UI 页面的 JavaScript 与 TypeScript，底层由 Rspack 与 SWC 转换驱动。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "typescript",
+    "javascript",
+    "hmr",
+    "content script",
+    "service worker",
+  ]
+---
+
+用一套 JavaScript/TypeScript 流水线，跨 background、content scripts 与 UI 页面交付扩展行为。
+
+Extension.js 会从 `manifest.json`、HTML 页面以及特殊文件夹中收集脚本入口点，并使用默认的、基于 SWC（Speedy Web Compiler）的配置进行编译。
+
+## 模板示例
+
+### `javascript`
+
+![javascript template screenshot](/images/examples/javascript/screenshot.png)
+
+带新标签页的原生 JavaScript 扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=javascript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=javascript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=javascript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=javascript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=javascript
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/javascript](https://github.com/extension-js/examples/tree/main/examples/javascript)
+
+### `content`
+
+![content template screenshot](/images/examples/content/screenshot.png)
+
+注入网页的原生 JavaScript content script。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+## JavaScript 能力
+
+| 能力                    | 它给你带来什么                                                  |
+| ----------------------- | --------------------------------------------------------------- |
+| 共享的 JS/TS 流水线     | 用一套默认转换器配置编译扩展脚本                                |
+| 入口点发现              | 从 manifest、页面与特殊文件夹中加载脚本入口                     |
+| 运行时安全的输出        | 为每个扩展上下文产出可预期的脚本产物                            |
+| 路径规范化              | 在受支持的范围内，把扩展路径字面量重写为输出安全的路径          |
+
+## 支持的脚本入口点
+
+| Manifest 字段               | 期望的文件类型               |
+| --------------------------- | ---------------------------- |
+| `background.service_worker` | `.js`、`.ts`、`.mjs`、`.tsx` |
+| `background.scripts`        | `.js`、`.ts`、`.mjs`、`.tsx` |
+| `content_scripts.js`        | `.js`、`.ts`、`.mjs`、`.tsx` |
+| `user_scripts.api_script`   | `.js`、`.ts`、`.mjs`、`.tsx` |
+
+## `manifest.json` 中的脚本声明示例
+
+`manifest.json` 中的脚本声明示例：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./scripts/background.ts"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/content-script.ts"]
+    }
+  ]
+}
+```
+
+## 开发期行为
+
+- **Content scripts：** Extension.js 注入热模块替换（HMR）/重新挂载流程，实现快速更新。
+- **扩展页面：** 页面脚本遵循页面 HMR 行为。
+- **Background/service worker：** 脚本更新可能触发扩展硬重载，具体取决于变更类型。
+- **入口列表变更：** 修改 manifest 的脚本结构可能需要重启 dev server。
+
+## 脚本位置与约定
+
+- 用项目根目录下的 `scripts/` 放以脚本为中心的扩展入口。
+- 用 `pages/` 放带有自己脚本的 HTML 入口点。
+- 让 manifest 引用的路径保持稳定；不要在未同步更新 manifest 的情况下移动入口文件。
+
+## 转换与打包默认值
+
+- JS/TS/JSX/TSX 的默认转换器是 SWC。
+- Extension.js 使用浏览器优先的 `package.json` 字段解析（`browser`、`module`、`main`）。
+- Extension.js 以可预期的方式输出入口，默认不会把代码拆分到独立的输出文件中。
+- 路径解析会重写受支持 API 中的静态扩展路径字面量。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one feature script reused across popup, content script, and background contexts with target-safe compiled output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 动态导入注意事项
+
+- Content script 的动态 import 有运行时约束；Extension.js 在可能的情况下使用 loader fallback。
+- Service worker 的懒加载受浏览器限制；对必须在 service worker 启动时立即可用的代码，优先使用静态导入。
+
+## 最佳实践
+
+- 让入口脚本保持轻量，把功能逻辑放到共享模块中。
+- 对扩展 API 优先使用静态导入路径，便于路径解析安全规范化。
+- 在 content scripts 与 service workers 中避免不必要的动态 import。
+- 在开发流程中，把 manifest 脚本列表的修改视为结构性变更。
+
+## 下一步
+
+- 在 [dev update behavior](/zh-Hans/docs/workflows/dev-update-behavior) 中理解更新结果。
+- 学习如何用 [Special folders](/zh-Hans/docs/features/special-folders) 组织文件。
+- 继续阅读 [background scripts and service workers](/zh-Hans/docs/implementation-guide/background)。

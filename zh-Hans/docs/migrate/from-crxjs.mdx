@@ -1,0 +1,159 @@
+---
+title: "从 CRXJS 迁移到 Extension.js"
+description: "把一个 Vite + CRXJS 的浏览器扩展项目分步迁移到 Extension.js。清晰地映射 manifest、入口点、脚本与 HMR 行为。"
+keywords:
+  [
+    "crxjs migration",
+    "crxjs to extension.js",
+    "vite chrome extension migration",
+    "replace crxjs",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+[CRXJS](https://crxjs.dev) 是面向 Chrome 扩展的 Vite 插件。如果你已经超出了仅限 Chrome 的范围、希望获得一流的 Firefox 输出，或者遇到了重载循环的各种怪问题，这份指南会在不重写你的 UI 代码的前提下，把一个典型的 CRXJS 项目迁移到 Extension.js。
+
+<Note>
+  你是因为在 Vite 8 上 `vite build` 报 `[crx:manifest-post] Content
+  script fileName is undefined` 才来到这里的吗？在迁移之前，请先看
+  [专门的修复页](/zh-Hans/docs/migrate/crxjs-content-script-filename-undefined)
+  里的变通方案。
+</Note>
+
+## 哪些会变，哪些不变
+
+**保持不变：** 你的 React/Vue/Svelte 组件、你的 Tailwind 配置、你的测试、你对 `chrome.*` API 的调用。
+
+**会变化：**
+
+- `vite.config.ts` + `@crxjs/vite-plugin` 变成 `extension.config.js`（或者根本不需要配置）。
+- `manifest.config.ts`（TypeScript 模块）变成普通的 `manifest.json`，搭配 [带浏览器前缀的键](/zh-Hans/docs/features/browser-specific-fields)。
+- `vite` / `vite build` 脚本变成 `extension dev` / `extension build`。
+- Extension.js dev 取代 Vite 的 dev server，内置浏览器启动、profile 管理与按目标的重载。
+
+## 步骤 1：安装 Extension.js
+
+```bash
+npm install extension@latest --save-dev
+npm uninstall @crxjs/vite-plugin vite
+```
+
+如果你的项目还在非扩展场景（例如一个市场宣传站点）里使用 Vite，请把 Vite 限定在那个 workspace 中保留。
+
+## 步骤 2：转换 manifest
+
+CRXJS 使用一个 TypeScript 模块：
+
+```ts manifest.config.ts
+import { defineManifest } from "@crxjs/vite-plugin";
+import pkg from "./package.json";
+
+export default defineManifest({
+  manifest_version: 3,
+  name: pkg.name,
+  version: pkg.version,
+  action: { default_popup: "src/popup/index.html" },
+  background: { service_worker: "src/background/index.ts" },
+  content_scripts: [{ matches: ["<all_urls>"], js: ["src/content/index.ts"] }],
+});
+```
+
+在 Extension.js 中，写一份真实的 `manifest.json` 并引用真实的文件：
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "my-extension",
+  "version": "1.0.0",
+  "action": { "default_popup": "popup/index.html" },
+  "background": { "service_worker": "background/index.ts" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content/index.ts"] }]
+}
+```
+
+注意：
+
+- manifest 中的文件扩展名仍然是 `.ts`/`.tsx`。Extension.js 会在构建时编译它们。
+- 如果你把目录扁平化了，去掉 `src/` 前缀。Extension.js 会跟随你 manifest 中声明的任何路径。
+- 对于浏览器特定的值，使用 [带前缀的键](/zh-Hans/docs/features/browser-specific-fields)（如 `firefox:browser_specific_settings`），而不是给每个构建写一份 manifest。
+
+## 步骤 3：更新 package.json 脚本
+
+把：
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  }
+}
+```
+
+替换为：
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "start": "extension start"
+  }
+}
+```
+
+完整命令集见 [命令参考](/zh-Hans/docs/commands/index)。
+
+## 步骤 4：移除 vite.config.ts
+
+如果你的 `vite.config.ts` 只是为了接入 CRXJS，请删掉它。如果其中还有其他插件，把对应能力迁移到 [`extension.config.js`](/zh-Hans/docs/features/extension-configuration)，或在需要进阶打包器定制时迁移到 [Rspack 配置](/zh-Hans/docs/features/rspack-configuration)。
+
+## 步骤 5：处理 HMR 的差异
+
+CRXJS 的 HMR 通过 Vite 的 WebSocket 推送更新。Extension.js 采用不同的模型，详见 [重载与 HMR](/zh-Hans/docs/features/reload-and-hmr)：
+
+- popup、options、devtools 页面：HMR。
+- content script：定向重载。
+- background service worker：完整重启。
+
+如果你的代码依赖 Vite 的 `import.meta.hot` 来处理 content-script 逻辑，请把那些分支替换为普通的模块代码。Extension.js 在你的源码之外编排重载。
+
+## 步骤 6：跨浏览器输出
+
+CRXJS 面向 Chromium。要同时输出 Firefox，请运行：
+
+```bash
+extension build --browser=chrome,firefox --zip
+```
+
+你会得到 `dist/chrome` 与 `dist/firefox`，它们各自携带浏览器正确的 manifest 与 `.zip` 归档，可以直接提交到 Chrome Web Store 和 addons.mozilla.org。参见 [跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
+
+## 步骤 7：验证
+
+```bash
+extension dev --browser=chrome
+```
+
+验证 popup、options、content script 与 background 的行为。然后在 Firefox 上验证：
+
+```bash
+extension dev --browser=firefox
+```
+
+如果你的代码调用 `chrome.*`，并希望同一份源码在 Firefox 上不做改动就能运行，请使用 `--polyfill`。
+
+## 常见坑
+
+- **Service worker 的 `import` 语句：** 当你的 background 入口使用 ESM 语法时，Extension.js 会自动设置 `type: "module"`。CRXJS 也是这么做的。无需任何操作。
+- **`web_accessible_resources` 的类型：** Manifest V3 使用 `[{resources, matches}]` 这种结构块。两个框架都会输出正确的形状；把已有条目原样复制过来即可。
+- **带 hash 的资源路径：** Extension.js 在 [`dist/<browser>`](/zh-Hans/docs/features/path-resolution) 下使用稳定路径。如果你的代码硬编码了 Vite 风格的 hash 文件名，请替换为相对 manifest 的路径。
+
+## 参见
+
+- [跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)
+- [浏览器特定的 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)
+- [重载与 HMR](/zh-Hans/docs/features/reload-and-hmr)
+- [Manifest V3 排错](/zh-Hans/docs/concepts/manifest-v3)

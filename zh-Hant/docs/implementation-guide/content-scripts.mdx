@@ -1,0 +1,389 @@
+---
+title: "支援 HMR 與 manifest 進入點的 Content scripts"
+description: "用 content scripts 打造與頁面整合的功能。Extension.js 會編譯 manifest 進入點、包裝它們以支援 HMR,並輸出可預期的構件。"
+keywords:
+  [
+    "manifest v3 content scripts",
+    "chrome extension content scripts",
+    "content scripts documentation",
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "javascript",
+    "react",
+    "hmr",
+  ]
+---
+
+用 content scripts 建構與頁面整合的擴充功能功能,同時為 JS 與 CSS 更新維持可靠的開發迴圈。
+
+Extension.js 會從 `manifest.json` 編譯 content script 進入點,並包裝它們以支援執行階段掛載與熱模組替換 (HMR) 行為。它會輸出可預期的 `content_scripts/*` 構件。
+
+## Content script 能力
+
+| 能力                          | 帶給你什麼                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------- |
+| 由 manifest 驅動的進入點       | 直接從 manifest 編譯 JS/CSS content script 清單                                          |
+| 開發期重新掛載流程             | 透過 wrapper 驅動的行為快速更新指令碼 / 樣式                                             |
+| MAIN 與 isolated world 支援   | 使用 MAIN world(頁面 JavaScript 情境)或 isolated world(沙箱化的擴充功能情境)         |
+| 可預期的輸出版面               | 輸出正規化的 `content_scripts/*` 構件                                                    |
+
+## 範本範例
+
+### `content`
+
+![content template screenshot](/images/examples/content/screenshot.png)
+
+最簡單的純 JS content script 設定。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+### `content-react`
+
+![content-react template screenshot](/images/examples/content-react/screenshot.png)
+
+透過 content script 把以 React 打造的 UI 注入網頁。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-react
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-react
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-react](https://github.com/extension-js/examples/tree/main/examples/content-react)
+
+## 支援的 manifest 欄位
+
+| Manifest 欄位          | 預期檔案類型                          |
+| ---------------------- | ------------------------------------- |
+| `content_scripts.js`   | `.js`, `.jsx`, `.ts`, `.tsx`, `.mjs`  |
+| `content_scripts.css`  | `.css`, `.scss`, `.sass`, `.less`     |
+
+## Content script 宣告範例
+
+`manifest.json` 中的 content script 宣告範例:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/content-script.ts"],
+      "css": ["./styles/content-style.css"]
+    }
+  ]
+}
+```
+
+## 撰寫合約
+
+對每個 content-script 類進入點,Extension.js 期望有一個掛載式的 default export。它是一個負責設定行為、可選擇性回傳清理回呼的函式:
+
+- 模組必須 `export default` 一個同步函式。
+- 該函式負責執行設定工作。
+- 它可以回傳一個同步的清理回呼。
+- Extension.js 不支援用 class 作為 default export。
+
+這套規則適用於:
+
+- `manifest.json > content_scripts[*].js` 引用的檔案。
+- 你放在專案 `scripts/` 資料夾下並作為指令碼進入點使用的檔案。
+
+### 有效的形式
+
+```ts
+export default function main() {
+  return () => {};
+}
+```
+
+```ts
+const main = () => {};
+export default main;
+```
+
+### 無效的形式
+
+```ts
+export default class App {}
+```
+
+```ts
+export default {};
+```
+
+### 非同步 content script 的指引
+
+即使功能內部會做非同步工作,也讓 default export 保持同步。在函式內部啟動非同步工作,並回傳一個同步的清理回呼。
+
+為什麼這很重要:Extension.js 在開發期間會重新掛載 content scripts。若沒有清理函式,你可能會重複掛載 UI、事件監聽器、observer 與計時器。
+
+## 違反合約時會發生什麼事
+
+- 沒有 default export:Extension.js 在開發期間會發出警告並跳過掛載。
+- default export 不是函式:Extension.js 在開發期間會發出警告並跳過掛載。
+- default export 回傳 Promise:模組仍會執行,但 Extension.js 不會把該 `Promise` 視為清理回呼。
+
+如果你的 content script 看起來能編譯但從未掛載,先檢查 default export。
+
+## 執行階段 wrapper 行為
+
+- Extension.js 會用掛載 / 執行階段輔助程式包裝 content script 模組。
+- 在開發模式下,Extension.js 會加入 HMR accept/dispose 行為與重新掛載流程。
+- CSS 更新在開發期間會觸發 remount 事件(`__EXTENSIONJS_CSS_UPDATE__`)。
+- Extension.js 會遵循 manifest 設定的 `run_at` 時機。
+
+## 多個進入點的 content scripts
+
+你可以在同一份 manifest 中宣告多個 content script 進入點。每個進入點都會依自己的比對模式、執行時機與 world 設定獨立編譯。
+
+### `content-multi-one-entry`
+
+![content-multi-one-entry template screenshot](/images/examples/content-multi-one-entry/screenshot.png)
+
+把多個 content scripts 包在同一個 `content_scripts` manifest 條目下。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-multi-one-entry](https://github.com/extension-js/examples/tree/main/examples/content-multi-one-entry)
+
+### `content-multi-three-entries`
+
+![content-multi-three-entries template screenshot](/images/examples/content-multi-three-entries/screenshot.png)
+
+三個獨立的 `content_scripts` manifest 條目,各有獨立的比對模式。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-multi-three-entries](https://github.com/extension-js/examples/tree/main/examples/content-multi-three-entries)
+
+## `scripts/` 資料夾行為
+
+`scripts/` 資料夾用來放沒有任何 HTML 頁面進入點宣告的指令碼進入點。實務上,這些進入點遵循與 content scripts 相同的 default export 模式。
+
+也就是說,`scripts/` 不是放置零散 JavaScript 檔案的通用資料夾:
+
+- 指令碼進入檔案在掛載行為時仍應 export 一個 default 函式
+- 在 watch 模式下,Extension.js 會把在 `scripts/` 下新增或移除支援的檔案視為結構性變更
+- 當進入檔案集合變動時,Extension.js 可能需要重新啟動 dev server
+
+{/* VIDEO_PLACEHOLDER_TODO: Show isolated-world and MAIN-world content script behavior differences, plus live update flow for JS and CSS changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 輸出路徑
+
+Extension.js 會依 manifest 條目索引正規化 content script 進入點:
+
+```plaintext
+content_scripts/
+├── content-0.js          # production
+├── content-0.abcd1234.js # development (hash-based cache busting)
+├── content-0.css
+└── ...
+```
+
+在 **開發模式** 下,content script JS 檔名會帶有短雜湊後綴(例如 `content-0.abcd1234.js`)。這會強制瀏覽器在每次重新建置後載入一個新的 `chrome-extension://` URL。
+
+Chrome 會積極快取擴充功能資源,因此雜湊可避免讀到舊程式碼。正式版建置會使用乾淨的 `content-0.js` 名稱。
+
+## MAIN world 注意事項
+
+### `content-main-world`
+
+透過一個能直接把 UI 注入頁面情境的可用範例,實際看看 MAIN world content scripts:
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-main-world
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-main-world
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-main-world
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-main-world
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-main-world
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-main-world](https://github.com/extension-js/examples/tree/main/examples/content-main-world)
+
+- **`world: "MAIN"` 只支援 Chromium。** Firefox 不支援 `world` 欄位並會忽略它。你的指令碼在 Firefox 上仍然會在 isolated world 中執行。
+- **跨瀏覽器的 MAIN world 行為:** 用 `chromium:` manifest 前綴僅針對 Chromium 目標宣告,並為 Firefox 提供一份 isolated world 的備用版本。
+- 在開發期間,MAIN world 指令碼會透過內部 bridge 機制載入程式碼 chunk 與解析 public 路徑。
+- 在 MAIN world **無法使用** 擴充功能 API(`chrome.runtime`、`chrome.storage` 等),你只能存取頁面情境的全域物件。
+- 把 MAIN world 視為進階用法。儘早在每個目標瀏覽器上驗證行為。
+
+### Isolated 與 MAIN 的簡短範例
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/main-world.ts"],
+      "world": "MAIN"
+    }
+  ]
+}
+```
+
+預設使用 isolated world。只有在需要頁面情境存取時才使用 `MAIN`,並考量擴充功能 API 與執行階段的限制。
+
+### 跨瀏覽器的 MAIN world 模式
+
+用 [瀏覽器專屬前綴](/zh-Hant/docs/features/browser-specific-fields) 僅針對 Chromium 宣告 MAIN world,並為 Firefox 提供 isolated world 的備用版本:
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "chromium:js": ["./scripts/main-world.ts"],
+      "chromium:world": "MAIN"
+    }
+  ]
+}
+```
+
+Firefox 會完全跳過 `chromium:` 前綴的欄位,因此只有 Chromium 目標會收到 MAIN world 的指令碼。
+
+## 比對與執行指引
+
+仍然是瀏覽器決定 content script 在哪裡執行。Extension.js 負責打包檔案,但 manifest 條目仍然定義何時、何地執行該指令碼。
+
+- 把 `matches` 收斂到功能能正常運作的最小範圍。
+- 只有在功能真的需要這些行為時,才加入 `exclude_matches`、`all_frames` 或 `match_about_blank`。
+- 把 `run_at` 與 `world` 當成功能合約的一部分,而不是實作細節。
+- 變更 content script 執行位置時,重新測試權限與主機權限的範圍。
+
+## 開發行為
+
+- 編輯 content script 程式碼通常會透過 wrapper 驅動的 HMR/remount 流程更新。
+- 只有 CSS 的進入點會收到開發輔助行為,讓樣式更新得以傳遞。
+- 如果 manifest 中的 content script 進入點清單改變,Extension.js 可能需要重新啟動 dev server。
+
+## 最佳實務
+
+- 讓 content script 進入檔案保持小巧,把邏輯委派到共用模組。
+- 仔細限縮選擇器 / 樣式範圍,避免與宿主頁面衝突。
+- 在行為依賴時機 / 情境時,優先使用明確的 `run_at` 與 `world` 值。
+- 把 manifest content-script 清單變動視為開發中的結構性變更。
+- 透過經過驗證的訊息傳遞傳遞頁面衍生資料,而不是直接在 content script 中執行具特權的工作。
+- 預設使用 isolated world,只有在嚴格需要頁面情境時才改用 `MAIN`。
+
+## 下一步
+
+- 在 [開發更新行為](/zh-Hant/docs/workflows/dev-update-behavior) 中了解更新結果。
+- 用 [訊息傳遞](/zh-Hant/docs/implementation-guide/messaging) 設計跨情境通訊。
+- 在 [權限與主機權限](/zh-Hant/docs/implementation-guide/permissions-and-host-permissions) 中審視存取範圍。
+- 了解 [Web Accessible Resources](/zh-Hant/docs/implementation-guide/web-accessible-resources)。
+- 繼續閱讀 [開發中的語系](/zh-Hant/docs/implementation-guide/locales)。

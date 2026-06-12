@@ -1,0 +1,106 @@
+---
+title: "擴充功能效能 Playbook"
+description: "在 content script、service worker 與 UI 介面上保持擴充功能啟動快速、執行時開銷低,並預防常見的效能退化。"
+keywords:
+  [
+    "browser",
+    "playwright",
+    "content script",
+    "service worker",
+    "popup",
+    "docs",
+    "workflows",
+    "performance playbook",
+  ]
+---
+
+擴充功能的效能退化通常來自少數幾個固定地方。最常見的包括 service worker 的冷啟動(初始啟動延遲)、沉重的 content script 注入、過大的 UI bundle,以及大量媒體的 web-accessible resources。
+
+下方檢查清單把每一類問題對應到具體的修復方式。
+
+## 效能優化能力
+
+| 範圍              | 它能幫你優化什麼                                                          |
+| ----------------- | ------------------------------------------------------------------------- |
+| Content scripts   | 注入成本、DOM 工作時機,以及 remount 開銷                                  |
+| Service worker    | 啟動路徑、事件處理成本與冷啟動行為                                        |
+| UI 介面           | 初次渲染大小,以及選用功能的載入                                          |
+| 資源              | bundle 大小、icon/媒體重量,以及 web-accessible resource 佔用              |
+| 運作              | 持續整合(CI)檢查與執行階段退化追蹤                                        |
+
+## 快速優化流程
+
+1. 在單一目標瀏覽器上量測首次執行行為。
+2. 削減 content script 與背景處理器中的同步啟動工作。
+3. 把選用 UI 功能延後到首次渲染後。
+4. 重新檢查建置輸出大小,並對關鍵流程做煙霧測試。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show profiling a slow extension startup, applying focused optimizations, and validating improved runtime behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Content scripts
+
+- 讓入口檔案精簡,並延後非關鍵工作。
+- 避免在 `document_start` 做沉重的同步 DOM 掃描。
+- 限縮 observer 與事件監聽的範圍;在 remount/釋放時清理。
+- 把可重用的邏輯拆成共用模組,但避免脆弱的動態 import 模式。
+
+## Background/service worker
+
+- 啟動時做最少的工作;事件抵達時才延遲初始化。
+- 在安全的情況下快取穩定的運算狀態。
+- 避免在事件處理器中做長時間的同步任務。
+- 在開發過程中留意 service worker 的相依變動。
+
+## UI 介面(popup/options/新分頁/側邊欄)
+
+- 讓初次渲染路徑保持輕量。
+- 大型的選用 UI 功能按需載入。
+- 只在本機除錯 session 中需要時才使用框架的 DevTools。
+- 樣式採模組化,避免大型的全域 CSS payload。
+
+## 資源與資料
+
+- 依目標用途優化 icon/影像大小。
+- 把 web-accessible resources(WAR)的暴露限制在必要資源。
+- 維持 public 資源精簡;移除過時檔案。
+- 定期確認產生的 `dist/<browser>` 輸出大小。
+
+## 效能預算
+
+正式版建置(`build`)在 bundle 超過各類別大小預算時會發出**警告**。預算僅是警示——絕不會讓建置失敗——並在正式模式下預設啟用。
+
+| 類別                                                  | 預設預算   | 為什麼                                                   |
+| ----------------------------------------------------- | ---------- | -------------------------------------------------------- |
+| Content scripts                                       | 512 KiB    | 在每次符合的頁面導覽時注入。                              |
+| Service worker                                        | 512 KiB    | 每次事件都從冷啟動喚醒;大型 bundle 會拖慢啟動。           |
+| Pages / UI(popup、options、sidebar、devtools、新分頁) | 1 MiB      | 按需開啟。                                                |
+
+在 [`extension.config.js`](/zh-Hant/docs/features/extension-configuration) 中透過 `perfBudgets` 覆寫任何類別(值以位元組為單位):
+
+```js
+export default {
+  perfBudgets: {
+    "content-script": 768 * 1024,
+    "service-worker": 512 * 1024,
+    page: 2 * 1024 * 1024,
+  },
+};
+```
+
+## 運作面檢查
+
+- 在 CI 跑多瀏覽器建置檢查。
+- 隨時間追蹤端對端(E2E)執行階段時長的退化訊號。
+- 為關鍵擴充功能流程加入煙霧測試(安裝、開啟 UI、啟動 content script)。
+
+## 常見的效能陷阱
+
+- 大型 content script bundle 在每個符合的頁面都被載入
+- 在 `document_start` 沒有 guard 條件就做沉重的工作
+- Service worker 處理器做了同步、非必要的初始化
+- 即使只用部分功能,UI 介面仍夾帶大量全域 CSS/JS
+
+## 後續步驟
+
+- 檢視 [Playwright E2E](/zh-Hant/docs/workflows/playwright-e2e)。
+- 檢視 [安全檢查清單](/zh-Hant/docs/workflows/security-checklist)。

@@ -1,0 +1,86 @@
+---
+title: "扩展安全检查清单"
+description: "用可复用的安全审查，在发布前缩小扩展的攻击面。覆盖最小权限、运行时访问受控以及输入校验。"
+keywords:
+  [
+    "browser",
+    "manifest",
+    "content script",
+    "docs",
+    "workflows",
+    "security checklist",
+    "security",
+    "checklist",
+  ]
+---
+
+你的扩展可能因为几类反复出现的原因而无法通过应用商店审核或内部审查。权限范围超出功能需要、content script 不安全地信任页面上下文、web-accessible resources (WAR) 把内部细节暴露给任意来源、消息处理器对未验证的 sender 直接动手。
+
+每次发布前都跑一遍这份清单。
+
+## 安全审查能力
+
+| 区域                                       | 这能帮你确认什么                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------- |
+| 权限范围                                   | 请求的能力是否最小且必要                                                      |
+| Content script 安全                        | 页面上下文中的行为是否避开了不安全的注入模式                                  |
+| WAR（web-accessible resources）暴露        | 是否仅暴露真正需要外部读取的资源                                              |
+| 消息边界                                   | 扩展是否会校验特权操作并检查 sender                                           |
+| 发布卫生                                   | 持续集成 (CI) 与依赖检查能否尽早抓住回归                                      |
+
+## manifest 与权限
+
+- 只申请你真正需要的权限。
+- 除非必要，避免使用宽泛的 host 权限。
+- 对非核心能力优先使用可选权限。
+- 每次功能调整后重新核对 `web_accessible_resources` 的范围。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a pre-release security pass that trims permissions and narrows web_accessible_resources before packaging. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Content scripts
+
+- 除非严格需要访问页面的 JavaScript 环境，否则默认使用 isolated world（沙箱化的执行上下文）。
+- 把选择器与 DOM 变更限制在已知目标范围内。
+- 在渲染或存储未受信的页面数据之前先清理它们。
+- 避免向页面上下文注入可执行字符串。
+
+## Web-accessible resources
+
+- 让 WAR 条目显式且最小。
+- 避免使用通配的 `resources: ["*"]` 模式。
+- 把 `matches` 限制到必要的域名。
+- 用运行时 URL 辅助函数（`runtime.getURL`）访问资源。
+
+## 消息与数据流
+
+- 在处理前校验消息载荷的形状。
+- 对特权操作要校验 sender 上下文。
+- 避免把特权操作直接暴露给页面脚本。
+- 为 content/background 通信保留边界模块。
+
+## 构建与发布卫生
+
+- 在 CI 中运行 lint、类型检查与测试。
+- 复查生产 bundle 输出，留意意料之外的产物。
+- 保持依赖更新，移除未使用的包。
+- 轮换密钥，让敏感值远离会暴露给客户端的 env 变量。
+
+## 常见的高风险反模式
+
+- `host_permissions` 中包含与核心功能无关的宽通配
+- `web_accessible_resources` 把宽泛 glob 暴露给 `<all_urls>`
+- 消息处理器在没有 sender 或 schema 校验的情况下信任载荷
+- 在能用 isolated world 的场景却使用了 MAIN-world 脚本
+
+## 发布前快速过一遍
+
+1. 权限审查
+2. WAR 审查
+3. Content script world 审查
+4. 消息校验审查
+5. 在目标浏览器矩阵上 CI 全绿
+
+## 后续步骤
+
+- 复习 [web-accessible resources](/zh-Hans/docs/implementation-guide/web-accessible-resources)。
+- 复习 [故障排查](/zh-Hans/docs/workflows/troubleshooting)。

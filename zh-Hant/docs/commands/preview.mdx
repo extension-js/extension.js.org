@@ -1,0 +1,247 @@
+---
+title: "用 preview 指令啟動已建置的擴充功能"
+description: "在不重新編譯的情況下啟動已建置的擴充功能,以接近正式環境的方式進行手動測試。載入 unpacked 輸出並執行瀏覽器啟動流程。"
+keywords:
+  [
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "hmr",
+    "popup",
+  ]
+---
+
+啟動已建置的擴充功能輸出,以接近正式環境的方式進行手動測試。
+
+`preview` 不會編譯你的專案。它會載入既有的 unpacked 擴充功能根目錄,並執行瀏覽器啟動流程。
+
+## 何時使用 `preview`
+
+- 在不重新建置的情況下執行既有的建置輸出。
+- 快速比較打包後的行為在不同瀏覽器目標下的差異。
+- 除錯與正式環境產出相關的執行期問題,而非開發/watch 模式下的問題。
+
+## Preview 指令的能力
+
+| 能力                | 它能為你提供什麼                                |
+| ------------------- | ----------------------------------------------- |
+| 建置輸出驗證        | 不需重新建置就能測試真實的正式環境產出          |
+| 瀏覽器目標檢查      | 對選定的瀏覽器目標執行已編譯的輸出              |
+| Runner 控制         | 依工作流程需求啟動或略過瀏覽器 runner           |
+| 快速手動 QA         | 在發布前快速驗證可打包發行的行為                |
+
+> `preview` 只執行、不建置。當 `dist/<browser>` 輸出存在時,它會優先使用該目錄。你也可以指向另一個已包含 `manifest.json` 的 unpacked 擴充功能資料夾。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension preview [project-path] [options]
+```
+
+```bash pnpm
+extension preview [project-path] [options]
+```
+
+```bash yarn
+extension preview [project-path] [options]
+```
+
+```bash bun
+extension preview [project-path] [options]
+```
+
+```bash bun
+extension preview [project-path] [options]
+```
+
+</CodeGroup>
+
+如果省略路徑,Extension.js 會使用目前的工作目錄。
+
+## `preview` 如何決定要執行什麼
+
+`preview` 會依下列順序檢查這些位置:
+
+1. 選定瀏覽器目標的 `dist/<browser>`。
+2. 提供的專案路徑或目前的工作目錄。
+
+該資料夾必須包含一個帶有 `manifest.json` 的 unpacked 擴充功能。是否在同一個指令中執行過建置並不重要。
+
+## 參數與旗標
+
+| 旗標                        | 別名               | 功能                                                                         | 預設值                 |
+| --------------------------- | ------------------ | ---------------------------------------------------------------------------- | ---------------------- |
+| `[path]`                    | -                  | 從專案路徑預覽已建置的擴充功能。                                             | `process.cwd()`        |
+| `--browser <browser>`       | -                  | 瀏覽器/引擎目標(`chromium`、`chrome`、`edge`、`firefox` 等)。              | `chromium`             |
+| `--profile <path\|boolean>` | -                  | 瀏覽器 profile 路徑或布林 profile 模式。                                     | 全新 profile           |
+| `--chromium-binary <path>`  | -                  | [自訂 Chromium 系列的執行檔路徑](/zh-Hant/docs/browsers/running-other-browsers)。 | 系統預設               |
+| `--gecko-binary <path>`     | `--firefox-binary` | [自訂 Gecko 系列的執行檔路徑](/zh-Hant/docs/browsers/running-other-browsers)。   | 系統預設               |
+| `--starting-url <url>`      | -                  | 啟動瀏覽器時的起始 URL。                                                     | 未設定                 |
+| `--no-browser`              | -                  | 略過瀏覽器啟動。                                                             | 啟動瀏覽器             |
+| `--port <port>`             | -                  | 啟用 runner 時的 runner/devtools 連接埠。使用 `0` 由作業系統分配。           | `8080`                 |
+| `--host <host>`             | -                  | dev server 綁定的 host。Docker/dev container 使用 `0.0.0.0`。                | `127.0.0.1`            |
+| `--extensions <list>`       | -                  | 以逗號分隔的伴隨擴充功能或商店 URL。                                         | 未設定                 |
+| `--author`                  | `--author-mode`    | 啟用維護者診斷。                                                             | 關閉                   |
+
+## 自動化中繼資料
+
+`preview` 會將就緒中繼資料寫入:
+
+- `dist/extension-js/<browser>/ready.json`
+
+對於 `--no-browser` 流程,這提供決定性的指令狀態:
+
+- 指令初始化時為 `starting`
+- 僅執行的驗證完成時為 `ready`
+- 找不到必要輸出或啟動失敗時為 `error`
+- `runId` 與 `startedAt` 可供腳本/agent 進行 session 關聯
+
+`preview` 不提供 `--wait` 等候旗標。要對 `preview` 進行自動化時,請直接讀取 `ready.json`。
+
+## Logging 旗標
+
+| 旗標                                                 | 功能                                                                                         | 預設值             |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
+| `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | 最低 log 等級。                                                                              | `off`              |
+| `--log-context <list\|all>`                          | Context 篩選(`background`、`content`、`page`、`sidebar`、`popup`、`options`、`devtools`)。 | `all`              |
+| `--log-format <pretty\|json\|ndjson>`                | Logger 輸出格式。                                                                            | `pretty`           |
+| `--no-log-timestamps`                                | 在 pretty 模式下停用時間戳。                                                                 | 啟用時間戳         |
+| `--no-log-color`                                     | 在 pretty 模式下停用色彩。                                                                   | 啟用色彩           |
+| `--log-url <pattern>`                                | 以 URL 子字串/regex 篩選 log 事件。                                                          | 未設定             |
+| `--log-tab <id>`                                     | 以分頁 ID 篩選 log 事件。                                                                    | 未設定             |
+
+## Source 檢查旗標(`preview` 不支援)
+
+CLI 會偵測到這些旗標並在解析前以錯誤離開。請改用 `dev --source ...`。
+
+| 旗標                                            | 在 `preview` 中的支援                  |
+| ----------------------------------------------- | -------------------------------------- |
+| `--source [url]`                                | 不支援(指令會結束並提示說明)         |
+| `--watch-source [boolean]`                      | 不支援(指令會結束並提示說明)         |
+| `--source-format <pretty\|json\|ndjson>`        | 不支援(指令會結束並提示說明)         |
+| `--source-summary [boolean]`                    | 不支援(指令會結束並提示說明)         |
+| `--source-meta [boolean]`                       | 不支援(指令會結束並提示說明)         |
+| `--source-probe <selectors>`                    | 不支援(指令會結束並提示說明)         |
+| `--source-tree <off\|root-only>`                | 不支援(指令會結束並提示說明)         |
+| `--source-console [boolean]`                    | 不支援(指令會結束並提示說明)         |
+| `--source-dom [boolean]`                        | 不支援(指令會結束並提示說明)         |
+| `--source-max-bytes <bytes>`                    | 不支援(指令會結束並提示說明)         |
+| `--source-redact <off\|safe\|strict>`           | 不支援(指令會結束並提示說明)         |
+| `--source-include-shadow <off\|open-only\|all>` | 不支援(指令會結束並提示說明)         |
+| `--source-diff [boolean]`                       | 不支援(指令會結束並提示說明)         |
+
+## 共用的全域選項
+
+同時支援 [全域旗標](/zh-Hant/docs/workflows/global-flags)。
+
+## 範例
+
+### 預覽本機擴充功能
+
+{/* VIDEO_PLACEHOLDER_TODO: Show previewing an existing `dist/<browser>` output after build and validating runtime behavior manually. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension preview ./my-extension
+```
+
+```bash pnpm
+extension preview ./my-extension
+```
+
+```bash yarn
+extension preview ./my-extension
+```
+
+```bash bun
+extension preview ./my-extension
+```
+
+```bash bun
+extension preview ./my-extension
+```
+
+</CodeGroup>
+
+### 同時在 Edge 與 Chrome 上預覽
+
+{/* VIDEO_PLACEHOLDER_TODO: Show previewing one built artifact across two explicit browser targets for release checks. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension preview ./my-extension --browser=edge,chrome
+```
+
+```bash pnpm
+extension preview ./my-extension --browser=edge,chrome
+```
+
+```bash yarn
+extension preview ./my-extension --browser=edge,chrome
+```
+
+```bash bun
+extension preview ./my-extension --browser=edge,chrome
+```
+
+```bash bun
+extension preview ./my-extension --browser=edge,chrome
+```
+
+</CodeGroup>
+
+### 不啟動瀏覽器的 preview
+
+{/* VIDEO_PLACEHOLDER_TODO: Show preview with `--no-browser` for CI/local verification when browser launch is not needed. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension preview ./my-extension --no-browser
+```
+
+```bash pnpm
+extension preview ./my-extension --no-browser
+```
+
+```bash yarn
+extension preview ./my-extension --no-browser
+```
+
+```bash bun
+extension preview ./my-extension --no-browser
+```
+
+```bash bun
+extension preview ./my-extension --no-browser
+```
+
+</CodeGroup>
+
+## 行為說明
+
+- `preview` 只執行,絕不會編譯專案。
+- `preview` 優先使用既有的建置輸出(`dist/<browser>`),但也可以退回到另一個 unpacked 擴充功能根目錄。
+- `preview` 不會執行 watch 模式或 hot module replacement(HMR)。
+- `preview` 不支援 source 檢查旗標;該工作流程請使用 `dev`。
+- 對於腳本/agent,請仰賴 `ready.json`,避免解析終端機輸出。
+
+## 最佳實務
+
+- 在測試全新的正式環境產出之前,先執行 `build` 再執行 `preview`。
+- 當 unpacked 擴充功能位於預設專案輸出之外時,請傳入專案路徑參數。
+- 在打包前使用 `--browser` 跨目標驗證行為。
+
+## 下一步
+
+- 用 [`start`](/zh-Hant/docs/commands/start) 一步建置並啟動。
+- 用 [`build`](/zh-Hant/docs/commands/build) 產生正式環境產出。
+- 在 [`extension.config.js`](/zh-Hant/docs/features/extension-configuration) 中設定共用的預設值。
+- 在 [環境變數](/zh-Hant/docs/features/environment-variables#how-it-works) 中檢視設定的環境變數載入行為。

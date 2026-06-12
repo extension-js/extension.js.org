@@ -1,0 +1,188 @@
+---
+title: "瀏覽器擴充功能的 Preact"
+description: "用 Preact 打造更小的擴充功能 UI 套件,同時保有類似 React 的開發體驗。Extension.js 會自動配置 JSX 轉譯與相容性別名。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "typescript",
+    "javascript",
+    "react",
+    "preact",
+    "rspack",
+    "content script",
+  ]
+---
+
+打造體積更小的擴充功能 UI 套件,同時維持類似 React 的開發體驗與快速的本地迭代。
+
+Extension.js 會從你的相依套件中偵測 Preact,並自動配置 JSX/TSX 轉譯、React 相容性別名,以及 fast-refresh 支援。你的 React 匯入會透過這些別名對應到 Preact。
+
+## 何時適合使用 Preact
+
+- 你希望 popup、側邊欄、新分頁等 UI 介面的打包體積更小。
+- 你喜歡 React 風格的元件,但希望採用更輕量的執行階段。
+- 你正在最佳化擴充功能在低階裝置上的啟動速度與 UI 反應性。
+
+## 範本範例
+
+### `new-preact`
+
+![Template screenshot](/images/examples/new-preact/screenshot.png)
+
+以 Preact 並保有相容 React 的人體工學,打造更輕量的新分頁 UI。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-preact
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-preact
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-preact
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-preact
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-preact
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/new-preact](https://github.com/extension-js/examples/tree/main/examples/new-preact)
+
+### `content-preact`
+
+![Template screenshot](/images/examples/content-preact/screenshot.png)
+
+透過 content script,將精巧的 Preact UI 注入到頁面內容中。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-preact
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-preact
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-preact
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-preact
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-preact
+```
+
+</CodeGroup>
+
+儲存庫:[extension-js/examples/content-preact](https://github.com/extension-js/examples/tree/main/examples/content-preact)
+
+## 在既有擴充功能中使用
+
+依下方步驟,將 Preact 加入既有擴充功能。
+
+### 安裝
+
+安裝必要的相依套件:
+
+<PackageManagerTabs command="install preact" />
+
+Preact 自帶 TypeScript 型別,因此不需要額外安裝 `@types/preact` 套件。
+
+### 設定
+
+Extension.js 預期 Preact 檔案使用下列副檔名:
+
+- 未啟用 TypeScript:`*.jsx`
+- 啟用 TypeScript:`*.tsx`
+
+## 開發階段行為
+
+當 Extension.js 偵測到 Preact 時,它會配置:
+
+- 相容性別名(例如將 `react` 對應到 `preact/compat`)。
+- 為 Preact 調整過的 JSX 處理。
+- 在開發階段透過 `@rspack/plugin-preact-refresh` 提供的 refresh 整合。
+
+若你的專案缺少選用的 refresh 相依套件,Extension.js 會自動安裝並要求重新啟動。
+
+### 疑難排解
+
+- **缺少 refresh 相依套件警告:** 安裝 `@rspack/plugin-preact-refresh`(若有提示,亦請一併安裝相關套件)。
+- **安裝後被要求重啟:** 停止並重新執行 `extension dev`,讓開發伺服器能乾淨地重新載入 refresh 串接。
+- **未偵測到 Preact 整合:** 確認 `preact` 是否出現在 `dependencies` 或 `devDependencies` 中。
+
+## 使用範例
+
+### 在新分頁擴充功能中
+
+要在新分頁擴充功能中使用 Preact,請在 HTML 檔中以 `<script>` 形式載入:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this extension.</noscript>
+    <div id="root"></div>
+  </body>
+  <script src="./index.tsx"></script>
+</html>
+```
+
+```tsx
+import { h, render } from "preact";
+import App from "./App";
+
+const root = document.getElementById("root");
+
+render(<App />, root);
+```
+
+```tsx
+export default function App() {
+  return <h1>Hello, Preact Extension!</h1>;
+}
+```
+
+### 在 `content_script` 檔案中
+
+對於 content script,建立 HTML 元素並把 Preact 渲染進去:
+
+```tsx
+import { h, render } from "preact";
+import App from "./App";
+import "./content.css";
+
+const rootDiv = document.createElement("div");
+rootDiv.id = "extension-root";
+document.body.appendChild(rootDiv);
+
+render(<App />, rootDiv);
+```
+
+## 後續步驟
+
+- 進一步了解 [TypeScript 支援](/zh-Hant/docs/languages-and-frameworks/typescript)。
+- 探索 Extension.js 如何處理 [Sass modules](/zh-Hant/docs/languages-and-frameworks/sass)。
+
+## 影片導覽
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Preact template setup, runtime launch, and UI update cycle with refresh behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

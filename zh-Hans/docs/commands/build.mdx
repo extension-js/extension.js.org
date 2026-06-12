@@ -1,0 +1,254 @@
+---
+title: "build 命令：生成生产环境的扩展产物"
+description: "使用 Extension.js 的 build 命令为 Chrome、Edge 或 Firefox 生成可用于生产的扩展产物。支持多浏览器与 zip 输出。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "javascript",
+  ]
+---
+
+为一个或多个浏览器目标生成生产环境的扩展产物。
+
+`build` 会以生产模式编译你的扩展，并将输出写入 `dist/<browser>`。
+
+对于 monorepo/子模块项目，关于配置阶段的环境变量解析（先项目根目录，再回退到 workspace 根目录），参见 [环境变量](/zh-Hans/docs/features/environment-variables#how-it-works)。
+
+## 何时使用 `build`
+
+- 为 Chrome Web Store、Edge Add-ons 或 Firefox Add-ons 准备扩展包。
+- 在持续集成（CI）任务中产出可重复的生产产物。
+- 在提交前验证生产 bundle 输出及不同浏览器目标之间的差异。
+
+## build 命令的能力
+
+| 能力              | 你能得到什么                                                  |
+| ----------------- | ------------------------------------------------------------- |
+| 生产编译          | 为每个目标生成经过优化的扩展产物                              |
+| 多目标输出        | 在一条命令中构建多个浏览器目标                                |
+| 打包支持          | 生成可分发的 zip 产物，可选包含源码                           |
+| CI 友好           | 在自动化中保持构建产物与命名可预期                            |
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension build [project-path] [options]
+```
+
+```bash pnpm
+extension build [project-path] [options]
+```
+
+```bash yarn
+extension build [project-path] [options]
+```
+
+```bash bun
+extension build [project-path] [options]
+```
+
+```bash bun
+extension build [project-path] [options]
+```
+
+</CodeGroup>
+
+## 构建输出
+
+运行 `build` 后，Extension.js 会为所选浏览器目标生成优化后的文件。输出位于 `dist/` 下，每个目标一个子文件夹。每个文件夹包含打包后的 JavaScript、CSS、HTML 以及所需的运行时资源。
+
+<Note>
+  对于 TypeScript 项目，`build` 还会重新生成 `extension-env.d.ts`
+  全局类型声明（与 [`dev`](/zh-Hans/docs/commands/dev) 写入的是同一个文件），
+  这样无论你是否先跑过 `dev`，CI 中的 `tsc --noEmit` 都不会报错。
+  纯 JavaScript 项目会跳过这一步。
+</Note>
+
+**输出结构示例：**
+
+```plaintext
+dist/
+├── chrome/
+│   ├── manifest.json
+│   ├── background/service_worker.js
+│   ├── content_scripts/content-0.js
+├── edge/
+│   ├── manifest.json
+│   ├── background/service_worker.js
+│   ├── content_scripts/content-0.js
+```
+
+## 浏览器目标矩阵
+
+| 目标风格   | 示例                                             | 说明                               |
+| ---------- | ------------------------------------------------ | ---------------------------------- |
+| 具名目标   | `chromium`、`chrome`、`edge`、`firefox`          | 构建某个具体的浏览器目标           |
+| 引擎目标   | `chromium-based`、`gecko-based`、`firefox-based` | 适合按引擎家族划分的工作流         |
+| 多目标     | `chrome,firefox`                                 | 逗号分隔的目标列表                 |
+
+## 参数与标志
+
+| 标志                     | 别名            | 作用                                                                                                                  | 默认值                   |
+| ------------------------ | --------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `[path]`                 | -               | 构建一个本地扩展项目。                                                                                                | `process.cwd()`          |
+| `--browser <browser>`    | -               | 浏览器/引擎目标（`chromium`、`chrome`、`edge`、`firefox`、引擎别名，或逗号分隔的值）。                                | `chromium`               |
+| `--polyfill [boolean]`   | -               | 为 Chromium 目标启用 `browser.*` API 兼容 polyfill。                                                                  | `false`                  |
+| `--zip [boolean]`        | -               | 生成打包好的 zip 产物。                                                                                               | `false`                  |
+| `--zip-source [boolean]` | -               | 在 zip 输出中包含源码。                                                                                               | `false`                  |
+| `--zip-filename <name>`  | -               | 设置自定义的 zip 文件名。                                                                                             | 扩展名 + 版本号          |
+| `--silent [boolean]`     | -               | 抑制构建日志。                                                                                                        | `false`                  |
+| `--mode <mode>`          | -               | 覆盖打包器模式（`development`、`production` 或 `none`）。同时设置 `NODE_ENV`。                                        | `production`             |
+| `--extensions <list>`    | -               | 逗号分隔的伴随扩展或商店 URL 列表。                                                                                   | 未设置                   |
+| `--install [boolean]`    | -               | 当依赖缺失时安装项目依赖。                                                                                            | 命令的默认行为           |
+| `--author`               | `--author-mode` | 启用维护者诊断信息。                                                                                                  | 禁用                     |
+
+## 共享的全局选项
+
+同时支持 [全局标志](/zh-Hans/docs/workflows/global-flags)。
+
+## 模式覆盖
+
+`--mode` 用于覆盖构建时的打包器模式与 `NODE_ENV`。接受 `development`、`production` 或 `none`。当你需要为预发或调试生成非生产 bundle，以镜像 Vite/webpack 工作流时使用它。
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --mode development
+```
+
+```bash pnpm
+extension build ./my-extension --mode development
+```
+
+```bash yarn
+extension build ./my-extension --mode development
+```
+
+```bash bun
+extension build ./my-extension --mode development
+```
+
+```bash bun
+extension build ./my-extension --mode development
+```
+
+</CodeGroup>
+
+非法值会让命令以错误退出；默认值仍为 `production`。
+
+## zip 行为
+
+| 选项             | 效果                                  | 典型用途                             |
+| ---------------- | ------------------------------------- | ------------------------------------ |
+| `--zip`          | 生成打包好的产物 zip                  | 商店提交/手动分发                    |
+| `--zip-filename` | 设置自定义 zip 名称                   | CI 命名规范                          |
+| `--zip-source`   | 在产物旁附带源码归档                  | 合规/审查流水线                      |
+
+## 示例
+
+### 带 zip 输出且自定义文件名的构建
+
+{/* VIDEO_PLACEHOLDER_TODO: Show build for multiple browser targets with zip artifacts and custom artifact naming in output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash pnpm
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash yarn
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash bun
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+```bash bun
+extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
+```
+
+</CodeGroup>
+
+在这个例子中，构建会面向 Edge 与 Chrome，将输出打包成 zip，并保存为 `my-extension.zip`。
+
+### 带 polyfill 的构建
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash pnpm
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash yarn
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash bun
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+```bash bun
+extension build ./my-extension --browser=chrome,firefox --polyfill
+```
+
+</CodeGroup>
+
+在这个例子中，构建会面向 Chrome 和 Firefox，并在相关位置包含 polyfill。
+
+### 同时构建源码与产物 zip
+
+<CodeGroup>
+
+```bash npm
+extension build ./my-extension --zip --zip-source
+```
+
+```bash pnpm
+extension build ./my-extension --zip --zip-source
+```
+
+```bash yarn
+extension build ./my-extension --zip --zip-source
+```
+
+```bash bun
+extension build ./my-extension --zip --zip-source
+```
+
+```bash bun
+extension build ./my-extension --zip --zip-source
+```
+
+</CodeGroup>
+
+## 最佳实践
+
+- **查看构建日志：** 每次构建后检查日志中的警告与缺失的资源。
+- **优化你的 manifest：** 让 `manifest.json` 与每个目标浏览器都兼容。
+- **有意识地命名产物：** 使用 `--zip-filename` 让 CI 产物命名保持稳定。
+- **验证各目标的输出：** 在发布前检查每一个 `dist/<browser>` 文件夹。
+
+## 下一步
+
+- 使用 [`preview`](/zh-Hans/docs/commands/preview) 运行已存在的构建产物。
+- 使用 [`start`](/zh-Hans/docs/commands/start) 一条命令完成构建与启动。
+- 在 [`extension.config.js`](/zh-Hans/docs/features/extension-configuration) 中配置共享默认值。
+- 查看配置阶段环境变量的加载行为：[环境变量](/zh-Hans/docs/features/environment-variables#how-it-works)。
+- 查看支持的目标：[可用浏览器](/zh-Hans/docs/browsers/browsers-available)。

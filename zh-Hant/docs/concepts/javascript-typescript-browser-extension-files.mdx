@@ -1,0 +1,89 @@
+---
+title: "瀏覽器擴充功能中的 JavaScript 與 TypeScript 檔案"
+description: "了解 .js、.ts、.tsx、manifest.json、背景指令稿與 content script 如何在使用 Extension.js 建置的 Chrome、Firefox 與 Edge 擴充功能中運作。"
+keywords:
+  [
+    "javascript extension",
+    "typescript extension",
+    "js extension",
+    ".js extension",
+    ".ts extension",
+    "react file extension",
+    "extension of javascript",
+    "typescript file extension",
+    "browser extension files",
+    "extension.js",
+  ]
+---
+
+瀏覽器擴充功能使用 JavaScript、TypeScript、HTML、CSS 與 `manifest.json` 來定義行為、UI、權限與瀏覽器整合。本頁說明在瀏覽器擴充功能專案中會看到的副檔名，以及它們各自會落在哪裡。
+
+如果你想了解「extension」是指 Chrome 或 Firefox 的軟體附加元件，請改從[什麼是瀏覽器擴充功能？](/zh-Hant/docs/concepts/what-is-a-browser-extension)開始。
+
+## JavaScript 副檔名:`.js` 與 `.mjs`
+
+瀏覽器擴充功能接受與其他 Web 平台相同的 JavaScript 副檔名：
+
+| 副檔名         | 代表的意義                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------- |
+| `.js`          | 純 JavaScript。視載入方式而定,被當作 ES 模組或傳統指令稿。                                  |
+| `.mjs`         | ES 模組。當你希望強制套用模組語意時很有用，特別是在 service worker 中。                     |
+| `.cjs`         | CommonJS。在擴充功能原始碼中較少見;有時會出現在 `extension.config.cjs`。                    |
+
+在 Manifest V3 中，當 `manifest.json` 的 `background` 區塊包含 `"type": "module"` 時，背景 `service_worker` 會以模組形式執行。詳情請見 [Manifest V3 疑難排解](/zh-Hant/docs/concepts/manifest-v3)。
+
+## TypeScript 副檔名:`.ts` 與 `.tsx`
+
+TypeScript 在 Extension.js 中是一級的原始語言：
+
+| 副檔名         | 代表的意義                                            |
+| -------------- | ----------------------------------------------------- |
+| `.ts`          | 不含 JSX 的 TypeScript。                              |
+| `.tsx`         | 含 JSX 的 TypeScript（React、Preact）。               |
+| `.d.ts`        | 型別宣告檔，不會輸出到建置產物。                       |
+
+你不需要從零撰寫 `tsconfig.json`。Extension.js 提供合理的預設值。`chrome.*`、`browser.*`、`import.meta.env` 與公開環境變數鍵的型別來自 `@types/chrome` 與 Extension.js 自有的環境型別。詳見 [TypeScript](/zh-Hant/docs/languages-and-frameworks/typescript)。
+
+## React 副檔名:`.jsx` 與 `.tsx`
+
+瀏覽器擴充功能中的 React 使用標準的 JSX 副檔名：
+
+| 副檔名         | 代表的意義         |
+| -------------- | ------------------ |
+| `.jsx`         | 含 JSX 的 JavaScript。 |
+| `.tsx`         | 含 JSX 的 TypeScript。 |
+
+React 可在擴充功能頁面（popup、選項頁、側邊面板、新分頁）以及注入網頁的 content script 中運作。設定與 shadow-DOM 模式請見 [React](/zh-Hant/docs/languages-and-frameworks/react)。
+
+## 擴充功能檔案:`manifest.json`、背景、content script、頁面
+
+除了 JavaScript 與 TypeScript 原始碼，瀏覽器擴充功能資料夾通常還包含：
+
+| 檔案或資料夾     | 用途                                                                |
+| ---------------- | ------------------------------------------------------------------- |
+| `manifest.json`  | 宣告名稱、版本、權限、進入點與中繼資料。                              |
+| 背景進入點        | 長期存在的事件處理器。在 Chromium 上為 Manifest V3 的 service worker。 |
+| Content scripts  | 注入到符合 URL 樣式網頁的程式碼。                                    |
+| 擴充功能頁面      | Popup、選項頁、側邊面板或新分頁 HTML。                                |
+| Locales          | `_locales/<lang>/messages.json`，存放翻譯字串。                       |
+| 圖示與資源        | 工具列圖示、web-accessible resources、字型、圖片。                    |
+
+Extension.js 會把你的 `.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte`、`.css`、`.less`、`.scss` 與 `.module.*` 原始碼編譯成這種磁碟結構，並為每個瀏覽器目標產出獨立的資料夾（`dist/chrome`、`dist/firefox`、`dist/edge`）。
+
+## Extension.js 如何編譯 JavaScript 與 TypeScript 擴充功能
+
+當你執行 `extension dev` 或 `extension build` 時，Extension.js 會：
+
+1. 讀取 `manifest.json` 並找到所有進入點（背景、content scripts、popup、選項頁、側邊面板、新分頁、web-accessible HTML）。
+2. 解析這些進入點所引用的原始檔，包括 `.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte` 與各種樣式表類型的 import。
+3. 透過 Rspack 進行編譯，並使用擴充功能感知的預設值:在合適的地方做程式碼分割，在瀏覽器不允許分割的地方（service worker、content script）則不分割。
+4. 將結果輸出到 `dist/<browser>`，並依目標過濾 manifest。
+
+你只要使用上述任一副檔名撰寫原始碼，Extension.js 會處理打包、polyfill、儲存即時重新載入迴圈與各瀏覽器封裝。
+
+## 下一步
+
+- 試試 [`extension create`](/zh-Hant/docs/commands/create) 建立 TypeScript 或 React 擴充功能鷹架。
+- 閱讀 [TypeScript](/zh-Hant/docs/languages-and-frameworks/typescript) 與 [React](/zh-Hant/docs/languages-and-frameworks/react)。
+- 閱讀 [Manifest V3 疑難排解](/zh-Hant/docs/concepts/manifest-v3) 了解 service worker 與模組規則。
+- 使用 [`extension build`](/zh-Hant/docs/commands/build) 進行建置。

@@ -1,0 +1,119 @@
+---
+title: "在 extension.config.js 中配置 Rspack"
+description: "通过 extension.config.js 自定义 Rspack 打包：添加 loader、插件与别名，而不必 fork 默认的 Extension.js 构建配置。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "rspack",
+    "docs",
+    "features",
+    "rspack configuration",
+    "configuration",
+    "via",
+  ]
+---
+
+在不脱离 Extension.js 工作流的前提下自定义打包行为。
+
+无需 fork 默认配置，就能解决自定义的打包需求。直接添加 loader（文件类型转换）、插件（构建期扩展）以及别名（导入快捷方式）。Extension.js 基于 [Rspack](https://rspack.dev) 进行构建——一个基于 Rust 的 JavaScript 打包器（`@rspack/core`）——你可以直接扩展生成的配置。
+
+## 工作原理
+
+在项目根目录创建以下任一文件：
+
+- `extension.config.js`
+- `extension.config.mjs`
+- `extension.config.cjs`
+
+使用 `config` 键来对生成的打包器配置打补丁。
+
+### `config` 能力
+
+| 能力                                          | 作用                                                                          |
+| --------------------------------------------- | ----------------------------------------------------------------------------- |
+| 函数钩子（`config: (config) => config`）      | 让你在构建前完整地读取并修改生成的 Rspack 配置。                              |
+| 对象合并（`config: { ... }`）                 | 把额外配置合并到生成的基础配置之上。                                          |
+| 规则（`config.module.rules`）                 | 为文件类型添加或修改 loader 规则。                                            |
+| 插件（`config.plugins`）                      | 添加编译期插件与转换。                                                        |
+| 解析（`config.resolve`）                      | 添加别名与模块解析行为。                                                      |
+
+### 方式 1：函数钩子（推荐）
+
+```js
+export default {
+  config: (config) => {
+    config.module.rules.push({
+      test: /\.mdx$/,
+      use: ["babel-loader", "@mdx-js/loader"],
+    });
+    return config;
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show adding a custom loader in `config` and seeing it applied during development build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 方式 2：对象合并
+
+`config` 也可以是一个对象，Extension.js 会把它合并进基础配置。
+
+```js
+export default {
+  config: {
+    resolve: {
+      alias: {
+        "@ui": "/absolute/path/to/ui",
+      },
+    },
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show object merge adding a resolve alias and importing through the alias in extension code. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Rspack 优先，兼容 webpack
+
+Extension.js 原生使用 Rspack，但你仍可以使用大部分 webpack 生态。
+
+- 配置类型扩展自 `@rspack/core` 的 `Configuration`。
+- 许多 webpack 的 loader/插件可以通过兼容层工作。
+- 部分 webpack 内部机制/插件与 Rspack 并非 1:1 兼容。
+
+使用 Rspack 原生插件的示例：
+
+```js
+import { DefinePlugin } from "@rspack/core";
+
+export default {
+  config: (config) => {
+    config.plugins = [
+      ...config.plugins,
+      new DefinePlugin({
+        __FEATURE_FLAG__: JSON.stringify("enabled"),
+      }),
+    ];
+    return config;
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a Rspack-native plugin (DefinePlugin) injecting a compile-time flag. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 适用场景
+
+- 为项目特有的文件类型添加自定义 loader/规则。
+- 添加用于编译期转换和诊断的插件。
+- 覆盖 Extension.js 一等公民选项之外的 resolve 别名与模块行为。
+
+## 最佳实践
+
+- **先用一等公民选项**：在动用底层打包器覆盖之前，先使用 `browser` / `commands` 配置键。
+- **最小化补丁**：仅修改需要的部分，然后返回配置对象。
+- **优先选用 Rspack 感知的插件**：尽可能选用 Rspack 原生插件。
+- **在所有目标上验证**：配置变更后，请在你的浏览器矩阵上测试 `dev`、`start`、`preview` 与 `build`。
+
+## 后续步骤
+
+- 进一步了解 [扩展配置（`extension.config.js`）](/zh-Hans/docs/features/extension-configuration)。
+- 进一步了解 [多平台构建](/zh-Hans/docs/features/multi-platform-builds)。

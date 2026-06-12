@@ -1,0 +1,141 @@
+---
+title: "在扩展中使用 shadcn/ui 组件"
+description: "在启用了 Tailwind 的 React 项目中，用可访问的 shadcn/ui 组件构建扩展 UI。在 popup 与 options 页面之间复用设计基础元素。"
+keywords:
+  [
+    "extension.js",
+    "typescript",
+    "react",
+    "tailwindcss",
+    "postcss",
+    "eslint",
+    "prettier",
+    "content script",
+  ]
+---
+
+只要你的项目使用启用了 Tailwind 的 React，shadcn/ui 在扩展里的用法就和在 Web 应用里完全一样。组件存在于你的源码树中（不在 `node_modules` 里），所以你可以完全控制样式与行为。
+
+## 何时适合使用 shadcn/ui
+
+- 你需要在 sidebar、popup 与 options 等多个界面上复用 UI 基础元素。
+- 你在产品代码中已经使用 React + Tailwind。
+- 你希望组件源码由项目自有，团队可以完全自定义。
+
+## shadcn/ui 能力
+
+| 能力                          | 你能得到什么                                                          |
+| ----------------------------- | --------------------------------------------------------------------- |
+| 源码自有的 UI 组件            | 把生成的 `components/ui/*` 文件纳入项目版本管理                       |
+| React + Tailwind 一致         | 使用与现代 Web 应用栈相同的编写模型                                   |
+| 扩展界面复用                  | 在 sidebar、popup 与 options 页面之间共享组件基础元素                 |
+| 渐进式采用                    | 从一个模板出发，随时间扩大组件覆盖范围                                |
+
+## 模板示例
+
+### Sidebar + shadcn/ui 模板
+
+把 `sidebar-shadcn` 模板作为默认起点：
+
+![`sidebar-shadcn` 截图](/images/examples/sidebar-shadcn/screenshot.png)
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+</CodeGroup>
+
+该模板包含一套可工作的 React sidebar UI，带 Tailwind + shadcn 风格的组件结构。
+
+仓库：[examples/sidebar-shadcn](https://github.com/extension-js/examples/tree/main/examples/sidebar-shadcn)
+
+## 技术栈前提
+
+- React + TypeScript
+- Tailwind CSS
+- PostCSS（`@tailwindcss/postcss`）
+- 本地 `components/ui/*` 组件文件（shadcn 风格的结构）
+
+## 在已有项目中手动配置
+
+1. 配置 Tailwind 与 PostCSS（参见 [Tailwind CSS](/zh-Hans/docs/integrations/tailwindcss)）。
+2. 在你的项目中初始化 shadcn 并生成组件。
+3. 把生成的 UI 组件放在扩展源码内部（例如 `src/components/ui/`）。
+4. 在渲染 UI 的扩展入口中导入你的 Tailwind 样式表。
+
+### PostCSS 示例（Tailwind v4）
+
+```js
+export default {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+```
+
+### `components.json` 示例
+
+```json
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "tsx": true,
+  "tailwind": {
+    "css": "sidebar/styles.css",
+    "cssVariables": true
+  }
+}
+```
+
+## 使用方式
+
+通过本地导入使用生成的组件：
+
+```tsx
+import { Button } from "@/components/ui/button";
+import "./styles.css";
+
+export default function MyComponent() {
+  return <Button className="text-lg font-semibold">Click Me</Button>;
+}
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show generating a shadcn component and using it in a sidebar extension UI. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 关于 content script 的提示
+
+- 扩展页面（popup/options/sidebar/新标签页）是上手 shadcn/ui 最容易的地方。
+- 对于 content script，请在 content-script 入口中以相同方式导入样式入口。
+- Extension.js 通过它的 CSS 管线输出 content-script 样式，但它们仍可能与宿主页面的样式冲突。
+
+如果你需要在 content script 中获得更强的隔离，请把 UI 挂载到 Shadow DOM 根节点中（一个用于封装样式与标记的浏览器 API）。请刻意为类名设定作用域。
+
+## 最佳实践
+
+- 把 shadcn/ui 当作源码自有的组件，而不是某个运行时 UI 包的导入。
+- 让 Tailwind 配置/content 路径与你的扩展目录（`pages`、`scripts`、`src`）保持一致。
+- 先在一个界面上开始（比如 sidebar 或 popup），再考虑增加 content-script 渲染的复杂度。
+- 把共享 token 与工具辅助函数放在专门的文件里（`lib/utils`、设计 token、主题变量）。
+
+## 下一步
+
+- 如果还没配置 [Tailwind CSS](/zh-Hans/docs/integrations/tailwindcss)，请先配置。
+- 用 [ESLint](/zh-Hans/docs/integrations/eslint) 与 [Prettier](/zh-Hans/docs/integrations/prettier) 添加 lint 与格式化。

@@ -1,0 +1,162 @@
+---
+title: "本地化与国际化"
+description: "通过 _locales 交付本地化的扩展元信息和 UI 字符串。Extension.js 会为每次构建发现、校验并产出 locale JSON。"
+keywords:
+  [
+    "extension.js",
+    "manifest",
+    "hmr",
+    "docs",
+    "implementation guide",
+    "locales",
+    "template",
+    "example",
+  ]
+---
+
+Extension.js 会在 manifest 旁边发现本地化文件，并校验每个声明的 locale 都拥有一份 `messages.json`。它会把 locale JSON 资源输出到针对各浏览器的构建产物中。在开发期，它会感知任意 locale 文件的编辑，无需完整重启。
+
+## 模板示例
+
+### `action-locales`
+
+![action-locales template screenshot](/images/examples/action-locales/screenshot.png)
+
+通过 `_locales` 支持查看本地化的扩展元信息和 UI 字符串。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action-locales
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action-locales
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action-locales
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action-locales
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action-locales
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/action-locales](https://github.com/extension-js/examples/tree/main/examples/action-locales)
+
+## Locale 能力
+
+| 能力                 | 它给你带来什么                                                       |
+| -------------------- | -------------------------------------------------------------------- |
+| 本地化发现           | 从 manifest 位置检测 `_locales/<locale>/messages.json`               |
+| 校验                 | 捕获缺失的默认 locale 文件以及无法解析的 `__MSG_*__` 键              |
+| 构建输出映射         | 按预期的扩展输出结构发布 locale 文件                                 |
+| 开发期 watch 支持    | 在开发期，根据 locale 文件变化触发重载                               |
+
+## 期望的结构
+
+```plaintext
+manifest.json
+_locales/
+  en/
+    messages.json
+  fr/
+    messages.json
+```
+
+`manifest.json` 中的 `default_locale` 应当映射到一个已存在的 `_locales/<default>/messages.json`。
+
+## `manifest.json` 中的 locales 声明示例
+
+下面是如何在 `manifest.json` 中声明 locales：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "default_locale": "en",
+  "description": "__MSG_extension_description__"
+}
+```
+
+然后在 `_locales` 文件夹中为每个 locale 提供 JSON 文件：
+
+```plaintext
+_locales/
+└── en/
+    └── messages.json
+```
+
+## `messages.json` 文件示例
+
+用于翻译的 `messages.json` 文件示例：
+
+```json
+{
+  "extension_name": {
+    "message": "My Extension"
+  },
+  "extension_description": {
+    "message": "This is a localized description of my extension."
+  }
+}
+```
+
+## 输出路径
+
+Extension.js 将 locale JSON 文件输出到：
+
+```plaintext
+_locales/<locale>/messages.json
+```
+
+## 开发期行为
+
+- Extension.js 会把 locale JSON 文件加入编译依赖并对其进行 watch。
+- locale 变更触发扩展重载行为（硬重载），而非组件式的热模块替换（HMR）。
+- 当必需的 locale 文件缺失或非法时，Extension.js 会以可操作的诊断让校验失败。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show adding a new locale key, updating manifest `__MSG_*__` usage, and validating locale output across builds. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 校验行为
+
+Extension.js 会校验：
+
+- 项目使用 `_locales` 时是否存在 `default_locale`
+- 是否存在 `_locales/<default>/messages.json`
+- locale 文件的 JSON 是否合法
+- manifest 中的 `__MSG_*__` 引用是否对应默认 locale 中的键
+
+### 排查缺失的 locale 键
+
+如果你的 manifest 使用了 `__MSG_extension_description__`，请确保默认 locale 文件包含 `extension_description`：
+
+```json
+{
+  "extension_description": {
+    "message": "Localized extension description"
+  }
+}
+```
+
+如果默认 locale 没有定义该键，Extension.js 会给出一个解释不匹配原因的诊断。
+
+## 最佳实践
+
+- 让 `messages.json` 的键在各 locale 间保持一致。
+- 先更新默认 locale，再把键传播到其他 locale。
+- 在持续集成（CI）中校验 locale JSON，以便在打包前发现格式错误的文件。
+- 让 locale 文件靠近 manifest（`manifestDir/_locales`），保持解析的可预期性。
+
+## 下一步
+
+- 在 [dev update behavior](/zh-Hans/docs/workflows/dev-update-behavior) 中理解更新结果。
+- 继续阅读 [JSON in development](/zh-Hans/docs/implementation-guide/json)。
+- 了解 [manifest development behavior](/zh-Hans/docs/implementation-guide/manifest-json)。

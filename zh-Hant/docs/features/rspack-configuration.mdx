@@ -1,0 +1,119 @@
+---
+title: "在 extension.config.js 中設定 Rspack"
+description: "透過 extension.config.js 自訂 Rspack 的 loader、plugin 與 alias,無須 fork Extension.js 預設的建置設定。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "rspack",
+    "docs",
+    "features",
+    "rspack configuration",
+    "configuration",
+    "via",
+  ]
+---
+
+在不脫離 Extension.js 工作流程的前提下,自訂打包行為。
+
+不必 fork 預設設定,就能解決客製化的打包需求。直接加入 loader(檔案型別轉換)、plugin(建置期擴充)與 alias(import 捷徑)。Extension.js 採用 [Rspack](https://rspack.dev) 這個以 Rust 撰寫的 JavaScript 打包工具(`@rspack/core`)進行建置,你可以直接擴充它產生的設定。
+
+## 運作方式
+
+在專案根目錄建立下列其中一個檔案:
+
+- `extension.config.js`
+- `extension.config.mjs`
+- `extension.config.cjs`
+
+使用 `config` 這個鍵來修改產生出的打包工具設定。
+
+### `config` 能力
+
+| 能力                                          | 用途                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------ |
+| 函式 hook(`config: (config) => config`)       | 在建置前完全掌控、讀取與修改產生出的 Rspack 設定。                       |
+| 物件合併(`config: { ... }`)                   | 把額外的設定合併到產生出的基礎設定。                                     |
+| Rules(`config.module.rules`)                  | 為檔案型別新增或變更 loader 規則。                                       |
+| Plugins(`config.plugins`)                     | 加入編譯期 plugin 與轉換。                                               |
+| Resolve(`config.resolve`)                     | 加入 alias 與模組解析行為。                                              |
+
+### 選項 1:函式 hook(建議)
+
+```js
+export default {
+  config: (config) => {
+    config.module.rules.push({
+      test: /\.mdx$/,
+      use: ["babel-loader", "@mdx-js/loader"],
+    });
+    return config;
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show adding a custom loader in `config` and seeing it applied during development build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 選項 2:物件合併
+
+`config` 也可以是一個物件。Extension.js 會把它合併到基礎設定中。
+
+```js
+export default {
+  config: {
+    resolve: {
+      alias: {
+        "@ui": "/absolute/path/to/ui",
+      },
+    },
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show object merge adding a resolve alias and importing through the alias in extension code. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 以 Rspack 為核心,同時相容 webpack
+
+Extension.js 以 Rspack 為原生基底,但你仍能使用大量的 webpack 生態系。
+
+- 設定型別繼承自 `@rspack/core` 的 `Configuration`。
+- 許多 webpack 的 loader/plugin 透過相容層仍可運作。
+- 部分 webpack 內部機制/plugin 與 Rspack 並非 1:1 相容。
+
+使用 Rspack 原生 plugin 的範例:
+
+```js
+import { DefinePlugin } from "@rspack/core";
+
+export default {
+  config: (config) => {
+    config.plugins = [
+      ...config.plugins,
+      new DefinePlugin({
+        __FEATURE_FLAG__: JSON.stringify("enabled"),
+      }),
+    ];
+    return config;
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a Rspack-native plugin (DefinePlugin) injecting a compile-time flag. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 何時該使用
+
+- 為專案特定的檔案型別加入自訂 loader/rule。
+- 加入用於編譯期轉換與診斷的 plugin。
+- 覆寫 Extension.js 一等選項所未公開的 resolve alias 與模組行為。
+
+## 最佳實務
+
+- **優先使用一等選項**:在動用低階打包工具覆寫之前,先嘗試 `browser` / `commands` 設定鍵。
+- **最小化修改**:只變更你需要的部分,然後回傳設定。
+- **讓 plugin 對 Rspack 友善**:有 Rspack 原生 plugin 時優先採用。
+- **在所有目標上驗證**:設定變更後,在你的瀏覽器矩陣上測試 `dev`、`start`、`preview` 與 `build`。
+
+## 後續步驟
+
+- 進一步了解 [擴充功能設定(`extension.config.js`)](/zh-Hant/docs/features/extension-configuration)。
+- 進一步了解 [多平台建置](/zh-Hant/docs/features/multi-platform-builds)。

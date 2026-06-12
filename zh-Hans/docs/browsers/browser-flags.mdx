@@ -1,0 +1,189 @@
+---
+title: "Chrome、Firefox 与 Edge 的浏览器启动 flag"
+description: "在 Extension.js 中使用 firefox://flags、chrome://flags 与浏览器启动 flag。在扩展开发期间控制 Chrome、Firefox 与 Edge 的运行时行为。"
+keywords:
+  [
+    "firefox flags",
+    "firefox://flags",
+    "browser://flags",
+    "chrome://flags",
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "devtools",
+    "docs",
+    "browsers",
+  ]
+---
+
+<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
+为调试、自动化以及运行时实验控制浏览器的启动行为。
+
+无需修改扩展源码，就可以调整浏览器的启动行为。Extension.js 会合并 `extension.config.*` 中的浏览器 flag，并在 `dev`、`preview` 与 `start` 流程中应用。
+
+## Firefox 有 `firefox://flags` 吗？
+
+Firefox 并没有像 Chromium 浏览器那样使用 `firefox://flags`、`chrome://flags` 或 `edge://flags`。Firefox 通过 `about:config`（preferences）暴露运行时开关，并接受命令行启动 flag。
+
+如果你搜索 `firefox://flags`、`firefox //flags`、`browser://flags`、`mozilla://flags` 或 `about flags firefox`，多半是想在扩展开发期间改变浏览器行为。在 Extension.js 中，这件事在两个地方处理：
+
+- 使用 [`browserFlags`](/zh-Hans/docs/browsers/browser-flags) 设置 Extension.js 传给浏览器二进制的启动期 flag。
+- 使用 [Firefox preferences](/zh-Hans/docs/browsers/browser-preferences) 提供可重复的 Gecko 运行时行为——本来这些设置会留在 `about:config` 里。
+
+无论是 Chrome、Edge 还是 Firefox 扩展开发，都可以在同一个 Extension.js 项目中工作。
+
+## 模板示例
+
+### `new-browser-flags`
+
+![new-browser-flags template screenshot](/images/examples/new-browser-flags/screenshot.png)
+
+通过一个配置启动行为的新标签页扩展，看 browser flag 实际运作。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-browser-flags
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/new-browser-flags](https://github.com/extension-js/examples/tree/main/examples/new-browser-flags)
+
+## 工作原理
+
+在 `extension.config.*` 中配置 flag：
+
+- `browser.<target>.browserFlags`
+- `commands.dev|start|preview.browserFlags`
+- 可选 `excludeBrowserFlags`，用于移除默认或用户 flag（行为取决于目标是 Chromium 还是 Firefox）。
+
+覆盖顺序：浏览器默认 → 命令默认 → CLI 选中的命令上下文。
+
+## Flag 能力
+
+| 配置键                                 | 作用                                                                  |
+| -------------------------------------- | --------------------------------------------------------------------- |
+| `browser.<target>.browserFlags`        | 为某个具体浏览器目标设置默认启动 flag。                               |
+| `commands.dev.browserFlags`            | 为 `dev` 运行添加或覆盖 flag。                                        |
+| `commands.start.browserFlags`          | 为 `start` 运行添加或覆盖 flag。                                      |
+| `commands.preview.browserFlags`        | 为 `preview` 运行添加或覆盖 flag。                                    |
+| `browser.<target>.excludeBrowserFlags` | 为目标移除匹配的默认或用户 flag。                                     |
+| `commands.<name>.excludeBrowserFlags`  | 在命令特定的上下文中移除 flag。                                       |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show browser-level flags plus command-level overrides and the final launch flags used at runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 示例配置
+
+```js
+export default {
+  browser: {
+    chrome: {
+      browserFlags: ["--disable-web-security", "--auto-open-devtools-for-tabs"],
+      excludeBrowserFlags: ["--mute-audio"],
+    },
+    firefox: {
+      browserFlags: ["--devtools", "--new-instance"],
+      excludeBrowserFlags: ["--devtools"],
+    },
+  },
+};
+```
+
+## Chromium 与 Firefox 的行为差异
+
+- **Chromium 家族（`chrome`、`edge`、`chromium`、`chromium-based`）**
+  - 先从内部默认 flag 集合开始，再追加你的 `browserFlags`。
+  - `excludeBrowserFlags` 会移除匹配的默认 flag（按精确匹配过滤）。
+  - Extension.js 自行管理 `--load-extension=...`，并会将其从用户提供的 flag 中过滤掉。
+
+- **Firefox / Gecko 家族（`firefox`、`gecko-based` / `firefox-based`）**
+  - 使用用户提供的 `browserFlags`（不像 Chromium 那样自带大量默认 flag）。
+  - `excludeBrowserFlags` 按前缀匹配的方式移除用户 flag。
+
+### 默认的 Chromium flag
+
+在启动 Chromium 家族浏览器时，Extension.js 会自动应用以下 flag。用 `excludeBrowserFlags` 可以移除你不需要的项。
+
+| Flag                                                       | 用途                                                                    |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `--no-first-run`                                           | 禁用首次启动引导                                                        |
+| `--disable-client-side-phishing-detection`                 | 禁用钓鱼检测                                                            |
+| `--disable-sync`                                           | 禁用同步，避免账号提示                                                  |
+| `--disable-component-extensions-with-background-pages`     | 禁用不受 `--disable-extensions` 影响的内置扩展                          |
+| `--disable-default-apps`                                   | 禁止安装默认应用                                                        |
+| `--disable-features=InterestFeedContentSuggestions`        | 禁用新标签页（NTP）的发现 feed                                          |
+| `--disable-features=Translate`                             | 禁用 Chrome 翻译                                                        |
+| `--hide-scrollbars`                                        | 在截图中隐藏滚动条                                                      |
+| `--mute-audio`                                             | 静音任何音频                                                            |
+| `--no-default-browser-check`                               | 禁用默认浏览器检查提示                                                  |
+| `--ash-no-nudges`                                          | 避免用户引导提醒                                                        |
+| `--disable-search-engine-choice-screen`                    | 禁用搜索引擎选择页                                                      |
+| `--disable-features=MediaRoute`                            | 禁用 Chrome Media Router 的后台联网                                     |
+| `--use-mock-keychain`                                      | 在 Mac 上使用 mock keychain，避免阻塞对话框                             |
+| `--disable-background-networking`                          | 禁用后台网络服务                                                        |
+| `--disable-breakpad`                                       | 禁用崩溃转储收集                                                        |
+| `--disable-component-update`                               | 禁用组件更新                                                            |
+| `--disable-domain-reliability`                             | 禁用域名可靠性监控                                                      |
+| `--no-pings`                                               | 禁用超链接审计 ping                                                     |
+| `--enable-features=SidePanelUpdates`                       | 确保侧边栏可见                                                          |
+| `--disable-features=DisableLoadExtensionCommandLineSwitch` | 允许在命令行使用 `--load-extension`                                     |
+| `--enable-unsafe-extension-debugging`                      | 允许通过 Chrome DevTools Protocol (CDP) 管理扩展（Chrome 126+）         |
+| `--silent-debugger-extension-api`                          | 抑制 “X 正在调试此浏览器” 的信息栏                                      |
+
+<Note>
+  在 Docker、持续集成 (CI) 或容器化环境中，Extension.js 还会自动应用
+  `--no-sandbox` 与 `--disable-setuid-sandbox`。
+</Note>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Chromium and Firefox launches using different flag behavior from the same config. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 支持的目标与参考
+
+| 浏览器         | 用法                                     | 更多信息                                                                               |
+| -------------- | ---------------------------------------- | -------------------------------------------------------------------------------------- |
+| Chrome         | `extension dev --browser=chrome`         | [Chrome Flags](https://peter.sh/experiments/chromium-command-line-switches/)           |
+| Edge           | `extension dev --browser=edge`           | [Edge Flags](https://docs.microsoft.com/en-us/deployedge/microsoft-edge-policies)      |
+| Firefox        | `extension dev --browser=firefox`        | [Firefox Flags](https://developer.mozilla.org/en-US/docs/Mozilla/Command_Line_Options) |
+| Chromium-based | `extension dev --browser=chromium-based` | [Chromium Flags](https://peter.sh/experiments/chromium-command-line-switches/)         |
+| Gecko-based    | `extension dev --browser=gecko-based`    | Firefox 系浏览器与 Firefox 共享同一套 flag。                                           |
+
+需要时为引擎目标提供二进制 flag：
+
+- `--chromium-binary=...`
+- `--gecko-binary=...`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show engine-based target launch with custom browser binary and target-specific flags. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳实践
+
+- **只添加必要的 flag**：减少冗长的 flag 列表，避免不稳定或不可移植的配置。
+- **优先使用 `excludeBrowserFlags`，而不是整体替换默认值**：只移除与你工作流冲突的部分。
+- **不要手动传 `--load-extension`**：Extension.js 在内部管理扩展加载 flag。
+- **按浏览器家族分别验证**：Chromium 上可用的 flag 在 Firefox 上可能无效或被忽略。
+
+## 下一步
+
+- 了解更多关于[浏览器 preferences](/zh-Hans/docs/browsers/browser-preferences)。
+- 了解更多关于[浏览器 profile](/zh-Hans/docs/browsers/browser-profile)。
+- 在[可用浏览器](/zh-Hans/docs/browsers/browsers-available)中选择目标。
+- 通过 [`extension.config.*`](/zh-Hans/docs/features/extension-configuration) 接入 flag。
+- 刚开始接触扩展工具？先看[浏览器扩展框架](/zh-Hans/docs/compare)概览。

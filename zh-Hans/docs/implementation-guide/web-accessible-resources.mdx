@@ -1,0 +1,199 @@
+---
+title: "Web-accessible resources 与构建期合并"
+description: "只暴露网页真正需要的扩展资源。Extension.js 会自动将用户声明的 web_accessible_resources 与构建期需求合并。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+    "docs",
+  ]
+---
+
+只把网页或外部扩展上下文真正需要访问的扩展资源暴露出去。
+
+Extension.js 会把用户声明的 `web_accessible_resources` 与构建时发现的需求合并，并应用针对各目标的 manifest 规范化。
+
+## 模板示例
+
+### `content`
+
+![content template screenshot](/images/examples/content/screenshot.png)
+
+content scripts 通过 web-accessible resources 向页面注入样式与资源。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+## Web-accessible resource 能力
+
+| 能力                            | 它给你带来什么                                                                                  |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Manifest V2/V3 schema 处理      | 按 manifest 版本同时处理数组和对象形态的 `web_accessible_resources`                             |
+| 感知构建的合并                  | 把声明的资源与构建/运行时所需的条目合并                                                         |
+| 路径规范化                      | 把 WAR（web-accessible resource）路径解析到针对每个浏览器目标的正确输出位置                     |
+| 安全控制面                      | 通过 `resources` 与 `matches` 让访问规则保持显式                                                |
+
+## Manifest schema
+
+### Manifest V3
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*.png", "fonts/*.woff2"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+```
+
+### Manifest V2
+
+```json
+{
+  "web_accessible_resources": ["images/*.png", "scripts/*.js", "styles/*.css"]
+}
+```
+
+## `manifest.json` 文件示例
+
+如果你通过受支持的 content-script 或构建路径导入资源，Extension.js 会自动添加所需的 WAR 条目。如果网页需要直接访问特定资源，请手动声明这些资源。
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*.png", "scripts/*.js", "styles/*.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://example.com/*"],
+      "css": ["styles/content.css"],
+      "js": ["scripts/content.js"]
+    }
+  ]
+}
+```
+
+## Extension.js 自动添加的内容
+
+当运行时需要把构建产出的资源暴露给页面访问时，Extension.js 可以从构建结果扩展 WAR 条目。
+
+常见示例包括：
+
+- content scripts 导入的资源。
+- content-script CSS 产物。
+- 这些入口引用的、被输出的字体或静态资源。
+- 重载行为所需的、仅在开发期使用的运行时支持。
+
+自动包含很方便，但你仍然应当审视最终暴露给网页的资源集合。
+
+## 开发期行为
+
+- 在开发期，Extension.js 会修补 WAR 条目以支持重载与热模块替换（HMR）资源访问。
+- 在需要时，Extension.js 可自动把 content-script 相关资源加入 WAR。
+- Extension.js 会通过移除 `public/` 前缀与前导 `/` 来规范化路径，以产出输出安全的路径。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show tightening WAR from broad to minimal resource/match patterns and validating runtime access still works. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 输出与解析说明
+
+- Extension.js 通过 public 资源流程复制 `public/` 中的资源，你也可以从扩展根路径声明它们。
+- 相对的 WAR 资源路径相对 manifest 文件夹解析。
+- 你可以使用 glob，但 match 模式必须符合目标浏览器的约束。
+- 在规范化阶段，Extension.js 会丢弃没有 `resources` 的 Manifest V3 (MV3) 条目。
+- Extension.js 原样保留 glob，不会把它们展开为显式的文件列表。
+
+## 运行时使用
+
+请使用浏览器运行时 URL 辅助函数，而不要手动拼接扩展 URL：
+
+```ts
+const logoUrl = chrome.runtime.getURL("/images/logo.png");
+```
+
+如果某个页面或 content script 无法读取一个你期望可访问的资源，请检查：
+
+1. 该资源在产物中是否实际存在。
+2. WAR 条目是否暴露了正确的 `resources`。
+3. `matches` 范围是否包含尝试读取它的页面。
+4. 该资源是否本应只保留为扩展页面内部可见。
+
+## 最佳实践
+
+- 让 WAR 条目保持最小；只暴露外部上下文必须读取的内容。
+- 出于安全考虑，优先使用明确的资源路径，而不是宽泛的 glob。
+- 在 Chromium 与 Firefox 目标上校验 WAR 的 match 模式与资源路径。
+- 使用 `chrome.runtime.getURL()`/`browser.runtime.getURL()` 创建运行时安全的 URL。
+- 在新增 content-script 导入、字体或可访问页面的静态资源后重新审计 WAR。
+
+### 安全清单
+
+- 把 `matches` 范围限制在真正需要访问的域名。
+- 当一个小而明确的列表已经足够时，避免宽泛的通配符资源 glob。
+- 让 WAR 条目聚焦于不敏感的资源。
+- 在新增 content script 导入或运行时资源查找时重新审计 WAR。
+
+### 范围合理 vs 过度宽泛的示例
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["images/logo.png", "fonts/inter.woff2"],
+      "matches": ["https://example.com/*"]
+    }
+  ]
+}
+```
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+```
+
+## 下一步
+
+- 在 [dev update behavior](/zh-Hans/docs/workflows/dev-update-behavior) 中理解更新结果。
+- 进一步了解 [Special folders](/zh-Hans/docs/features/special-folders)。
+- 继续阅读 [commands reference](/zh-Hans/docs/commands/dev)。

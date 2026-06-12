@@ -1,0 +1,131 @@
+---
+title: "擴充功能圖示與 manifest 宣告"
+description: "在 manifest 欄位中宣告擴充功能圖示作為品牌識別與 action UI。Extension.js 會驗證路徑、改寫參照,並輸出圖示資產。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "docs",
+    "implementation guide",
+    "icons",
+    "template",
+    "example",
+  ]
+---
+
+把擴充功能圖示宣告在 manifest 欄位中,讓 Extension.js 能驗證、改寫並可預期地輸出它們,藉此維持品牌識別與 action UI 的一致。
+
+Extension.js 會處理 `manifest.json` 中的圖示路徑、解析 public 與相對路徑、輸出圖示資產,並在開發期間監看圖示檔案。
+
+## 範本範例
+
+### `action`
+
+![action template screenshot](/images/examples/action/screenshot.png)
+
+在 `manifest.json` 中宣告工具列圖示的 action 擴充功能。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+## 圖示能力
+
+| 能力                          | 帶給你什麼                                                     |
+| ----------------------------- | -------------------------------------------------------------- |
+| Manifest 圖示欄位支援          | 為支援的擴充功能介面驗證並編譯圖示                              |
+| 路徑解析                      | 一致地處理相對路徑與 public 根路徑的圖示                        |
+| 開發監看更新                  | 在本地開發期間針對圖示變更重新編譯                              |
+| 瀏覽器安全的輸出              | 在擴充功能輸出中以穩定參照輸出圖示資產                          |
+
+## 支援的圖示欄位
+
+| Manifest 欄位                 | 預期檔案類型           |
+| ----------------------------- | ---------------------- |
+| `action.default_icon`         | .png, .jpg, .svg       |
+| `browser_action.default_icon` | .png, .jpg, .svg       |
+| `icons`                       | .png, .jpg, .svg       |
+| `page_action.default_icon`    | .png, .jpg, .svg       |
+| `sidebar_action.default_icon` | .png, .jpg, .svg (\*)  |
+| `browser_action.theme_icons`  | .png, .jpg, .svg       |
+
+<Note>
+  部分瀏覽器目前對 `sidebar_action.default_icon` 的 `.svg` 支援尚未完整。
+  在此情境使用 SVG 前,請先確認瀏覽器相容性。
+</Note>
+
+## `manifest.json` 中的圖示宣告範例
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_icon": "icons/action-icon.png"
+  }
+}
+```
+
+## 輸出路徑
+
+典型的圖示輸出:
+
+```plaintext
+icons/<filename>
+browser_action/<theme-icon-filename>   # for theme_icons
+```
+
+## 路徑行為
+
+- Extension.js 會從 manifest 所在資料夾解析相對的圖示路徑。
+- 開頭的 `/` 與 `public/...` 會解析成擴充功能 public 根目錄的語意。
+- Extension.js 可以監看 public 資料夾中的資產,而不必透過圖示功能本身重新輸出。
+
+## 開發行為
+
+- 變更既有的圖示檔會觸發重新編譯。
+- 變更 manifest 中的圖示進入點參照可能需要重新啟動 dev server。
+- 缺少必要的圖示檔會產生建置錯誤(部分可選的圖示群組可能改為發出警告)。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show replacing manifest icon files and verifying updated assets in extension UI surfaces across build output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳實務
+
+- 明確宣告 manifest 圖示欄位,而不要依賴附帶的資源匯入。
+- 提供多個圖示尺寸(`16`、`32`、`48`、`128`),讓 UI 在各瀏覽器介面上更銳利。
+- 維持圖示檔名穩定,以減少開發期間 manifest 的反覆變動。
+- 刻意使用 public 根目錄路徑,並測試最終 manifest 的輸出路徑。
+
+## 下一步
+
+- 繼續閱讀 [Web Accessible Resources](/zh-Hant/docs/implementation-guide/web-accessible-resources)。
+- 了解更多關於 [特殊資料夾](/zh-Hant/docs/features/special-folders) 的內容。

@@ -1,0 +1,193 @@
+---
+title: "Background 脚本与 MV3 service workers"
+description: "用 MV2 background 脚本或 MV3 service worker 运行扩展逻辑。Extension.js 会从 manifest.json 编译入口，并应用对应的重载行为。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "firefox",
+    "browser",
+    "manifest",
+    "javascript",
+    "hmr",
+    "content script",
+  ]
+---
+
+在 background 上下文中运行覆盖整个扩展的逻辑，同时清晰支持 Manifest V2（MV2）的 background 脚本与 Manifest V3（MV3）的 service worker。
+
+Extension.js 从 `manifest.json` 读取 background 入口，并把它们编译为专用的 background 产物。在开发期，它会应用与浏览器相关的重载行为。
+
+## 模板示例
+
+### `action`
+
+![action template screenshot](/images/examples/action/screenshot.png)
+
+带 action popup 的扩展，其 background service worker 负责处理浏览器事件。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+### `action-chatgpt`
+
+![action-chatgpt template screenshot](/images/examples/action-chatgpt/screenshot.png)
+
+带 action popup，并使用 background service worker 与外部 API（ChatGPT）集成。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action-chatgpt
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action-chatgpt
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/action-chatgpt](https://github.com/extension-js/examples/tree/main/examples/action-chatgpt)
+
+## Background 能力
+
+| 能力                         | 它给你带来什么                                                       |
+| ---------------------------- | -------------------------------------------------------------------- |
+| MV2/MV3 兼容                 | 同时支持 `background.scripts` 与 `background.service_worker` 入口    |
+| 专用的 background 产物       | 按当前活动的 manifest 形态输出 background 运行时文件                 |
+| 感知重载的开发流程           | 对结构性变更应用硬重载/重启行为                                      |
+| Worker 模式控制              | 尊重 `background.type` 的 module/classic 运行时行为                  |
+
+## 支持的 background 脚本
+
+通过下列 `manifest.json` 字段声明 background 脚本：
+
+| Manifest 字段               | 期望的文件类型               | 开发期行为                                   |
+| --------------------------- | ---------------------------- | -------------------------------------------- |
+| `background.service_worker` | `.js`、`.ts`、`.mjs`、`.tsx` | 硬重载流程                                   |
+| `background.scripts`        | `.js`、`.ts`、`.mjs`、`.tsx` | 兼容热模块替换（HMR）的路径                  |
+
+`background.type` 还会影响运行时模式（`module` 对比经典 service worker 行为）。
+
+## Background 脚本声明示例
+
+`manifest.json` 中的 background 脚本声明示例：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./scripts/background.ts"
+  }
+}
+```
+
+## 开发期行为
+
+- Extension.js 跟踪 service worker/源代码变化，并可能触发扩展硬重载。
+- 影响 background 入口的 manifest 变更可能触发“需要重启”的提示。
+- 浏览器启动插件按目标应用特定的硬重载策略（Chromium/Firefox）。
+- Extension.js 对结构性入口变更比普通模块编辑更严格。
+
+## Firefox：service worker 被翻译为 event page
+
+Firefox 不会运行 MV3 的 `background.service_worker`（加载这类附加组件会失败并提示 _"background.service_worker is currently disabled. Add background.scripts."_）。你不需要为此做特别处理：对于 Firefox 构建，Extension.js 会自动把 `background.service_worker` 条目翻译成指向同一份编译产物的 `background.scripts` event page。只写一份 `background.service_worker`，它就能同时在 Chromium 和 Firefox 上加载。
+
+## MV3 service worker 生命周期
+
+`background.service_worker` 运行在浏览器的 service-worker 生命周期下，而不是一个长时运行的进程。
+
+这意味着：
+
+- 内存中的状态可能在事件之间消失。
+- 围绕事件设计长任务，而不是依赖进程的持久存在。
+- 让启动过程保持精简、可预期。
+- 你的代码应当从存储中恢复重要状态，或安全地重新计算它。
+
+仅在出于 MV2 风格兼容性的情况下使用 `background.scripts`。对 MV3 优先的扩展，把 service worker 当作浏览器 API 调用与跨上下文通信的中心协调者。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show background service worker edit flow, including hard reload behavior and restart-required when background entry structure changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 输出行为
+
+常见输出包括：
+
+- `background/service_worker.js`
+- `background/scripts.js`
+
+实际产物取决于浏览器过滤后仍处于活动状态的 manifest 字段。
+
+## Module 与 classic 说明
+
+- `background.type: "module"` 使用 module worker 语义。
+- 经典 service worker 模式使用基于 `importScripts` 的 chunk 加载行为。
+- 对于必须在启动时立即加载的 background 代码，避免使用动态 import。
+
+## 推荐架构
+
+- 让 background 入口保持轻量，把功能逻辑放到共享模块中。
+- 把 background 上下文作为消息传递、存储访问与浏览器 API 调用的中心协调者。
+- 从存储中恢复持久状态，不要假设 background 脚本永远在运行。
+- 使用 alarms、明确的事件监听器和小型功能模块，而不是一个庞大的启动路径。
+
+## 常见错误
+
+- 把 service worker 当作永远运行的服务进程。
+- 把关键状态只保存在内存中。
+- 在每次事件唤醒时都做昂贵的启动工作。
+- 把过多功能逻辑放到 popup 或 content script 中，而它实际上需要 background 级别的浏览器 API 访问。
+
+## 最佳实践
+
+- 对 MV3 优先的扩展，优先使用 `background.service_worker`。
+- 让 background 入口文件保持小巧，把逻辑委托给共享模块。
+- 避免在 service worker 中做昂贵的启动工作；在安全的范围内进行懒初始化。
+- 在 dev 流程中把 manifest background 字段的修改视为结构性变更。
+- 通过经过校验的消息处理器路由带特权的操作。
+- 把持久化设置与缓存放在浏览器存储中，而不是只放在模块级变量里。
+
+## 下一步
+
+- 在 [dev update behavior](/zh-Hans/docs/workflows/dev-update-behavior) 中理解更新结果。
+- 用 [Storage](/zh-Hans/docs/implementation-guide/storage) 持久化运行时状态。
+- 用 [Messaging](/zh-Hans/docs/implementation-guide/messaging) 协调多个上下文。
+- 进一步了解 [JavaScript in development](/zh-Hans/docs/implementation-guide/javascript)。
+- 继续阅读 [content scripts](/zh-Hans/docs/implementation-guide/content-scripts)。
+- 在 [Manifest V3 troubleshooting](/zh-Hans/docs/concepts/manifest-v3) 中排查 service worker 行为。

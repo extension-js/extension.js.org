@@ -1,0 +1,200 @@
+---
+title: "面向浏览器扩展的 Vue.js"
+description: "用 Vue 单文件组件构建扩展 UI。Extension.js 会从依赖中检测 Vue，并自动配置 SFC 编译与别名。"
+keywords:
+  [
+    "extension.js",
+    "typescript",
+    "javascript",
+    "vue",
+    "rspack",
+    "content script",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Extension.js 会从依赖中检测 Vue。它会自动配置单文件组件（SFC）编译、框架别名以及开发期间的更新行为。scoped 样式、Composition API 与 `<script setup>` 都无需额外的打包器接线即可工作。
+
+## Vue 适合什么场景
+
+- 你已经在生产中使用 Vue 应用。
+- 你倾向于使用带 scoped 样式与 Composition API 的 Vue 单文件组件。
+- 你希望扩展 UI 与已有 Vue 架构保持一致。
+
+## 模板示例
+
+### `new-vue`
+
+![Template screenshot](/images/examples/new-vue/screenshot.png)
+
+从第一天起就支持 SFC 的 Vue 新标签页体验。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-vue
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-vue
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-vue
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/new-vue](https://github.com/extension-js/examples/tree/main/examples/new-vue)
+
+### `content-vue`
+
+![Template screenshot](/images/examples/content-vue/screenshot.png)
+
+通过 content-script 把 Vue 组件直接注入到网页中。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-vue
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-vue
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-vue
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content-vue](https://github.com/extension-js/examples/tree/main/examples/content-vue)
+
+## 在已有扩展中使用
+
+按下面的步骤把 Vue 加到一个已有扩展中。
+
+### 安装
+
+安装所需依赖：
+
+<PackageManagerTabs command="install vue" />
+
+在已有项目中显式搭建时，再安装 Vue 的 SFC 工具链：
+
+<PackageManagerTabs command="install -D vue-loader @vue/compiler-sfc" />
+
+### 配置
+
+Extension.js 期望把 Vue 组件放在 `.vue` 文件中。它会在 Rspack 管线中配置 `vue-loader`、`VueLoaderPlugin` 与 Vue 相关的 define 标志。
+
+## 开发期行为
+
+当 Extension.js 检测到 Vue 时，会：
+
+- 在框架插件中启用 `.vue` 编译。
+- 应用 Vue 运行时别名（以保证一致的运行时解析）。
+- 在 Vue SFC 发生相关改动后，通过重新挂载来支持 content script 更新。
+
+如果项目缺少可选的 Vue 工具，Extension.js 会替你安装并提示重启。
+
+### 排错
+
+- **缺少 Vue 工具的警告：** 安装 `vue-loader` 与 `@vue/compiler-sfc`。
+- **安装后提示重启：** 停止并重新运行 `extension dev`，让 Extension.js 加载新安装的 loader/插件。
+- **`.vue` 处理出现异常：** 确认 `vue` 出现在项目依赖中，以便 Extension.js 检测到 Vue 集成。
+
+## 使用示例
+
+### 在新标签页扩展中
+
+要在新标签页扩展中使用 Vue，把入口文件包含到 HTML 中：
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this extension.</noscript>
+    <div id="app"></div>
+  </body>
+  <script src="./main.ts"></script>
+</html>
+```
+
+```ts
+import { createApp } from "vue";
+import App from "./App.vue";
+
+createApp(App).mount("#app");
+```
+
+```vue
+<!-- App.vue -->
+<template>
+  <h1>Hello, Vue.js Extension!</h1>
+</template>
+
+<script setup lang="ts">
+// Component logic goes here.
+</script>
+
+<style scoped>
+h1 {
+  color: #42b983;
+}
+</style>
+```
+
+### 在 `content_script` 文件中
+
+在 content scripts 中，把 Vue 应用挂载到一个注入的根节点上：
+
+```ts
+import { createApp } from "vue";
+import App from "./App.vue";
+import "./content.css";
+
+const rootDiv = document.createElement("div");
+rootDiv.id = "extension-root";
+document.body.appendChild(rootDiv);
+
+createApp(App).mount("#extension-root");
+```
+
+## 最佳实践
+
+- 让 UI 入口以框架为先（`main.ts`、`App.vue`），把扩展 API 放在专门的模块中。
+- 在 SFC 中尽量使用 scoped 样式，以减少扩展页面中的样式泄漏。
+- 对于大型 UI，拆分组件与共享的 composable，让 content scripts 保持精简。
+
+## 下一步
+
+- 进一步了解 [TypeScript 支持](/zh-Hans/docs/languages-and-frameworks/typescript)。
+- 探索 [Sass 和 Sass modules](/zh-Hans/docs/languages-and-frameworks/sass)。
+
+## 视频演示
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Vue SFC template creation, dev mode launch, and component update behavior in extension UI. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
