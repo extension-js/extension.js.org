@@ -1,0 +1,116 @@
+---
+title: "Offscreen documents in Manifest V3"
+description: "Create, reuse, and close chrome.offscreen documents from a service worker. Bundle the offscreen page with the pages/ folder and message it reliably."
+keywords:
+  [
+    "offscreen document",
+    "chrome.offscreen",
+    "offscreen api",
+    "manifest v3 offscreen",
+    "offscreen document caching",
+    "service worker dom access",
+    "extension.js",
+    "chrome",
+    "manifest v3",
+  ]
+---
+
+Manifest V3 service workers have no DOM. When background logic needs DOM parsing, audio playback, clipboard access, or another window-only API, Chrome's answer is an offscreen document: an invisible extension page you create on demand with `chrome.offscreen`.
+
+## Setup
+
+Request the permission in `manifest.json`:
+
+```json manifest.json
+{
+  "permissions": ["offscreen"]
+}
+```
+
+The offscreen page is not a manifest entrypoint, so declare it through the [`pages/` special folder](/docs/features/special-folders) and Extension.js compiles it like any other HTML entry:
+
+```plaintext
+pages/
+└── offscreen.html
+```
+
+```html pages/offscreen.html
+<!doctype html>
+<html>
+  <body>
+    <script src="./offscreen.ts" type="module"></script>
+  </body>
+</html>
+```
+
+## Create, reuse, close
+
+Chrome allows one offscreen document per extension, and calling `createDocument` while one exists throws. The reliable pattern is an ensure function that checks for an existing document first:
+
+```ts background.ts
+let creating: Promise<void> | null = null;
+
+async function ensureOffscreen() {
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT" as chrome.runtime.ContextType],
+  });
+  if (contexts.length > 0) return;
+
+  if (!creating) {
+    creating = chrome.offscreen.createDocument({
+      url: "pages/offscreen.html",
+      reasons: [chrome.offscreen.Reason.DOM_PARSER],
+      justification: "Parse HTML strings that the service worker cannot",
+    });
+  }
+  await creating;
+  creating = null;
+}
+```
+
+The `creating` lock matters: two events can race into `ensureOffscreen` before the document exists, and the second `createDocument` call would throw.
+
+Close it when the work is done to free memory:
+
+```ts
+await chrome.offscreen.closeDocument();
+```
+
+## Choosing a reason
+
+The `reasons` array tells Chrome why the document exists. Common values:
+
+| Reason           | Use case                          |
+| ---------------- | --------------------------------- |
+| `DOM_PARSER`     | Parse or sanitize HTML strings    |
+| `AUDIO_PLAYBACK` | Play sound from the background    |
+| `CLIPBOARD`      | Read or write the clipboard       |
+| `DOM_SCRAPING`   | Extract data from rendered markup |
+| `BLOBS`          | Create and manage blob URLs       |
+| `USER_MEDIA`     | Access getUserMedia for recording |
+
+One behavior worth knowing: with `AUDIO_PLAYBACK`, Chrome closes the document automatically about 30 seconds after audio stops playing. For other reasons the document lives until you close it or the extension unloads.
+
+## Talking to the document
+
+Offscreen documents use standard runtime messaging. Scope your messages so other surfaces ignore them:
+
+```ts pages/offscreen.ts
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.target !== "offscreen") return;
+  const doc = new DOMParser().parseFromString(message.html, "text/html");
+  sendResponse({ title: doc.title });
+  return true;
+});
+```
+
+## Firefox
+
+Firefox does not implement `chrome.offscreen`. Its Manifest V3 background runs as an event page that already has DOM access, so the same DOM work runs directly in the background script there. Use [browser-specific manifest fields](/docs/features/browser-specific-fields) and a capability check (`typeof chrome.offscreen !== "undefined"`) to branch.
+
+## See also
+
+- [Background scripts](/docs/implementation-guide/background)
+- [Special folders](/docs/features/special-folders)
+- [Messaging](/docs/implementation-guide/messaging)
+- [Lazy loading heavy libraries](/docs/implementation-guide/lazy-loading)

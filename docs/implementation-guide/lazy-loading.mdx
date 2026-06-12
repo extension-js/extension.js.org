@@ -1,0 +1,94 @@
+---
+title: "Lazy loading heavy libraries in extensions"
+description: "Keep the Manifest V3 service worker lean. Where dynamic import works in extensions, where it does not, and patterns for loading large libraries on demand."
+keywords:
+  [
+    "lazy loading service worker",
+    "dynamic import service worker",
+    "manifest v3 large library",
+    "code splitting browser extension",
+    "import() content script",
+    "extension.js",
+    "manifest v3",
+    "performance",
+  ]
+---
+
+Manifest V3 service workers cold-start often: the browser kills them after ~30 seconds of inactivity and restarts them on the next event. Every kilobyte you import at the top of the worker is parsed again on every wake-up. A bundled parser, wasm runtime, or AI SDK in the worker entry makes every alarm, message, and click pay that cost.
+
+## Where dynamic `import()` works
+
+The platform rules, before any bundler enters the picture:
+
+| Context                                               | Dynamic `import()` at runtime |
+| ----------------------------------------------------- | ----------------------------- |
+| Service worker (background)                           | No, the spec disallows it     |
+| Extension pages (popup, options, new tab, side panel) | Yes                           |
+| Offscreen documents                                   | Yes                           |
+| Content scripts                                       | Yes, with one extra step      |
+
+The service worker restriction is the one that surprises people: dynamic `import()` is unavailable inside service workers at the platform level, in any browser. Static `import` statements at the top of the worker are fine (Extension.js bundles them), but you cannot defer a chunk load until an event fires.
+
+## Pattern 1: split by surface, not by chunk
+
+The service worker should orchestrate, not compute. Keep its static imports to glue code (routing messages, registering listeners) and move anything heavy to a surface where lazy loading works:
+
+- UI-adjacent work belongs in the page that needs it. A popup that formats code imports the formatter in the popup, not the worker.
+- Background-only heavy work (parsing, encoding, inference) belongs in an [offscreen document](/docs/implementation-guide/offscreen-documents), created on demand and closed when done. The worker stays a thin message router.
+
+```ts background.ts
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "parse-feed") {
+    ensureOffscreen()
+      .then(() =>
+        chrome.runtime.sendMessage({ target: "offscreen", ...message }),
+      )
+      .then(sendResponse);
+    return true;
+  }
+});
+```
+
+The offscreen page can then `import()` the heavy library the first time it is asked, and the cost is paid once per document lifetime instead of once per worker wake-up.
+
+## Pattern 2: lazy import inside extension pages
+
+Inside any extension page, plain dynamic import works and the bundler splits the chunk automatically:
+
+```ts popup.ts
+button.addEventListener("click", async () => {
+  const { highlight } = await import("./heavy/highlighter");
+  output.innerHTML = highlight(input.value);
+});
+```
+
+Nothing extension-specific here: the chunk is emitted into your build output and loads from the extension's own origin.
+
+## Pattern 3: lazy import in content scripts
+
+Content scripts execute in the page, so their lazily loaded chunks must be fetchable by that page. Two steps:
+
+1. Expose the chunk paths via `web_accessible_resources`.
+2. Import through `chrome.runtime.getURL` so the URL resolves to your extension origin:
+
+```ts content.ts
+async function loadAnalyzer() {
+  const src = chrome.runtime.getURL("content_scripts/analyzer.js");
+  return import(src);
+}
+```
+
+See [web_accessible_resources](/docs/implementation-guide/web-accessible-resources) for the matching manifest block. Without it, the import fails with a network error because the host page cannot fetch extension files that are not explicitly exposed.
+
+## What to keep out of the worker entirely
+
+- Anything DOM-shaped (`DOMParser`, canvas, audio): the worker has no DOM at all; use an offscreen document.
+- Multi-megabyte wasm: instantiate it in an offscreen document or an [extra page](/docs/features/special-folders), and cache results in `chrome.storage` so restarts are cheap.
+- One-off tooling (imports, migrations, exports): a dedicated page under `pages/` keeps it out of every startup path.
+
+## See also
+
+- [Background scripts](/docs/implementation-guide/background)
+- [Offscreen documents](/docs/implementation-guide/offscreen-documents)
+- [web_accessible_resources](/docs/implementation-guide/web-accessible-resources)
+- [Performance playbook](/docs/workflows/performance-playbook)
