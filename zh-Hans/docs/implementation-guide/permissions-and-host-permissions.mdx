@@ -1,0 +1,96 @@
+---
+title: "权限与主机权限"
+description: "为你的扩展设计最小权限集。涵盖必需权限、可选权限和主机权限,以提升用户信任度和审核结果。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "content script",
+    "popup",
+    "docs",
+    "implementation guide",
+    "permissions and host permissions",
+  ]
+---
+
+让你的扩展具备所需能力的同时,不索取超过功能需要的权限。
+
+Extension.js 编译并校验你的扩展,但浏览器仍会强制执行 `manifest.json` 中的 `permissions`、`host_permissions` 和 `optional_*` 字段。良好的权限设计能提升信任度,并减少应用商店审核中的问题。
+
+## 权限策略
+
+| 需求                                                   | 优先选择                    |
+| ------------------------------------------------------ | --------------------------- |
+| 扩展运行所需的核心 API 访问                            | `permissions`               |
+| 安装时即需要的主机访问                                 | `host_permissions`          |
+| 可以稍后请求的能力                                     | `optional_permissions`      |
+| 仅部分用户需要的域名访问                               | `optional_host_permissions` |
+
+## 常见模式
+
+### 后台驱动的功能
+
+为你需要的浏览器 API 使用 `permissions`,并只添加功能所需的主机模式:
+
+```json
+{
+  "manifest_version": 3,
+  "permissions": ["storage", "tabs", "scripting"],
+  "host_permissions": ["https://example.com/*"]
+}
+```
+
+### 可选能力
+
+如果首次运行体验不需要某个功能,把它保留为可选:
+
+```json
+{
+  "manifest_version": 3,
+  "permissions": ["storage"],
+  "optional_permissions": ["notifications"],
+  "optional_host_permissions": ["https://api.example.com/*"]
+}
+```
+
+## 实用规则
+
+- 仅当功能确实需要时才请求 API 权限。
+- 把 `host_permissions` 限定在最小的可工作来源集。
+- 对次要或高级功能优先使用可选权限。
+- 每当添加后台操作、内容脚本注入或远程 API 调用时,重新审查权限。
+
+## 按功能类型的权限设计
+
+| 功能                                       | 通常涉及                                                |
+| ------------------------------------------ | ------------------------------------------------------- |
+| 在已知站点上的内容脚本增强                 | 该站点的 `host_permissions`,有时还需要 `scripting`     |
+| 仅 popup 或 options UI                     | 通常不需要任何主机权限                                  |
+| 程序化注入                                 | `scripting` 加上匹配的主机权限                          |
+| 跨标签页工作流                             | `tabs`,有时是 `activeTab`                              |
+| 持久化设置                                 | `storage`                                               |
+| 通知或徽章                                 | `notifications`、与 `action` 相关的 manifest 字段       |
+
+## 常见错误
+
+- 在只需要一两个来源时使用像 `<all_urls>` 这样的宽泛通配符。
+- 把 `host_permissions` 混入一个本可以使用更窄的用户触发工作流的功能。
+- 忘记内容脚本、Web 可访问资源和通过 `chrome.scripting` 注入脚本各有不同的安全含义。
+- 在功能文档中只列权限而不解释每个权限存在的原因。
+
+## 复审清单
+
+1. 列出每个面向用户的功能。
+2. 把每个功能映射到它需要的确切 API 和主机权限。
+3. 在可能时把非核心权限移到可选权限。
+4. 删除遗留的旧实验权限。
+5. 在更改后重新测试安装提示和浏览器商店期望。
+
+## 后续步骤
+
+- 在 [manifest.json](/docs/implementation-guide/manifest-json) 中保持一个 manifest 的准确性。
+- 在 [Web 可访问资源](/docs/implementation-guide/web-accessible-resources) 中复审页面访问。
+- 在 [消息传递](/docs/implementation-guide/messaging) 中校验边界处理。
+- 通过 [安全检查清单](/docs/workflows/security-checklist) 做一次发布前检查。
+- 在 [Manifest V3 排错](/docs/concepts/manifest-v3) 中比较 `permissions` 与 `host_permissions` 行为。

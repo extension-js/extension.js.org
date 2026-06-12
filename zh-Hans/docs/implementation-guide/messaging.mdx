@@ -1,0 +1,115 @@
+---
+title: "跨上下文的扩展消息传递"
+description: "使用浏览器消息 API 在扩展上下文之间传递数据。保持后台、内容脚本和页面之间清晰的权限边界。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "browser",
+    "content script",
+    "service worker",
+    "popup",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+显式地在扩展上下文之间传递数据,并校验每一个特权边界。
+
+Extension.js 把后台脚本、内容脚本和扩展页面打包在一起。你的扩展上下文之间仍通过浏览器扩展消息 API 通信。良好的消息结构让每个上下文的职责保持清晰,并使调试更可靠。
+
+## 上下文边界
+
+| 来自                                | 至                                            | 典型 API                                       |
+| ----------------------------------- | --------------------------------------------- | ---------------------------------------------- |
+| Popup 或 options 页面               | 后台 service worker                           | `runtime.sendMessage()`                        |
+| 内容脚本                            | 后台 service worker                           | `runtime.sendMessage()` 或 `runtime.connect()` |
+| 后台 service worker                 | 内容脚本                                      | `tabs.sendMessage()`                           |
+| 长时间存活的流式或状态同步           | 后台 service worker 与另一个上下文             | `runtime.connect()`                            |
+
+## 推荐契约
+
+把消息视为一个类型化协议:
+
+- 包含显式的 `type`。
+- 在执行操作前校验载荷形态。
+- 对特权操作校验发送方上下文。
+- 返回结构化的成功与错误响应。
+
+```ts
+type Message =
+  | { type: "settings:get" }
+  | { type: "settings:set"; payload: { theme: "light" | "dark" } };
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (
+    !message ||
+    typeof message !== "object" ||
+    typeof message.type !== "string"
+  ) {
+    sendResponse({ ok: false, error: "invalid_message" });
+    return;
+  }
+
+  if (message.type === "settings:get") {
+    sendResponse({ ok: true, data: { theme: "dark" } });
+    return;
+  }
+
+  if (message.type === "settings:set") {
+    sendResponse({ ok: true });
+    return;
+  }
+
+  sendResponse({ ok: false, error: "unknown_message" });
+});
+```
+
+## 何时使用 `sendMessage` 与 `connect`
+
+| 用例                                          | 优先选择                |
+| --------------------------------------------- | ----------------------- |
+| 一次请求和一次响应                            | `runtime.sendMessage()` |
+| 长时间存活的流或多次更新                      | `runtime.connect()`     |
+| 与特定标签页的内容脚本通信                    | `tabs.sendMessage()`    |
+
+## 良好的架构
+
+- 按功能域保持每个功能区一个消息处理模块,而不是一个处理所有消息类型的大文件。
+- 把特权工作集中在后台 service worker 中。
+- 使用内容脚本采集页面数据,然后只转发所需的最小载荷。
+- 通过把浏览器 API 调用委托给后台代码,保持 popup 和 options 页面精简。
+
+## 安全规则
+
+- 不要因为内容来自内容脚本就信任页面派生的内容。
+- 在执行特权操作前校验发送方身份。
+- 显式拒绝未知的消息类型。
+- 避免通过消息暴露通用的“执行任意代码”或“拉取任意内容”命令。
+
+## 常见错误
+
+- 让 UI 页面在多个地方直接调用特权 API,而不是通过后台路由。
+- 在小型结构化载荷就足够的情况下发送大型任意页面快照。
+- 因为内容脚本是你自己的代码就把它视为可信,尽管它会接触不可信的页面数据。
+- 在多个上下文协同演进时忘记给消息形态加版本或迁移。
+
+## 实用模式
+
+### Popup 请求当前状态
+
+使用从 popup 到后台的单次请求-响应消息。
+
+### 内容脚本请求特权工作
+
+采集最小可能的页面载荷,发送给后台,让后台决定是否允许该操作。
+
+### 实时订阅
+
+只有当你确实需要连续更新时才使用 `runtime.connect()`,而不是用于简单的请求-响应流。
+
+## 后续步骤
+
+- 使用 [存储](/docs/implementation-guide/storage) 持久化数据。
+- 在 [后台脚本 / Service Worker](/docs/implementation-guide/background) 中设计事件驱动逻辑。
+- 在 [安全检查清单](/docs/workflows/security-checklist) 中复审边界安全。

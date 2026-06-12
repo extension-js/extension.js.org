@@ -1,0 +1,110 @@
+---
+title: "Extension.js 開發支援的瀏覽器"
+description: "查看 Extension.js 支援哪些瀏覽器。從單一 CLI 工作流程在 Chrome、Edge、Firefox 與自訂二進位檔上執行並測試擴充功能。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "docs",
+  ]
+---
+
+<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
+透過單一 CLI 工作流程，在主要瀏覽器上執行並測試你的擴充功能。
+
+從單一 CLI 在 Chrome、Edge、Firefox 與自訂瀏覽器二進位檔上驗證同一個擴充功能。
+
+當你需要從同一個 Extension.js 專案測試 Chrome 擴充功能、Firefox 擴充功能或 Edge 擴充功能時，請使用本頁。
+
+## 選擇合適的目標
+
+| 目標             | 何時使用                                              | 範例                                                                        |
+| ---------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| `chromium`       | 預設的快速本機開發                                    | `extension dev --browser=chromium`                                          |
+| `chrome`         | 驗證 Chrome 專屬行為                                  | `extension dev --browser=chrome`                                            |
+| `edge`           | 驗證 Edge 發佈行為                                    | `extension dev --browser=edge`                                              |
+| `firefox`        | 驗證 Gecko 相容性與 API                               | `extension dev --browser=firefox`                                           |
+| `chrome,firefox` | 在兩大引擎上進行發佈檢查                              | `extension build --browser=chrome,firefox`                                  |
+| `chromium-based` | 執行自訂 Chromium 二進位檔（Brave、Arc 等）           | `extension dev --browser=chromium-based --chromium-binary=/path/to/browser` |
+| `gecko-based`    | 執行自訂 Firefox 系列二進位檔                         | `extension dev --browser=gecko-based --gecko-binary=/path/to/browser`       |
+| `safari`         | 在 macOS 上建置 Safari 應用程式（需要 Xcode）         | `extension build --browser=safari`                                          |
+
+## 運作方式
+
+在 `dev`、`start`、`preview` 與 `build` 中以 `--browser` 選擇目標。
+
+若未指定瀏覽器，CLI 會預設為 `chromium`。
+
+`safari`（與其別名 `webkit-based`）為例外：這是**alpha 階段**、僅支援 macOS 的建置目標，且只支援 `build` 與 `dev`，不支援 `preview` 或 `start`。請參閱[建置 Safari 擴充功能](/docs/browsers/safari)。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching the same extension run between `chrome`, `edge`, and `firefox` with `--browser`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 支援的瀏覽器
+
+具名瀏覽器目標：
+
+| 瀏覽器       | 用法                                   |
+| ------------ | -------------------------------------- |
+| **Chrome**   | `npx extension dev --browser=chrome`   |
+| **Edge**     | `npx extension dev --browser=edge`     |
+| **Firefox**  | `npx extension dev --browser=firefox`  |
+| **Chromium** | `npx extension dev --browser=chromium` |
+
+引擎類目標（需要自訂二進位檔）：
+
+| 引擎目標                          | 用法                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------- |
+| **Chromium-based**                | `npx extension dev --browser=chromium-based --chromium-binary=/path/to/browser` |
+| **Gecko-based**（`firefox-based`）| `npx extension dev --browser=gecko-based --gecko-binary=/path/to/browser`       |
+
+Extension.js 在內部會將 `firefox-based` 視為 Gecko 引擎目標。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show using custom Chromium and Gecko binaries with engine-based browser targets. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Safari 與其他 WebKit 目標
+
+除了 Chromium 系列與 Firefox（Gecko 引擎）之外，Extension.js 也可以在 macOS 上把你的擴充功能建置為 **Safari** 應用程式。
+
+| 目標                              | 用法                                         |
+| --------------------------------- | -------------------------------------------- |
+| **Safari**                        | `npx extension build --browser=safari`       |
+| **WebKit-based**（引擎別名）      | `npx extension build --browser=webkit-based` |
+
+Safari 是**建置目標**：支援 `build` 與 `dev`，但不支援 `preview` 與 `start`（Safari 擴充功能無法自動載入到執行中的瀏覽器）。它需要 macOS 與完整版 Xcode 應用程式。完整工作流程、需求以及如何在 Safari 中啟用擴充功能，請參閱[建置 Safari 擴充功能](/docs/browsers/safari)。
+
+## 多瀏覽器選擇
+
+你可以在單一指令中執行多個具名瀏覽器：
+
+```bash
+npx extension dev --browser=chrome,firefox
+```
+
+使用以逗號分隔的值依序執行多個具名目標（例如 `--browser=chrome,edge,firefox`）。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show sequential multi-browser run using comma-separated browser targets. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 限制與行為
+
+- `chromium-based` 需要 `--chromium-binary`。
+- `gecko-based` / `firefox-based` 需要 `--gecko-binary`。
+- 引擎類目標會以具引擎意識的方式路由到相同的 Chromium/Firefox 執行器。
+
+## 最佳實務
+
+- **日常迭代使用具名瀏覽器**：`chrome`、`edge` 與 `firefox` 是日常測試最快的方式。
+- **有意識地使用引擎模式**：僅在驗證自訂二進位檔時，才優先選擇 `chromium-based` / `gecko-based`。
+- **每個瀏覽器各自隔離設定檔**：在偵錯時減少跨瀏覽器狀態外洩。
+- **搭配瀏覽器特定欄位**：以瀏覽器為前綴的 manifest 鍵處理真正的行為差異。
+
+## 後續步驟
+
+- [自訂瀏覽器旗標](/docs/browsers/browser-flags)。
+- [自訂瀏覽器偏好設定](/docs/browsers/browser-preferences)。
+- [從自訂二進位檔執行其他瀏覽器](/docs/browsers/running-other-browsers)。
+- [在 macOS 上建置 Safari 擴充功能](/docs/browsers/safari)。

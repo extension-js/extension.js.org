@@ -1,0 +1,129 @@
+---
+title: "透過二進位路徑執行其他瀏覽器"
+description: "透過提供明確的二進位路徑給 Extension.js，在 Brave、Vivaldi、Waterfox 或其他 Chromium 與 Gecko 瀏覽器中測試擴充功能。"
+keywords:
+  [
+    "extension.js",
+    "firefox",
+    "browser",
+    "docs",
+    "browsers",
+    "running other browsers",
+    "running",
+    "other",
+  ]
+---
+
+<AvatarBrowsers browsers={["waterfox", "opera", "brave"]} />
+透過提供明確的二進位路徑，執行預設具名目標以外的 Chromium 與 Gecko 系列瀏覽器。
+
+從同一個 Extension.js 工作流程測試自訂瀏覽器二進位檔（例如 Brave、Vivaldi 或 Waterfox）。在 `dev`、`start` 與 `preview` 中使用二進位旗標與 `extension.config.*`。
+
+## 運作方式
+
+使用以下其中一個旗標：
+
+- `--chromium-binary <path>`
+- `--gecko-binary <path>`（別名：`--firefox-binary <path>`）
+
+這些二進位旗標會覆寫 Extension.js 啟動的瀏覽器二進位檔，不論你選擇的具名瀏覽器目標為何。
+
+## 二進位功能
+
+| 選項／鍵                          | 作用                                              |
+| --------------------------------- | ------------------------------------------------- |
+| `--chromium-binary <path>`        | 啟動自訂的 Chromium 系列瀏覽器二進位檔。          |
+| `--gecko-binary <path>`           | 啟動自訂的 Gecko 系列瀏覽器二進位檔。             |
+| `--firefox-binary <path>`         | `--gecko-binary` 的別名。                         |
+| `browser.<target>.chromiumBinary` | 在設定中設定預設的自訂 Chromium 二進位檔。        |
+| `browser.<target>.geckoBinary`    | 在設定中設定預設的自訂 Gecko 二進位檔。           |
+| `commands.<name>.chromiumBinary`  | 設定指令專屬的自訂 Chromium 二進位檔。            |
+| `commands.<name>.geckoBinary`     | 設定指令專屬的自訂 Gecko 二進位檔。               |
+
+### CLI 範例
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/path/to/brave"
+```
+
+```bash
+extension dev --browser=firefox --gecko-binary="/path/to/firefox-developer-edition"
+```
+
+也可以搭配 `start` 與 `preview` 使用。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show launching the same extension in Brave and Firefox Developer Edition using binary flags. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 在 `extension.config.*` 中設定
+
+```js
+export default {
+  browser: {
+    "chromium-based": {
+      chromiumBinary: "/path/to/custom-chromium-browser",
+    },
+    "gecko-based": {
+      geckoBinary: "/path/to/custom-gecko-browser",
+    },
+  },
+};
+```
+
+你也可以把二進位路徑放在指令區塊中：
+
+```js
+export default {
+  commands: {
+    dev: {
+      chromiumBinary: "/path/to/custom-chromium-browser",
+    },
+    preview: {
+      geckoBinary: "/path/to/custom-gecko-browser",
+    },
+  },
+};
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show config-based binary defaults applied automatically in `dev` and `preview`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 目標對應行為
+
+二進位提示會對應到引擎目標：
+
+- `chromiumBinary` → `chromium-based`
+- `geckoBinary` / `firefoxBinary` → `gecko-based`
+
+若兩者皆有提供，Extension.js 會先套用 Chromium 二進位的解析。
+
+## 可用的瀏覽器
+
+可用二進位旗標執行的常見瀏覽器：
+
+| 瀏覽器名稱                    | 類型                  | CLI 旗標            | 官方網站                                                  |
+| ----------------------------- | --------------------- | ------------------- | --------------------------------------------------------- |
+| **Brave**                     | Chromium 系列瀏覽器   | `--chromium-binary` | [brave.com](https://brave.com)                            |
+| **Opera**                     | Chromium 系列瀏覽器   | `--chromium-binary` | [opera.com](https://www.opera.com)                        |
+| **Vivaldi**                   | Chromium 系列瀏覽器   | `--chromium-binary` | [vivaldi.com](https://vivaldi.com)                        |
+| **Waterfox**                  | Gecko 系列瀏覽器      | `--gecko-binary`    | [Waterfox](https://www.waterfox.net)                      |
+| **Firefox Developer Edition** | Gecko 系列瀏覽器      | `--gecko-binary`    | [firefox.com](https://www.mozilla.org/firefox/developer/) |
+
+## 重要限制
+
+- `chromium-based` 需要有效的 `chromiumBinary` 路徑。
+- `gecko-based` / `firefox-based` 需要有效的 `geckoBinary` 路徑。
+- 無效的路徑會立刻失敗，並顯示明確的 CLI／執行階段錯誤。
+- `build` 不接受二進位旗標。只能在 `dev`、`start` 與 `preview` 中使用以二進位為基礎的啟動方式。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show invalid binary path error handling and then successful launch after fixing the path. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳實務
+
+- **二進位需搭配明確的瀏覽器目標**：以 `--browser=chromium-based` 或 `--browser=gecko-based` 表達可預測的意圖。
+- **使用絕對路徑**：避免因 shell 而導致的路徑解析問題。
+- **在持續整合（CI）執行器中鎖定版本**：使瀏覽器二進位路徑在自動化檢查中保持一致。
+- **謹慎地與設定檔／旗標組合使用**：沿用具名瀏覽器目標使用的相同設定檔與旗標策略。
+
+## 後續步驟
+
+- 進一步了解[瀏覽器偏好設定](/docs/browsers/browser-preferences)。
+- 進一步了解[瀏覽器設定檔](/docs/browsers/browser-profile)。

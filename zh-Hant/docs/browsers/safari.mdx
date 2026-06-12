@@ -1,0 +1,122 @@
+---
+title: "使用 Extension.js 建置 Safari 擴充功能"
+description: "在 macOS 上使用 Extension.js 將你的網頁擴充功能建置為 Safari 應用程式。涵蓋需求、dev 與 build 工作流程，以及已知限制。"
+keywords:
+  [
+    "extension.js",
+    "safari",
+    "webkit",
+    "safari web extension",
+    "xcode",
+    "macos",
+    "browser",
+    "docs",
+    "browsers",
+  ]
+---
+
+<AvatarBrowsers browsers={["safari"]} />
+在 macOS 上將既有的網頁擴充功能打包為原生 Safari 應用程式 ——
+不需要手動維護獨立的 Xcode 專案。
+
+<Warning>
+  Safari 支援目前為 **alpha 階段**。build → convert → `xcodebuild` → open 的管線雖可運作，
+  但可能會有不順暢處與破壞性變更。Chrome、Edge 與 Firefox 才是穩定的目標。
+</Warning>
+
+使用 `--browser=safari` 即可把你發佈到 Chrome 與 Firefox 的同一個擴充功能轉成 Safari App Extension。Extension.js 會打包你的程式碼、執行 Apple 的 `safari-web-extension-converter`、以 `xcodebuild` 編譯產出的應用程式，並引導你啟用它。
+
+## 需求
+
+Safari **僅支援 macOS**，且需要**完整的 Xcode 應用程式** —— 不只是 Command Line Tools。轉換器（`safari-web-extension-converter`）與 `xcodebuild` 都包含在 `Xcode.app` 內。
+
+```bash
+# 從 Mac App Store 安裝 Xcode，然後將工具鏈指向它：
+sudo xcode-select --switch /Applications/Xcode.app
+xcodebuild -runFirstLaunch
+```
+
+若缺少 Xcode，`extension build`／`dev --browser=safari` 會在打包前快速失敗，並提供清楚的指引，而不會稍後才出現令人困惑的錯誤。
+
+## 產出物
+
+`extension build --browser=safari` 會在你的專案旁建立：
+
+| 路徑                  | 內容                                                          |
+| --------------------- | ------------------------------------------------------------- |
+| `dist/safari`         | 打包好的網頁擴充功能（manifest、指令稿、資產）。              |
+| `dist/safari-xcode`   | 產生的 Xcode 專案（含 app 與 Safari 擴充功能目標）。          |
+| `…/Release/<App>.app` | 已用 ad-hoc 簽署的、可載入你擴充功能的應用程式。              |
+
+整個管線會一路完成：**打包 → 轉換 → `xcodebuild` → 開啟應用程式 → 引導啟用**。
+
+```bash
+npx extension build --browser=safari
+```
+
+應用程式名稱與套件識別碼會由你的 manifest `name` 衍生（例如 `React Sidebar Example` → 套件識別碼 `dev.extensionjs.React-Sidebar-Example`）。專案預設以 macOS 為目標。
+
+## 在 Safari 中啟用擴充功能
+
+本機建置採用 **ad-hoc 簽署**（不需要 Apple Developer 帳號），因此 Safari 需要你手動啟用一次。當建置開啟應用程式後，Extension.js 會印出以下步驟，並在 macOS 註冊擴充功能時確認：
+
+1. Safari ▸ 設定 ▸ 進階 ▸ 勾選**「在選單列顯示開發選單」**。
+2. Safari ▸ 開發 ▸ **允許未簽署的擴充功能**（每次 Safari 重新啟動都會重設）。
+3. Safari ▸ 設定 ▸ 擴充功能 ▸ 開啟你的擴充功能。
+
+<Note>
+  「允許未簽署的擴充功能」每次啟動 Safari 都會重設。開發期間在 Safari 重啟後請再次啟用。
+  以 Apple Developer ID 簽署的建置可避免此步驟，這是發佈工作流程的一部分。
+</Note>
+
+## 使用 `dev` 進行開發
+
+`extension dev --browser=safari` 會執行監看迴圈：
+
+```bash
+npx extension dev --browser=safari
+```
+
+- **首次編譯** —— 完整流程：轉換、建置、開啟應用程式，並列印啟用步驟。
+- **每次儲存** —— 增量的 `xcodebuild` 重新同步（通常只要幾秒），會從重新建置的 `dist/safari` 更新應用程式資源。
+
+Safari 沒有 Chromium 或 Firefox 那樣的即時重新載入通道，因此重新建置後請**在 Safari 中重新整理頁面（或切換擴充功能）**以套用變更。Xcode 專案只會產生一次並重複使用，因此你在 Xcode 中所做的任何自訂（entitlements、capabilities）會在重新建置間保留。刪除 `dist/safari-xcode` 可從頭重新產生。
+
+## 引擎目標
+
+`safari` 有一個引擎別名 **`webkit-based`**，與 `chromium-based` 和 `gecko-based` 平行：
+
+```bash
+npx extension build --browser=webkit-based
+```
+
+## 指令支援
+
+| 指令      | Safari 支援                                                                            |
+| --------- | -------------------------------------------------------------------------------------- |
+| `build`   | ✅ 建置並打包 Safari 應用程式。                                                        |
+| `dev`     | ✅ 監看 + 增量重建（需在 Safari 中重新整理才能套用）。                                 |
+| `preview` | ❌ 不支援 —— Safari 擴充功能無法自動載入到執行中的瀏覽器。                            |
+| `start`   | ❌ 不支援 —— 與 `preview` 同樣的原因。                                                |
+
+`preview` 與 `start` 的設計是把擴充功能載入到執行中的瀏覽器。Safari 需要上述具安全控制的手動啟用步驟，因此這些指令會引導你改用 `build`。
+
+## 限制
+
+- **僅限 macOS。** 建置 Safari 應用程式需要 macOS 並安裝完整的 Xcode 應用程式。
+- **沒有即時重新載入。** 重建速度很快，但需在 Safari 中重新整理才能套用。
+- **需要手動一次性啟用。** 允許未簽署擴充功能與開啟擴充功能是 Safari 的安全控制，無法自動化。
+- **本機建置採用 ad-hoc 簽署。** 發佈用簽署、公證以及 App Store 上架屬於本工作流程以外的獨立步驟。
+- **僅支援 macOS 目標。** 目前本工作流程不會產生 iOS 應用程式。
+
+## 最佳實務
+
+- **照常建置其他目標**：Safari 是附加性的 —— 持續在 `chromium`／`firefox` 上迭代，僅在需要驗證 Safari 時執行 `--browser=safari`。
+- **以瀏覽器特定欄位**透過以瀏覽器為前綴的 manifest 鍵處理真正的行為差異。
+- **保留產生的專案**，除非你需要全新狀態 —— 重新產生會丟失 Xcode 端的自訂設定。
+
+## 後續步驟
+
+- 查看所有[支援的瀏覽器](/docs/browsers/browsers-available)。
+- 使用[瀏覽器特定 manifest 欄位](/docs/features/browser-specific-fields)。
+- 檢視[多平台建置](/docs/features/multi-platform-builds)。

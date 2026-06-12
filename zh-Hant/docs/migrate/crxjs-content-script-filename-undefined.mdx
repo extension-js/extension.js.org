@@ -1,0 +1,73 @@
+---
+title: "修正：Content script fileName is undefined（CRXJS + Vite 8）"
+description: "修正 CRXJS 在 Vite 8 與 Rolldown 上的建置錯誤 [crx:manifest-post] Content script fileName is undefined。包含解決方法、根本原因與遷移路徑。"
+keywords:
+  [
+    "crxjs content script filename is undefined",
+    "crx:manifest-post",
+    "@crxjs/vite-plugin vite 8",
+    "crxjs rolldown",
+    "vite 8 chrome extension",
+    "crxjs build error",
+    "crxjs migration",
+    "extension.js",
+    "browser extension framework",
+  ]
+---
+
+你在一個 CRXJS 擴充功能專案上執行 `vite build`，然後看到：
+
+```text
+[crx:manifest-post] Content script fileName is undefined: "src/content.ts"
+```
+
+建置失敗、manifest 從未被寫入，而錯誤中的路徑指向專案中確實存在的檔案。本頁面說明為什麼會發生、可繼續使用 CRXJS 的解決方法，以及結構性的修正方式。
+
+## 這個錯誤是什麼意思
+
+`@crxjs/vite-plugin` 會分兩階段建置你的擴充功能。在 `generateBundle` 期間，`crx:manifest-post` 這一步會走訪 manifest 中每一個 `content_scripts` 條目，並向打包工具詢問為每個原始檔案所產生的 chunk 的輸出檔名。當打包工具對該原始檔路徑回傳「沒有對應的 chunk」時，查詢結果就是 `undefined`，外掛因此丟出錯誤。
+
+所以這個錯誤並不是「你的檔案不存在」。它的意思是外掛與打包工具對於你的 content script 所產生的 chunk 該如何命名或編索引意見不一致。
+
+## 為什麼 Vite 8 會觸發它
+
+Vite 8 將預設打包工具從 Rollup 換成了 [Rolldown](https://vite.dev/blog/announcing-vite8)。CRXJS 是針對 Rollup 的 chunk 產生模型撰寫的，其 content script 解析邏輯依賴的內部行為在 Rolldown 上不同。同樣的錯誤之前在特定設定下也曾發生（追蹤於 [crxjs/chrome-extension-tools#883](https://github.com/crxjs/chrome-extension-tools/issues/883)），但 Vite 8 的預設讓它從邊緣案例變成了常見情況。
+
+## 可繼續使用 CRXJS 的解決方法
+
+依序嘗試：
+
+1. **將 Vite 鎖定在 7 版。** Vite 7 仍使用 CRXJS 能理解的 Rollup：
+
+   ```bash
+   npm install vite@^7 --save-dev --save-exact
+   ```
+
+   這能立即解除阻塞，代價是 Vite 版本停留在舊版本。
+
+2. **將 `@crxjs/vite-plugin` 升級到最新版本。** 該專案正在逐步加入對 Rolldown 的相容性。在鎖定版本前，請先查看[發行頁面](https://github.com/crxjs/chrome-extension-tools/releases)以及上述 issue，確認當前的支援狀況。
+
+3. **檢查 manifest 如何參照指令稿。** 查詢是以路徑為鍵的。讓 `content_scripts.js` 條目的路徑樣式符合你的專案根目錄（相對路徑、不要有前導斜線），並確認該檔案沒有同時也以 `?script` 後綴在其他地方被動態 import。
+
+如果上述都不適用於你的設定，剩下的選項就是徹底擺脫對 Vite 外掛層的依賴。
+
+## 結構性的修正
+
+根本問題是架構性的：CRXJS 在通用打包工具的外掛 API 之上重新建立了擴充功能語意（manifest 串接、content script 輸出、HMR），因此每次打包工具的重大版本變動都可能讓它失效。Extension.js 是一個[瀏覽器擴充功能框架](/docs/compare/extension-js-vs-wxt)，其中 manifest 為單一真實來源，而打包工具是你永遠不必接線的內部細節：
+
+```bash
+npx extension@latest dev
+```
+
+- 你的 `manifest.json` 直接宣告 `content/index.ts`。沒有外掛去解析 chunk 名稱；框架會編譯 manifest 所指向的內容。
+- 沒有 `vite.config.ts`、沒有 `manifest.config.ts`，也沒有需要對齊的外掛版本矩陣。
+- 從同一份原始碼輸出 Chrome、Firefox 與 Edge 成品，並依介面提供對應的重新載入行為。
+
+你的 React、Vue 或 Svelte 元件以及 `chrome.*` 呼叫可原封不動地搬過來。完整流程約十分鐘：[從 CRXJS 遷移到 Extension.js](/docs/migrate/from-crxjs)。
+
+## 參見
+
+- [從 CRXJS 遷移到 Extension.js](/docs/migrate/from-crxjs)
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)
+- [Manifest V3 疑難排解](/docs/concepts/manifest-v3)
+- [重新載入與 HMR](/docs/features/reload-and-hmr)

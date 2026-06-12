@@ -1,0 +1,233 @@
+---
+title: "逐步建立你的第一個瀏覽器擴充功能"
+description: "用 Extension.js 從頭到尾建構你的第一個瀏覽器擴充功能。建立一個 GitHub 搜尋的 Omnibox 捷徑，並學習核心開發迴圈。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "browser",
+    "manifest",
+    "playwright",
+    "service worker",
+    "docs",
+  ]
+---
+
+你將建立一個 Omnibox（網址列）捷徑。在網址列輸入 `gh`、輸入查詢，然後抵達 GitHub 搜尋結果。在過程中你會連結 `manifest.json` 並在背景 service worker 中處理輸入。你也會練習每個專案都會遵循的開發迴圈（`create` → `dev` → `build`）。
+
+## 你將建立什麼
+
+| 能力                      | 你會得到什麼                                                  |
+| ------------------------- | ------------------------------------------------------------- |
+| Omnibox 關鍵字流程        | 從瀏覽器網址列以 `gh` 觸發擴充功能行為                        |
+| 背景事件處理              | 透過 service worker 處理使用者輸入                            |
+| 本機開發迴圈              | 快速執行、載入並驗證擴充功能行為                              |
+| 漸進式增強                | 在基線流程運作後加入即時 GitHub 建議                          |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show the final UX first: type `gh` in the browser omnibox, enter a query, and open GitHub results in a new tab. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 計畫
+
+讓 GitHub 搜尋如同瀏覽器原生捷徑一樣快。這個擴充功能保留關鍵字 `gh`；當你輸入 `gh` 與查詢後，它會開啟 GitHub 搜尋結果。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show the interface and interaction model for the omnibox keyword (`gh`) before implementation details. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 步驟 1：建立擴充功能
+
+使用 Extension.js 的 `create` 指令來建立一個名為 `github-search` 的最小擴充功能。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create github-search
+```
+
+```bash pnpm
+pnpx extension@latest create github-search
+```
+
+```bash yarn
+yarn dlx extension@latest create github-search
+```
+
+```bash bun
+bunx extension@latest create github-search
+```
+
+```bash bun
+bunx extension@latest create github-search
+```
+
+</CodeGroup>
+
+## 步驟 2：建立 manifest 檔案
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.loom.com/embed/1193dc69f7b74a56a5f5d9e0324c255d?sid=99132929-4c05-40e7-b804-3f242daf95ea"
+    title="Create the manifest file"
+    loading="lazy"
+    referrerPolicy="no-referrer-when-downgrade"
+    allow="clipboard-write; encrypted-media; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+每個擴充功能都從 manifest 檔案開始。它定義中繼資料、權限與執行階段檔案。根據 [上方計畫](#the-plan)，設定 `gh` 捷徑並加入 service worker 用於使用者事件。
+
+```json
+{
+  "manifest_version": 3,
+  "name": "GitHub Search",
+  "version": "1.0",
+  "omnibox": { "keyword": "gh" },
+  "background": {
+    "service_worker": "service_worker.js"
+  }
+}
+```
+
+- `omnibox.keyword`：當你輸入 `gh` 時，瀏覽器會觸發事件。
+- `background.service_worker`：監聽你觸發的事件。
+
+## 步驟 3：建立背景 service worker
+
+在瀏覽器擴充功能中，背景 service worker（獨立於任何可見頁面執行的腳本）負責處理瀏覽器事件。
+
+對於這個範例，加入一個腳本來監聽 Omnibox 輸入並將查詢路由到 GitHub 搜尋。
+
+建立 `service_worker.js`：
+
+```js
+// When the user has accepted what is typed into the omnibox.
+chrome.omnibox.onInputEntered.addListener((text) => {
+  // Convert any special character (spaces, &, ?, etc)
+  // into a valid character for the URL format.
+  const encodedSearchText = encodeURIComponent(text);
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
+
+  chrome.tabs.create({ url });
+});
+```
+
+上述腳本會在你於網址列「gh」之後輸入任何內容時，開啟一個新分頁顯示 GitHub 搜尋結果。
+
+## 步驟 4：載入你的擴充功能
+
+你的 `package.json` 檔案現在會像這樣：
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "devDependencies": {
+    "extension": "latest"
+  }
+}
+```
+
+這些腳本是預設的 Extension.js 指令。首次執行擴充功能：
+
+<CodeGroup>
+
+```bash npm
+npm run dev
+```
+
+```bash pnpm
+pnpm run dev
+```
+
+```bash yarn
+yarn run dev
+```
+
+```bash bun
+bun run dev
+```
+
+```bash bun
+bun run dev
+```
+
+</CodeGroup>
+
+若你的設定正確，Extension.js 會以全新的設定檔啟動 Chrome、將 `github-search` 作為未封裝擴充功能載入，並在終端機印出就緒橫幅。Chrome 網址列現在會將 `gh` 識別為關鍵字。
+
+輸入 `gh` 後加一個空格、輸入 `extension.js`，按下 Enter。一個新分頁會開啟到 `https://github.com/search?q=extension.js&type=issues`。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.loom.com/embed/777544977a32444ba6de4ff23bdaccbc?sid=360eb1b1-af3a-480b-9e71-41a7fb01ca6e"
+    title="Load and run your first extension"
+    loading="lazy"
+    referrerPolicy="no-referrer-when-downgrade"
+    allow="clipboard-write; encrypted-media; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+你現在擁有一個可在 GitHub 上搜尋的可運作瀏覽器擴充功能。
+
+## 步驟 5：讓它更好
+
+透過加上 Omnibox 輸入監聽器，直接在網址列加入建議，改善搜尋體驗。
+
+更新 `service_worker.js`，在輸入時擷取 GitHub 建議並顯示。
+
+```js title="service_worker.js"
+// Create a debounce function to avoid excessive
+// calls to the GitHub API while the user is still
+// typing the search query.
+function debounce(fn, delay) {
+  let timeoutID;
+  return function (...args) {
+    if (timeoutID) clearTimeout(timeoutID);
+    timeoutID = setTimeout(() => fn(...args), delay);
+  };
+}
+
+// When the user has changed what is typed into the omnibox.
+chrome.omnibox.onInputChanged.addListener(
+  debounce(async (text, suggest) => {
+    const response = await fetch(
+      `https://api.github.com/search/issues?q=${text}`,
+    );
+    const data = await response.json();
+    const suggestions = data.items.map((issue) => ({
+      content: issue.html_url,
+      description: issue.title,
+    }));
+
+    suggest(suggestions);
+  }, 250),
+);
+
+// When the user has accepted what is typed into the omnibox.
+chrome.omnibox.onInputEntered.addListener((text) => {
+  // Convert any special character (spaces, &, ?, etc)
+  // into a valid character for the URL format.
+  const encodedSearchText = encodeURIComponent(text);
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
+
+  chrome.tabs.create({ url });
+});
+```
+
+這段程式碼直接在網址列加入即時 GitHub 建議。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show omnibox live suggestions returned from GitHub API while typing, then selecting one result. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+你現在擁有一個可運作的 GitHub 搜尋擴充功能。在它的基礎上迭代並調整成你的工作流程。
+
+## 後續步驟
+
+- 用 [範本](/docs/getting-started/templates) 建立另一個擴充功能。
+- 用 [Playwright E2E](/docs/workflows/playwright-e2e) 加入自動化檢查。
+- 隨擴充功能成長檢視 [疑難排解](/docs/workflows/troubleshooting)、[安全檢查清單](/docs/workflows/security-checklist) 與 [效能手冊](/docs/workflows/performance-playbook)。

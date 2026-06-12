@@ -1,0 +1,122 @@
+---
+title: "為隔離開發執行管理瀏覽器設定檔"
+description: "在擴充功能開發期間，透過受管理、持久或自訂的設定檔路徑，管理 Chrome 與 Firefox 的瀏覽器狀態隔離。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "devtools",
+    "docs",
+    "browsers",
+    "browser profile",
+  ]
+---
+
+透過受管理、持久或自訂的設定檔，控制開發期間的瀏覽器狀態隔離。
+
+依照你的工作流程讓瀏覽器工作階段保持隔離或持久。Extension.js 會以具設定檔意識的預設值啟動瀏覽器。可以選擇乾淨的執行、可重複使用的狀態，或明確指定本機設定檔路徑。
+
+## 運作方式
+
+Extension.js 依下列順序選擇設定檔模式：
+
+1. 明確指定的 `profile` 路徑（若有提供）
+2. 受管理設定檔模式（預設）
+   - 預設為臨時（短暫）
+   - 設定 `persistProfile: true` 時為持久
+3. `EXTENSION_USE_SYSTEM_PROFILE=true` 時使用系統設定檔模式
+
+## 設定檔功能
+
+| 設定／選項                          | 作用                                                            |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `browser.<target>.profile`          | 為該瀏覽器目標使用明確的設定檔資料夾。                          |
+| `commands.dev.profile`              | 僅在 `dev` 中使用明確的設定檔。                                 |
+| `commands.start.profile`            | 僅在 `start` 中使用明確的設定檔。                               |
+| `commands.preview.profile`          | 僅在 `preview` 中使用明確的設定檔。                             |
+| `browser.<target>.persistProfile`   | 在每次執行間重用該目標的受管理設定檔狀態。                      |
+| `commands.<name>.persistProfile`    | 在指令專屬上下文中重用受管理設定檔狀態。                        |
+| `--profile=/abs/path`               | 以 CLI 覆寫明確的設定檔路徑。                                   |
+| `EXTENSION_USE_SYSTEM_PROFILE=true` | 使用作業系統／瀏覽器系統設定檔，而非受管理設定檔。              |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching between managed ephemeral, persistent, and explicit profile modes in development. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 設定檔模式
+
+| 模式                  | 啟用方式                                          | 典型用途                                       |
+| --------------------- | ------------------------------------------------- | ---------------------------------------------- |
+| 受管理臨時            | 預設                                              | 以隔離狀態進行乾淨的執行                       |
+| 受管理持久            | `persistProfile: true`                            | 以穩定瀏覽器狀態進行迭代偵錯                   |
+| 明確自訂設定檔        | `profile: "/abs/path"` 或 `--profile=/abs/path`   | 重用既有設定檔                                 |
+| 系統設定檔            | `EXTENSION_USE_SYSTEM_PROFILE=true`               | 以作業系統／瀏覽器預設設定檔啟動               |
+
+Extension.js 會將受管理設定檔建立於：
+
+- `dist/extension-js/profiles/<browser>-profile/<...>`
+
+持久模式使用：
+
+- `dist/extension-js/profiles/<browser>-profile/dev`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show profile directories created under `dist/extension-js/profiles` and reused when `persistProfile` is enabled. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 在 `extension.config.*` 中設定
+
+```js
+export default {
+  browser: {
+    chrome: {
+      // 使用你自己的設定檔資料夾：
+      profile: "path/to/custom/profile",
+    },
+    firefox: {
+      // 為重複的工作階段保留穩定的受管理設定檔：
+      persistProfile: true,
+    },
+  },
+};
+```
+
+你也可以按指令設定預設值：
+
+```js
+export default {
+  commands: {
+    dev: {
+      persistProfile: true,
+    },
+  },
+};
+```
+
+## CLI 用法
+
+直接指定明確的設定檔路徑：
+
+```bash
+extension dev --browser=chrome --profile=/path/to/custom/profile
+```
+
+`start` 與 `preview` 的用法類似。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CLI `--profile` override applied in `dev`, then reused in `start`/`preview`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 生命週期說明
+
+- Extension.js 會為每次執行建立臨時的受管理設定檔。
+- Extension.js 會在多次執行間重用持久的受管理設定檔（`dev`）。
+- Extension.js 會自動移除舊的受管理設定檔資料夾。可設定 `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` 來控制最大保留時長。
+
+## 最佳實務
+
+- **以受管理臨時設定檔進行基線測試**：可降低隱藏狀態與不穩定的重現問題。
+- **長期偵錯時使用 `persistProfile`**：在執行間保留驗證、工作階段與開發者工具狀態。
+- **每個瀏覽器系列各自保留自訂設定檔**：避免跨瀏覽器污染。
+- **有意識地使用系統設定檔模式**：適合用於問題重現，但隔離度低於受管理設定檔。
+
+## 後續步驟
+
+- 進一步了解[瀏覽器偏好設定](/docs/browsers/browser-preferences)。
+- 進一步了解[瀏覽器旗標](/docs/browsers/browser-flags)。

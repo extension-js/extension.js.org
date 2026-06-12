@@ -1,0 +1,78 @@
+---
+title: "什麼是瀏覽器擴充功能？"
+description: "了解瀏覽器擴充功能是什麼、如何運作，以及 JavaScript 開發者如何使用 Extension.js 為 Chrome、Firefox 與 Edge 建置擴充功能。"
+keywords:
+  [
+    "what is a browser extension",
+    "browser extension",
+    "browser extension framework",
+    "javascript extension",
+    "chrome extension",
+    "firefox extension",
+    "edge extension",
+    "web extension",
+    "webextensions",
+    "extension.js",
+  ]
+---
+
+瀏覽器擴充功能是為瀏覽器新增功能的軟體。擴充功能可以改變網頁的呈現方式，也可以在瀏覽器外觀（chrome）中加入新的 UI：工具列、popup、側邊面板與新分頁頁面。它們也能對網路與分頁事件做出回應，並呼叫一般網頁無法使用的特權瀏覽器 API。
+
+Extension.js 是一個 JavaScript 框架，可從單一專案為 Chrome、Firefox 與 Edge 建置瀏覽器擴充功能。
+
+## 瀏覽器擴充功能能做什麼
+
+實際的 API 介面會依瀏覽器而異，但大多數擴充功能會做以下一項或多項：
+
+- **改變頁面內容。** 將 CSS 或指令稿注入特定 URL（content script）。
+- **新增瀏覽器 UI。** 從工具列 action 開啟 popup，或提供側邊面板、選項頁、自訂新分頁頁面。
+- **對瀏覽器事件做出反應。** 監聽分頁更新、導覽、下載、鬧鐘，或來自頁面的訊息。
+- **儲存資料。** 讀寫跨工作階段保留的擴充功能範圍儲存空間。
+- **呼叫特權 API。** 由 `permissions` 控管下，管理 cookies、宣告式網路請求、書籤、歷史記錄、下載或通知。
+
+擴充功能不能做任何使用者未授予權限的事，瀏覽器也會將擴充功能與原始 OS 存取隔離。
+
+## 瀏覽器擴充功能的檔案
+
+每個瀏覽器擴充功能都是一個包含靜態資產與程式碼的資料夾，並經過簽署與封裝以便發布：
+
+| 檔案或資料夾      | 用途                                                                              |
+| ----------------- | --------------------------------------------------------------------------------- |
+| `manifest.json`   | 宣告擴充功能的名稱、版本、權限、進入點與中繼資料。                                  |
+| 背景指令稿         | 長期存在的事件處理器。Manifest V3 在 Chromium 上使用 service worker。               |
+| Content script    | 注入到符合條件的網頁中的程式碼。                                                    |
+| HTML 頁面          | popup、options、side panel 或 new-tab UI。                                         |
+| 圖示與資產         | 工具列圖示、語系字串與其他靜態資源。                                                |
+
+Extension.js 會把你的原始碼（`.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte`、CSS、Less、Sass）編譯成這樣的磁碟結構，並為每個瀏覽器目標輸出獨立的資料夾。
+
+## 擴充功能中的 JavaScript、TypeScript、HTML 與 CSS
+
+瀏覽器擴充功能採用與 Web 相同的語言來建置。JavaScript 與 TypeScript 負責邏輯；HTML 定義擴充功能頁面；CSS（或 Less、Sass、CSS modules、Tailwind）負責樣式。Extension.js 透過 Rspack 將這一切串接起來，並套用適合擴充功能的預設值，讓你不必為每個瀏覽器設定打包工具。各副檔名的歸屬請參見[瀏覽器擴充功能中的 JavaScript 與 TypeScript 檔案](/docs/concepts/javascript-typescript-browser-extension-files)。
+
+## Chrome 擴充功能 vs Firefox 擴充功能
+
+Chrome 與 Firefox 擴充功能共用 WebExtensions API，但每次建置時都需要注意一些差異：
+
+- **背景：** Chrome（Manifest V3）需要 `background.service_worker`。Firefox 使用 `background.scripts` 搭配非常駐事件頁面。
+- **執行時 API：** Firefox 原生提供 `browser.*`。Chromium 使用 `chrome.*`。在 Chromium 上可使用 `--polyfill` 來彌合差異。
+- **權限：** 瀏覽器對少數 `permissions` 與 `host_permissions` 項目的解讀不同。
+- **發行：** Chrome 透過 Chrome Web Store 發布，Firefox 透過 addons.mozilla.org，Edge 則透過 Edge Add-ons 商店。
+
+Extension.js 透過[瀏覽器特定 manifest 欄位](/docs/features/browser-specific-fields)與各目標建置輸出來處理這些差異。完整流程請參見[跨瀏覽器相容性](/docs/features/cross-browser-compatibility)。
+
+## Extension.js 如何協助
+
+沒有框架時，建置瀏覽器擴充功能意味著手寫 `manifest.json` 並為每個瀏覽器設定打包工具。你還得手動接線儲存後重新載入、polyfill API，並產出獨立的 Chrome、Firefox 與 Edge 成品。Extension.js 替你完成這些事：
+
+- 一個專案、一份 `manifest.json`、各自獨立的 `dist/<browser>` 輸出。
+- TypeScript、React、Vue、Svelte、Preact 與現代 CSS 無需設定即可使用。
+- `extension dev` 在儲存時重新載入擴充功能、content script 與 HTML 頁面。
+- `extension build` 為每個瀏覽器目標產生可供簽署發行的成品。
+
+## 下一步
+
+- 試試 [`extension create`](/docs/commands/create)，幾秒鐘內建立一個擴充功能。
+- 了解 [Manifest V3](/docs/concepts/manifest-v3) 及瀏覽器之間的 API 差異。
+- 參見[跨瀏覽器相容性](/docs/features/cross-browser-compatibility)了解建置流程。
+- 為開發選擇一個[瀏覽器目標](/docs/browsers/browsers-available)。

@@ -1,0 +1,133 @@
+---
+title: "Chrome DevTools MCP 與 Extension.js"
+description: "與 Extension.js MCP 伺服器一同執行 Google 的 chrome-devtools-mcp，讓 AI agent 從一份設定即可取得原生 Chrome 除錯能力，以及具有建置意識、跨瀏覽器的擴充功能控制。"
+keywords:
+  [
+    "chrome-devtools-mcp",
+    "extension.js",
+    "mcp",
+    "model context protocol",
+    "extension debugging",
+    "ai agents",
+    "claude",
+    "cursor",
+    "docs",
+    "integrations",
+  ]
+---
+
+[chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 讓 AI agent 對運行中的 Chrome 實例進行原生控制；近期版本新增了擴充功能工具（`install`、`list`、`reload`、`trigger` 與 `uninstall`，以及 service-worker logs）。Extension.js MCP 伺服器（`@extension.dev/mcp`）涵蓋相同的擴充功能能力，但具有建置意識且支援跨瀏覽器。
+
+它們是互補的，不是競爭關係。請同時執行兩者：讓 chrome-devtools-mcp 驅動 Chrome 本身，並讓 Extension.js 擁有所有依賴您專案的部分 — 建置、熱重新載入、產生出的 manifest、儲存、跨所有情境的 logs，以及 Firefox、Edge 與 Safari 上的相同工作流程。
+
+## 何時使用哪一個
+
+| 任務                                                            | 使用                                                       |
+| --------------------------------------------------------------- | --------------------------------------------------------- |
+| 建置、dev server、熱重新載入、正式版打包                        | Extension.js（`extension_dev`、`extension_build`）         |
+| 讀取產生出的跨瀏覽器 manifest                                   | Extension.js（`extension_manifest_validate`）              |
+| 以可程式化方式重播工具列 action 處理器，無需 popup              | Extension.js（`extension_open` 搭配 `surface: "action"`）  |
+| 重播鍵盤捷徑命令處理器                                          | Extension.js（`extension_open` 搭配 `surface: "command"`） |
+| 在 dev 瀏覽器中列出具有即時情境的擴充功能                       | Extension.js（`extension_list_extensions`）                |
+| 跨 SW、content scripts、popup、options、sidebar 的 logs         | Extension.js（`extension_logs`）                           |
+| 讀寫 `chrome.storage`、在任何情境中求值                         | Extension.js（`extension_storage`、`extension_eval`）      |
+| 在 Firefox、Edge 或 Safari 上採用相同流程                        | Extension.js（設計上跨瀏覽器）                             |
+| 驅動任意網頁、點擊/捲動、填寫表單                              | chrome-devtools-mcp                                       |
+| 效能 traces、Lighthouse 稽核、網路檢視                          | chrome-devtools-mcp                                       |
+| 檢查您沒有建置（無專案）的擴充功能                              | chrome-devtools-mcp                                       |
+| 以**真實手勢**觸發 action（授予 `activeTab`）                   | chrome-devtools-mcp（`trigger_extension_action`）          |
+
+一個實用的經驗法則：如果任務涉及您的**專案**（原始碼、建置、manifest、重新載入），請選用 Extension.js。如果任務涉及通用的**瀏覽器**（頁面、網路、效能），請選用 chrome-devtools-mcp。
+
+## 安裝兩個伺服器
+
+Extension.js 工具皆以 `extension_*` 命名空間，因此永遠不會與 chrome-devtools-mcp 工具衝突。能流暢操作其中一者的 agent 也能轉移到另一者。
+
+<CodeGroup>
+
+```bash Claude Code
+# Extension.js — 具建置意識的擴充功能控制
+claude mcp add extension-dev npx @extension.dev/mcp
+
+# chrome-devtools-mcp — 原生 Chrome 除錯（擴充功能工具需自行啟用）
+claude mcp add chrome-devtools npx chrome-devtools-mcp@latest --categoryExtensions
+```
+
+```json Claude Desktop (claude_desktop_config.json)
+{
+  "mcpServers": {
+    "extension-dev": {
+      "command": "npx",
+      "args": ["@extension.dev/mcp"]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["chrome-devtools-mcp@latest", "--categoryExtensions"]
+    }
+  }
+}
+```
+
+```json Cursor (.cursor/mcp.json)
+{
+  "mcpServers": {
+    "extension-dev": {
+      "command": "npx",
+      "args": ["@extension.dev/mcp"]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["chrome-devtools-mcp@latest", "--categoryExtensions"]
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+<Note>
+  chrome-devtools-mcp 的擴充功能工具（`--categoryExtensions`）目前需要 pipe 連線。透過 WebSocket 端點（`browserUrl` / `wsEndpoint`）附加到已執行的瀏覽器，目前在 Chrome 149 之前不支援擴充功能類別。Extension.js 會連線到它為您的 dev session 啟動的瀏覽器，因此其擴充功能工具現在即可使用。
+</Note>
+
+## 能力對照
+
+每個 chrome-devtools-mcp 擴充功能動詞都有對應的 Extension.js 對照，外加環繞它的建置平台。
+
+| chrome-devtools-mcp        | Extension.js                            | 註記                                                                                                                                                                                                  |
+| -------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `install_extension`        | `extension_dev`、`extension_preview`    | 載入與真實建置 + 熱重新載入綁定，而非靜態資料夾                                                                                                                                                       |
+| `list_extensions`          | `extension_list_extensions`             | 列出具有即時情境的擴充功能；透過 Extensions 網域以唯讀方式提供                                                                                                                                        |
+| `reload_extension`         | `extension_reload`                      | 具建置意識；可重新載入 background 或分頁                                                                                                                                                              |
+| `trigger_extension_action` | `extension_open`（`surface: "action"`） | 對 `onClicked` 處理器進行可移植的重播 — 跨瀏覽器、**無手勢**（請參閱注意事項）。需要真實手勢點擊（activeTab）時，請使用 chrome-devtools-mcp 的 `trigger_extension_action`                              |
+| —                          | `extension_open`（`surface: "command"`）| 重播 `chrome.commands.onCommand` 鍵盤捷徑處理器 — chrome-devtools-mcp 無對應功能                                                                                                                       |
+| `uninstall_extension`      | 由 dev session 生命週期管理             | Extension.js 透過 `dev` / `preview` 擁有載入/卸載                                                                                                                                                     |
+| service-worker logs        | `extension_logs`                        | 跨每個情境的單一有序時間軸，並支援 `follow`                                                                                                                                                          |
+
+### action / command 觸發如何運作 — 以及它們的唯一注意事項
+
+chrome-devtools-mcp 透過點擊真實的工具列按鈕來觸發 action，這需要可見視窗與真實的使用者手勢。Extension.js 採取不同方式：它會在建置期間擷取擴充功能的 `chrome.action.onClicked`（與 `chrome.commands.onCommand`）監聽器，並依需求**重播**它們。這讓觸發成為可程式化、可重現的方式（這是 agent 測試的自然模式），而且因為它只涉及 `addListener`，所以同時可在 **Chromium 與 Firefox** 上運作（已在兩者上驗證）。單一 `background.service_worker` 來源在 Firefox 上也可運作 — Extension.js 會為 Firefox 目標將其轉譯為 `background.scripts` event page，因為 Firefox 不執行 service-worker background。
+
+<Warning>
+  重播會在**沒有使用者手勢**的情況下叫用您的處理器。真正的工具列點擊會授予暫時的 `activeTab` 權限，並滿足受手勢約束的 API（`chrome.permissions.request`、互動式 `identity.getAuthToken`）；重播則不會。因此，依賴 `activeTab` 的處理器（例如在作用中分頁上的 `chrome.scripting.executeScript` 或 `captureVisibleTab`）行為會與真實點擊不同。結果包含 `gesture: false`，當您的 manifest 宣告 `activeTab` 時還會有 `warning`。當您需要真實的點擊保真度時，請使用 chrome-devtools-mcp 的 `trigger_extension_action`（如下）。
+</Warning>
+
+### 需要真實手勢的點擊？請使用 chrome-devtools-mcp
+
+兩者互補而非競爭：
+
+- **`extension_open`（`surface: "action"`）** — 日常路徑。重播處理器、跨瀏覽器、可在 headless 中執行、無手勢（不授予 `activeTab`）。用於絕大多數的處理器測試。
+- **chrome-devtools-mcp 的 `trigger_extension_action`** — 透過 Puppeteer（採用支援的 pipe 傳輸）進行的_真實_ action 叫用，因此 `activeTab` 會像使用者點擊一樣被授予。僅限 Chromium。僅在您的處理器真的依賴手勢時使用。
+
+由於本頁面已經建議同時執行兩個伺服器，請讓 chrome-devtools-mcp 負責真實手勢的瀏覽器驅動，並讓 Extension.js 負責具建置意識、跨瀏覽器的重播 — 不需要重複實作。
+
+請參閱 [重新載入與 HMR](/docs/features/reload-and-hmr)。
+
+### 結構上的安全性
+
+重播 wrap 僅注入**您的 dev 建置** — agent bridge 受限於僅在 `extension dev`/`preview` 期間存在的控制 port，且不會加入正式版建置。`addListener` wraps 會透明地委派給原本的監聽器，因此不論是否使用 bridge，您的擴充功能行為都完全一致。
+
+## 下一步
+
+- 同樣將文件連接到您的助理：[透過 MCP 與 llms.txt 提供的 AI 存取](/docs/ai-access)。
+- 將檢查整合到 pipeline：[CI 範本](/docs/workflows/ci-templates)。
+- 將相同的擴充功能交付到各處：[跨瀏覽器相容性](/docs/features/cross-browser-compatibility)。

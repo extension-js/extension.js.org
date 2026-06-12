@@ -1,0 +1,118 @@
+---
+title: "无需点击即可测试工具栏 action 或键盘命令"
+description: "从终端或 CI 触发 chrome.action.onClicked 与 chrome.commands.onCommand —— 在 Chrome 和 Firefox 上可无头、确定性。在 Chromium 149+ 上还可执行真实手势点击以满足 activeTab。"
+keywords:
+  [
+    "test chrome.action.onClicked",
+    "trigger extension action programmatically",
+    "chrome.commands.onCommand test",
+    "headless extension testing",
+    "extension toolbar button test",
+    "activeTab",
+    "extension.js",
+    "ci",
+  ]
+---
+
+你无法在 CI 中点击工具栏图标，而一个没有 popup 的 action 只有在它的 `onClicked` 触发时才会真正做事。Extension.js 让你可以直接触发这些处理器 —— 包括工具栏 action 和键盘快捷键命令 —— 这样你就能无头地运行它们并断言其行为。
+
+这一切之所以能成立，是因为 Extension.js 在构建时捕获了你的 `chrome.action.onClicked` 和 `chrome.commands.onCommand` 监听器（开发运行时会先于你的后台代码加载），并在需要时进行重放。无需窗口、无需鼠标、不会抖动。
+
+<Note>
+  需要以 `--allow-control` 启动的开发会话 —— 参见[调试概览](/docs/debugging)。
+</Note>
+
+## 触发工具栏 action
+
+```bash
+pnpm extension open action --allow-control --output json
+```
+
+如果 action 有 `default_popup`，就会打开它。如果没有，则重放 `onClicked` 监听器：
+
+```json
+{
+  "ok": true,
+  "value": { "triggered": "onClicked", "listeners": 1, "gesture": false }
+}
+```
+
+## 触发键盘命令
+
+按名称重放任意 `chrome.commands.onCommand` 处理器 —— 不会真正按下快捷键：
+
+```bash
+pnpm extension open command --name toggle-theme --allow-control --output json
+```
+
+```json
+{
+  "ok": true,
+  "value": {
+    "triggered": "command",
+    "command": "toggle-theme",
+    "listeners": 1,
+    "gesture": false
+  }
+}
+```
+
+## 唯一的注意点：没有用户手势
+
+重放会调用你的处理器，但它 **不是** 真正的用户点击，因此浏览器不会附加用户手势。实际影响是：
+
+<Warning>
+  一次真实的工具栏点击会授予临时的 **`activeTab`**，并满足受手势门控的 API
+  （`chrome.permissions.request`、交互式的
+  `chrome.identity.getAuthToken`）。重放不会。因此依赖 `activeTab` 的处理器 ——
+  例如对活动标签页执行 `chrome.scripting.executeScript`、
+  `chrome.tabs.captureVisibleTab` —— 的行为会与真实点击不同。
+</Warning>
+
+Extension.js 会在这件事重要时告诉你：结果中会包含 `gesture: false`，并且当你的清单声明了 `activeTab` 时，还会附带一个 `warning`：
+
+```json
+{
+  "ok": true,
+  "value": {
+    "triggered": "onClicked",
+    "listeners": 1,
+    "gesture": false,
+    "warning": "replayed without a user gesture: activeTab is NOT granted, so APIs that depend on it (scripting on the active tab, captureVisibleTab) behave differently than a real click"
+  }
+}
+```
+
+对于大多数处理器逻辑 —— 切换状态、写入 storage、打开标签页、发送消息 —— 重放正是你想要的：确定性且可脚本化。仅在你确实需要手势语义时，才使用下面的真实点击方案。
+
+## 需要真正带手势的点击？
+
+一次真实的 action 点击会授予 `activeTab` —— 已在 Chrome 149 上确认。重放故意 **不** 携带该手势（因此依赖 `activeTab` 的处理器行为会不同）。对于确实需要真正手势语义的少数场景，请使用 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 的 `trigger_extension_action`（仅限 Chromium），它通过 Puppeteer 在受支持的 pipe 传输上驱动一次真实调用。
+
+我们建议无论如何都[与 Extension.js 一同运行它](/docs/integrations/chrome-devtools-mcp)：让它负责真正的手势浏览器驱动，而 Extension.js 负责你在其他场景下使用的、感知构建、跨浏览器、无头的重放。
+
+## 在 CI 中：断言你的 action 处理器确实运行了
+
+启动一个会话、触发 action，然后断言副作用 —— 无需浏览器 UI，也不需要 Playwright。这就是 GitHub Actions 任务中的完整闭环：
+
+```yaml
+- run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
+- run: pnpm extension open action --browser=chromium --output json
+- run: |
+    pnpm extension storage get --key lastClickedAt --browser=chromium --output json \
+      | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0)).value?.lastClickedAt ? 0 : 1)'
+```
+
+因为触发是确定且无头的，所以它是一个可靠的门禁 —— Extension.js 自己的 `smoke:open-action` 检查也走相同路径：触发 action _以及_ 一个命令，然后回读 `chrome.storage` 以证明每个处理器确实执行了。
+
+完整流水线参见 [CI 模板](/docs/workflows/ci-templates#test-handlers-without-a-browser-ui)。
+
+## 跨浏览器
+
+`open action` 与 `open command` 构建在浏览器内伴随程序之上，因此它们在 **Chrome 和 Firefox** 上都能运行 —— 它们只触及 `addListener`，不依赖任何引擎特定的东西，并在两者上都已经过验证。一份 `background.service_worker` 源码在 Firefox 上同样适用：Extension.js 会把它翻译为 Firefox 构建中的 `background.scripts` 事件页面。（真正带手势的点击仅限 Chromium，并存在于 chrome-devtools-mcp 中 —— 见上。）
+
+## 下一步
+
+- [调试概览](/docs/debugging) —— 完整的控制面。
+- [CI 模板](/docs/workflows/ci-templates) —— 将其接入 PR 门禁。
+- [同时运行两个 MCP 服务器](/docs/integrations/chrome-devtools-mcp) —— 高保真 vs. 可移植，并排呈现。

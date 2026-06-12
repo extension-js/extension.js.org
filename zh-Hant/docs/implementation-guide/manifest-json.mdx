@@ -1,0 +1,147 @@
+---
+title: "Manifest.json 編譯與輸出"
+description: "將 manifest.json 作為進入點與資產的唯一真實來源。Extension.js 會編譯、改寫路徑並輸出瀏覽器可直接載入的 manifest。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+  ]
+---
+
+將 `manifest.json` 作為進入點、資產與特定瀏覽器行為的唯一真實來源，讓擴充功能建置保持可預測。
+
+Extension.js 會編譯您的 manifest，並過濾瀏覽器前綴欄位。它會改寫執行階段路徑、驗證所參照的檔案，並為每個目標瀏覽器產出可直接載入的 manifest。
+
+## Manifest 能力
+
+| 能力                             | 為您提供的功能                                                      |
+| -------------------------------- | ------------------------------------------------------------------- |
+| 瀏覽器特定欄位過濾               | 保留單一 manifest 檔案，同時輸出特定目標的成果                      |
+| 路徑正規化                       | 自動解析執行階段安全的輸出路徑                                      |
+| 參照驗證                         | 當 HTML/script/CSS/JSON/圖示檔案缺失時盡早失敗                      |
+| 目標化輸出                       | 為每個瀏覽器目標在 `dist/<browser>` 產生 manifest 產物              |
+
+## Extension.js 從何處讀取 manifest
+
+- `src/manifest.json`（存在時優先）
+- 專案根目錄的 `manifest.json`
+
+Extension.js 不會使用 `public/manifest.json` 作為來源 manifest。
+
+當專案有 `package.json` 時，Extension.js 會忽略 `public/manifest.json`。這可防止複製的靜態資產覆蓋 Extension.js 產生的 manifest。
+
+## Extension.js 對它做了什麼
+
+在 dev/build 期間，manifest pipeline：
+
+1. 從您的來源檔案輸出 manifest 資產。
+2. 為作用中的瀏覽器目標過濾瀏覽器前綴的索引鍵。
+3. 對擴充功能輸出套用 manifest 覆寫／路徑正規化。
+4. 驗證所參照的檔案（HTML/scripts/CSS/圖示/JSON），並在缺失時盡早失敗。
+
+## 單一 manifest，多個瀏覽器
+
+瀏覽器前綴的索引鍵讓您保留單一 manifest 檔案，同時針對特定瀏覽器行為：
+
+- `chromium:*`、`chrome:*`、`edge:*`
+- `firefox:*`、`gecko:*`
+
+這些前綴可套用於頂層索引鍵與巢狀 manifest 欄位。
+
+範例：
+
+- `chromium:key`
+- `background.firefox:scripts`
+- `background.chromium:service_worker`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show editing one manifest file, running different browser targets, and inspecting target-specific emitted manifest output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 支援的 manifest 欄位
+
+常見的進入點相關欄位包括：
+
+| Manifest 欄位                            | 預期的檔案類型                     |
+| ---------------------------------------- | ---------------------------------- |
+| `action.default_popup`                   | .html                              |
+| `background.page`                        | .html                              |
+| `background.service_worker`              | .js, .jsx, .ts, .tsx, .mjs         |
+| `browser_action.default_popup`           | .html                              |
+| `chrome_url_overrides.bookmarks`         | .html                              |
+| `chrome_url_overrides.history`           | .html                              |
+| `chrome_url_overrides.newtab`            | .html                              |
+| `content_scripts.js`                     | .js, .jsx, .ts, .tsx, .mjs         |
+| `content_scripts.css`                    | .css, .scss, .sass, .less          |
+| `declarative_net_request.rule_resources` | .json                              |
+| `devtools_page`                          | .html                              |
+| `icons`                                  | .png, .jpg, ...其他圖片格式        |
+| `options_ui.page`                        | .html                              |
+| `options_page`                           | .html                              |
+| `page_action.default_popup`              | .html                              |
+| `sandbox.pages`                          | .html                              |
+| `side_panel.default_path`                | .html                              |
+| `sidebar_action.default_panel`           | .html                              |
+| `storage.managed_schema`                 | .json                              |
+| `theme_icons`                            | .png, .jpg, ...其他圖片格式        |
+| `user_scripts.api_script`                | .js, .jsx, .ts, .tsx, .mjs         |
+| `web_accessible_resources`               | .png, .jpg, .css, .js              |
+
+## 權限設計
+
+manifest 也是您擴充功能宣告其能力的位置。Extension.js 會編譯 manifest，但您仍需要良好的權限設計。
+
+- 將 `permissions` 維持小巧且刻意。
+- 將 `host_permissions` 範圍縮窄到功能所需的最小集合。
+- 在可能的情況下，將非核心能力移到 `optional_permissions` 或 `optional_host_permissions`。
+- 每當 content-script matches 或 background 能力變更時，重新審視權限範圍。
+
+權限策略請參閱 [權限與主機權限](/docs/implementation-guide/permissions-and-host-permissions)。
+
+## 輸出行為
+
+Extension.js 在需要時會改寫 manifest 路徑為可預測的輸出位置。兩個重要範例：
+
+- `background.service_worker` 變成 `background/service_worker.js`
+- `side_panel.default_path` 變成 `sidebar/index.html`
+
+Extension.js 也會依 manifest 進入點索引正規化 content scripts：
+
+- `content_scripts/content-0.js`
+- `content_scripts/content-0.css`
+
+這些已輸出的路徑就是瀏覽器實際載入的路徑。撰寫時請使用原始路徑，並讓 Extension.js 為輸出改寫它們。
+
+## 開發行為
+
+- 當 `manifest.json` 變更時，Extension.js 會重新編譯並觸發擴充功能硬重新載入流程。
+- 若 manifest 進入點結構變更（例如 script 清單變更），Extension.js 可能需要重新啟動 dev server。
+- manifest 欄位所參照的檔案缺失，會以以 manifest 為主的錯誤訊息使編譯失敗。
+
+### 變更結果矩陣
+
+| Manifest 變更類型                                                       | 典型結果                              |
+| ----------------------------------------------------------------------- | ------------------------------------- |
+| 更新非結構性數值（例如描述／權限後設資料）                              | 硬重新載入流程                        |
+| 更新仍能乾淨解析的資產路徑數值                                          | 重新編譯 + 硬重新載入流程             |
+| 在 manifest 中新增/移除 script 或頁面進入點                             | 需要重新啟動                          |
+| 引入無效／缺失的所參照檔案                                              | 建置錯誤（請先修正再重新執行）        |
+
+## 最佳實務
+
+- 將 manifest 路徑保持為相對於擴充功能來源／輸出模型；僅在指意為擴充功能輸出根目錄時使用開頭的 `/`。
+- 使用瀏覽器前綴索引鍵，而非為每個瀏覽器維護獨立的 manifest 檔案。
+- 將進入點變更視為刻意行為；在開發時，新增/移除 manifest scripts 往往會改變重新載入語意。
+- 在持續整合（CI）中驗證圖示、JSON 資源與 content-script 資產，以盡早發現路徑回歸。
+- 不要將 `manifest.json` 放在 `public/` 之下。
+
+## 下一步
+
+- 在 [開發更新行為](/docs/workflows/dev-update-behavior) 中了解更新結果。
+- 在 [權限與主機權限](/docs/implementation-guide/permissions-and-host-permissions) 中設計最小權限存取。
+- 了解 Extension.js 如何處理 [瀏覽器特定 manifest 欄位](/docs/features/browser-specific-fields)。
+- 在 [頁面重新載入與 hot module replacement（HMR）](/docs/features/reload-and-hmr) 中理解開發更新流程。

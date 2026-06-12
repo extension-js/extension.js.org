@@ -1,0 +1,50 @@
+---
+title: "瀏覽器擴充功能框架比較"
+description: "比較瀏覽器擴充功能框架：Extension.js、WXT、CRXJS 與 Plasmo。涵蓋各框架的 manifest 模型、打包工具、跨瀏覽器輸出與遷移指南。"
+keywords:
+  [
+    "browser extension framework",
+    "chrome extension framework",
+    "cross browser extension framework",
+    "browser extension framework comparison",
+    "extension.js vs wxt",
+    "plasmo alternative",
+    "crxjs alternative",
+    "web extension framework",
+    "extension.js",
+  ]
+---
+
+瀏覽器擴充功能框架負責處理瀏覽器不會做的工作：為每個擴充功能介面編譯 TypeScript 與現代 JavaScript、將 manifest 連接到實際的輸出檔案、在開發過程中重新載入 service worker 與 content script，並輸出針對各瀏覽器的建置結果。本頁面比較目前活躍的選項，讓你能在資訊充足的情況下做出選擇。
+
+## 各框架概覽
+
+| 面向             | Extension.js                                | WXT                          | CRXJS                          | Plasmo                        |
+| ---------------- | ------------------------------------------- | ---------------------------- | ------------------------------ | ----------------------------- |
+| 模型             | `manifest.json` 作為單一真實來源              | 檔案慣例 + 設定               | 讀取 manifest 的 Vite 外掛     | 檔案慣例                       |
+| 打包工具         | Rspack（內建，零設定）                       | Vite                         | Vite（外掛層）                  | Parcel                        |
+| 跨瀏覽器         | 從單一原始碼支援 Chrome、Edge、Firefox        | Chrome、Firefox，支援 MV2     | 以 Chromium 為主                | 支援 Chrome、Firefox          |
+| 設定             | 不需要                                       | `wxt.config.ts`              | `vite.config.ts` + 外掛         | `package.json` 的 manifest 欄位 |
+| 與打包工具的耦合 | 屬於內部細節                                 | 跟隨 Vite 主版本               | 打包工具變更時容易出問題         | 與 Parcel 綁定                |
+
+有兩項結構性差異，比任何單一功能列都更為關鍵：
+
+- **manifest 放在哪裡。** Extension.js 讀取你的 `manifest.json`，並編譯其中宣告的任何內容。WXT 與 Plasmo 則是從檔案慣例與設定產生 manifest。CRXJS 雖然也讀取 manifest，但透過 Vite 的外掛 API 解析，這也是為什麼打包工具升級可能導致它失效（參見 [Vite 8 的 fileName 錯誤](/docs/migrate/crxjs-content-script-filename-undefined)）。
+- **誰擁有打包工具。** 包裝通用打包工具的框架，會繼承該打包工具的破壞性變更。Extension.js 將打包工具視為內部細節：你完全不需要設定它，升級也是框架的問題，不是你的。
+
+## 詳細比較與遷移指南
+
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)：最貼近的比較，逐項分析。
+- [從 CRXJS 遷移](/docs/migrate/from-crxjs)：一般專案約十分鐘可完成的逐步指南。
+- [修正：Content script fileName is undefined](/docs/migrate/crxjs-content-script-filename-undefined)：CRXJS + Vite 8 的建置錯誤，附解決方法。
+- [從 Plasmo 遷移](/docs/migrate/from-plasmo)：慣例對應到 manifest、環境變數與 CSUI 的轉換。
+
+## 不需要承諾，先試試看
+
+只要一個指令，就能執行任何擴充功能範本，或 GitHub 上任何擴充功能儲存庫：
+
+```bash
+npx extension@latest dev
+```
+
+無論來自上述哪個框架，你的元件、`chrome.*` 呼叫與樣式都可以直接沿用；[遷移指南](/docs/migrate/from-crxjs)會說明需要調整的接線部分。

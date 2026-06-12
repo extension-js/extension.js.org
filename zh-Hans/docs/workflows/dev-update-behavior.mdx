@@ -1,0 +1,61 @@
+---
+title: "开发模式的更新与重载行为"
+description: "了解开发过程中哪些文件变更会触发热更新，哪些需要重启。Extension.js 会自动选择最轻量且安全的更新模式。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+    "service worker",
+    "docs",
+    "workflows",
+  ]
+---
+
+了解哪些变更会即时应用、哪些需要重启，可以让迭代保持快速。Extension.js 会针对每次文件变更选择最轻量且安全的更新模式。
+
+## 更新模式
+
+| 模式                         | 发生的情况                                                  | 典型影响                                                  |
+| ---------------------------- | ----------------------------------------------------------- | --------------------------------------------------------- |
+| 热模块替换（HMR）            | 模块/样式更新在原地应用                                     | 迭代最快，无需完整重启扩展                                |
+| `Hard reload`                | 目标浏览器重载扩展运行时                                    | 扩展上下文重启，但 dev 进程继续运行                       |
+| `Restart required`           | 编译时诊断要求你重启 `extension dev`                        | 适用于结构性入口/列表变更                                 |
+
+## 常见示例
+
+| 变更                                                | 预期行为                                  |
+| --------------------------------------------------- | ----------------------------------------- |
+| 编辑内容脚本/组件代码                               | HMR/重新挂载路径（在支持时）              |
+| 编辑内容脚本/页面所使用的样式导入                   | HMR 风格的更新路径（取决于上下文）        |
+| 编辑 `manifest.json` 的非结构性值                   | 硬重载流程                                |
+| 添加/删除 manifest 入口引用                         | 需要重启                                  |
+| 添加/删除 `pages/` 或 `scripts/` 中的入口           | 需要重启                                  |
+| 编辑 `_locales/*/messages.json`                     | 硬重载流程                                |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show three edits in sequence (component change, manifest metadata change, entrypoint list change) and the resulting HMR/hard-reload/restart-required behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 需要重启时该怎么做
+
+当 Extension.js 报告 `Restart required` 时，请在继续之前停止并重新运行 `extension dev`。
+
+典型触发情况：
+
+- 添加或删除 manifest 入口引用
+- 添加或删除 `pages/` 或 `scripts/` 中作为扩展入口的文件
+- HTML 入口中的结构性脚本/样式条目变更
+
+## 实用建议
+
+- 在活跃的 dev 会话中优先编辑已有的模块/资源，以获得最快的反馈。
+- 将结构性的 manifest 变更（入口列表编辑）批量进行，以便只重启一次。
+- 将“需要重启”的诊断视为权威信息；不重启就继续可能让运行时处于陈旧状态。
+
+## 后续步骤
+
+- [manifest.json](/docs/implementation-guide/manifest-json)
+- [内容脚本](/docs/implementation-guide/content-scripts)
+- [后台脚本 / service worker](/docs/implementation-guide/background)
+- [HTML](/docs/implementation-guide/html)

@@ -1,0 +1,86 @@
+---
+title: "擴充功能安全檢查清單"
+description: "在發版前透過可重複的安全審查減少擴充功能的攻擊面。涵蓋最小權限、受限的執行階段存取與輸入驗證。"
+keywords:
+  [
+    "browser",
+    "manifest",
+    "content script",
+    "docs",
+    "workflows",
+    "security checklist",
+    "security",
+    "checklist",
+  ]
+---
+
+你的擴充功能可能因幾個反覆出現的原因而通不過商店稽核與內部審查。權限範圍超過實際功能所需。內容腳本不安全地信任頁面情境。Web-accessible resources（WAR）將內部內容暴露給任意來源。訊息處理器在未驗證傳送端的情況下執行動作。
+
+每次發版前都執行這份清單。
+
+## 安全審查能力
+
+| 區域                                    | 此項能協助你驗證                                                          |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| 權限範圍                                | 申請的能力是最小且有意的                                                  |
+| 內容腳本安全                            | 頁面情境行為避免不安全的注入模式                                          |
+| WAR（web-accessible resources）暴露     | 僅必要資產可對外讀取                                                      |
+| 訊息邊界                                | 擴充功能驗證特權動作並檢查傳送端                                          |
+| 發版衛生                                | 持續整合（CI）與相依套件檢查及早攔截回歸                                  |
+
+## Manifest 與權限
+
+- 只申請你需要的權限。
+- 除非必要，避免廣泛的主機權限。
+- 對非核心能力偏好使用 optional permissions。
+- 在功能變更後重新檢視 `web_accessible_resources` 範圍。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a pre-release security pass that trims permissions and narrows web_accessible_resources before packaging. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 內容腳本
+
+- 預設使用 isolated world（沙箱執行情境），除非你明確需要 MAIN world 存取頁面的 JavaScript 環境。
+- 將選擇器與 DOM 變更限制在已知目標。
+- 對不受信任的頁面資料先消毒再渲染或儲存。
+- 避免將可執行字串注入頁面情境。
+
+## Web-accessible resources
+
+- 讓 WAR 項目維持明確且最小。
+- 避免萬用字元 `resources: ["*"]` 模式。
+- 將 `matches` 限制在必要網域。
+- 使用執行階段 URL helper（`runtime.getURL`）存取資產。
+
+## 訊息傳遞與資料流
+
+- 在處理前驗證訊息負載結構。
+- 對特權操作驗證傳送端情境。
+- 避免將特權操作直接暴露給頁面腳本。
+- 維持內容／背景通訊的邊界模組。
+
+## 建置與發版衛生
+
+- 在 CI 中執行 lint、型別檢查與測試。
+- 檢視正式環境套件輸出，避免非預期成品。
+- 維持相依套件更新並移除未使用的套件。
+- 輪換密鑰，並讓敏感值遠離客戶端暴露的環境變數。
+
+## 常見高風險反模式
+
+- `host_permissions` 含對功能非關鍵的廣泛萬用字元
+- `web_accessible_resources` 將廣泛 glob 暴露給 `<all_urls>`
+- 訊息處理器在未進行傳送端或結構檢查的情況下信任負載
+- 在可以使用 isolated world 時卻使用 MAIN-world 腳本
+
+## 快速發版前檢查
+
+1. 權限審查
+2. WAR 審查
+3. 內容腳本 world 審查
+4. 訊息傳遞驗證審查
+5. 在目標瀏覽器矩陣上 CI 通過
+
+## 下一步
+
+- 檢視 [web-accessible resources](/docs/implementation-guide/web-accessible-resources)。
+- 檢視 [疑難排解](/docs/workflows/troubleshooting)。

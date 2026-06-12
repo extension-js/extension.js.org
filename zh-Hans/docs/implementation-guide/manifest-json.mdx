@@ -1,0 +1,147 @@
+---
+title: "Manifest.json 编译与输出"
+description: "把 manifest.json 作为入口和资源的唯一真实来源。Extension.js 编译、重写路径,并为每个目标浏览器输出可加载的 manifest。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+  ]
+---
+
+通过把 `manifest.json` 作为入口、资源和浏览器特定行为的唯一真实来源,保持扩展构建的可预测性。
+
+Extension.js 编译你的 manifest 并过滤带浏览器前缀的字段。它会重写运行时路径、校验引用的文件,并为每个目标浏览器生成可直接加载的 manifest。
+
+## Manifest 能力
+
+| 能力                             | 提供给你的功能                                                       |
+| -------------------------------- | -------------------------------------------------------------------- |
+| 按浏览器特定字段过滤             | 在保留一个 manifest 文件的同时输出特定目标的产物                     |
+| 路径规范化                       | 自动解析运行时安全的输出路径                                         |
+| 引用校验                         | 当 HTML/脚本/CSS/JSON/图标文件缺失时尽早失败                         |
+| 按目标输出                       | 在 `dist/<browser>` 中为每个浏览器目标生成 manifest 产物             |
+
+## Extension.js 在哪里读取 manifest
+
+- `src/manifest.json`(存在时优先)
+- 项目根目录的 `manifest.json`
+
+Extension.js 不会把 `public/manifest.json` 作为源 manifest 使用。
+
+当项目存在 `package.json` 时,Extension.js 会忽略 `public/manifest.json`。这可以防止被复制的静态资源覆盖 Extension.js 生成的 manifest。
+
+## Extension.js 对它做的事
+
+在开发/构建期间,manifest 流水线会:
+
+1. 从你的源文件输出 manifest 资源。
+2. 为当前活跃的浏览器目标过滤带浏览器前缀的键。
+3. 应用 manifest 覆盖/路径规范化,生成扩展输出。
+4. 校验引用的文件(HTML/脚本/CSS/图标/JSON),并在缺失时尽早失败。
+
+## 一个 manifest,多个浏览器
+
+带浏览器前缀的键让你在保留一个 manifest 文件的同时,仍能针对浏览器特定行为:
+
+- `chromium:*`、`chrome:*`、`edge:*`
+- `firefox:*`、`gecko:*`
+
+这些前缀可应用于顶层键和嵌套的 manifest 字段。
+
+示例:
+
+- `chromium:key`
+- `background.firefox:scripts`
+- `background.chromium:service_worker`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show editing one manifest file, running different browser targets, and inspecting target-specific emitted manifest output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 支持的 manifest 字段
+
+常见的与入口相关的字段包括:
+
+| Manifest 字段                            | 期望文件类型                       |
+| ---------------------------------------- | ---------------------------------- |
+| `action.default_popup`                   | .html                              |
+| `background.page`                        | .html                              |
+| `background.service_worker`              | .js、.jsx、.ts、.tsx、.mjs         |
+| `browser_action.default_popup`           | .html                              |
+| `chrome_url_overrides.bookmarks`         | .html                              |
+| `chrome_url_overrides.history`           | .html                              |
+| `chrome_url_overrides.newtab`            | .html                              |
+| `content_scripts.js`                     | .js、.jsx、.ts、.tsx、.mjs         |
+| `content_scripts.css`                    | .css、.scss、.sass、.less          |
+| `declarative_net_request.rule_resources` | .json                              |
+| `devtools_page`                          | .html                              |
+| `icons`                                  | .png、.jpg、……其他图片格式         |
+| `options_ui.page`                        | .html                              |
+| `options_page`                           | .html                              |
+| `page_action.default_popup`              | .html                              |
+| `sandbox.pages`                          | .html                              |
+| `side_panel.default_path`                | .html                              |
+| `sidebar_action.default_panel`           | .html                              |
+| `storage.managed_schema`                 | .json                              |
+| `theme_icons`                            | .png、.jpg、……其他图片格式         |
+| `user_scripts.api_script`                | .js、.jsx、.ts、.tsx、.mjs         |
+| `web_accessible_resources`               | .png、.jpg、.css、.js              |
+
+## 权限设计
+
+manifest 也是你的扩展声明能做什么的地方。Extension.js 编译 manifest,但你仍需要良好的权限设计。
+
+- 保持 `permissions` 小且明确。
+- 让 `host_permissions` 在功能允许范围内尽量收窄。
+- 在可能时,把非核心能力放入 `optional_permissions` 或 `optional_host_permissions`。
+- 当内容脚本匹配或后台能力变更时,审查权限范围。
+
+权限策略请参见 [权限与主机权限](/docs/implementation-guide/permissions-and-host-permissions)。
+
+## 输出行为
+
+Extension.js 在需要时将 manifest 路径重写为可预测的输出位置。两个重要示例:
+
+- `background.service_worker` 变为 `background/service_worker.js`
+- `side_panel.default_path` 变为 `sidebar/index.html`
+
+Extension.js 还按 manifest 入口索引规范化内容脚本:
+
+- `content_scripts/content-0.js`
+- `content_scripts/content-0.css`
+
+这些发布的路径才是浏览器实际加载的内容。在编写时使用源路径,然后让 Extension.js 在输出时重写它们。
+
+## 开发行为
+
+- 当 `manifest.json` 变更时,Extension.js 会重新编译并触发扩展硬重载流程。
+- 如果 manifest 的入口结构发生变化(例如脚本列表变化),Extension.js 可能需要重启开发服务器。
+- manifest 字段引用的缺失文件会以聚焦于 manifest 的错误使编译失败。
+
+### 变更结果矩阵
+
+| Manifest 变更类型                                                     | 典型结果                            |
+| --------------------------------------------------------------------- | ----------------------------------- |
+| 更新非结构性值(例如描述/权限元数据)                                 | 硬重载流程                          |
+| 更新仍可干净解析的资源路径值                                          | 重新编译 + 硬重载流程               |
+| 在 manifest 中添加/删除脚本或页面入口                                 | 需要重启                            |
+| 引入无效/缺失的引用文件                                               | 构建错误(先修复,再重新运行)      |
+
+## 最佳实践
+
+- 让 manifest 路径相对于扩展源/输出模型,只有在确实指扩展输出根时才使用 `/` 前缀。
+- 使用带浏览器前缀的键,而不是为每个浏览器维护单独的 manifest 文件。
+- 让入口变更保持有意为之;在 manifest 中添加/删除脚本通常会改变开发期的重载语义。
+- 在持续集成(CI)中校验图标、JSON 资源和内容脚本资源,以尽早捕获路径回归。
+- 不要把 `manifest.json` 放在 `public/` 下。
+
+## 后续步骤
+
+- 在 [开发更新行为](/docs/workflows/dev-update-behavior) 中理解更新结果。
+- 在 [权限与主机权限](/docs/implementation-guide/permissions-and-host-permissions) 中设计最小权限访问。
+- 了解 Extension.js 如何处理 [浏览器特定 manifest 字段](/docs/features/browser-specific-fields)。
+- 在 [页面重载与热模块替换(HMR)](/docs/features/reload-and-hmr) 中理解开发更新流程。

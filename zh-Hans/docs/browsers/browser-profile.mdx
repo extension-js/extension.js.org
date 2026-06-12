@@ -1,0 +1,122 @@
+---
+title: "用于隔离开发运行的浏览器配置文件管理"
+description: "通过托管、持久化或自定义配置文件路径,管理 Chrome 和 Firefox 扩展开发期间的浏览器状态隔离。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "devtools",
+    "docs",
+    "browsers",
+    "browser profile",
+  ]
+---
+
+通过托管、持久化或自定义的配置文件,控制开发期间的浏览器状态隔离。
+
+根据你的工作流,让浏览器会话保持隔离或持久化。Extension.js 以基于配置文件的默认值启动浏览器。可选择干净运行、可复用状态,或一个显式的本地配置文件路径。
+
+## 工作原理
+
+Extension.js 按以下顺序选择配置文件模式:
+
+1. 显式的 `profile` 路径(如已提供)
+2. 托管配置文件模式(默认)
+   - 默认为临时(短暂)
+   - 当 `persistProfile: true` 时为持久
+3. 当 `EXTENSION_USE_SYSTEM_PROFILE=true` 时使用系统配置文件模式
+
+## 配置文件能力
+
+| 配置 / 选项                         | 它的作用                                                        |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `browser.<target>.profile`          | 为该浏览器目标使用显式配置文件夹。                              |
+| `commands.dev.profile`              | 仅为 `dev` 使用显式配置文件。                                   |
+| `commands.start.profile`            | 仅为 `start` 使用显式配置文件。                                 |
+| `commands.preview.profile`          | 仅为 `preview` 使用显式配置文件。                               |
+| `browser.<target>.persistProfile`   | 为目标在多次运行间复用托管的配置文件状态。                      |
+| `commands.<name>.persistProfile`    | 在特定命令上下文中复用托管的配置文件状态。                      |
+| `--profile=/abs/path`               | 通过 CLI 覆盖显式配置文件路径。                                 |
+| `EXTENSION_USE_SYSTEM_PROFILE=true` | 使用操作系统/浏览器的系统配置文件,而不是托管配置文件。         |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching between managed ephemeral, persistent, and explicit profile modes in development. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 配置文件模式
+
+| 模式                    | 启用方式                                        | 典型用途                                       |
+| ----------------------- | ----------------------------------------------- | ---------------------------------------------- |
+| 托管临时                | 默认                                            | 状态隔离的干净运行                             |
+| 托管持久                | `persistProfile: true`                          | 浏览器状态稳定的迭代式调试                     |
+| 显式自定义配置文件      | `profile: "/abs/path"` 或 `--profile=/abs/path` | 复用已有配置文件                               |
+| 系统配置文件            | `EXTENSION_USE_SYSTEM_PROFILE=true`             | 以操作系统/浏览器默认配置文件启动              |
+
+Extension.js 在以下位置创建托管配置文件:
+
+- `dist/extension-js/profiles/<browser>-profile/<...>`
+
+持久模式使用:
+
+- `dist/extension-js/profiles/<browser>-profile/dev`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show profile directories created under `dist/extension-js/profiles` and reused when `persistProfile` is enabled. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 在 `extension.config.*` 中配置
+
+```js
+export default {
+  browser: {
+    chrome: {
+      // 使用你自己的配置文件夹:
+      profile: "path/to/custom/profile",
+    },
+    firefox: {
+      // 为重复会话保留稳定的托管配置文件:
+      persistProfile: true,
+    },
+  },
+};
+```
+
+你也可以按命令限定配置文件默认值:
+
+```js
+export default {
+  commands: {
+    dev: {
+      persistProfile: true,
+    },
+  },
+};
+```
+
+## CLI 用法
+
+直接使用显式配置文件路径:
+
+```bash
+extension dev --browser=chrome --profile=/path/to/custom/profile
+```
+
+`start` 和 `preview` 的用法类似。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show CLI `--profile` override applied in `dev`, then reused in `start`/`preview`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 生命周期说明
+
+- Extension.js 为每次运行创建临时的托管配置文件。
+- Extension.js 在多次运行间复用持久的托管配置文件(`dev`)。
+- Extension.js 会自动移除旧的托管配置文件夹。可设置 `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` 控制最长保留时间。
+
+## 最佳实践
+
+- **基线测试使用托管临时配置文件**:减少隐藏状态和不稳定的复现。
+- **长会话调试使用 `persistProfile`**:在多次运行间保留认证/会话/开发者工具状态。
+- **按浏览器系隔离自定义配置文件**:避免跨浏览器污染。
+- **谨慎使用系统配置文件模式**:适合复现问题,但隔离性弱于托管配置文件。
+
+## 后续步骤
+
+- 进一步了解[浏览器偏好设置](/docs/browsers/browser-preferences)。
+- 进一步了解[浏览器标志](/docs/browsers/browser-flags)。

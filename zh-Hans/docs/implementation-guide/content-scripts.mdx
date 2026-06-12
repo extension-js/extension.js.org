@@ -1,0 +1,389 @@
+---
+title: "支持 HMR 与 manifest 入口的内容脚本"
+description: "使用内容脚本构建与页面集成的功能。Extension.js 编译 manifest 入口,为 HMR 进行包装,并输出可预测的产物。"
+keywords:
+  [
+    "manifest v3 content scripts",
+    "chrome extension content scripts",
+    "content scripts documentation",
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "javascript",
+    "react",
+    "hmr",
+  ]
+---
+
+使用内容脚本构建与页面集成的扩展功能,同时保持 JS 与 CSS 更新的可靠开发循环。
+
+Extension.js 从 `manifest.json` 编译内容脚本入口,并为运行时挂载和热模块替换(HMR)行为对其进行包装。它会生成可预测的 `content_scripts/*` 输出。
+
+## 内容脚本能力
+
+| 能力                            | 提供给你的功能                                                                           |
+| ------------------------------- | ---------------------------------------------------------------------------------------- |
+| Manifest 驱动的入口             | 直接从 manifest 编译 JS/CSS 内容脚本列表                                                 |
+| 开发期重新挂载流程              | 通过包装器驱动的行为快速更新脚本/样式                                                    |
+| 支持 MAIN 与 isolated world     | 使用 MAIN world(页面 JavaScript 上下文)或 isolated world(沙箱化的扩展上下文)        |
+| 可预测的输出布局                | 生成规范化的 `content_scripts/*` 产物                                                    |
+
+## 模板示例
+
+### `content`
+
+![content 模板截图](/images/examples/content/screenshot.png)
+
+使用原生 JS 的最小化内容脚本配置。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+### `content-react`
+
+![content-react 模板截图](/images/examples/content-react/screenshot.png)
+
+通过内容脚本将基于 React 的 UI 注入到网页中。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-react
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-react
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-react](https://github.com/extension-js/examples/tree/main/examples/content-react)
+
+## 支持的 manifest 字段
+
+| Manifest 字段         | 期望文件类型                         |
+| --------------------- | ------------------------------------ |
+| `content_scripts.js`  | `.js`、`.jsx`、`.ts`、`.tsx`、`.mjs` |
+| `content_scripts.css` | `.css`、`.scss`、`.sass`、`.less`    |
+
+## 内容脚本声明示例
+
+`manifest.json` 中的内容脚本声明示例:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/content-script.ts"],
+      "css": ["./styles/content-style.css"]
+    }
+  ]
+}
+```
+
+## 编写契约
+
+对于每个类似内容脚本的入口,Extension.js 期望一个 mount 风格的默认导出。这是一个用于设置行为并可选地返回清理回调的函数:
+
+- 模块应当 `export default` 一个同步函数。
+- 该函数应执行初始化工作。
+- 它可以返回一个同步的清理回调。
+- Extension.js 不支持把类作为默认导出。
+
+这适用于:
+
+- 被 `manifest.json > content_scripts[*].js` 引用的文件。
+- 你放置在项目 `scripts/` 文件夹下并用作脚本入口的文件。
+
+### 有效形态
+
+```ts
+export default function main() {
+  return () => {};
+}
+```
+
+```ts
+const main = () => {};
+export default main;
+```
+
+### 无效形态
+
+```ts
+export default class App {}
+```
+
+```ts
+export default {};
+```
+
+### 异步内容脚本的指引
+
+即使功能内部执行异步工作,也要保持默认导出为同步函数。在函数内部启动异步工作,并返回一个同步的清理函数。
+
+为什么重要:开发期间 Extension.js 会重新挂载内容脚本。如果没有清理函数,你可能会复制 UI、事件监听器、observer 和定时器。
+
+## 违反契约时会发生什么
+
+- 没有默认导出:Extension.js 在开发期间发出警告并跳过挂载。
+- 默认导出不是函数:Extension.js 在开发期间发出警告并跳过挂载。
+- 默认导出返回一个 Promise:模块仍会运行,但 Extension.js 不会把该 `Promise` 视为清理函数。
+
+如果你的内容脚本看起来编译成功但从未挂载,先检查默认导出。
+
+## 运行时包装器行为
+
+- Extension.js 用挂载/运行时辅助代码包装内容脚本模块。
+- 在开发模式下,Extension.js 添加 HMR accept/dispose 行为和重新挂载流程。
+- 开发期间 CSS 更新会触发重新挂载事件(`__EXTENSIONJS_CSS_UPDATE__`)。
+- Extension.js 遵循 manifest 中的 `run_at` 时机设置。
+
+## 多入口内容脚本
+
+你可以在单个 manifest 中声明多个内容脚本入口。每个入口独立编译,拥有自己的匹配模式、运行时机和 world 设置。
+
+### `content-multi-one-entry`
+
+![content-multi-one-entry 模板截图](/images/examples/content-multi-one-entry/screenshot.png)
+
+将多个内容脚本打包在单个 `content_scripts` manifest 入口下。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-one-entry
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-multi-one-entry](https://github.com/extension-js/examples/tree/main/examples/content-multi-one-entry)
+
+### `content-multi-three-entries`
+
+![content-multi-three-entries 模板截图](/images/examples/content-multi-three-entries/screenshot.png)
+
+三个独立的 `content_scripts` manifest 入口,各自拥有独立的匹配模式。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-multi-three-entries
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-multi-three-entries](https://github.com/extension-js/examples/tree/main/examples/content-multi-three-entries)
+
+## `scripts/` 文件夹行为
+
+`scripts/` 文件夹用于没有 HTML 页面入口声明的脚本入口。实际使用中,这些入口遵循与内容脚本相同的默认导出模式。
+
+这意味着 `scripts/` 不是一个用于放置任意 JavaScript 文件的通用文件夹:
+
+- 脚本入口文件在挂载行为时仍应导出一个默认函数
+- 监听模式下,在 `scripts/` 中添加或移除支持的文件,Extension.js 会视作结构性变更
+- 当入口集合发生变化时,Extension.js 可能需要重启开发服务器
+
+{/* VIDEO_PLACEHOLDER_TODO: Show isolated-world and MAIN-world content script behavior differences, plus live update flow for JS and CSS changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 输出路径
+
+Extension.js 按 manifest 索引规范化内容脚本入口:
+
+```plaintext
+content_scripts/
+├── content-0.js          # 生产环境
+├── content-0.abcd1234.js # 开发环境(基于哈希的缓存破除)
+├── content-0.css
+└── ...
+```
+
+在**开发模式**下,内容脚本 JS 文件名包含一个简短的哈希后缀(例如 `content-0.abcd1234.js`)。这迫使浏览器在每次重建后加载一个新的 `chrome-extension://` URL。
+
+Chrome 会激进地缓存扩展资源,所以哈希可以防止使用过期代码。生产构建使用干净的 `content-0.js` 文件名。
+
+## MAIN world 说明
+
+### `content-main-world`
+
+通过一个把 UI 直接注入到页面上下文的可运行示例,实际查看 MAIN world 内容脚本的工作方式:
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-main-world
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-main-world
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-main-world
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-main-world
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-main-world
+```
+
+</CodeGroup>
+
+仓库:[extension-js/examples/content-main-world](https://github.com/extension-js/examples/tree/main/examples/content-main-world)
+
+- **`world: "MAIN"` 仅 Chromium 支持。** Firefox 不支持 `world` 字段且会忽略它。你的脚本在 Firefox 上仍然在 isolated world 中运行。
+- **跨浏览器的 MAIN world 行为:** 使用 `chromium:` manifest 前缀来仅为 Chromium 目标声明它。然后为 Firefox 提供一个 isolated world 的兜底方案。
+- 在开发模式下,MAIN world 脚本使用内部桥接机制加载代码块并解析 public path。
+- 扩展 API(`chrome.runtime`、`chrome.storage` 等)在 MAIN world 中**不可用**;你只能访问页面上下文的全局变量。
+- 把 MAIN world 视为高级路径。尽早在每个目标浏览器上验证其行为。
+
+### isolated 与 MAIN 的简单示例
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/main-world.ts"],
+      "world": "MAIN"
+    }
+  ]
+}
+```
+
+默认使用 isolated world。只有在需要页面上下文访问时才使用 `MAIN`,并考虑扩展 API/运行时约束。
+
+### 跨浏览器的 MAIN world 模式
+
+使用 [浏览器特定前缀](/docs/features/browser-specific-fields) 来仅为 Chromium 声明 MAIN world,并为 Firefox 提供一个 isolated 兜底方案:
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "chromium:js": ["./scripts/main-world.ts"],
+      "chromium:world": "MAIN"
+    }
+  ]
+}
+```
+
+Firefox 会完全跳过 `chromium:` 前缀的字段,所以只有 Chromium 目标会得到 MAIN world 的脚本。
+
+## 匹配与执行指引
+
+浏览器仍然控制内容脚本在哪里运行。Extension.js 负责打包文件,但 manifest 入口仍然决定脚本在何处、何时运行。
+
+- 让 `matches` 在功能允许的前提下尽量收窄。
+- 仅在功能确实需要时,才添加 `exclude_matches`、`all_frames` 或 `match_about_blank`。
+- 把 `run_at` 与 `world` 视为功能契约的一部分,而不是实现细节。
+- 当内容脚本运行位置发生变化时,重新测试权限和主机权限的范围。
+
+## 开发行为
+
+- 编辑内容脚本代码通常通过包装器驱动的 HMR/重新挂载流程更新。
+- 仅含 CSS 的入口会获得开发辅助行为,以便样式更新可以传播。
+- 如果 manifest 中的内容脚本入口列表发生变化,Extension.js 可能需要重启开发服务器。
+
+## 最佳实践
+
+- 保持内容脚本入口文件较小,把逻辑委托给共享模块。
+- 谨慎地为选择器/样式划定作用域,避免与宿主页面冲突。
+- 当行为依赖于时机/上下文时,优先使用显式的 `run_at` 和 `world` 值。
+- 在开发流程中,把 manifest 内容脚本列表变更视为结构性变更。
+- 通过已验证的消息传递传递页面派生的数据,而不是直接在内容脚本中执行特权工作。
+- 默认使用 isolated world,只有在严格需要页面上下文时才迁移到 `MAIN`。
+
+## 后续步骤
+
+- 在 [开发更新行为](/docs/workflows/dev-update-behavior) 中理解更新结果。
+- 使用 [消息传递](/docs/implementation-guide/messaging) 设计跨上下文通信。
+- 在 [权限与主机权限](/docs/implementation-guide/permissions-and-host-permissions) 中复审访问范围。
+- 了解 [Web 可访问资源](/docs/implementation-guide/web-accessible-resources)。
+- 继续阅读 [开发中的多语言](/docs/implementation-guide/locales)。

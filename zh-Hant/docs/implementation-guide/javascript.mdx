@@ -1,0 +1,164 @@
+---
+title: "擴充功能中的 JavaScript 與 TypeScript"
+description: "以單一 Extension.js pipeline，由 Rspack 與 SWC 轉換驅動，跨 background、content scripts 與 UI 頁面交付 JavaScript 與 TypeScript。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "typescript",
+    "javascript",
+    "hmr",
+    "content script",
+    "service worker",
+  ]
+---
+
+以單一 JavaScript/TypeScript pipeline 跨 background、content scripts 與 UI 頁面交付擴充功能行為。
+
+Extension.js 會從 `manifest.json`、HTML 頁面與特殊資料夾收集 script 進入點，並以預設的 SWC（Speedy Web Compiler）為基礎進行編譯。
+
+## 範本範例
+
+### `javascript`
+
+![javascript 範本截圖](/images/examples/javascript/screenshot.png)
+
+具有 new-tab 頁面的原生 JavaScript 擴充功能。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=javascript
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=javascript
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=javascript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=javascript
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=javascript
+```
+
+</CodeGroup>
+
+儲存庫：[extension-js/examples/javascript](https://github.com/extension-js/examples/tree/main/examples/javascript)
+
+### `content`
+
+![content 範本截圖](/images/examples/content/screenshot.png)
+
+注入網頁的原生 JavaScript content script。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content
+```
+
+</CodeGroup>
+
+儲存庫：[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
+
+## JavaScript 能力
+
+| 能力                  | 為您提供的功能                                                 |
+| --------------------- | -------------------------------------------------------------- |
+| 共用 JS/TS pipeline   | 以單一預設轉換器設定編譯擴充功能 scripts                       |
+| 進入點探索            | 從 manifest、pages 與特殊資料夾載入 script 進入點              |
+| 執行階段安全輸出      | 為每個擴充功能情境輸出可預測的 script 產物                     |
+| 路徑正規化            | 將支援的擴充功能路徑字面值改寫為輸出安全的路徑                 |
+
+## 支援的 script 進入點
+
+| Manifest 欄位               | 預期的檔案類型               |
+| --------------------------- | ---------------------------- |
+| `background.service_worker` | `.js`, `.ts`, `.mjs`, `.tsx` |
+| `background.scripts`        | `.js`, `.ts`, `.mjs`, `.tsx` |
+| `content_scripts.js`        | `.js`, `.ts`, `.mjs`, `.tsx` |
+| `user_scripts.api_script`   | `.js`, `.ts`, `.mjs`, `.tsx` |
+
+## `manifest.json` 中的範例 script 宣告
+
+`manifest.json` 中的 script 宣告範例：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./scripts/background.ts"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/content-script.ts"]
+    }
+  ]
+}
+```
+
+## 開發行為
+
+- **Content scripts：** Extension.js 注入 hot module replacement（HMR）/重新掛載流程以快速更新。
+- **擴充功能頁面：** 頁面 scripts 遵循頁面 HMR 行為。
+- **Background/service worker：** Script 更新可能依變更類型觸發擴充功能硬重新載入。
+- **進入點清單變更：** 變更 manifest script 結構可能需要重新啟動 dev server。
+
+## Script 位置與慣例
+
+- 將以 script 為中心的擴充功能進入點放在專案根目錄的 `scripts/`。
+- 將具有自身 scripts 的 HTML 進入點放在 `pages/`。
+- 保持 manifest 參照的路徑穩定；不要在不更新 manifest 的情況下移動進入點檔案。
+
+## 轉換與打包預設值
+
+- SWC 是 JS/TS/JSX/TSX 的預設轉換器。
+- Extension.js 使用 browser-first 的 `package.json` 欄位解析（`browser`、`module`、`main`）。
+- Extension.js 可預測地輸出進入點，預設不會將程式碼分割為個別的輸出檔。
+- 路徑解析會在支援的 API 中改寫靜態擴充功能路徑字面值。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one feature script reused across popup, content script, and background contexts with target-safe compiled output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 動態 import 注意事項
+
+- Content-script 的動態 import 有執行階段限制；Extension.js 在可能時使用 loader 後備機制。
+- Service worker 的延遲載入有瀏覽器限制；對於必須在 service worker 啟動時立即可用的程式碼，請優先使用立即 import。
+
+## 最佳實務
+
+- 保持進入點 scripts 精簡，並將功能邏輯移到共享模組。
+- 對擴充功能 API 優先使用靜態 import 路徑，以便路徑解析能安全地正規化。
+- 避免在 content scripts 與 service workers 中使用非必要的動態 import。
+- 在開發流程中將 manifest script 清單變更視為結構性變更。
+
+## 下一步
+
+- 在 [開發更新行為](/docs/workflows/dev-update-behavior) 中了解更新結果。
+- 在 [特殊資料夾](/docs/features/special-folders) 中了解如何組織檔案結構。
+- 繼續閱讀 [background scripts 與 service workers](/docs/implementation-guide/background)。

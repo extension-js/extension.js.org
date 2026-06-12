@@ -1,0 +1,98 @@
+---
+title: "透過 MCP 與 llms.txt 提供 AI 存取"
+description: "透過託管的 MCP 伺服器將 Extension.js 文件連接到你的 AI 工具，或從 llms.txt 端點取得結構化摘要。"
+keywords:
+  [
+    "extension.js",
+    "mcp",
+    "ai",
+    "claude",
+    "cursor",
+    "chatgpt",
+    "llms.txt",
+    "docs",
+  ]
+---
+
+透過兩個標準的 AI 可存取介面取用 Extension.js 文件。這能讓你的編輯器與助理依據最新文件來回答問題，而不是依賴過時的訓練資料。
+
+<Note>
+  本頁是關於把**文件**提供給助理——以最新內容回答「我該怎麼做…」。如果你想讓助理**操控工具鏈**（執行開發階段、串流日誌、檢視 DOM、觸發動作、重新載入），請參考另一個控制伺服器：[搭配 Extension.js 的 Chrome DevTools MCP](/docs/integrations/chrome-devtools-mcp)。
+</Note>
+
+## 託管的 MCP（Model Context Protocol）伺服器
+
+文件網站在以下位置提供 [Model Context Protocol](https://modelcontextprotocol.io) 伺服器：
+
+```
+https://extensionjs.mintlify.app/mcp
+```
+
+將任何相容 MCP 的客戶端指向這個 URL，它就能取得搜尋文件、抓取特定頁面，以及依最新內容回答問題的工具。
+
+### 一鍵安裝
+
+每個頁面都有一個情境選單（位於頁面右上角），提供常見客戶端的安裝按鈕：**Claude**、**Cursor**、**VS Code** 與 **ChatGPT**。使用這些按鈕是最快的方式。
+
+### 手動安裝
+
+<CodeGroup>
+
+```json Claude Desktop (claude_desktop_config.json)
+{
+  "mcpServers": {
+    "extensionjs": {
+      "url": "https://extensionjs.mintlify.app/mcp"
+    }
+  }
+}
+```
+
+```json Cursor (.cursor/mcp.json)
+{
+  "mcpServers": {
+    "extensionjs": {
+      "url": "https://extensionjs.mintlify.app/mcp"
+    }
+  }
+}
+```
+
+```jsonc VS Code (settings.json)
+"mcp.servers": {
+  "extensionjs": {
+    "url": "https://extensionjs.mintlify.app/mcp"
+  }
+}
+```
+
+```bash Claude Code
+claude mcp add --transport http extensionjs https://extensionjs.mintlify.app/mcp
+```
+
+</CodeGroup>
+
+安裝後，可以問你的助理諸如：_「我要如何在 Extension.js 中設定瀏覽器專屬的 manifest 欄位？」_ 助理就會查詢 MCP 工具，並引用文件頁面。
+
+## llms.txt
+
+文件提供一份靜態且機器友善的索引：
+
+- [`/llms.txt`](https://extensionjs.mintlify.app/llms.txt)：所有頁面的簡短索引
+- [`/llms-full.txt`](https://extensionjs.mintlify.app/llms-full.txt)：可供攝取的完整內容打包
+
+當你想直接把文件餵進檢索流程，或在自訂的 Agent 中總結它們時，可以使用這些檔案。Extension.js 會在每次部署文件時重新產生它們。
+
+## 每個頁面的 AI 動作
+
+頁面層級的情境選單也提供：
+
+- **複製頁面：** 以 Markdown 複製目前頁面，方便貼到聊天視窗
+- **以 Markdown 檢視：** 在新分頁中開啟原始 Markdown 來源
+- **詢問 ChatGPT / Claude / Perplexity：** 在預先載入該頁面內容的情況下開啟對應的助理
+
+## 最佳實務
+
+- 當你希望助理跨多個頁面進行推理，並保持答案最新時，請優先使用 MCP 伺服器。
+- 對於離線工具、評估或自訂的 RAG（檢索增強生成）流程，請優先使用 `llms-full.txt`。
+- 對你正在閱讀的頁面進行單點提問時，可使用每頁的動作。

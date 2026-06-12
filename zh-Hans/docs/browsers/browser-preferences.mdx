@@ -1,0 +1,136 @@
+---
+title: "Firefox 与 Gecko 运行时偏好设置"
+description: "为开发设置 Firefox 与 Gecko 运行时偏好,无需编辑扩展源代码。配置主页、开发者工具和通知默认值。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "devtools",
+    "docs",
+    "browsers",
+  ]
+---
+
+<AvatarBrowsers browsers={["firefox", "gecko"]} />
+在开发期间获得可复现的浏览器行为(例如主页默认值、开发者工具设置或通知行为),无需修改扩展代码。
+
+Extension.js 会从 `extension.config.*` 中读取 `preferences`,并在启动 Firefox 与 Gecko 浏览器时应用它们。
+
+## 工作原理
+
+在 `extension.config.js`(或 `.mjs` / `.cjs`)中以下位置配置偏好:
+
+- `browser.<target>.preferences`
+- `commands.dev|start|preview.preferences`
+
+命令级别的值可以覆盖浏览器默认值。
+
+## 偏好能力
+
+| 偏好键                         | 它的作用                                                |
+| ------------------------------ | ------------------------------------------------------- |
+| `browser.<target>.preferences` | 为特定浏览器目标设置默认偏好。                          |
+| `commands.dev.preferences`     | 为 `dev` 运行设置或覆盖偏好。                           |
+| `commands.start.preferences`   | 为 `start` 运行设置或覆盖偏好。                         |
+| `commands.preview.preferences` | 为 `preview` 运行设置或覆盖偏好。                       |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show default browser preferences in config, then command-level override taking precedence in a dev run. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Firefox 与 Gecko 系行为
+
+### 配置示例
+
+```js
+export default {
+  browser: {
+    firefox: {
+      preferences: {
+        "browser.startup.homepage": "https://developer.mozilla.org",
+        "devtools.theme": "dark",
+        "dom.webnotifications.enabled": false,
+      },
+    },
+  },
+};
+```
+
+在 Firefox/Gecko 流程中,Extension.js 会将一个 `user.js` 文件写入当前生效的配置文件(托管或显式配置文件),并合并:
+
+- 开发与运行时行为所需的内部基线偏好。
+- 你自定义的 `preferences` 值(键冲突时以你的值为准)。
+
+如果你启用了系统配置文件模式(`EXTENSION_USE_SYSTEM_PROFILE=true`),Extension.js 不会写入托管的配置文件。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Firefox preferences written to `user.js` in managed profile and applied on launch. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Chromium 系行为
+
+Chromium 系启动(`chrome`、`edge`、`chromium`、`chromium-based`)主要使用**浏览器标志**。
+
+`preferences` 仍然可以存在于已合并的配置对象中。但是,Chromium 启动行为由标志和配置文件选项控制。Chromium 并不使用 Firefox 那样的 `user.js` 偏好文件。
+
+对于 Chromium 定制,优先使用:
+
+- `browserFlags`
+- `excludeBrowserFlags`
+- `profile` / `persistProfile`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Chromium behavior tuned with flags/profile instead of Firefox-style preference file. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 暗黑模式默认值
+
+除非你已经定义了相关键,Extension.js 会注入暗黑模式默认值:
+
+- Chromium 系:暗黑模式启动标志
+- Firefox/Gecko 系:暗黑模式偏好键(用于 UI + 内容配色方案)
+
+你显式设置的 `preferences`/flags 会覆盖这些默认值。
+
+## 接口示例
+
+```js
+export default {
+  commands: {
+    dev: {
+      browser: "firefox",
+      preferences: {
+        "devtools.theme": "dark",
+      },
+    },
+  },
+};
+```
+
+### 使用自定义配置文件的示例
+
+```js
+export default {
+  browser: {
+    firefox: {
+      profile: "path/to/custom-profile",
+      preferences: {
+        "browser.startup.homepage": "https://example.com",
+      },
+    },
+  },
+};
+```
+
+## 更详细的偏好参考
+
+要查看可用 Firefox 偏好的完整列表,请浏览 [Firefox 源代码](https://searchfox.org/mozilla-central/source/)。Mozilla 在 `all.js` 或 `firefox.js` 中定义了许多默认值。
+
+## 最佳实践
+
+- **优先使用浏览器作用域的偏好**:将 Firefox/Gecko 偏好键放在按浏览器目标划分的配置块中。
+- **用命令覆盖做临时实验**:把短期的偏好微调放在 `commands.dev` 中。
+- **保持配置文件隔离**:使用独立配置文件以便可复现的调试。
+- **Chromium 调优使用标志**:在 Chromium 系目标上,把标志作为主要的配置面。
+
+## 后续步骤
+
+- 进一步了解[浏览器标志](/docs/browsers/browser-flags)。
+- 进一步了解[浏览器配置文件](/docs/browsers/browser-profile)。

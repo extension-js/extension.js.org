@@ -1,0 +1,96 @@
+---
+title: "浏览器特定的 manifest 字段"
+description: "通过浏览器前缀在一份 manifest 中定义 Chrome、Firefox 和 Edge 的特定值。Extension.js 在构建时只输出匹配各目标的字段。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "docs",
+  ]
+---
+
+<AvatarBrowsers browsers={["chromium", "firefox"]} />
+避免为每个浏览器维护各自独立的 manifest 文件。
+
+Extension.js 允许你通过前缀在同一份 manifest 中定义浏览器特定的值,然后在编译时只输出与当前目标匹配的字段。
+
+## 为什么重要
+
+各浏览器在关键的 manifest 区域(例如后台配置和厂商元数据)仍存在差异。带前缀的字段让你可以保留一份源 `manifest.json`,同时为 Chromium 系和 Firefox 系目标生成行为正确的输出。
+
+## 工作原理
+
+Extension.js 扫描 manifest 键并为选定的浏览器解析带前缀的条目:
+
+- Chromium 系目标(`chrome`、`edge`、`chromium-based`)解析:`chromium:`、`chrome:`、`edge:`
+- Gecko 系目标(`firefox`、`gecko-based`)解析:`firefox:`、`gecko:`
+
+当带前缀的键匹配当前目标时,Extension.js 在生成的 manifest 中将其重写为去除前缀的键。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one prefixed manifest being compiled for Chrome and Firefox, then compare generated outputs. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 用于 Chromium 系浏览器(Chrome、Edge 等)
+
+```json
+{
+  "chromium:background": {
+    "service_worker": "sw.js"
+  }
+}
+```
+
+### 用于 Firefox
+
+```json
+{
+  "firefox:background": {
+    "scripts": ["sw.js"]
+  }
+}
+```
+
+你也可以在同一浏览器系列中针对厂商特定的变体:
+
+```json
+{
+  "chrome:action": {
+    "default_title": "Chrome variant"
+  },
+  "edge:action": {
+    "default_title": "Edge variant"
+  }
+}
+```
+
+这会让 `service_worker` 仅对 Chromium 系输出可用,同时为 Firefox 输出保留 `background.scripts`。
+
+支持的前缀映射:
+
+| 前缀        | 对应包含的目标浏览器                       |
+| ----------- | ----------------------------------------- |
+| `chromium:` | `chrome`、`edge`、`chromium-based`        |
+| `chrome:`   | `chrome`、`chromium-based`                |
+| `edge:`     | `edge`、`chromium-based`                  |
+| `firefox:`  | `firefox`、`gecko-based`、`firefox-based` |
+| `gecko:`    | `firefox`、`gecko-based`、`firefox-based` |
+
+这适用于任意层级的任意 manifest 字段,包括 `permissions`、`content_scripts` 和 `background`。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show adding vendor-specific `chrome:` and `edge:` fields and validating the generated target manifest. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳实践
+
+- **保持共享默认值不带前缀**:把通用字段放在普通的 manifest 键中,只为浏览器特定差异添加前缀。
+- **仅在行为分歧时使用前缀**:只在运行时需求不同时才使用浏览器前缀。
+- **在持续集成 (CI) 中按目标分别构建**:为每个浏览器生成并验证输出(`dist/<browser>`),以便尽早发现兼容性回退。
+- **使用 MDN 进行验证**:在添加仅适用于某浏览器的设置前,使用 [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions) 确认其支持情况。
+
+## 后续步骤
+
+- 进一步了解[可用浏览器](/docs/browsers/browsers-available)。
+- 进一步了解[跨浏览器兼容性](/docs/features/cross-browser-compatibility)。

@@ -1,0 +1,146 @@
+---
+title: "用于托管浏览器运行时的 install 命令"
+description: "将托管的浏览器运行时加入 Extension.js 缓存以获得可确定的构建。支持 Chrome for Testing、Chromium、Firefox 和 Edge。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "docs",
+    "commands",
+    "install",
+  ]
+---
+
+使用 `install` 将托管的浏览器运行时加入 Extension.js 缓存。
+
+当你希望在 `dev`、`build`、`start` 或 `preview` 中使用一致的浏览器二进制时,这非常有用。它支持 Chrome for Testing、Chromium、Firefox 和 Edge。
+
+## 何时使用 `install`
+
+- 你需要为持续集成(CI)、自动化或团队一致的本地运行,提供一致、可复现的浏览器二进制。
+- 你想使用 Chrome for Testing,而不是依赖系统上安装的任意 Chrome 版本。
+- 你正在搭建使用托管 Firefox 或 Edge 运行时的跨浏览器测试。
+
+## 规范用法
+
+对于单个浏览器,使用位置参数形式:
+
+<CodeGroup>
+
+```bash npm
+extension install <browser>
+```
+
+```bash pnpm
+extension install <browser>
+```
+
+```bash yarn
+extension install <browser>
+```
+
+```bash bun
+extension install <browser>
+```
+
+```bash bun
+extension install <browser>
+```
+
+</CodeGroup>
+
+只有在需要多个目标、浏览器家族或 `all` 时,才使用 `--browser`。
+
+## Install 命令能力
+
+| 能力                  | 它能带给你什么                                                             |
+| --------------------- | -------------------------------------------------------------------------- |
+| 托管浏览器缓存        | 在 Extension.js 浏览器缓存下的稳定安装位置                                 |
+| 可重复运行时          | 为可重复的本地运行和自动化提供一致的二进制                                 |
+| 跨浏览器搭建          | 通过一条命令流程完成 Chrome、Chromium、Edge 和 Firefox 的安装              |
+| 路径发现              | `--where` 显示已解析的缓存根目录或特定浏览器的安装路径                     |
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension install [browser-name] [options]
+```
+
+```bash pnpm
+extension install [browser-name] [options]
+```
+
+```bash yarn
+extension install [browser-name] [options]
+```
+
+```bash bun
+extension install [browser-name] [options]
+```
+
+```bash bun
+extension install [browser-name] [options]
+```
+
+</CodeGroup>
+
+## 参数与标志
+
+| 标志 / 参数                                                                                    | 它的作用                                                                           | 默认值     |
+| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---------- |
+| `[browser-name]`                                                                               | 安装单个浏览器目标,如 `chrome`、`chromium`、`edge` 或 `firefox`                  | `chromium` |
+| `--browser <chrome\|chromium\|edge\|firefox\|chromium-based\|gecko-based\|firefox-based\|all>` | 覆盖位置参数的浏览器名称并支持多目标安装                                          | 未设置     |
+| `--where`                                                                                      | 打印已解析的托管缓存根目录,或特定浏览器的安装路径                                 | 禁用       |
+
+## 示例
+
+### 安装 Chrome for Testing
+
+```bash
+extension install chrome
+```
+
+### 一条命令安装多个目标
+
+```bash
+extension install --browser chrome,firefox
+```
+
+### 显示 Chrome 的托管安装路径
+
+```bash
+extension install chrome --where
+```
+
+## 缓存位置
+
+默认情况下,Extension.js 在每个用户固定的缓存中存储托管浏览器:
+
+- macOS:`~/Library/Caches/extension.js/browsers`
+- Linux:`~/.cache/extension.js/browsers` 或 `$XDG_CACHE_HOME/extension.js/browsers`
+- Windows:`%LOCALAPPDATA%\extension.js\browsers`
+
+可通过 `EXT_BROWSERS_CACHE_DIR` 覆盖缓存根目录。
+
+## 最佳实践
+
+- **在 CI 中使用 `install`**,以锁定一致的浏览器二进制,而不是依赖运行器自带的版本。
+- **优先使用 `chrome`** 而不是 `chromium` 获取 Chrome for Testing:它更接近稳定版 Chrome 的行为。
+- **使用 `--where`** 在围绕托管浏览器编写自动化脚本之前验证缓存路径。
+- `install` 只管理 Extension.js 缓存中的浏览器,不会改动系统浏览器的安装。
+
+## 行为说明
+
+- `chrome` 安装的是 Chrome for Testing,而不是依赖系统的 Google Chrome 应用。
+- `edge` 在 Linux 上可能需要有特权的交互式会话。
+
+## 后续步骤
+
+- 用 [`uninstall`](/docs/commands/uninstall) 移除托管浏览器。
+- 在 [`dev`](/docs/commands/dev) 和 [`start`](/docs/commands/start) 中使用托管浏览器。
+- 了解使用自定义二进制路径[运行其他浏览器](/docs/browsers/running-other-browsers)。

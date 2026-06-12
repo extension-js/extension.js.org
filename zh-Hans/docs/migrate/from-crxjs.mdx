@@ -1,0 +1,157 @@
+---
+title: "从 CRXJS 迁移到 Extension.js"
+description: "从 Vite + CRXJS 浏览器扩展配置逐步迁移到 Extension.js。清晰映射清单、入口、脚本和 HMR 行为。"
+keywords:
+  [
+    "crxjs migration",
+    "crxjs to extension.js",
+    "vite chrome extension migration",
+    "replace crxjs",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+[CRXJS](https://crxjs.dev) 是一个面向 Chrome 扩展的 Vite 插件。如果你已经不满足于仅限 Chrome 的范围、希望获得一流的 Firefox 输出，或者遇到了重载循环的怪问题，本指南将帮你把一个典型的 CRXJS 项目迁移到 Extension.js，同时无需重写 UI 代码。
+
+<Note>
+  因为 `vite build` 在 Vite 8 上以 `[crx:manifest-post] Content
+  script fileName is undefined` 失败而来到这里？请先查看[专门的修复页面](/docs/migrate/crxjs-content-script-filename-undefined)中的变通方案，再做迁移决定。
+</Note>
+
+## 哪些会变，哪些不变
+
+**保持不变：** 你的 React/Vue/Svelte 组件、Tailwind 配置、测试，以及 `chrome.*` API 调用。
+
+**会变：**
+
+- `vite.config.ts` + `@crxjs/vite-plugin` 变成 `extension.config.js`（或干脆没有配置）。
+- `manifest.config.ts`（TypeScript 模块）变成普通的 `manifest.json`，并使用[带浏览器前缀的键](/docs/features/browser-specific-fields)。
+- `vite` / `vite build` 脚本变成 `extension dev` / `extension build`。
+- Extension.js 的 dev 取代 Vite 开发服务器，并内置了浏览器启动、profile 管理以及按目标的重载。
+
+## 第 1 步：安装 Extension.js
+
+```bash
+npm install extension@latest --save-dev
+npm uninstall @crxjs/vite-plugin vite
+```
+
+如果你的项目还在非扩展面（例如营销网站）上使用 Vite，可以把 Vite 留在那个工作区中。
+
+## 第 2 步：转换清单
+
+CRXJS 使用一个 TypeScript 模块：
+
+```ts manifest.config.ts
+import { defineManifest } from "@crxjs/vite-plugin";
+import pkg from "./package.json";
+
+export default defineManifest({
+  manifest_version: 3,
+  name: pkg.name,
+  version: pkg.version,
+  action: { default_popup: "src/popup/index.html" },
+  background: { service_worker: "src/background/index.ts" },
+  content_scripts: [{ matches: ["<all_urls>"], js: ["src/content/index.ts"] }],
+});
+```
+
+在 Extension.js 中，写一个真实的 `manifest.json` 并引用真实文件：
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "my-extension",
+  "version": "1.0.0",
+  "action": { "default_popup": "popup/index.html" },
+  "background": { "service_worker": "background/index.ts" },
+  "content_scripts": [{ "matches": ["<all_urls>"], "js": ["content/index.ts"] }]
+}
+```
+
+注意：
+
+- 清单中的文件扩展名仍是 `.ts`/`.tsx`。Extension.js 会在构建时编译它们。
+- 如果你扁平化了目录，可以去掉 `src/` 前缀。Extension.js 遵循清单声明的任何路径。
+- 对于浏览器特定值，请使用[带前缀的键](/docs/features/browser-specific-fields)（如 `firefox:browser_specific_settings`），而非为每个构建分别维护清单。
+
+## 第 3 步：更新 package.json 脚本
+
+将：
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  }
+}
+```
+
+替换为：
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "start": "extension start"
+  }
+}
+```
+
+完整命令集参见 [Commands 参考](/docs/commands/index)。
+
+## 第 4 步：删除 vite.config.ts
+
+如果你的 `vite.config.ts` 仅用于接入 CRXJS，请删除它。如果它还包含其他插件，请将等价配置迁移到 [`extension.config.js`](/docs/features/extension-configuration) 中，或迁移到 [Rspack 配置](/docs/features/rspack-configuration) 用于高级打包器定制。
+
+## 第 5 步：处理 HMR 差异
+
+CRXJS 的 HMR 通过 Vite WebSocket 推送更新。Extension.js 使用另一种模型，详见[重载与 HMR](/docs/features/reload-and-hmr)：
+
+- popup、options、devtools 页面：HMR。
+- 内容脚本：定向重载。
+- 后台 service worker：完全重启。
+
+如果你的内容脚本逻辑依赖 Vite 的 `import.meta.hot`，请用常规模块代码替换那些分支。Extension.js 在源代码之外处理重载编排。
+
+## 第 6 步：跨浏览器输出
+
+CRXJS 面向 Chromium。要开始同时输出 Firefox：
+
+```bash
+extension build --browser=chrome,firefox --zip
+```
+
+你会得到 `dist/chrome` 和 `dist/firefox`，包含针对各浏览器正确的清单以及可上传到 Chrome 应用商店和 addons.mozilla.org 的 `.zip` 包。参见 [跨浏览器兼容性](/docs/features/cross-browser-compatibility)。
+
+## 第 7 步：验证
+
+```bash
+extension dev --browser=chrome
+```
+
+验证 popup、options、内容脚本和后台行为。然后验证 Firefox：
+
+```bash
+extension dev --browser=firefox
+```
+
+如果你的代码调用 `chrome.*` 并希望同一份源代码在 Firefox 上无修改运行，请使用 `--polyfill`。
+
+## 常见陷阱
+
+- **service worker 的 `import` 语句：** 当你的后台入口使用 ESM 语法时，Extension.js 会自动设置 `type: "module"`。CRXJS 也是这样做的。无需额外操作。
+- **`web_accessible_resources` 类型：** Manifest V3 使用 `[{resources, matches}]` 块。两个框架都会输出正确形态；直接照抄你现有的条目即可。
+- **带哈希的资源路径：** Extension.js 在 [`dist/<browser>`](/docs/features/path-resolution) 下使用稳定路径。如果你的代码硬编码了 Vite 风格的带哈希文件名，请改为相对清单的路径。
+
+## 另请参阅
+
+- [跨浏览器兼容性](/docs/features/cross-browser-compatibility)
+- [浏览器特定清单字段](/docs/features/browser-specific-fields)
+- [重载与 HMR](/docs/features/reload-and-hmr)
+- [Manifest V3 排错](/docs/concepts/manifest-v3)

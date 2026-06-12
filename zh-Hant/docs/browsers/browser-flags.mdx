@@ -1,0 +1,189 @@
+---
+title: "Chrome、Firefox 和 Edge 的瀏覽器啟動旗標"
+description: "在 Extension.js 中使用 firefox://flags、chrome://flags 和瀏覽器啟動旗標。在擴充功能開發期間控制 Chrome、Firefox 和 Edge 的執行階段行為。"
+keywords:
+  [
+    "firefox flags",
+    "firefox://flags",
+    "browser://flags",
+    "chrome://flags",
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "devtools",
+    "docs",
+    "browsers",
+  ]
+---
+
+<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
+控制瀏覽器啟動行為以進行偵錯、自動化與執行階段實驗。
+
+不必更動擴充功能原始碼，即可調整瀏覽器啟動行為。Extension.js 會從你的 `extension.config.*` 合併瀏覽器旗標，並套用在 `dev`、`preview` 和 `start` 流程中。
+
+## Firefox 是否有 `firefox://flags`？
+
+Firefox 並未像 Chromium 系列瀏覽器那樣使用 `chrome://flags` 或 `edge://flags` 的 `firefox://flags`。Firefox 透過 `about:config`（偏好設定）公開執行階段切換項目，並接受來自命令列的啟動旗標。
+
+如果你曾搜尋 `firefox://flags`、`firefox //flags`、`browser://flags`、`mozilla://flags`，或 `about flags firefox`，那麼你可能正試圖在擴充功能開發期間變更瀏覽器行為。在 Extension.js 中，請在以下兩處進行：
+
+- 使用 [`browserFlags`](/docs/browsers/browser-flags) 設定 Extension.js 在啟動時傳遞給瀏覽器二進位檔的旗標。
+- 使用 [Firefox 偏好設定](/docs/browsers/browser-preferences) 設定可重複套用、原本會放在 `about:config` 中的 Gecko 執行階段行為。
+
+兩者都能在同一個 Extension.js 專案中支援 Chrome、Edge 與 Firefox 擴充功能開發。
+
+## 範本範例
+
+### `new-browser-flags`
+
+![new-browser-flags template screenshot](/images/examples/new-browser-flags/screenshot.png)
+
+透過一個設定啟動行為的新分頁擴充功能，實際體驗瀏覽器旗標的運作方式。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-browser-flags
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-browser-flags
+```
+
+</CodeGroup>
+
+儲存庫：[extension-js/examples/new-browser-flags](https://github.com/extension-js/examples/tree/main/examples/new-browser-flags)
+
+## 運作方式
+
+在 `extension.config.*` 中設定旗標：
+
+- `browser.<target>.browserFlags`
+- `commands.dev|start|preview.browserFlags`
+- 選用 `excludeBrowserFlags` 以移除預設值或使用者旗標（行為視你是以 Chromium 或 Firefox 為目標而定）。
+
+覆寫順序：瀏覽器預設 → 指令預設 → CLI 選擇的指令上下文。
+
+## 旗標功能
+
+| 設定鍵                                 | 作用                                                       |
+| -------------------------------------- | ---------------------------------------------------------- |
+| `browser.<target>.browserFlags`        | 為特定瀏覽器目標設定預設啟動旗標。                         |
+| `commands.dev.browserFlags`            | 為 `dev` 執行新增或覆寫旗標。                              |
+| `commands.start.browserFlags`          | 為 `start` 執行新增或覆寫旗標。                            |
+| `commands.preview.browserFlags`        | 為 `preview` 執行新增或覆寫旗標。                          |
+| `browser.<target>.excludeBrowserFlags` | 針對目標移除符合的預設或使用者旗標。                       |
+| `commands.<name>.excludeBrowserFlags`  | 在指令專屬上下文中移除旗標。                               |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show browser-level flags plus command-level overrides and the final launch flags used at runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 設定範例
+
+```js
+export default {
+  browser: {
+    chrome: {
+      browserFlags: ["--disable-web-security", "--auto-open-devtools-for-tabs"],
+      excludeBrowserFlags: ["--mute-audio"],
+    },
+    firefox: {
+      browserFlags: ["--devtools", "--new-instance"],
+      excludeBrowserFlags: ["--devtools"],
+    },
+  },
+};
+```
+
+## Chromium 與 Firefox 的行為差異
+
+- **Chromium 系列（`chrome`、`edge`、`chromium`、`chromium-based`）**
+  - 從內部預設旗標集開始，並接著附加你的 `browserFlags`。
+  - `excludeBrowserFlags` 會移除符合的預設旗標（採用完全比對篩選）。
+  - Extension.js 會管理 `--load-extension=...` 並從使用者提供的旗標中將其濾除。
+
+- **Firefox/Gecko 系列（`firefox`、`gecko-based` / `firefox-based`）**
+  - 使用使用者提供的 `browserFlags`（沒有 Chromium 那樣的大量預設旗標）。
+  - `excludeBrowserFlags` 會以前綴比對方式移除使用者旗標。
+
+### Chromium 預設旗標
+
+啟動 Chromium 系列瀏覽器時，Extension.js 會自動套用以下旗標。如有不需要的，可使用 `excludeBrowserFlags` 移除。
+
+| 旗標                                                       | 用途                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `--no-first-run`                                           | 停用首次執行體驗                                                         |
+| `--disable-client-side-phishing-detection`                 | 停用釣魚偵測                                                             |
+| `--disable-sync`                                           | 停用同步以避免帳號提示                                                   |
+| `--disable-component-extensions-with-background-pages`     | 停用不受 `--disable-extensions` 影響的內建擴充功能                       |
+| `--disable-default-apps`                                   | 停用安裝預設應用程式                                                     |
+| `--disable-features=InterestFeedContentSuggestions`        | 在新分頁（NTP）停用 Discover 動態消息                                    |
+| `--disable-features=Translate`                             | 停用 Chrome 翻譯功能                                                     |
+| `--hide-scrollbars`                                        | 從擷取畫面中隱藏捲軸                                                     |
+| `--mute-audio`                                             | 將任何音訊靜音                                                           |
+| `--no-default-browser-check`                               | 停用預設瀏覽器檢查提示                                                   |
+| `--ash-no-nudges`                                          | 避免使用者教學的引導提示                                                 |
+| `--disable-search-engine-choice-screen`                    | 停用搜尋引擎選擇畫面                                                     |
+| `--disable-features=MediaRoute`                            | 停用 Chrome Media Router 背景網路                                        |
+| `--use-mock-keychain`                                      | 在 Mac 上使用模擬鑰匙圈，避免出現阻擋對話框                              |
+| `--disable-background-networking`                          | 停用背景網路服務                                                         |
+| `--disable-breakpad`                                       | 停用當機傾印收集                                                         |
+| `--disable-component-update`                               | 停用元件更新                                                             |
+| `--disable-domain-reliability`                             | 停用網域可靠性監控                                                       |
+| `--no-pings`                                               | 停用超連結稽核 ping                                                      |
+| `--enable-features=SidePanelUpdates`                       | 確保側邊面板可見                                                         |
+| `--disable-features=DisableLoadExtensionCommandLineSwitch` | 允許在命令列使用 `--load-extension`                                      |
+| `--enable-unsafe-extension-debugging`                      | 允許 Chrome DevTools Protocol（CDP）擴充功能管理（Chrome 126+）          |
+| `--silent-debugger-extension-api`                          | 隱藏「X 正在偵錯此瀏覽器」的提示列                                       |
+
+<Note>
+  在 Docker、持續整合（CI）或容器化環境中，Extension.js 也會自動套用 `--no-sandbox`
+  與 `--disable-setuid-sandbox`。
+</Note>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Chromium and Firefox launches using different flag behavior from the same config. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 支援的目標與參考資料
+
+| 瀏覽器         | 用法                                     | 更多資訊                                                                                |
+| -------------- | ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| Chrome         | `extension dev --browser=chrome`         | [Chrome 旗標](https://peter.sh/experiments/chromium-command-line-switches/)             |
+| Edge           | `extension dev --browser=edge`           | [Edge 旗標](https://docs.microsoft.com/en-us/deployedge/microsoft-edge-policies)        |
+| Firefox        | `extension dev --browser=firefox`        | [Firefox 旗標](https://developer.mozilla.org/en-US/docs/Mozilla/Command_Line_Options)   |
+| Chromium-based | `extension dev --browser=chromium-based` | [Chromium 旗標](https://peter.sh/experiments/chromium-command-line-switches/)           |
+| Gecko-based    | `extension dev --browser=gecko-based`    | 以 Firefox 為基礎的瀏覽器與 Firefox 共用相同的旗標。                                    |
+
+需要時，請對引擎類目標使用二進位旗標：
+
+- `--chromium-binary=...`
+- `--gecko-binary=...`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show engine-based target launch with custom browser binary and target-specific flags. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳實務
+
+- **僅新增必要旗標**：盡量減少冗長的旗標清單，避免設定不穩定或無法移植。
+- **優先使用 `excludeBrowserFlags` 而非替換預設值**：僅移除與你工作流程衝突的旗標。
+- **不要手動傳遞 `--load-extension`**：Extension.js 會在內部管理擴充功能載入旗標。
+- **依瀏覽器系列驗證**：在 Chromium 上可用的旗標，可能在 Firefox 上無效或被忽略。
+
+## 後續步驟
+
+- 進一步了解[瀏覽器偏好設定](/docs/browsers/browser-preferences)。
+- 進一步了解[瀏覽器設定檔](/docs/browsers/browser-profile)。
+- 在[可用的瀏覽器](/docs/browsers/browsers-available)中選擇目標。
+- 透過 [`extension.config.*`](/docs/features/extension-configuration) 串接旗標。
+- 剛接觸擴充功能工具？請從[瀏覽器擴充功能框架](/docs/compare)總覽開始。

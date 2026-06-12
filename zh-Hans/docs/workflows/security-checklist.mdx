@@ -1,0 +1,86 @@
+---
+title: "扩展安全检查清单"
+description: "在发布前通过可重复的安全评审降低扩展的攻击面。涵盖最小权限、受限的运行时访问和输入校验。"
+keywords:
+  [
+    "browser",
+    "manifest",
+    "content script",
+    "docs",
+    "workflows",
+    "security checklist",
+    "security",
+    "checklist",
+  ]
+---
+
+你的扩展可能因为少数反复出现的原因而在商店审核与内部评审中失败。权限超出功能所需。内容脚本以不安全的方式信任页面上下文。web-accessible 资源（WAR）将内部内容暴露给任意源。消息处理器对未经验证的发送方做出动作。
+
+请在每次发布前运行此检查清单。
+
+## 安全评审能力
+
+| 区域                                    | 它能帮助你验证什么                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| 权限范围                                | 申请的能力是最小且有意的                                                  |
+| 内容脚本安全                            | 页面上下文行为避免了不安全的注入模式                                      |
+| WAR（web-accessible 资源）暴露           | 仅必要素材可被外部读取                                                    |
+| 消息边界                                | 扩展会校验特权操作并核查发送方                                            |
+| 发布卫生                                | 持续集成（CI）与依赖检查能尽早捕获回归                                    |
+
+## Manifest 与权限
+
+- 仅申请你需要的权限。
+- 除非必要，避免使用宽泛的 host 权限。
+- 对于非核心能力，优先使用可选权限。
+- 在功能变更后重新检查 `web_accessible_resources` 的范围。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a pre-release security pass that trims permissions and narrows web_accessible_resources before packaging. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 内容脚本
+
+- 默认使用隔离世界（沙盒化的执行上下文），除非确实需要 MAIN world 访问页面的 JavaScript 环境。
+- 将选择器与 DOM 修改限定在已知目标内。
+- 在渲染或存储不受信任的页面数据前进行净化。
+- 避免向页面上下文注入可执行字符串。
+
+## Web-accessible 资源
+
+- 让 WAR 条目保持显式且最小。
+- 避免通配符 `resources: ["*"]` 模式。
+- 将 `matches` 限制到必要的域名。
+- 使用运行时 URL 助手（`runtime.getURL`）访问资产。
+
+## 消息与数据流
+
+- 在处理前校验消息载荷的结构。
+- 在特权操作中核查发送方上下文。
+- 避免将特权操作直接暴露给页面脚本。
+- 为内容/后台通信保留边界模块。
+
+## 构建与发布卫生
+
+- 在 CI 中运行 lint、类型检查与测试。
+- 检查生产打包输出是否存在意外产物。
+- 保持依赖最新，并移除未使用的包。
+- 轮换密钥，并将敏感值排除在客户端可见的环境变量之外。
+
+## 常见的高风险反模式
+
+- `host_permissions` 使用宽泛的通配符，但并非功能必需
+- `web_accessible_resources` 使用宽泛的 glob 暴露到 `<all_urls>`
+- 消息处理器在未经发送方或 schema 校验的情况下信任载荷
+- 在可以使用隔离世界的情况下却使用 MAIN world 脚本
+
+## 快速发布前检查
+
+1. 权限评审
+2. WAR 评审
+3. 内容脚本 world 评审
+4. 消息校验评审
+5. CI 在目标浏览器矩阵上为绿
+
+## 后续步骤
+
+- 查看 [web-accessible 资源](/docs/implementation-guide/web-accessible-resources)。
+- 查看 [故障排查](/docs/workflows/troubleshooting)。

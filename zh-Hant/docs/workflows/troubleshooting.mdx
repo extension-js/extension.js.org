@@ -1,0 +1,122 @@
+---
+title: "Extension.js 問題疑難排解"
+description: "以實務的分類路徑修復常見的 Extension.js 問題。涵蓋重新啟動診斷、相依套件設定、瀏覽器啟動與 manifest 錯誤。"
+keywords:
+  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows"]
+---
+
+先檢查最常見的失敗，快速解除本機開發阻塞。請將本頁作為深入除錯前的實務分類路徑。
+
+## 疑難排解能力
+
+| 區域                | 此項能協助你驗證                                          |
+| ------------------- | --------------------------------------------------------- |
+| 重新啟動診斷        | 結構性變更是否需要重新啟動                                |
+| 相依套件設定        | 目前堆疊是否缺少選用工具                                  |
+| 瀏覽器啟動          | 目標／瀏覽器二進位設定是否有效                            |
+| 建置／preview 流程  | 輸出是否存在且符合目標供 preview 使用                     |
+| Manifest 路徑       | 參考的檔案是否能正確解析                                  |
+
+## 快速分類流程
+
+1. 在單一目標上重現（`--browser=chromium`）。
+2. 移除自訂 profile 與 binary 旗標。
+3. 確認問題發生於 `dev`、`build`，或兩者皆有。
+4. 一次修復一類錯誤（restart、相依套件、路徑或啟動）。
+
+## 快速診斷決策樹
+
+| 如果這個失敗...           | 先檢查                                                  | 下一步動作                                                                                  |
+| ------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 擴充功能無法載入          | 建置與 manifest 錯誤                                    | 驗證參考的檔案並重新執行 `dev`                                                              |
+| 瀏覽器無法啟動            | `--browser` + binary 路徑                              | 移除自訂 binary／profile 旗標並重試                                                          |
+| 變更未更新                | 更新類型（hot module replacement vs restart-required） | 檢視 [開發階段更新行為](/docs/workflows/dev-update-behavior)，必要時重新啟動                 |
+| `preview` 失敗            | 既有的 `dist/<browser>` 輸出                            | 先執行 `extension build --browser=<target>`                                                  |
+| 執行階段仍壞              | 最小可重現設定                                          | 縮小範圍並擷取確切指令 + 錯誤                                                               |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a failing dev run, identify the error class, apply one fix, and rerun successfully. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 常見問題
+
+### 需要重新啟動的診斷
+
+如果你看到 restart-required 錯誤，請停止並重新執行 `extension dev`。
+
+典型觸發因素：
+
+- Manifest 進入點清單變更。
+- 在 `pages/` 或 `scripts/` 中新增／移除檔案。
+- 結構性 HTML script／style 進入變更。
+
+完整對應請見 [開發階段更新行為](/docs/workflows/dev-update-behavior)。
+
+### 缺少選用相依套件
+
+CLI 會按需安裝某些整合（例如 Vue／Preact refresh 工具、樣式預處理器）。
+
+如果 CLI 提示安裝選用相依套件：
+
+1. 允許安裝。
+2. 重新啟動 `extension dev`。
+3. 待相依套件安裝完成後再次執行。
+
+### 瀏覽器 binary 問題
+
+如果目標瀏覽器無法啟動：
+
+- 驗證自訂 binary 路徑（`--chromium-binary` ／ `--gecko-binary`）。
+- 確認瀏覽器目標與提供的 binary 相容。
+- 回退到預設的 `chromium` 目標以隔離設定問題。
+
+### Build 可執行但 preview 失敗
+
+`preview` 預期已有建置輸出。
+
+- 執行 `extension build --browser=<target>`。
+- 然後執行 `extension preview --browser=<target>`。
+
+### Manifest 參考錯誤
+
+如果建置回報缺少 manifest 檔案：
+
+- 驗證路徑是相對於 manifest 位置。
+- 驗證開頭的 `/` 使用（public-root 語意）。
+- 確認檔案實際存在於 source／public 位置。
+
+### Docker、dev containers 與 Codespaces
+
+當在容器中執行時，dev server 預設綁定於 `127.0.0.1`，因此主機機器無法連線。
+
+- 傳入 `--host 0.0.0.0` 以綁定所有介面。
+- 若 `8080` 已被占用，使用 `--port 0` 讓作業系統指派空閒連接埠。
+- 如果在持續整合（CI）容器中瀏覽器連線緩慢或不穩定，可使用 [瀏覽器傳輸調校變數](/docs/features/environment-variables#browser-transport-tuning-variables) 增加連線逾時時間。
+
+```bash
+extension dev --host 0.0.0.0 --port 0
+```
+
+### `scripts/` 資料夾中的 Node.js 腳本
+
+如果建置失敗並出現 `scripts/ is a reserved folder in Extension.js`，表示你在 `scripts/` 特殊資料夾中放置了 Node.js 檔案。Extension.js 會為 `scripts/` 中的每個檔案包覆瀏覽器內容腳本執行階段。僅限 Node.js 的檔案在此情境下會失敗。
+
+請將該檔案移到專案根目錄下的其他資料夾（例如 `bin/`、`tools/` 或 `ci-scripts/`）。詳情請見 [特殊資料夾](/docs/features/special-folders#nodejs-scripts-are-not-allowed-in-scripts)。
+
+### 套用修復後仍被阻塞
+
+如果問題仍存在：
+
+- 清除暫時假設，從乾淨的終端機 session 重現。
+- 將範例縮減為仍會失敗的最小 manifest／進入點。
+- 為問題回報擷取確切指令 + 錯誤輸出。
+
+## 除錯檢查清單
+
+- 先以單一瀏覽器目標重現（`--browser=chromium`）。
+- 在不使用自訂 profile／binary 旗標下重現。
+- 檢查問題是否同時出現在 `dev` 與 `build`。
+- 在動到 manifest + 進入點檔案時，一次只變更一處。
+
+## 下一步
+
+- 檢視 [安全檢查清單](/docs/workflows/security-checklist)。
+- 檢視 [效能手冊](/docs/workflows/performance-playbook)。

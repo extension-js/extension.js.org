@@ -1,0 +1,120 @@
+---
+title: "Extension.js 与 WXT 对比"
+description: "并排比较 Extension.js 与 WXT，用于构建跨浏览器扩展。涵盖 CLI 体验、清单模型、框架支持和重载行为。"
+keywords:
+  [
+    "extension.js vs wxt",
+    "wxt vs extension.js",
+    "browser extension framework comparison",
+    "wxt",
+    "extension.js",
+    "cross-browser extension",
+    "chrome extension framework",
+    "firefox extension framework",
+  ]
+---
+
+Extension.js 与 [WXT](https://wxt.dev) 都是面向跨浏览器扩展的现代框架。两者的使命相近，但理念不同。本页是一份事实层面的对比，帮助你基于项目本身做选择，而不是被宣传材料牵着走。
+
+## TL;DR：该选哪一个？
+
+<CardGroup cols={2}>
+  <Card title="选择 Extension.js 的情形…">
+    - 你希望 **以 `manifest.json` 作为单一事实来源**，而不是从配置生成。
+    - 你喜欢贴近原生 WebExtension 模型（真实文件、透明输出）。
+    - 你希望用一条命令开发远程示例：`extension dev <github-url>`。
+    - 你想要 Rspack 基于 Rust 的极速构建，以及一流的 [AI/MCP 工具支持](/docs/ai-access)。
+  </Card>
+  <Card title="选择 WXT 的情形…">
+    - 你更偏好 **文件系统约定**（`entrypoints/`），而非显式清单。
+    - 你需要把 **Manifest V2** 作为主要目标。
+    - 你希望默认到处都有自动 polyfill 的 `browser.*` 命名空间。
+  </Card>
+</CardGroup>
+
+本页其余部分将逐个维度为上述结论提供依据。
+
+## 概览
+
+| 维度                 | Extension.js                                                               | WXT                                                                 |
+| -------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 打包器               | [Rspack](/docs/features/rspack-configuration)（基于 Rust）                 | Vite（正在迁移至 Rolldown）                                         |
+| 清单                 | 单一 `manifest.json`，浏览器前缀键在编译期过滤                             | 由 `wxt.config.ts` 在每次构建时生成 `manifest.json`                 |
+| 入口                 | 从 `manifest.json` 引用的文件                                              | `entrypoints/` 下的文件系统约定                                     |
+| 浏览器目标           | Chrome、Edge、Firefox、Chromium、Gecko、自定义二进制                       | Chrome、Edge、Firefox、Safari（社区）、自定义二进制                 |
+| Manifest V3          | 默认                                                                       | 默认                                                                |
+| Manifest V2          | 不作为主要目标支持                                                         | 通过 `manifestVersion: 2` 支持                                      |
+| 重载模型             | popup/options/devtools 使用 HMR，内容脚本和 SW 采用定向重载                | popup/options/devtools 使用 HMR，内容脚本采用定向重载               |
+| `browser.*` polyfill | `--polyfill` 标志                                                          | 自动 polyfill 的 `browser` 命名空间                                 |
+| 模板                 | React、Preact、Vue、Svelte、TypeScript、JavaScript、init                   | React、Vue、Svelte、Solid、Preact、vanilla                          |
+| TypeScript           | 一流支持                                                                   | 一流支持                                                            |
+| AI 支持              | 托管的 MCP 服务器 + `llms.txt`（[详情](/docs/ai-access)）                   | 提供 `llms.txt`                                                     |
+
+## 心智模型
+
+**Extension.js 紧贴平台。** 你编写 `manifest.json` 并引用真实文件。CLI 负责编译、按浏览器过滤并发布。如果你已经理解浏览器扩展的结构，这个框架不会挡路。
+
+**WXT 对平台进行了抽象。** 入口由目录布局推断（`entrypoints/popup/`、`entrypoints/content.ts`），清单则由你的配置和源码生成。如果你更偏好约定优于配置，WXT 在你每写一份文件时为你做的事情更多。
+
+两种思路没有绝对优劣。选择取决于你想 **看到** 你的清单，还是 **声明** 你的清单。
+
+## CLI 接口
+
+### Extension.js
+
+```bash
+extension dev --browser=chrome,firefox
+extension build --browser=chrome,firefox --zip
+extension dev https://github.com/user/repo/tree/main/path
+```
+
+参数也可以是远程 GitHub URL 或 ZIP 压缩包，便于在不克隆的情况下快速启动一个示例。参见[立即开始](/docs/getting-started/immediately)。
+
+### WXT
+
+```bash
+wxt
+wxt build
+wxt build -b firefox
+wxt zip
+```
+
+WXT 将 dev/build/zip 拆分成多个命令。Extension.js 则将打包整合到 `build --zip` 中。
+
+## 跨浏览器策略
+
+两种框架都用一份代码构建多个浏览器版本，但机制不同：
+
+- **Extension.js** 在同一份 `manifest.json` 中使用 [带浏览器前缀的清单字段](/docs/features/browser-specific-fields)（`chrome:`、`firefox:`、`gecko:` 等）。无前缀的键在所有构建中生效；带前缀的键仅出现在对应的构建中。
+- **WXT** 通过 `wxt.config.ts` 和按目标的覆盖项计算清单。浏览器差异存放在 TypeScript 配置中，而非清单本身。
+
+如果你的团队里有读取 `manifest.json` 的设计师或 PM，带前缀的键能让该文件保持单一事实来源。如果团队希望扩展配置与其他 TypeScript 配置放在一起，WXT 的方式读起来更自然。
+
+## 迁移路径
+
+如果你已经在用 WXT 并希望评估 Extension.js，典型的迁移涉及三件事：
+
+1. 将 `entrypoints/` 的内容迁回到由手写 `manifest.json` 引用的扁平文件。
+2. 用 [`extension.config.js`](/docs/features/extension-configuration) 替代 `wxt.config.ts` 来设置构建默认值。
+3. 将 `wxt`/`wxt build` 脚本替换为 `extension dev`/`extension build`。
+
+大多数 React、Vue 和 Svelte 源文件可以原样迁移。
+
+## 何时选择 Extension.js
+
+- 你希望清单作为单一事实来源，而不是生成出来的。
+- 你希望用一个 CLI 参数即可开发远程示例（`extension dev <github-url>`）。
+- 你希望文档拥有一流的托管 MCP，用于 AI 工具。
+- 你希望大型扩展拥有 Rspack 基于 Rust 的极速编译。
+
+## 何时选择 WXT
+
+- 你更偏好文件系统约定而非显式清单。
+- 你需要 Manifest V2 作为主要目标。
+- 你希望默认到处都有自动 polyfill 的 `browser.*`。
+
+## 另请参阅
+
+- [跨浏览器兼容性](/docs/features/cross-browser-compatibility)
+- [浏览器特定清单字段](/docs/features/browser-specific-fields)
+- [模板](/docs/getting-started/templates)

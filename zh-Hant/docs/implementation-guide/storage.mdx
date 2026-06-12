@@ -1,0 +1,86 @@
+---
+title: "擴充功能的瀏覽器儲存 API"
+description: "使用瀏覽器儲存 API 持久化設定與執行階段狀態。涵蓋 local、sync 與 session 儲存區及其對 service worker 可靠性的影響。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "browser",
+    "manifest",
+    "service worker",
+    "docs",
+    "implementation guide",
+    "storage",
+  ]
+---
+
+Extension.js 不會替換或包裝瀏覽器儲存 API；它只是編譯您呼叫這些 API 的程式碼。儲存區域的選擇仍很重要。它會影響 service-worker 的可靠性、跨瀏覽器一致性，以及未來的資料結構變更。
+
+## 選擇正確的儲存區域
+
+| 儲存區域          | 使用時機                                         | 注意事項                                  |
+| ----------------- | ------------------------------------------------ | ----------------------------------------- |
+| `storage.local`   | 單一裝置上的持久擴充功能狀態                     | 多數擴充功能資料的最佳預設                |
+| `storage.sync`    | 跨登入瀏覽器同步的少量使用者偏好                 | 對配額敏感，且比 local 更慢                |
+| `storage.session` | 短暫的工作階段狀態                               | 對暫時性的執行階段協調有用                |
+| `storage.managed` | 企業管理的政策值                                 | 由 schema 驅動，對擴充功能而言為唯讀      |
+
+## 建議的預設
+
+- 將 `storage.local` 用於功能狀態、快取與持久設定。
+- 僅將 `storage.sync` 用於小型、對使用者有意義的偏好。
+- 將 `storage.session` 用於不應於完整瀏覽器重新啟動後保留的狀態。
+- 將 `storage.managed` 視為獨立的企業路徑，而非您的一般設定機制。
+
+## 對 service-worker 友善的模式
+
+Manifest V3（MV3）background service workers 可能在事件之間停止與重新啟動，因此不要單純依賴記憶體內狀態。
+
+- 視需要從儲存中還原關鍵狀態。
+- 僅將記憶體快取作為最佳化用途。
+- 保持啟動工作小巧，讓事件處理保持即時回應。
+- 持久化具版本的設定變更，而非假設 background script 會無限期保持執行。
+
+## 範例設定模組
+
+```ts
+const SETTINGS_KEY = "settings";
+
+export async function getSettings() {
+  const result = await chrome.storage.local.get(SETTINGS_KEY);
+  return result[SETTINGS_KEY] ?? { theme: "system" };
+}
+
+export async function setSettings(nextSettings: {
+  theme: "system" | "light" | "dark";
+}) {
+  await chrome.storage.local.set({ [SETTINGS_KEY]: nextSettings });
+}
+```
+
+## 儲存設計檢查清單
+
+1. 決定哪些值必須在瀏覽器重新啟動後保留。
+2. 如有需要，決定哪些值應跨裝置同步。
+3. 在第一次發佈前為您的儲存資料形狀進行版本控制。
+4. 為改名的索引鍵或變更的結構保留遷移路徑。
+5. 避免在客戶端可讀的擴充功能儲存中存放機密，除非您完全接受任何擴充功能程式碼皆可讀取它們。
+
+## Managed 儲存
+
+若您使用 `storage.managed`，請在 `manifest.json` 中將執行階段程式碼與有效的 `storage.managed_schema` 檔案搭配。Extension.js 會驗證該 schema 檔案並將其輸出至輸出路徑。
+
+JSON 資源細節請參閱 [JSON](/docs/implementation-guide/json)。
+
+## 常見錯誤
+
+- 將 `storage.sync` 用於大型資料集或快取。
+- 在 MV3 中假設 background 記憶體變數是持久的。
+- 在沒有版本控制策略的情況下存放多個沒有關聯的索引鍵。
+- 將企業管理的儲存與使用者可編輯的設定混在一起，卻沒有分開它們的存取模式。
+
+## 下一步
+
+- 在 [manifest.json](/docs/implementation-guide/manifest-json) 中宣告 schema 支援的企業儲存。
+- 在 [JSON](/docs/implementation-guide/json) 中檢視資源處理。
+- 使用 [訊息傳遞](/docs/implementation-guide/messaging) 在情境之間移動狀態。

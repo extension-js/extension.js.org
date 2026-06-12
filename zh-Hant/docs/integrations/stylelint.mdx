@@ -1,0 +1,151 @@
+---
+title: "瀏覽器擴充功能 CSS 的 Stylelint"
+description: "及早捕捉 CSS 問題，並在各擴充功能表面之間維持樣式表品質一致。Stylelint 與 Extension.js 建置一同透過 scripts 或 CI 執行。"
+keywords:
+  [
+    "stylelint for browser extension css",
+    "stylelint",
+    "extension.js",
+    "postcss",
+    "prettier",
+    "docs",
+    "integrations",
+  ]
+---
+
+在擴充功能表面之間維持樣式表品質一致，並及早捕捉 CSS 問題。Stylelint 透過 scripts 或持續整合（CI）執行，而非透過 Extension.js 的 dev/build pipeline。
+
+## Stylelint 何時合適
+
+- 您維護跨多個擴充功能表面共享的 CSS/Sass/Less。
+- 您希望在 pull request 合併前進行樣式品質檢查。
+- 您需要在團隊工作流程中採用一致的樣式表慣例。
+
+## Stylelint 能力
+
+| 能力                      | 為您提供的功能                                        |
+| ------------------------- | ---------------------------------------------------- |
+| CSS 品質檢查              | 捕捉無效模式並強制執行樣式慣例                       |
+| 預處理器支援              | 在同一工作流程中 lint CSS、Sass 與 Less              |
+| Script 與 CI 整合         | 在合併與發佈前執行樣式檢查                           |
+| 格式化器對齊              | 與 Prettier 搭配以減少樣式工具的衝突                 |
+
+## 範本範例
+
+### Stylelint 設定範本
+
+為樣式 lint 預先設定好的設定。
+
+![`new-config-stylelint` 截圖](/images/examples/new-config-stylelint/screenshot.png)
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-config-stylelint
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-config-stylelint
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-config-stylelint
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-config-stylelint
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-config-stylelint
+```
+
+</CodeGroup>
+
+儲存庫：[examples/new-config-stylelint](https://github.com/extension-js/examples/tree/main/examples/new-config-stylelint)
+
+## 在既有擴充功能中使用
+
+安裝 Stylelint 相依套件：
+
+<PackageManagerTabs command="install -D stylelint stylelint-config-standard-scss" />
+
+### Stylelint 設定
+
+在專案根目錄建立 Stylelint 設定檔（例如 `.stylelintrc.json`）：
+
+```json
+{
+  "extends": "stylelint-config-standard-scss",
+  "rules": {
+    "color-no-invalid-hex": true,
+    "block-no-empty": true
+  }
+}
+```
+
+### 執行 Stylelint
+
+<CodeGroup>
+
+```bash npm
+npm run lint:styles
+```
+
+```bash pnpm
+pnpm lint:styles
+```
+
+```bash yarn
+yarn lint:styles
+```
+
+```bash bun
+bun run lint:styles
+```
+
+```bash bun
+bun run lint:styles
+```
+
+</CodeGroup>
+
+若尚未有 script：
+
+<PackageManagerTabs command="stylelint '**/*.{css,scss,sass,less}'" />
+
+{/* VIDEO_PLACEHOLDER_TODO: Show style lint failures on CSS files, then fix and rerun Stylelint. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 與 Prettier 整合
+
+將 Stylelint 與 Prettier 整合，同時格式化與 lint 您的樣式。安裝下列相依套件：
+
+<PackageManagerTabs command="install -D stylelint-prettier prettier" />
+
+接著更新您的 `.stylelintrc.json` 以包含 Prettier：
+
+```json
+{
+  "extends": [
+    "stylelint-config-standard-scss",
+    "stylelint-prettier/recommended"
+  ]
+}
+```
+
+這能讓樣式格式化與 lint 議題保持對齊。
+
+## 最佳實務
+
+- 維護專用的 `lint:styles` 命令，並在 CI 中執行它。
+- 在 monorepo 中於擴充功能套件之間使用單一共享設定。
+- 將 Stylelint 與 Prettier 搭配，使樣式格式化保持確定性。
+
+## 偵測註記
+
+Extension.js 可以偵測 Stylelint 設定檔以提供診斷／回報，但不會將 Stylelint 注入建置 pipeline。
+
+## 下一步
+
+- 學習如何將 [Prettier](/docs/integrations/prettier) 整合到您的格式化工作流程中。
+- 為樣式表轉換設定 [PostCSS](/docs/integrations/postcss)。

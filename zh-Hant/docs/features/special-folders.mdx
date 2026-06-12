@@ -1,0 +1,204 @@
+---
+title: "用於頁面、腳本與資產的特殊資料夾"
+description: "對於不適合放在 manifest.json 進入點的額外頁面、注入腳本、靜態資產與伴隨擴充功能，使用特殊資料夾來管理。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "manifest",
+    "react",
+    "hmr",
+    "content script",
+  ]
+---
+
+當你的擴充功能需要無法乾淨放入 `manifest.json` 的進入點或資產時，使用特殊資料夾。
+
+無需切割專案結構，即可處理額外頁面、執行階段注入腳本、需要精確路徑的靜態資產，以及用於本機開發的伴隨擴充功能。
+
+## 範本範例
+
+### `special-folders-pages`
+
+![special-folders-pages template screenshot](/images/examples/special-folders-pages/screenshot.png)
+
+透過額外的 HTML 進入點實際看看 `pages/` 特殊資料夾如何運作。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=special-folders-pages
+```
+
+</CodeGroup>
+
+儲存庫：[extension-js/examples/special-folders-pages](https://github.com/extension-js/examples/tree/main/examples/special-folders-pages)
+
+### `special-folders-scripts`
+
+![special-folders-scripts template screenshot](/images/examples/special-folders-scripts/screenshot.png)
+
+透過獨立的腳本進入點實際看看 `scripts/` 特殊資料夾如何運作。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=special-folders-scripts
+```
+
+</CodeGroup>
+
+儲存庫：[extension-js/examples/special-folders-scripts](https://github.com/extension-js/examples/tree/main/examples/special-folders-scripts)
+
+## 為何重要
+
+manifest 並未直接宣告許多擴充功能檔案。這包括 iframe 頁面、你以 `chrome.scripting.executeScript` 動態注入的腳本以及靜態廠商資產。你可能也會在開發期間需要伴隨擴充功能。特殊資料夾讓這些都成為建構流水線中的一等公民。
+
+## 運作方式
+
+每個特殊資料夾都有特定角色：
+
+| 資料夾名稱    | 說明                                                                                                        |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| `pages/`      | 即使 manifest 沒有列出，也將 HTML 頁面作為進入點加入編譯。                                                  |
+| `scripts/`    | 即使沒有 manifest 或 HTML 進入點參考，也將腳本檔案作為進入點加入編譯。                                      |
+| `public/`     | 將靜態資產原封不動地複製到輸出根目錄（`public/**` → `dist/**`），不進行打包或轉換。                         |
+| `extensions/` | 為僅載入的伴隨擴充功能在 dev/preview/start 工作流中提供慣例位置。                                           |
+
+## `pages/`：額外 HTML 進入點
+
+將 `pages/` 用於額外的擴充功能頁面，例如 sandbox iframe、診斷頁面或內部工具。
+
+Extension.js 將 `pages/` 中的每個 `.html` 檔案視為進入點，並以與 manifest 宣告頁面相同的方式編譯。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a page added under `pages/` and then loaded in the running extension build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+關於 sandbox iframe 範例，請參閱 [Chrome Sandbox Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox)。
+
+## `scripts/`：獨立的腳本進入點
+
+將 `scripts/` 用於動態載入、不與任何 HTML 頁面項目綁定的可執行腳本。
+
+Extension.js 將 `scripts/` 中的檔案視為進入點，並使用與專案其他部分相同的擴充功能解析流水線進行編譯。
+
+### 重要契約
+
+當你將 `scripts/` 項目作為類內容腳本的執行階段項目使用時，請遵循內容腳本初始化模式。這是 Extension.js 對注入腳本進行安全熱重新載入時所預期的預設匯出契約：
+
+- 預設匯出一個函式。
+- 在該函式中執行設定。
+- 選擇性地回傳同步清理函式。
+
+這在開發期間最為重要，Extension.js 會安全地重新掛載類內容腳本項目，而非進行完整頁面重新載入。
+
+### `scripts/` 中不允許 Node.js 腳本
+
+Extension.js 會以瀏覽器內容腳本的掛載執行階段包裝 `scripts/` 內的每個檔案。如果你將僅限 Node.js 的檔案（例如 CLI 啟動器或建構輔助工具）放在那裡，包裝器會破壞檔案。
+
+shebang 不再位於第 1 行，且僅限 Node 的 API 在瀏覽器內容中無法使用。
+
+Extension.js 會偵測兩個 Node.js 指標，並在建構時拋出錯誤：
+
+- 第 1 行的 shebang（`#!/usr/bin/env node`）。
+- 來自 `node:` 協定的匯入（例如，`import fs from 'node:fs'`）。
+
+<Warning>
+  若你看到 `scripts/ is a reserved folder in Extension.js`，請將該檔案移到專案根目錄下的其他資料夾，例如 `bin/`、`tools/`、`ops/`、`tasks/` 或 `ci-scripts/`。
+</Warning>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a script added under `scripts/` and injected at runtime with `scripting.executeScript`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+關於動態注入範例，請參閱 [Chrome Scripting Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/scripting)。
+
+## `public/`：僅複製的靜態資產
+
+當你需要穩定的檔案路徑且不要打包/轉換時，使用 `public/`。
+
+Extension.js 會將 `public/` 下的所有內容 1:1 複製到輸出根目錄。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a static file in `public/` copied directly to `dist/` with unchanged path. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### 重要的 `public/` 保護
+
+請勿將 `manifest.json` 放在 `public/manifest.json`。Extension.js 會阻止這樣做，以避免在編譯期間覆寫產生的 manifest。
+
+## `extensions/`：伴隨擴充功能（僅載入）
+
+當你使用伴隨擴充功能（例如，DevTools 輔助工具）時，Extension.js 支援以 `extensions/` 資料夾作為 dev/preview/start 流程中的僅載入來源。
+
+整體上：
+
+- 在 `extensions/` 下掃描子資料夾以尋找未封裝的擴充功能根（含 `manifest.json`）。
+- Extension.js 會將伴隨擴充功能與你的主擴充功能一起載入。
+- 將此資料夾用於載入伴隨擴充功能，而不是將它們建構進主成品中。
+
+你也可以透過 `--extensions` CLI 旗標或 `extension.config.js` 的 `extensions` 鍵載入伴隨擴充功能：
+
+```bash
+# 從本機資料夾載入
+extension dev --extensions ./path/to/companion
+
+# 從 Chrome Web Store 或 Firefox Add-ons 載入
+extension dev --extensions "https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi"
+```
+
+Extension.js 會自動下載、解壓並與你的擴充功能一起載入商店 URL。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a companion extension inside `extensions/` loading together with the main extension in dev mode. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 開發行為（watch 模式）
+
+在開發 watch 模式下，Extension.js 監看 `pages/` 與 `scripts/` 的檔案集合變更：
+
+- 新增支援的檔案會觸發警告（你可以繼續工作）。
+- 移除支援的檔案會觸發編譯錯誤。請重新啟動 dev 伺服器以恢復。
+
+這可保護執行中的編譯圖免於陳舊或損毀的進入點。
+
+## 最佳實踐
+
+- **將共用的執行階段資產放在 `public/`**：用於必須在輸出中保持確切名稱與路徑的檔案。
+- **將 `pages/` 與 `scripts/` 用於真正的進入點**：讓 manifest 外的執行路徑保持明確。
+- **進入點變更後重新啟動 dev 伺服器**：特別是移除 `pages/` 或 `scripts/` 下的檔案後。
+- **將伴隨擴充功能隔離**：將 `extensions/` 視為本機工作流的僅載入相依。
+- **不要在 `public/` 中放置 `manifest.json`**：Extension.js 會阻止 `public/manifest.json` 以保護產生的擴充功能輸出。
+
+## 後續步驟
+
+- 進一步了解 [頁面重新載入與模組熱替換（HMR）](/docs/features/reload-and-hmr)。
+- 在 [內容腳本](/docs/implementation-guide/content-scripts) 了解掛載契約。
+- 瀏覽 [範本](/docs/getting-started/templates) 以為下一個擴充功能建立鷹架。

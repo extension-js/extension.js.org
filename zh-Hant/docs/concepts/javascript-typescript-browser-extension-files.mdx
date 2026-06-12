@@ -1,0 +1,89 @@
+---
+title: "瀏覽器擴充功能中的 JavaScript 與 TypeScript 檔案"
+description: "了解 .js、.ts、.tsx、manifest.json、背景指令稿與 content script 在以 Extension.js 建置的 Chrome、Firefox 與 Edge 擴充功能中如何運作。"
+keywords:
+  [
+    "javascript extension",
+    "typescript extension",
+    "js extension",
+    ".js extension",
+    ".ts extension",
+    "react file extension",
+    "extension of javascript",
+    "typescript file extension",
+    "browser extension files",
+    "extension.js",
+  ]
+---
+
+瀏覽器擴充功能會使用 JavaScript、TypeScript、HTML、CSS 與 `manifest.json` 來定義行為、UI、權限與瀏覽器整合。本頁面說明你會在瀏覽器擴充功能專案中看到的各種副檔名，以及它們各自歸屬何處。
+
+如果你想找的是「extension」這個字作為 Chrome 或 Firefox 軟體外掛的概念，請改從[什麼是瀏覽器擴充功能？](/docs/concepts/what-is-a-browser-extension)開始閱讀。
+
+## JavaScript 副檔名：`.js` 與 `.mjs`
+
+瀏覽器擴充功能接受與其他 Web 平台相同的 JavaScript 副檔名：
+
+| 副檔名 | 意義                                                                                       |
+| ------ | ------------------------------------------------------------------------------------------ |
+| `.js`  | 一般 JavaScript。依載入方式被視為 ES 模組或經典指令稿。                                     |
+| `.mjs` | ES 模組。當你想強制以模組語意執行時很有用，特別是在 service worker 中。                      |
+| `.cjs` | CommonJS。在擴充功能原始碼中很少見；有時會出現在 `extension.config.cjs`。                    |
+
+在 Manifest V3 中，當 `manifest.json` 在 `background` 區塊中包含 `"type": "module"` 時，背景 `service_worker` 會以模組方式執行。詳情參見 [Manifest V3 疑難排解](/docs/concepts/manifest-v3)。
+
+## TypeScript 副檔名：`.ts` 與 `.tsx`
+
+TypeScript 在 Extension.js 中是一流的原始語言：
+
+| 副檔名  | 意義                                          |
+| ------- | --------------------------------------------- |
+| `.ts`   | 不含 JSX 的 TypeScript。                       |
+| `.tsx`  | 含 JSX 的 TypeScript（React、Preact）。        |
+| `.d.ts` | 型別宣告檔案。不會輸出到建置結果中。            |
+
+你不需要從零撰寫 `tsconfig.json`。Extension.js 內建了合理的預設值。`chrome.*`、`browser.*`、`import.meta.env` 與公開環境變數鍵的型別會來自 `@types/chrome` 以及 Extension.js 自己的環境型別。參見 [TypeScript](/docs/languages-and-frameworks/typescript)。
+
+## React 副檔名：`.jsx` 與 `.tsx`
+
+瀏覽器擴充功能中的 React 使用標準的 JSX 副檔名：
+
+| 副檔名 | 意義                  |
+| ------ | --------------------- |
+| `.jsx` | 含 JSX 的 JavaScript。 |
+| `.tsx` | 含 JSX 的 TypeScript。 |
+
+React 可在擴充功能頁面（popup、options、side panel、new-tab）內部運作，也能在注入到網頁的 content script 中運作。設定方式與 shadow-DOM 模式請參見 [React](/docs/languages-and-frameworks/react)。
+
+## 瀏覽器擴充功能檔案：`manifest.json`、背景、content script、頁面
+
+除了 JavaScript 與 TypeScript 原始碼之外，瀏覽器擴充功能資料夾通常還包含：
+
+| 檔案或資料夾      | 用途                                                                |
+| ----------------- | ------------------------------------------------------------------- |
+| `manifest.json`   | 宣告名稱、版本、權限、進入點與中繼資料。                              |
+| 背景進入點         | 長期存在的事件處理器。Manifest V3 在 Chromium 上為 service worker。  |
+| Content script    | 注入到符合 URL 模式之網頁中的程式碼。                                |
+| 擴充功能頁面       | popup、options、side panel 或 new-tab 的 HTML。                     |
+| Locales           | `_locales/<lang>/messages.json`，用於翻譯字串。                      |
+| 圖示與資產         | 工具列圖示、可被網頁存取的資源、字型、圖片。                          |
+
+Extension.js 會把你的 `.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte`、`.css`、`.less`、`.scss` 與 `.module.*` 原始碼編譯成上述磁碟結構。它會為每個瀏覽器目標輸出獨立的資料夾（`dist/chrome`、`dist/firefox`、`dist/edge`）。
+
+## Extension.js 如何編譯 JavaScript 與 TypeScript 擴充功能
+
+當你執行 `extension dev` 或 `extension build` 時，Extension.js 會：
+
+1. 讀取 `manifest.json`，找出每一個進入點（背景、content script、popup、options、side panel、new-tab、可被網頁存取的 HTML）。
+2. 解析這些進入點所參照的原始檔案，包括跨 `.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte` 與樣式表類型的 import。
+3. 透過 Rspack 編譯，並套用適合擴充功能的預設值：在有幫助的地方做程式碼分割，在瀏覽器不允許的地方（service worker、content script）則不做分塊。
+4. 將結果輸出到 `dist/<browser>`，並附上針對該目標過濾過的 manifest。
+
+你只需以上述任一副檔名撰寫原始碼，Extension.js 會負責打包、polyfill、儲存後重新載入以及各瀏覽器的封裝。
+
+## 下一步
+
+- 試試 [`extension create`](/docs/commands/create)，快速建立 TypeScript 或 React 擴充功能。
+- 閱讀 [TypeScript](/docs/languages-and-frameworks/typescript) 與 [React](/docs/languages-and-frameworks/react)。
+- 閱讀 [Manifest V3 疑難排解](/docs/concepts/manifest-v3)，了解 service worker 與模組規則。
+- 透過 [`extension build`](/docs/commands/build) 建置。

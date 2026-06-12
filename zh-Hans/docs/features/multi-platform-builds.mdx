@@ -1,0 +1,279 @@
+---
+title: "面向 Chrome、Edge 和 Firefox 的多平台构建"
+description: "无需单独的构建脚本即可为 Chrome、Edge 和 Firefox 构建并打包同一份扩展。把构件输出到 dist 并生成 zip 包。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "docs",
+    "features",
+  ]
+---
+
+为多个浏览器构建并打包同一份扩展,并获得可预期的输出。
+
+无需维护多套构建脚本,就能把同一份扩展交付到 Chrome、Edge 和 Firefox。Extension.js 会按目标分别运行生产构建,并把构件写入 `dist/<browser>`。它还能生成用于分发的 zip 包。
+
+## 工作原理
+
+运行一次生产构建:
+
+<CodeGroup>
+
+```bash npm
+npx extension build
+```
+
+```bash pnpm
+pnpx extension build
+```
+
+```bash yarn
+yarn dlx extension build
+```
+
+```bash bun
+bunx extension build
+```
+
+```bash bun
+bunx extension build
+```
+
+</CodeGroup>
+
+除非显式覆盖,否则默认浏览器目标为 `chromium`。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a default production build and where output appears under `dist/`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 浏览器选择
+
+你可以面向特定浏览器/引擎构建:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --browser=chrome
+```
+
+```bash pnpm
+pnpx extension build --browser=chrome
+```
+
+```bash yarn
+yarn dlx extension build --browser=chrome
+```
+
+```bash bun
+bunx extension build --browser=chrome
+```
+
+```bash bun
+bunx extension build --browser=chrome
+```
+
+</CodeGroup>
+
+<CodeGroup>
+
+```bash npm
+npx extension build --browser=firefox
+```
+
+```bash pnpm
+pnpx extension build --browser=firefox
+```
+
+```bash yarn
+yarn dlx extension build --browser=firefox
+```
+
+```bash bun
+bunx extension build --browser=firefox
+```
+
+```bash bun
+bunx extension build --browser=firefox
+```
+
+</CodeGroup>
+
+支持的值包括:
+
+- `chrome`
+- `edge`
+- `firefox`
+- `chromium`
+- `chromium-based`
+- `gecko-based` / `firefox-based`(别名)
+
+你也可以在一条命令中运行构建矩阵:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --browser=chrome,edge,firefox
+```
+
+```bash pnpm
+pnpx extension build --browser=chrome,edge,firefox
+```
+
+```bash yarn
+yarn dlx extension build --browser=chrome,edge,firefox
+```
+
+```bash bun
+bunx extension build --browser=chrome,edge,firefox
+```
+
+```bash bun
+bunx extension build --browser=chrome,edge,firefox
+```
+
+</CodeGroup>
+
+这会依次为 `chrome`、`edge` 和 `firefox` 构建。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one command building `chrome`, `edge`, and `firefox` with separate outputs. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 输出布局
+
+每个目标会写入自己的目录:
+
+- `dist/chrome`
+- `dist/edge`
+- `dist/firefox`
+- `dist/chromium`
+- `dist/chromium-based`
+- `dist/gecko-based`
+
+### 构建能力
+
+| 选项                    | 作用                                                                                |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `--browser=<target>`    | 为特定浏览器或引擎系列构建。                                                          |
+| `--zip`                 | 为每个目标输出创建分发 zip。                                                          |
+| `--zip-filename=<name>` | 覆盖默认的 zip 文件名。                                                                |
+| `--zip-source`          | 与输出一起创建源代码归档。                                                            |
+| `--polyfill`            | 在 Chromium 系目标上启用 `browser.*` API 使用的兼容行为。                              |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show final `dist/<browser>` folder layout after a matrix build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 生成 zip 文件
+
+使用 `--zip` 从每个目标输出生成分发 zip:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --zip
+```
+
+```bash pnpm
+pnpx extension build --zip
+```
+
+```bash yarn
+yarn dlx extension build --zip
+```
+
+```bash bun
+bunx extension build --zip
+```
+
+```bash bun
+bunx extension build --zip
+```
+
+</CodeGroup>
+
+默认情况下,zip 名称使用清理后的 manifest `name` + `version`,例如:
+
+- `my-extension-1.0.0.zip`
+
+自定义文件名:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --zip --zip-filename=my-release
+```
+
+```bash pnpm
+pnpx extension build --zip --zip-filename=my-release
+```
+
+```bash yarn
+yarn dlx extension build --zip --zip-filename=my-release
+```
+
+```bash bun
+bunx extension build --zip --zip-filename=my-release
+```
+
+```bash bun
+bunx extension build --zip --zip-filename=my-release
+```
+
+</CodeGroup>
+
+这会在目标 `dist/<browser>` 目录中创建 `my-release.zip`。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show zip output generation with default and custom `--zip-filename` values. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 包含源代码归档
+
+使用 `--zip-source` 在分发输出旁生成源代码归档。
+
+`--zip-source` 会产生:
+
+- `dist/<name>-<version>-source.zip`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show source archive generation and where `-source.zip` is written. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Polyfill 浏览器 API
+
+如果你的代码依赖 Gecko 风格的 `browser.*` API,而你需要 Chromium 兼容性,请启用 `--polyfill`:
+
+<CodeGroup>
+
+```bash npm
+npx extension build --polyfill
+```
+
+```bash pnpm
+pnpx extension build --polyfill
+```
+
+```bash yarn
+yarn dlx extension build --polyfill
+```
+
+```bash bun
+bunx extension build --polyfill
+```
+
+```bash bun
+bunx extension build --polyfill
+```
+
+</CodeGroup>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `--polyfill` build output for Chromium target when using `browser.*` in code. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳实践
+
+- **在持续集成 (CI) 中按目标分别构建**:把每个浏览器输出视作独立的构件。
+- **使用浏览器矩阵命令做对齐检查**:在一次流水线步骤中尽早发现目标特定问题。
+- **有意识地打包**:用 `--zip` 上传商店,用 `--zip-source` 输出可追溯的源代码归档。
+- **保持目标配置显式**:使用 `extension.config.*` 的 command/browser 默认值实现可复现的构建。
+
+## 后续步骤
+
+- 进一步了解[可用浏览器](/docs/browsers/browsers-available)。
+- 查阅[路径解析](/docs/features/path-resolution)以了解资产/输出映射细节。

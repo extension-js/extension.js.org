@@ -1,0 +1,123 @@
+---
+title: "可预期的路径解析"
+description: "用自然的方式书写路径,让 Extension.js 把它们规范化为运行时安全的输出。涵盖 manifest 字段、public 资产以及扩展 API 引用。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "manifest",
+    "javascript",
+    "popup",
+    "devtools",
+  ]
+---
+
+按你自然书写的方式来写路径,让 Extension.js 把它们规范化为运行时安全的输出路径。
+
+当你移动文件、重命名入口或更换浏览器目标时,运行时路径仍能正常工作。Extension.js 会在 manifest 字段以及扩展 API 使用中重写受支持的路径,使编译后的资产在 `dist/<browser>` 内能正确解析。
+
+## 工作原理
+
+路径解析在两处运行:
+
+- **manifest 编译管道**:把 manifest 中声明的路径解析到生成的资产。
+- **针对 JS/TS 的 path-resolve 插件**:重写传入受支持扩展 API 的静态路径字面量(例如 `runtime.getURL`、`tabs.update`、`scripting.*`、`action.*`、`sidePanel.*`)。
+
+## 支持的输入风格
+
+Extension.js 会按如下方式规范化常见的路径输入:
+
+| 输入风格                       | 示例                                                | 规范化后的输出                                                       |
+| -------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------- |
+| Public 根(绝对路径)             | `/public/icons/icon.png`                           | `icons/icon.png`                                                     |
+| Public 根(相对路径)             | `public/icons/icon.png`、`./public/icons/icon.png` | `icons/icon.png`                                                     |
+| 根绝对路径                       | `/foo/bar.js`                                      | `foo/bar.js`                                                         |
+| 根级特殊目录                     | `/pages/popup.njk`                                 | `pages/popup.html`                                                   |
+| 特殊目录                         | `pages/popup.html`、`scripts/content.tsx`          | `pages/popup.html`、`scripts/content.js`                             |
+| 作者文件的父级相对路径            | `../scripts/content.ts`                            | `scripts/content.js`(在解析到项目根的特殊目录时)                     |
+
+`pages/` 和 `scripts/` 的扩展名映射包括:
+
+- `.ts`、`.tsx`、`.js`、`.jsx` → `.js`
+- `.njk`、`.nunjucks`、`.html` → `.html`
+- `.scss`、`.sass`、`.less`、`.css` → `.css`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show the same authored path resolving correctly after build for Chrome and Firefox outputs. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Extension.js 不会重写的情况
+
+为避免误判,Extension.js 有意跳过以下输入:
+
+- `http://` 和 `https://` URL
+- `data:` URL
+- `chrome://` URL
+- `moz-extension://` URL
+- glob 模式(`*`、`?`、`{}`、`[]`)
+- 构建无法安全解析的非静态/动态表达式
+
+## Manifest 输出示例
+
+假设目标浏览器为 `chrome`:
+
+| Manifest 字段                  | 输入路径                    | 输出路径                         |
+| ------------------------------ | -------------------------- | ------------------------------- |
+| `action.default_popup`         | `/src/popup.html`          | `action/index.html`             |
+| `background.page`              | `/src/background.html`     | `background/index.html`         |
+| `background.service_worker`    | `/src/background.ts`       | `background/service_worker.js`  |
+| `browser_action.default_popup` | `/src/popup.html`          | `action/index.html`             |
+| `chrome_url_overrides.newtab`  | `/src/newtab.html`         | `newtab/index.html`             |
+| `content_scripts.js`           | `/src/content_script.ts`   | `content_scripts/content-0.js`  |
+| `content_scripts.css`          | `/src/content_style.css`   | `content_scripts/content-0.css` |
+| `devtools_page`                | `/src/devtools.html`       | `devtools/index.html`           |
+| `options_ui.page`              | `/src/options.html`        | `options/index.html`            |
+| `sandbox.pages`                | `/src/sandbox.html`        | `sandbox/page-0.html`           |
+| `side_panel.default_path`      | `/src/sidepanel.html`      | `sidebar/index.html`            |
+| `sidebar_action.default_panel` | `/src/sidebar_panel.html`  | `sidebar/index.html`            |
+| `storage.managed_schema`       | `/src/storage_schema.json` | `storage/managed_schema.json`   |
+| `user_scripts.api_script`      | `/src/user_script.ts`      | `user_scripts/api_script.js`    |
+
+并非每个 manifest 字段都映射到与源名同名的目录。Extension.js 基于面向浏览器的扩展契约来决定输出路径,而非你最初的书写路径。
+
+Extension.js 会把所有编译输出放在 `dist/<browser>` 之下。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a manifest with source-style paths and the emitted manifest with normalized output paths. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 引用输出文件
+
+对于 `chrome.runtime.getURL()` 等浏览器 API,优先使用稳定的、以输出根为基准的路径:
+
+```javascript
+const iconUrl = chrome.runtime.getURL("/icons/icon.png");
+console.log(iconUrl);
+```
+
+输出:`chrome-extension:<extension-id>/icons/icon.png`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `runtime.getURL('/icons/icon.png')` resolving to packaged output at runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 诊断与安全检查
+
+当解析器无法把被引用的路径解析到已打包的资产时(例如嵌套的 `src/pages/...` 或重写后缺失的 `public/` 文件),它会发出警告。  
+Extension.js 会在每次文件转换中对相同警告去重,以减少噪音。
+
+## 重要的路径规则
+
+- 前导 `/` 表示扩展输出根,而非文件系统根。
+- `public/...` 与 `/public/...` 会被规范化为以输出根为基的资产。
+- `pages/` 与 `scripts/` 是带有扩展名映射规则的特殊目录。
+- Extension.js 会保留绝对的操作系统文件路径,而不会把它们当作扩展输出路径处理。
+- 当无法安全确定最终打包路径时,Extension.js 会跳过动态表达式。
+
+## 最佳实践
+
+- 把 `pages/`、`scripts/` 和 `public/` 放在项目根,以获得可预期的重写。
+- 给扩展 API 的路径尽量使用静态字面量;Extension.js 可能会跳过动态表达式。
+- 把 `/public/...` 视为以输出根为基的资产,运行时避免基于源路径的假设。
+- 在 `dev` 期间认真对待警告,它们通常意味着打包前的路径不匹配。
+
+## 后续步骤
+
+- 进一步了解[特殊文件夹](/docs/features/special-folders)。
+- 进一步了解 [web-accessible 资源](/docs/implementation-guide/web-accessible-resources)。

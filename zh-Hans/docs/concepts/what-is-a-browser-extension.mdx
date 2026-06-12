@@ -1,0 +1,78 @@
+---
+title: "什么是浏览器扩展？"
+description: "了解浏览器扩展是什么、如何工作，以及 JavaScript 开发者如何使用 Extension.js 为 Chrome、Firefox 和 Edge 构建扩展。"
+keywords:
+  [
+    "what is a browser extension",
+    "browser extension",
+    "browser extension framework",
+    "javascript extension",
+    "chrome extension",
+    "firefox extension",
+    "edge extension",
+    "web extension",
+    "webextensions",
+    "extension.js",
+  ]
+---
+
+浏览器扩展是为浏览器添加功能的软件。扩展可以改变页面渲染方式，并在浏览器界面中添加新的 UI：工具栏、popup、侧边栏和新标签页。它们也可以响应网络与标签页事件，并调用普通网页无法使用的特权浏览器 API。
+
+Extension.js 是一个 JavaScript 框架，用于在 Chrome、Firefox 和 Edge 上以单个项目构建浏览器扩展。
+
+## 浏览器扩展能做什么
+
+具体的 API 范围因浏览器而异，但大多数扩展会做以下一项或多项：
+
+- **改变页面内容。** 向特定 URL 注入 CSS 或脚本（内容脚本）。
+- **添加浏览器 UI。** 渲染工具栏按钮的 popup、侧边栏、选项页或自定义新标签页。
+- **响应浏览器事件。** 监听标签页更新、导航、下载、闹钟或来自页面的消息。
+- **存储数据。** 读写扩展作用域内、可跨会话保留的存储。
+- **调用特权 API。** 在 `permissions` 控制下管理 cookies、声明式网络请求、书签、历史、下载或通知。
+
+扩展无法做用户未授权的事情，浏览器也会在沙箱中隔离扩展，使其远离原始 OS 访问。
+
+## 浏览器扩展文件
+
+每个浏览器扩展都是一组静态资源和代码的文件夹，经过签名和打包后用于分发：
+
+| 文件或目录       | 用途                                                                             |
+| ---------------- | -------------------------------------------------------------------------------- |
+| `manifest.json`  | 声明扩展的名称、版本、权限、入口点和元数据。                                     |
+| 后台脚本         | 长期运行的事件处理器。Manifest V3 在 Chromium 上使用 service worker。            |
+| 内容脚本         | 注入到匹配网页中的代码。                                                         |
+| HTML 页面        | popup、options、侧边栏或新标签页 UI。                                            |
+| 图标与资源       | 工具栏图标、本地化字符串以及其他静态资源。                                       |
+
+Extension.js 会将你的源码（`.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte`、CSS、Less、Sass）编译为这种磁盘布局，并为每个浏览器目标产出单独的文件夹。
+
+## 扩展中的 JavaScript、TypeScript、HTML 与 CSS
+
+浏览器扩展使用与 Web 相同的语言进行构建。JavaScript 与 TypeScript 驱动逻辑。HTML 定义扩展页面。CSS（或 Less、Sass、CSS Modules、Tailwind）为其添加样式。Extension.js 通过 Rspack 并使用面向扩展的默认设置将这一切接驳起来，让你无需为每个浏览器配置打包器。各文件扩展名的归宿参见 [浏览器扩展中的 JavaScript 与 TypeScript 文件](/docs/concepts/javascript-typescript-browser-extension-files)。
+
+## Chrome 扩展与 Firefox 扩展
+
+Chrome 与 Firefox 扩展共享 WebExtensions API，但在每次构建时都需要注意一些差异：
+
+- **后台：** Chrome（Manifest V3）要求 `background.service_worker`。Firefox 使用带非持久化事件页面的 `background.scripts`。
+- **运行时 API：** Firefox 原生提供 `browser.*`。Chromium 使用 `chrome.*`。在 Chromium 上使用 `--polyfill` 来弥合差距。
+- **权限：** 浏览器对一些 `permissions` 和 `host_permissions` 条目的解释略有不同。
+- **分发：** Chrome 通过 Chrome 应用商店，Firefox 通过 addons.mozilla.org，Edge 通过 Edge Add-ons 商店。
+
+Extension.js 通过 [浏览器特定清单字段](/docs/features/browser-specific-fields) 与按目标的构建输出来处理这些差异。完整流程参见 [跨浏览器兼容性](/docs/features/cross-browser-compatibility)。
+
+## Extension.js 如何提供帮助
+
+在没有框架的情况下，构建浏览器扩展意味着手写 `manifest.json` 并为每个浏览器分别配置打包器。你还需要手动接好保存即重载、polyfill API，并产出独立的 Chrome、Firefox 和 Edge 构建物。Extension.js 替你完成这些工作：
+
+- 一个项目、一份 `manifest.json`、独立的 `dist/<browser>` 输出。
+- 无需配置即可使用 TypeScript、React、Vue、Svelte、Preact 和现代 CSS。
+- `extension dev` 会在保存时重新加载扩展、内容脚本和 HTML 页面。
+- `extension build` 为每个浏览器目标产出可直接签名的产物。
+
+## 下一步
+
+- 尝试 [`extension create`](/docs/commands/create) 来在数秒内脚手架一个扩展。
+- 了解 [Manifest V3](/docs/concepts/manifest-v3) 以及浏览器间的 API 差异。
+- 构建流程参见 [跨浏览器兼容性](/docs/features/cross-browser-compatibility)。
+- 选择一个用于开发的 [浏览器目标](/docs/browsers/browsers-available)。

@@ -1,0 +1,188 @@
+---
+title: "为浏览器扩展使用 Preact"
+description: "在保持类 React 开发体验的同时，使用 Preact 让扩展 UI 打包体积更小。Extension.js 自动配置 JSX 转换和 compat 别名。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "typescript",
+    "javascript",
+    "react",
+    "preact",
+    "rspack",
+    "content script",
+  ]
+---
+
+在保持类 React 开发体验和快速本地迭代的同时，让扩展 UI 的打包体积更小。
+
+Extension.js 会从你的依赖中检测 Preact，并自动配置 JSX/TSX 转换、React 兼容别名以及 fast refresh 支持。你的 React 导入将通过这些别名映射到 Preact。
+
+## 适合使用 Preact 的场景
+
+- 你希望弹窗/侧边栏/新标签页等界面的 UI 打包体积更小。
+- 你喜欢 React 风格的组件，但想要更轻量的运行时。
+- 你在优化低端设备上的扩展启动速度和 UI 响应性。
+
+## 模板示例
+
+### `new-preact`
+
+![Template screenshot](/images/examples/new-preact/screenshot.png)
+
+使用 Preact 提供更轻量的新标签页 UI，同时保留与 React 兼容的开发体验。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-preact
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-preact
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-preact
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-preact
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-preact
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/new-preact](https://github.com/extension-js/examples/tree/main/examples/new-preact)
+
+### `content-preact`
+
+![Template screenshot](/images/examples/content-preact/screenshot.png)
+
+通过内容脚本将紧凑的 Preact UI 注入到页面内容中。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-preact
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-preact
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-preact
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-preact
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-preact
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content-preact](https://github.com/extension-js/examples/tree/main/examples/content-preact)
+
+## 在现有扩展中使用
+
+按以下步骤为现有扩展添加 Preact 支持。
+
+### 安装
+
+安装所需依赖：
+
+<PackageManagerTabs command="install preact" />
+
+Preact 自带 TypeScript 类型，因此你无需单独安装 `@types/preact`。
+
+### 配置
+
+Extension.js 期望 Preact 文件使用以下扩展名：
+
+- 未启用 TypeScript：`*.jsx`
+- 启用 TypeScript：`*.tsx`
+
+## 开发行为
+
+当 Extension.js 检测到 Preact 时，会进行如下配置：
+
+- 兼容别名（例如 `react` → `preact/compat`）。
+- 针对 Preact 调优的 JSX 处理。
+- 开发模式下通过 `@rspack/plugin-preact-refresh` 集成 refresh。
+
+如果你的项目缺少可选的 refresh 依赖，Extension.js 会自动安装并提示你重启。
+
+### 故障排查
+
+- **缺少 refresh 依赖的警告：** 安装 `@rspack/plugin-preact-refresh`（以及提示中的相关包）。
+- **安装后提示重启：** 停止并重新运行 `extension dev`，让开发服务器干净地重新加载 refresh 的接线。
+- **未检测到 Preact 集成：** 确认 `dependencies` 或 `devDependencies` 中存在 `preact`。
+
+## 用法示例
+
+### 在新标签页扩展中
+
+要在新标签页扩展中使用 Preact，在 HTML 文件中通过 `<script>` 引入：
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this extension.</noscript>
+    <div id="root"></div>
+  </body>
+  <script src="./index.tsx"></script>
+</html>
+```
+
+```tsx
+import { h, render } from "preact";
+import App from "./App";
+
+const root = document.getElementById("root");
+
+render(<App />, root);
+```
+
+```tsx
+export default function App() {
+  return <h1>Hello, Preact Extension!</h1>;
+}
+```
+
+### 在 `content_script` 文件中
+
+对于内容脚本，可创建 HTML 元素并将 Preact 渲染进去：
+
+```tsx
+import { h, render } from "preact";
+import App from "./App";
+import "./content.css";
+
+const rootDiv = document.createElement("div");
+rootDiv.id = "extension-root";
+document.body.appendChild(rootDiv);
+
+render(<App />, rootDiv);
+```
+
+## 后续步骤
+
+- 进一步了解 [TypeScript 支持](/docs/languages-and-frameworks/typescript)。
+- 了解 Extension.js 如何处理 [Sass modules](/docs/languages-and-frameworks/sass)。
+
+## 视频讲解
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Preact template setup, runtime launch, and UI update cycle with refresh behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

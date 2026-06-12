@@ -1,0 +1,247 @@
+---
+title: "用于“构建并启动”工作流的 start 命令"
+description: "用一条命令运行生产构建并立即在浏览器中启动扩展。将 build 和 preview 合并为一步。"
+keywords:
+  [
+    "extensions",
+    "firefox",
+    "browser",
+    "hmr",
+    "playwright",
+    "popup",
+    "devtools",
+    "docs",
+  ]
+---
+
+当你希望在一条命令中完成生产构建并立即启动浏览器时,使用 `start`。
+
+`start` 命令先运行生产构建,然后使用与 `preview` 相同的流程启动构建好的扩展。
+
+## 何时使用 `start`
+
+- 编译完成后立刻手动验证生产行为。
+- 复现监听模式与生产输出之间的运行时差异。
+- 在本地进行类生产检查,而不是先 `build` 再 `preview` 分两步。
+
+## Start 命令能力
+
+| 能力                     | 它能带给你什么                                              |
+| ------------------------ | ----------------------------------------------------------- |
+| 构建 + 启动 工作流       | 一步运行生产编译并启动浏览器                                |
+| 目标选择                 | 直接在选定的浏览器或引擎目标中启动                          |
+| 运行器控制               | 在只需构建验证时跳过浏览器启动                              |
+| 类生产验证               | 检查真实的编译输出而不是监听模式状态                        |
+
+## 与其他命令的差异
+
+- `dev`:开发服务器 + 热模块替换(HMR)/监听模式
+- `build`:仅生产构建
+- `preview`:不构建直接启动一个已有的扩展
+- `start`:依次执行 `build` + `preview`
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension start [path-or-url] [options]
+```
+
+```bash pnpm
+extension start [path-or-url] [options]
+```
+
+```bash yarn
+extension start [path-or-url] [options]
+```
+
+```bash bun
+extension start [path-or-url] [options]
+```
+
+```bash bun
+extension start [path-or-url] [options]
+```
+
+</CodeGroup>
+
+如果你省略路径,该命令会使用当前工作目录。
+
+## 参数与标志
+
+| 标志                           | 别名               | 它的作用                                                                   | 默认值                  |
+| ------------------------------ | ------------------ | -------------------------------------------------------------------------- | ----------------------- |
+| `[path or url]`                | -                  | 扩展路径或远程 URL。                                                       | `process.cwd()`         |
+| `--browser <browser>`          | -                  | 浏览器/引擎目标。                                                          | `chromium`              |
+| `--profile <path\|boolean>`    | -                  | 浏览器配置文件路径或布尔配置文件模式。                                     | 全新配置文件            |
+| `--chromium-binary <path>`     | -                  | 自定义 Chromium 系二进制路径。                                             | 系统默认                |
+| `--gecko-binary <path>`        | `--firefox-binary` | 自定义 Gecko 系二进制路径。                                                | 系统默认                |
+| `--polyfill [boolean]`         | -                  | 为 Chromium 目标启用 `browser.*` API 兼容 polyfill。                       | `true`                  |
+| `--starting-url <url>`         | -                  | 在启动的浏览器中作为起始 URL。                                             | 未设置                  |
+| `--no-browser`                 | -                  | 进行构建但跳过浏览器启动。                                                 | 启用浏览器启动          |
+| `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 然后退出。                  | 禁用                    |
+| `--wait-timeout <ms>`          | -                  | `--wait` 模式的超时时间。                                                  | `60000`                 |
+| `--wait-format <pretty\|json>` | -                  | 等待结果的输出格式(`json` 是机器可读的)。                               | `pretty`                |
+| `--port <port>`                | -                  | 启用运行器时使用的运行器/DevTools 端口。使用 `0` 由操作系统分配。         | `8080`                  |
+| `--host <host>`                | -                  | 开发服务器绑定的主机。Docker/dev 容器使用 `0.0.0.0`。                     | `127.0.0.1`             |
+| `--extensions <list>`          | -                  | 逗号分隔的伴随扩展或商店 URL。                                             | 未设置                  |
+| `--install [boolean]`          | -                  | 缺失时安装项目依赖。                                                       | 命令的默认行为          |
+| `--author`                     | `--author-mode`    | 启用维护者诊断。                                                           | 禁用                    |
+
+## 自动化元数据
+
+`start` 将就绪元数据写入:
+
+- `dist/extension-js/<browser>/ready.json`
+
+这在使用 `--no-browser` 进行自动化时很有用:
+
+- 在启动外部运行器前等待 `status: "ready"`。
+- 将 `status: "error"` 视为确定性的失败信号。
+- 使用 `runId` 和 `startedAt` 关联某次具体的运行时会话。
+
+### `--no-browser` 与就绪同步
+
+`--no-browser` 仅禁用浏览器启动。它不会阻塞外部运行器直到生产构建完成。
+
+对于面向生产的 Playwright、持续集成(CI)和 AI 工作流:
+
+1. 将 `extension start --no-browser` 作为生产者进程运行。
+2. 将 `extension start --wait --browser=<browser>` 作为就绪闸门运行。
+3. 只在 `status: "ready"` 之后再启动外部浏览器自动化。
+
+`--wait` 在 `error`/超时时以非零状态退出,并会忽略来自已死亡进程(`pid` 已不再存活)的过期契约。
+如果你在同一次调用中同时传入 `--wait` 和 `--no-browser`,`--wait` 优先。此时命令在 wait-only 模式下运行。
+
+## 日志标志
+
+| 标志                                                 | 它的作用                                                                                     | 默认值             |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
+| `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | 最低日志级别。                                                                               | `off`              |
+| `--log-context <list\|all>`                          | 上下文过滤(`background`、`content`、`page`、`sidebar`、`popup`、`options`、`devtools`)。   | `all`              |
+| `--log-format <pretty\|json\|ndjson>`                | 日志输出格式。                                                                               | `pretty`           |
+| `--no-log-timestamps`                                | 在 pretty 模式中禁用时间戳。                                                                 | 启用时间戳         |
+| `--no-log-color`                                     | 在 pretty 模式中禁用颜色。                                                                   | 启用颜色           |
+| `--log-url <pattern>`                                | 按 URL 子串/正则过滤日志事件。                                                               | 未设置             |
+| `--log-tab <id>`                                     | 按标签页 ID 过滤日志事件。                                                                   | 未设置             |
+
+## 源代码检视标志(`start` 不支持)
+
+CLI 会在解析前检测到这些标志并以错误退出。请改用 `dev --source ...`。
+
+| 标志                                            | `start` 中的支持                         |
+| ----------------------------------------------- | ---------------------------------------- |
+| `--source [url]`                                | 不支持(命令以指引退出)                 |
+| `--watch-source [boolean]`                      | 不支持(命令以指引退出)                 |
+| `--source-format <pretty\|json\|ndjson>`        | 不支持(命令以指引退出)                 |
+| `--source-summary [boolean]`                    | 不支持(命令以指引退出)                 |
+| `--source-meta [boolean]`                       | 不支持(命令以指引退出)                 |
+| `--source-probe <selectors>`                    | 不支持(命令以指引退出)                 |
+| `--source-tree <off\|root-only>`                | 不支持(命令以指引退出)                 |
+| `--source-console [boolean]`                    | 不支持(命令以指引退出)                 |
+| `--source-dom [boolean]`                        | 不支持(命令以指引退出)                 |
+| `--source-max-bytes <bytes>`                    | 不支持(命令以指引退出)                 |
+| `--source-redact <off\|safe\|strict>`           | 不支持(命令以指引退出)                 |
+| `--source-include-shadow <off\|open-only\|all>` | 不支持(命令以指引退出)                 |
+| `--source-diff [boolean]`                       | 不支持(命令以指引退出)                 |
+
+## 共享的全局选项
+
+同样支持[全局标志](/docs/workflows/global-flags)。
+
+## 示例
+
+### 使用默认浏览器启动
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `start` building production output and launching the extension in the default browser target. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension start
+```
+
+```bash pnpm
+extension start
+```
+
+```bash yarn
+extension start
+```
+
+```bash bun
+extension start
+```
+
+```bash bun
+extension start
+```
+
+</CodeGroup>
+
+### 在 Firefox 中启动
+
+<CodeGroup>
+
+```bash npm
+extension start --browser firefox
+```
+
+```bash pnpm
+extension start --browser firefox
+```
+
+```bash yarn
+extension start --browser firefox
+```
+
+```bash bun
+extension start --browser firefox
+```
+
+```bash bun
+extension start --browser firefox
+```
+
+</CodeGroup>
+
+### 构建并跳过浏览器启动
+
+{/* VIDEO_PLACEHOLDER_TODO: Show `start --no-browser` generating production output without launching a browser session. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+<CodeGroup>
+
+```bash npm
+extension start --no-browser
+```
+
+```bash pnpm
+extension start --no-browser
+```
+
+```bash yarn
+extension start --no-browser
+```
+
+```bash bun
+extension start --no-browser
+```
+
+```bash bun
+extension start --no-browser
+```
+
+</CodeGroup>
+
+## 行为说明
+
+- `start` 不运行开发服务器,也不提供热模块替换(HMR)或监听模式。
+- `start` 面向生产模式;迭代式本地开发请使用 `dev`。
+- `start` 不支持源代码检视选项。请使用 `dev --source ...` 实现该工作流。
+- 对于机器消费者,解析 `dist/extension-js/<browser>/ready.json` 而不是终端文本。
+
+## 后续步骤
+
+- 用 [`dev`](/docs/commands/dev) 快速迭代。
+- 用 [`preview`](/docs/commands/preview) 启动已有的构建输出。
