@@ -1,0 +1,116 @@
+---
+title: "Manifest V3 中的 offscreen documents"
+description: "在 service worker 中建立、重複使用、關閉 chrome.offscreen 文件。透過 pages/ 資料夾打包 offscreen 頁面，並可靠地與它進行訊息通訊。"
+keywords:
+  [
+    "offscreen document",
+    "chrome.offscreen",
+    "offscreen api",
+    "manifest v3 offscreen",
+    "offscreen document caching",
+    "service worker dom access",
+    "extension.js",
+    "chrome",
+    "manifest v3",
+  ]
+---
+
+Manifest V3 的 service worker 沒有 DOM。當背景邏輯需要解析 DOM、播放音訊、存取剪貼簿，或其他只有 window 才有的 API 時，Chrome 的答案就是 offscreen document：一個隱形的擴充功能頁面，由你透過 `chrome.offscreen` 按需建立。
+
+## 設定
+
+在 `manifest.json` 中請求權限：
+
+```json manifest.json
+{
+  "permissions": ["offscreen"]
+}
+```
+
+Offscreen 頁面並不是 manifest 的進入點，因此透過 [`pages/` 特殊資料夾](/docs/features/special-folders)宣告，Extension.js 會像處理其他 HTML 進入點一樣編譯它：
+
+```plaintext
+pages/
+└── offscreen.html
+```
+
+```html pages/offscreen.html
+<!doctype html>
+<html>
+  <body>
+    <script src="./offscreen.ts" type="module"></script>
+  </body>
+</html>
+```
+
+## 建立、重複使用、關閉
+
+Chrome 每個擴充功能只允許存在一個 offscreen document，當已經有一個時再呼叫 `createDocument` 會丟出例外。可靠的做法是先用一個 ensure 函式檢查是否已有現存的文件：
+
+```ts background.ts
+let creating: Promise<void> | null = null;
+
+async function ensureOffscreen() {
+  const contexts = await chrome.runtime.getContexts({
+    contextTypes: ["OFFSCREEN_DOCUMENT" as chrome.runtime.ContextType],
+  });
+  if (contexts.length > 0) return;
+
+  if (!creating) {
+    creating = chrome.offscreen.createDocument({
+      url: "pages/offscreen.html",
+      reasons: [chrome.offscreen.Reason.DOM_PARSER],
+      justification: "Parse HTML strings that the service worker cannot",
+    });
+  }
+  await creating;
+  creating = null;
+}
+```
+
+`creating` 這把鎖很重要：兩個事件可能會在文件尚未存在前競相進入 `ensureOffscreen`，而第二次的 `createDocument` 呼叫就會丟出例外。
+
+工作完成後關閉它以釋放記憶體：
+
+```ts
+await chrome.offscreen.closeDocument();
+```
+
+## 選擇 reason
+
+`reasons` 陣列會告訴 Chrome 這份文件為何存在。常見的值有：
+
+| Reason           | 使用情境                       |
+| ---------------- | ------------------------------ |
+| `DOM_PARSER`     | 解析或清理 HTML 字串           |
+| `AUDIO_PLAYBACK` | 從背景播放音訊                 |
+| `CLIPBOARD`      | 讀取或寫入剪貼簿               |
+| `DOM_SCRAPING`   | 從已渲染的標記中擷取資料       |
+| `BLOBS`          | 建立與管理 blob URL            |
+| `USER_MEDIA`     | 存取 getUserMedia 進行錄製     |
+
+有一個行為值得留意：使用 `AUDIO_PLAYBACK` 時，Chrome 會在音訊停止播放後約 30 秒自動關閉該文件。其他 reason 下，文件會一直存在，直到你關閉它或擴充功能卸載為止。
+
+## 與文件通訊
+
+Offscreen documents 使用標準的 runtime messaging。請為你的訊息加上範圍標記，讓其他介面可以忽略它們：
+
+```ts pages/offscreen.ts
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.target !== "offscreen") return;
+  const doc = new DOMParser().parseFromString(message.html, "text/html");
+  sendResponse({ title: doc.title });
+  return true;
+});
+```
+
+## Firefox
+
+Firefox 並未實作 `chrome.offscreen`。它的 Manifest V3 背景以 event page 的形式執行，原本就具備 DOM 存取能力，因此同樣的 DOM 工作可以直接在背景腳本中執行。請使用[瀏覽器專屬的 manifest 欄位](/docs/features/browser-specific-fields)搭配能力檢查（`typeof chrome.offscreen !== "undefined"`）來進行分支處理。
+
+## 延伸閱讀
+
+- [背景腳本](/docs/implementation-guide/background)
+- [特殊資料夾](/docs/features/special-folders)
+- [訊息通訊](/docs/implementation-guide/messaging)
+- [延遲載入沉重的函式庫](/docs/implementation-guide/lazy-loading)
