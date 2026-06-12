@@ -1,0 +1,50 @@
+---
+title: "浏览器扩展框架对比"
+description: "对比浏览器扩展框架：Extension.js、WXT、CRXJS 与 Plasmo。涵盖 manifest 模型、打包器、跨浏览器产物以及各自的迁移指南。"
+keywords:
+  [
+    "browser extension framework",
+    "chrome extension framework",
+    "cross browser extension framework",
+    "browser extension framework comparison",
+    "extension.js vs wxt",
+    "plasmo alternative",
+    "crxjs alternative",
+    "web extension framework",
+    "extension.js",
+  ]
+---
+
+浏览器扩展框架要处理浏览器本身不做的工作：为每一个扩展界面编译 TypeScript 与现代 JavaScript，把 manifest 与真实的输出文件连接起来，在开发期间热重载 service worker 与 content script，并为不同浏览器生成各自的构建产物。本页对比目前仍在维护的几个选项，让你能在掌握全部信息的前提下做出选择。
+
+## 几个框架
+
+| 维度             | Extension.js                          | WXT                          | CRXJS                          | Plasmo                        |
+| ---------------- | ------------------------------------- | ---------------------------- | ------------------------------ | ----------------------------- |
+| 模型             | `manifest.json` 作为唯一事实来源      | 文件约定 + 配置              | 读取 manifest 的 Vite 插件     | 文件约定                      |
+| 打包器           | Rspack(内部封装，零配置)              | Vite                         | Vite(插件层)                   | Parcel                        |
+| 跨浏览器         | 一份源码输出 Chrome、Edge、Firefox    | Chrome、Firefox，支持 MV2    | 以 Chromium 为主               | 面向 Chrome、Firefox          |
+| 配置             | 无需配置                              | `wxt.config.ts`              | `vite.config.ts` + 插件        | `package.json` 的 manifest 字段 |
+| 与打包器的耦合   | 框架内部细节                          | 跟随 Vite 主版本             | 打包器变化时会出问题           | 与 Parcel 绑定                |
+
+有两点结构性的差异比任何特性表格都更重要：
+
+- **manifest 在哪里。** Extension.js 读取你的 `manifest.json`，并编译它声明的所有内容。WXT 与 Plasmo 通过文件约定和配置来生成 manifest。CRXJS 也读取 manifest，但通过 Vite 的插件 API 解析，这就是为什么打包器升级可能让它失效（参见 [Vite 8 fileName 错误](/docs/migrate/crxjs-content-script-filename-undefined)）。
+- **谁拥有打包器。** 一个封装了通用打包器的框架，会继承那个打包器的破坏性变更。Extension.js 把打包器当作内部细节：你永远不需要配置它，升级是框架的事，而不是你的事。
+
+## 详细对比与迁移
+
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)：最接近的对比，逐项展开。
+- [从 CRXJS 迁移](/docs/migrate/from-crxjs)：分步指南，典型项目大约十分钟。
+- [修复：Content script fileName is undefined](/docs/migrate/crxjs-content-script-filename-undefined)：CRXJS + Vite 8 的构建错误，附变通方案。
+- [从 Plasmo 迁移](/docs/migrate/from-plasmo)：约定到 manifest 的映射、环境变量与 CSUI。
+
+## 不必承诺，先试一试
+
+用一条命令运行任意扩展模板，或运行 GitHub 上任意扩展仓库：
+
+```bash
+npx extension@latest dev
+```
+
+来自其他任意框架的组件、`chrome.*` 调用与样式都可以直接沿用；[迁移指南](/docs/migrate/from-crxjs)会覆盖需要调整的接线部分。
