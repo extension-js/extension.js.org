@@ -1,0 +1,89 @@
+---
+title: "瀏覽器擴充功能中的 JavaScript 與 TypeScript 檔案"
+description: "了解 .js、.ts、.tsx、manifest.json、背景腳本與 content script 在使用 Extension.js 開發的 Chrome、Firefox 與 Edge 擴充功能中如何運作。"
+keywords:
+  [
+    "javascript extension",
+    "typescript extension",
+    "js extension",
+    ".js extension",
+    ".ts extension",
+    "react file extension",
+    "extension of javascript",
+    "typescript file extension",
+    "browser extension files",
+    "extension.js",
+  ]
+---
+
+瀏覽器擴充功能會使用 JavaScript、TypeScript、HTML、CSS 與 `manifest.json` 來定義行為、UI、權限與瀏覽器整合。本頁介紹你在瀏覽器擴充功能專案中會看到的副檔名,以及它們各自的歸屬。
+
+如果你想找的是「擴充功能」這個詞所指的 Chrome 或 Firefox 軟體附加元件,請改從[什麼是瀏覽器擴充功能?](/docs/concepts/what-is-a-browser-extension) 開始。
+
+## JavaScript 副檔名:`.js` 與 `.mjs`
+
+瀏覽器擴充功能接受與其他 Web 平台相同的 JavaScript 副檔名:
+
+| 副檔名 | 意義                                                                                  |
+| ------ | ------------------------------------------------------------------------------------- |
+| `.js`  | 純 JavaScript。視載入方式而定,可能被當成 ES module 或傳統 script。                    |
+| `.mjs` | ES module。當你想強制使用 module 語意(尤其是 service worker)時很有用。              |
+| `.cjs` | CommonJS。在擴充功能原始碼中很少見;有時會出現在 `extension.config.cjs`。              |
+
+在 Manifest V3 中,當 `manifest.json` 的 `background` 區塊包含 `"type": "module"` 時,背景的 `service_worker` 會以 module 形式執行。詳見 [Manifest V3 疑難排解](/docs/concepts/manifest-v3)。
+
+## TypeScript 副檔名:`.ts` 與 `.tsx`
+
+TypeScript 在 Extension.js 中是一流的原始碼語言:
+
+| 副檔名  | 意義                                          |
+| ------- | --------------------------------------------- |
+| `.ts`   | 不含 JSX 的 TypeScript。                      |
+| `.tsx`  | 含 JSX 的 TypeScript(React、Preact)。       |
+| `.d.ts` | 型別宣告檔。不會輸出至建置結果。              |
+
+你不需要從零撰寫 `tsconfig.json`。Extension.js 內建合理的預設值。`chrome.*`、`browser.*`、`import.meta.env` 以及公開環境變數的型別來自 `@types/chrome` 與 Extension.js 自家的環境型別。詳見 [TypeScript](/docs/languages-and-frameworks/typescript)。
+
+## React 副檔名:`.jsx` 與 `.tsx`
+
+在瀏覽器擴充功能中使用 React 採用標準的 JSX 副檔名:
+
+| 副檔名 | 意義                  |
+| ------ | --------------------- |
+| `.jsx` | 含 JSX 的 JavaScript。|
+| `.tsx` | 含 JSX 的 TypeScript。|
+
+React 可以在擴充功能頁面(popup、options、side panel、new-tab)中執行,也可以在注入網頁的 content script 中執行。設定與 shadow DOM 模式請見 [React](/docs/languages-and-frameworks/react)。
+
+## 瀏覽器擴充功能檔案:`manifest.json`、背景、content script、頁面
+
+除了 JavaScript 與 TypeScript 原始碼外,擴充功能資料夾通常還包含:
+
+| 檔案或資料夾   | 用途                                                              |
+| -------------- | ----------------------------------------------------------------- |
+| `manifest.json`| 宣告名稱、版本、權限、進入點與中繼資料。                          |
+| 背景進入點     | 長時間執行的事件處理。Chromium 上的 Manifest V3 是 service worker。|
+| Content script | 注入符合 URL 條件網頁的程式碼。                                   |
+| 擴充功能頁面   | popup、options、side panel 或 new-tab HTML。                      |
+| 語系資源       | `_locales/<lang>/messages.json` 翻譯字串。                        |
+| 圖示與資產     | 工具列圖示、web-accessible 資源、字型、圖片。                     |
+
+Extension.js 會把你的 `.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte`、`.css`、`.less`、`.scss` 與 `.module.*` 原始碼編譯成上述磁碟結構,並為每個瀏覽器目標產出獨立資料夾(`dist/chrome`、`dist/firefox`、`dist/edge`)。
+
+## Extension.js 如何編譯 JavaScript 與 TypeScript 擴充功能
+
+當你執行 `extension dev` 或 `extension build` 時,Extension.js 會:
+
+1. 讀取 `manifest.json`,找出每個進入點(背景、content script、popup、options、side panel、new-tab、web-accessible HTML)。
+2. 解析這些進入點所引用的原始檔,包含跨 `.ts`、`.tsx`、`.jsx`、`.vue`、`.svelte` 與各種樣式類型的 import。
+3. 透過 Rspack 以擴充功能感知的預設值編譯:在有幫助的地方做 code splitting,在瀏覽器不允許的地方(service worker、content script)則不切分。
+4. 把結果輸出到 `dist/<browser>`,並附上專為該目標過濾過的 manifest。
+
+你可以用上述任何副檔名撰寫原始碼。Extension.js 會處理打包、polyfill、儲存即重新載入循環,以及各瀏覽器的封裝。
+
+## 下一步
+
+- 試試 [`extension create`](/docs/commands/create) 來建立 TypeScript 或 React 擴充功能。
+- 閱讀 [TypeScript](/docs/languages-and-frameworks/typescript) 與 [React](/docs/languages-and-frameworks/react)。
+- 閱讀 [Manifest V3 疑難排解](/docs/concepts/manifest-v3) 以了解 service worker 與 module 規則。
+- 使用 [`extension build`](/docs/commands/build) 建置。

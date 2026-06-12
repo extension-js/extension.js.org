@@ -1,0 +1,96 @@
+---
+title: "适用于所有命令的全局 CLI 标志"
+description: "通过全局标志在所有命令中统一控制 Extension.js CLI 行为：退出遥测、输出机器可读的 JSON、启用详细日志等。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "firefox",
+    "browser",
+    "docs",
+    "workflows",
+    "global flags",
+    "global",
+  ]
+---
+
+使用全局标志在所有命令中一致地控制 CLI 行为，尤其是遥测和机器可读输出。
+
+Extension.js 的遥测设计上是匿名且对隐私友好的：最多发送两类事件(`command_executed` 与 `command_failed`)，每个事件包含三个属性(`command`、`success`、`version`)。
+
+## 全局标志能力
+
+| 能力                      | 给你带来什么                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| 遥测控制                  | 按运行、按环境或持久地禁用遥测                                                     |
+| AI/help 格式化            | 以可读或结构化格式返回 help 输出                                                   |
+| 跨命令一致性              | 同样的控制标志可用于 `create`、`dev`、`start`、`preview`、`build`                  |
+
+## 全局选项
+
+| 标志                      | 说明                                                                                          | 默认值          |
+| ------------------------- | --------------------------------------------------------------------------------------------- | --------------- |
+| `--no-telemetry`          | 为单次命令执行禁用匿名遥测。                                                                  | 启用遥测        |
+| `--no-browser`            | 跳过浏览器启动。适用于 `dev`、`start`、`preview`。设置 `EXTENSION_CLI_NO_BROWSER=1`。         | 启用浏览器      |
+| `--ai-help`               | 显示面向 AI 助手的 help 输出。                                                                | 禁用            |
+| `--format <pretty\|json>` | 与 `--ai-help` 搭配使用的输出格式。                                                           | `pretty`        |
+
+## 退出遥测的选项
+
+按优先级顺序，有三种方式禁用遥测：
+
+```bash
+# 1. Environment variable (wins over everything else)
+EXTENSION_TELEMETRY_DISABLED=1 extension dev
+EXTENSION_TELEMETRY=0 extension dev            # back-compat
+
+# 2. Per-run flag
+extension build --browser=chrome,firefox --no-telemetry
+
+# 3. Persistent consent command
+extension telemetry disable
+```
+
+当策略要求所有运行都不上报遥测时，在持续集成 (CI) 中设置 `EXTENSION_TELEMETRY_DISABLED=1`。
+
+## 实用示例
+
+### 在 CI 构建中禁用遥测
+
+```bash
+EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=chrome,firefox
+```
+
+当策略明确要求自动化运行禁用遥测时使用。
+
+### 为工具生成机器可读的 help
+
+```bash
+extension dev --ai-help --format=json
+```
+
+适用于解析命令 help 输出的 AI 工具、包装器或脚本。
+
+### 在本地调试中保留可读 help 输出
+
+```bash
+extension dev --ai-help --format=pretty
+```
+
+当你希望得到对助手友好但终端中也好读的输出时使用 pretty 模式。
+
+## 行为说明
+
+- CLI 会先解析全局标志，再解析命令特有选项。
+- 遥测行为与隐私细节请参见仓库的 `TELEMETRY.md` 与[遥测与隐私](/docs/features/telemetry-and-privacy)。
+- 使用 `extension telemetry status` 检查当前同意状态。
+- 命令文档另外说明每个命令的特有标志。
+- 全局标志可与命令特有选项组合使用。
+- 自动化工具(AI 助手与 CI 脚本) 应该从 `dist/extension-js/<browser>/ready.json` 读取命令就绪状态，而不是解析终端日志。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running the same command with and without `--no-telemetry` and `--ai-help --format=json` to compare output behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 下一步
+
+- 在 [create](/docs/commands/create) 与 [dev](/docs/commands/dev) 工作流中应用这些标志。
+- 在 [start](/docs/commands/start)、[preview](/docs/commands/preview) 与 [build](/docs/commands/build) 中用于生产检查。
