@@ -1,0 +1,200 @@
+---
+title: "在瀏覽器擴充功能中使用 Vue.js"
+description: "用 Vue 單一檔案元件打造擴充功能 UI。Extension.js 會從相依套件偵測 Vue，並設定 SFC 編譯與別名。"
+keywords:
+  [
+    "extension.js",
+    "typescript",
+    "javascript",
+    "vue",
+    "rspack",
+    "content script",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Extension.js 會從相依套件偵測 Vue，並自動設定單一檔案元件（SFC）編譯、框架別名與開發階段的更新行為。scoped 樣式、Composition API 與 `<script setup>` 都不需要額外的 bundler 串接設定。
+
+## 什麼情況下適合使用 Vue
+
+- 你已經有正式上線的 Vue 應用程式。
+- 你偏好以 Vue SFC 撰寫，並搭配 scoped 樣式與 Composition API。
+- 你希望擴充功能的 UI 介面能反映既有的 Vue 架構。
+
+## 範本範例
+
+### `new-vue`
+
+![Template screenshot](/images/examples/new-vue/screenshot.png)
+
+從第一天就具備 SFC 支援，打造 Vue new-tab 體驗。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-vue
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-vue
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-vue
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/new-vue](https://github.com/extension-js/examples/tree/main/examples/new-vue)
+
+### `content-vue`
+
+![Template screenshot](/images/examples/content-vue/screenshot.png)
+
+以 content script 設定，將 Vue 元件直接注入網頁。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-vue
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-vue
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-vue
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-vue
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-vue](https://github.com/extension-js/examples/tree/main/examples/content-vue)
+
+## 在既有擴充功能中使用
+
+依下列步驟把 Vue 加入既有擴充功能。
+
+### 安裝
+
+安裝所需相依套件：
+
+<PackageManagerTabs command="install vue" />
+
+如果要在既有專案中明確設定，也安裝 Vue 的 SFC 工具鏈：
+
+<PackageManagerTabs command="install -D vue-loader @vue/compiler-sfc" />
+
+### 設定
+
+Extension.js 會期望 Vue 元件位於 `.vue` 檔案。它會在 Rspack pipeline 中設定 `vue-loader`、`VueLoaderPlugin` 與 Vue 相關的 define flag。
+
+## 開發行為
+
+當 Extension.js 偵測到 Vue 時，會：
+
+- 在框架 plugin 中啟用 `.vue` 編譯。
+- 套用 Vue 執行期別名（讓 runtime 解析保持一致）。
+- 在 Vue SFC 變動時，透過重新掛載支援 content script 的更新。
+
+若專案缺少選用的 Vue 工具，Extension.js 會自動安裝並提示重新啟動。
+
+### 疑難排解
+
+- **缺少 Vue 工具的警告：** 安裝 `vue-loader` 與 `@vue/compiler-sfc`。
+- **安裝後要求重新啟動：** 停止並重新執行 `extension dev`，讓 Extension.js 可以載入剛安裝的 loader/plugin。
+- **`.vue` 處理出現非預期問題：** 請確認 `vue` 已出現在專案相依套件中，讓 Extension.js 能偵測 Vue 整合。
+
+## 使用範例
+
+### 在 new tab 擴充功能中
+
+要在 new tab 擴充功能中使用 Vue，請在 HTML 中包含你的入口檔：
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this extension.</noscript>
+    <div id="app"></div>
+  </body>
+  <script src="./main.ts"></script>
+</html>
+```
+
+```ts
+import { createApp } from "vue";
+import App from "./App.vue";
+
+createApp(App).mount("#app");
+```
+
+```vue
+<!-- App.vue -->
+<template>
+  <h1>Hello, Vue.js Extension!</h1>
+</template>
+
+<script setup lang="ts">
+// Component logic goes here.
+</script>
+
+<style scoped>
+h1 {
+  color: #42b983;
+}
+</style>
+```
+
+### 在 `content_script` 檔中
+
+對於 content script，將 Vue app 掛載到注入的根節點：
+
+```ts
+import { createApp } from "vue";
+import App from "./App.vue";
+import "./content.css";
+
+const rootDiv = document.createElement("div");
+rootDiv.id = "extension-root";
+document.body.appendChild(rootDiv);
+
+createApp(App).mount("#extension-root");
+```
+
+## 最佳實務
+
+- 讓 UI 入口維持以框架為主（`main.ts`、`App.vue`），並把擴充功能 API 放在專屬模組。
+- 在 SFC 中盡量使用 scoped 樣式，降低擴充功能頁面的樣式外洩。
+- 對於較大的 UI，將元件與共用 composable 拆分，讓 content script 保持精簡。
+
+## 下一步
+
+- 進一步了解 [TypeScript 支援](/docs/languages-and-frameworks/typescript)。
+- 探索 [Sass 與 Sass modules](/docs/languages-and-frameworks/sass)。
+
+## 影片導覽
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Vue SFC template creation, dev mode launch, and component update behavior in extension UI. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

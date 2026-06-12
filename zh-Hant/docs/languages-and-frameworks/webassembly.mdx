@@ -1,0 +1,152 @@
+---
+title: "在瀏覽器擴充功能中使用 WebAssembly"
+description: "在擴充功能中使用 WebAssembly，不需自訂 bundler 設定。Extension.js 在 Rspack 建置 pipeline 中內建 Wasm 支援。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "typescript",
+    "javascript",
+  ]
+---
+
+不必自訂 bundler 設定，就能在擴充功能中使用 WebAssembly。
+
+Extension.js 在 Rspack pipeline 中內建 WebAssembly（Wasm）的預設配置，常見的 Wasm 流程無需額外設定即可運作。
+
+## 什麼情況下適合使用 WebAssembly
+
+- 你的擴充功能會執行運算吃重的工作（剖析、媒體、光學字元辨識（OCR）、各種轉換）。
+- 你需要對經常執行的程式碼路徑取得接近原生的效能。
+- 你想沿用 web 專案中既有的 Wasm 模組。
+
+## WebAssembly 能做到的事
+
+| 能力                       | 帶來什麼好處                                            |
+| -------------------------- | ------------------------------------------------------- |
+| 內建的 Wasm pipeline 預設值 | 不必手動串接 bundler，即可執行常見的 Wasm 流程         |
+| 非同步 Wasm 支援           | 在擴充功能情境下載入 `.wasm` 模組                       |
+| 執行期相容性輔助           | 處理常見 Wasm 生態的資源模式                            |
+| 一般指令工作流程           | 以一般的 `dev` 與 `build` 指令使用 Wasm                 |
+
+## 範本範例
+
+### `sidebar-transformers-js`
+
+![sidebar-transformers-js template screenshot](/images/examples/sidebar-transformers-js/screenshot.png)
+
+以 Transformers.js 結合 WebAssembly 推論能力的 AI/ML sidebar 擴充功能。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/sidebar-transformers-js](https://github.com/extension-js/examples/tree/main/examples/sidebar-transformers-js)
+
+## Extension.js 啟用了什麼
+
+Wasm plugin 會設定：
+
+- `experiments.asyncWebAssembly = true`
+- 模組解析中加入 `.wasm` 副檔名
+- 為常見 Wasm 函式庫設定路徑別名（例如處理媒體的 ffmpeg、影像處理的 imagemagick，以及做 OCR 的 tesseract），讓執行期能正確解析 import。
+
+這能減少從擴充功能 script/頁面匯入 Wasm 模組時的樣板程式碼。
+
+## 使用方式
+
+在一般的開發／建置流程中使用擴充功能裡的 Wasm 模組：
+
+<CodeGroup>
+
+```bash npm
+npx extension dev ./my-extension
+```
+
+```bash pnpm
+pnpx extension dev ./my-extension
+```
+
+```bash yarn
+yarn dlx extension dev ./my-extension
+```
+
+```bash bun
+bunx extension dev ./my-extension
+```
+
+```bash bun
+bunx extension dev ./my-extension
+```
+
+</CodeGroup>
+
+你也可以用一個已知的公開 Wasm 範例來測試：
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash pnpm
+pnpx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash yarn
+yarn dlx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash bun
+bunx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash bun
+bunx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+</CodeGroup>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running a Wasm sample extension, loading it in the browser, and verifying Wasm-powered behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 典型用途
+
+- 運算吃重的剖析／轉換。
+- 媒體處理 pipeline。
+- OCR／影像處理流程。
+- 對效能敏感、會在 web 與 runtime 情境共用的演算法。
+
+## 最佳實務
+
+- 讓 Wasm 模組專注在效能熱點，把協調邏輯留在 JavaScript/TypeScript。
+- 驗證輸出體積與載入時機在各擴充功能情境（background、content script、頁面）的表現。
+- 在你會發佈的所有瀏覽器目標（`chrome`、`edge`、`firefox`）上測試 Wasm 吃重的流程。
+
+## 下一步
+
+- 進一步了解 [WebAssembly](https://webassembly.org/)。
+- 了解 Extension.js 如何處理 [ECMAScript Modules](/docs/languages-and-frameworks/ecmascript-modules)。

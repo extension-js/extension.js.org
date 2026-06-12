@@ -1,0 +1,61 @@
+---
+title: "開發模式更新與重新載入行為"
+description: "了解哪些檔案變更會熱更新，哪些需要重啟。Extension.js 會在開發階段自動挑選最輕量且安全的更新模式。"
+keywords:
+  [
+    "extension.js",
+    "browser",
+    "manifest",
+    "hmr",
+    "content script",
+    "service worker",
+    "docs",
+    "workflows",
+  ]
+---
+
+知道哪些變更可以即時套用、哪些需要重啟，才能讓開發節奏快速。Extension.js 會依檔案變更挑選最輕量且安全的更新模式。
+
+## 更新模式
+
+| 模式                         | 發生了什麼                                                  | 典型影響                                                  |
+| ---------------------------- | ----------------------------------------------------------- | --------------------------------------------------------- |
+| Hot module replacement（HMR）| 模組／樣式更新就地套用                                      | 迭代最快，不需完整重啟擴充功能                            |
+| `Hard reload`                | 目標瀏覽器重新載入擴充功能執行階段                          | 擴充功能情境會重啟，但開發程序仍持續執行                  |
+| `Restart required`           | 編譯時診斷要求你重啟 `extension dev`                        | 結構性 entrypoint／清單變更時需要                         |
+
+## 常見範例
+
+| 變更                                             | 預期行為                                  |
+| ------------------------------------------------ | ----------------------------------------- |
+| 編輯 content script／元件程式碼                  | HMR／重新掛載路徑（支援時）               |
+| 編輯 content scripts／頁面所使用的樣式 import    | HMR 風格更新路徑（視情境而定）            |
+| 編輯 `manifest.json` 值（非結構性）              | 強制重載流程                              |
+| 新增／移除 manifest entrypoint 引用              | 需要重啟                                  |
+| 新增／移除 `pages/` 或 `scripts/` entrypoint     | 需要重啟                                  |
+| 編輯 `_locales/*/messages.json`                  | 強制重載流程                              |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show three edits in sequence (component change, manifest metadata change, entrypoint list change) and the resulting HMR/hard-reload/restart-required behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 當你需要重啟時怎麼做
+
+當 Extension.js 回報 `Restart required` 時，請先停止再重新執行 `extension dev`。
+
+典型觸發條件：
+
+- 新增或移除 manifest entrypoint 引用
+- 在 `pages/` 或 `scripts/` 中新增或移除作為擴充功能 entrypoint 的檔案
+- HTML entrypoint 中結構性的腳本／樣式 entry 變更
+
+## 實務指引
+
+- 在進行中的開發階段，優先編輯既有模組／資產，以取得最快回饋。
+- 把結構性 manifest 變更（entrypoint 清單編輯）批次進行，只重啟一次。
+- 把需要重啟的診斷視為權威指示；不重啟就繼續可能讓執行階段處於過期狀態。
+
+## 下一步
+
+- [manifest.json](/docs/implementation-guide/manifest-json)
+- [content scripts](/docs/implementation-guide/content-scripts)
+- [背景腳本／service worker](/docs/implementation-guide/background)
+- [HTML](/docs/implementation-guide/html)

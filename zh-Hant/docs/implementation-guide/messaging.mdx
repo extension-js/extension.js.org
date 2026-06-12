@@ -1,0 +1,115 @@
+---
+title: "跨情境的擴充功能 messaging"
+description: "用瀏覽器 messaging API 在擴充功能情境之間搬移資料。維持 background、content script 與頁面之間清楚的特權邊界。"
+keywords:
+  [
+    "extension.js",
+    "chrome",
+    "browser",
+    "content script",
+    "service worker",
+    "popup",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+明確地在擴充功能情境之間搬移資料，並驗證每一個特權邊界。
+
+Extension.js 會把 background script、content script 與擴充功能頁面打包在一起。但你的擴充功能情境仍透過瀏覽器擴充功能 messaging API 通訊。良好的 messaging 結構讓每個情境的職責保持清楚，並讓除錯更可靠。
+
+## 情境邊界
+
+| 從                                | 到                                            | 典型 API                                       |
+| ---------------------------------- | --------------------------------------------- | ---------------------------------------------- |
+| Popup 或 options 頁面              | Background service worker                     | `runtime.sendMessage()`                        |
+| Content script                     | Background service worker                     | `runtime.sendMessage()` 或 `runtime.connect()` |
+| Background service worker          | Content script                                | `tabs.sendMessage()`                           |
+| 長時間串流或狀態同步               | Background service worker 與另一個情境         | `runtime.connect()`                            |
+
+## 建議的合約
+
+把訊息視為一套有型別的協定：
+
+- 包含明確的 `type`。
+- 在執行動作前驗證 payload 結構。
+- 對特權操作驗證寄件者情境。
+- 回傳結構化的成功與錯誤回應。
+
+```ts
+type Message =
+  | { type: "settings:get" }
+  | { type: "settings:set"; payload: { theme: "light" | "dark" } };
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (
+    !message ||
+    typeof message !== "object" ||
+    typeof message.type !== "string"
+  ) {
+    sendResponse({ ok: false, error: "invalid_message" });
+    return;
+  }
+
+  if (message.type === "settings:get") {
+    sendResponse({ ok: true, data: { theme: "dark" } });
+    return;
+  }
+
+  if (message.type === "settings:set") {
+    sendResponse({ ok: true });
+    return;
+  }
+
+  sendResponse({ ok: false, error: "unknown_message" });
+});
+```
+
+## 何時使用 `sendMessage` 與 `connect`
+
+| 使用情境                                            | 優先選擇                |
+| --------------------------------------------------- | ----------------------- |
+| 單一請求與單一回應                                  | `runtime.sendMessage()` |
+| 長時間串流或多次更新                                | `runtime.connect()`     |
+| 與特定分頁的 content script 通訊                    | `tabs.sendMessage()`    |
+
+## 良好的架構
+
+- 為每個功能領域建立一個訊息處理模組，而不是用單一大檔案處理所有訊息類型。
+- 把特權工作集中在 background service worker。
+- 用 content script 收集頁面資料，然後只轉送最低必要的 payload。
+- 讓 popup 與 options 頁面保持精簡，把瀏覽器 API 呼叫委派給 background 程式碼。
+
+## 安全規則
+
+- 不要僅僅因為訊息來自 content script 就信任頁面衍生的內容。
+- 在執行特權動作前驗證寄件者身分。
+- 明確拒絕未知的訊息類型。
+- 避免透過 messaging 開放泛用的「執行任意程式」或「抓任意網址」的指令。
+
+## 常見錯誤
+
+- 讓 UI 頁面在很多地方直接呼叫特權 API，而不是統一透過 background 路由。
+- 在小型結構化 payload 就夠用時，傳送大型任意頁面快照。
+- 把 content script 當成可信任的，只因為它們是你自己的程式碼，但它們其實會接觸到不受信任的頁面資料。
+- 在多個情境一起演進時，忘記為訊息形狀做版本化或遷移。
+
+## 實用模式
+
+### Popup 請求目前狀態
+
+使用一個從 popup 到 background 的「請求—回應」訊息。
+
+### Content script 請求特權工作
+
+收集最小可能的頁面 payload，傳到 background，由 background 決定是否允許該動作。
+
+### 即時訂閱
+
+只有在真的需要持續更新時才使用 `runtime.connect()`，不要用在簡單的請求—回應流程。
+
+## 後續步驟
+
+- 用 [Storage](/docs/implementation-guide/storage) 持久化資料。
+- 在 [Background script／service worker](/docs/implementation-guide/background) 中設計事件驅動邏輯。
+- 在[安全檢查清單](/docs/workflows/security-checklist)中檢視邊界安全。

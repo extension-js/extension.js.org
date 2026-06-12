@@ -1,0 +1,122 @@
+---
+title: "排查 Extension.js 的常见问题"
+description: "用实用的分诊路径修复 Extension.js 常见问题，涵盖重启诊断、依赖安装、浏览器启动与 manifest 错误。"
+keywords:
+  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows"]
+---
+
+通过先检查最常见的失败来快速解锁本地开发。在更深入调试之前，把本页当作实用的分诊路径。
+
+## 故障排查能力
+
+| 区域                | 帮你校验什么                                              |
+| ------------------- | --------------------------------------------------------- |
+| 重启诊断            | 结构性变更是否需要重启                                    |
+| 依赖安装            | 当前技术栈是否缺少可选工具                                |
+| 浏览器启动          | 目标/浏览器二进制配置是否有效                             |
+| build/preview 流程  | 是否存在产物且与目标匹配                                  |
+| manifest 路径       | 引用的文件是否能正确解析                                  |
+
+## 快速分诊流程
+
+1. 用一个目标(`--browser=chromium`) 复现。
+2. 移除自定义 profile 与 binary 标志。
+3. 确认问题是出现在 `dev`、`build` 还是两者都有。
+4. 一次修复一类错误(重启、依赖、路径或启动)。
+
+## 快速诊断决策树
+
+| 如果这里失败...           | 优先检查                                                  | 下一步行动                                                                                  |
+| ------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 扩展无法加载              | 构建与 manifest 错误                                      | 验证被引用的文件并重新运行 `dev`                                                            |
+| 浏览器无法启动            | `--browser` + binary 路径                                 | 移除自定义 binary/profile 标志后重试                                                        |
+| 修改未生效                | 更新类型(热模块替换 vs 需要重启)                          | 查阅[开发更新行为](/docs/workflows/dev-update-behavior)，需要时重启                         |
+| `preview` 失败            | 已有的 `dist/<browser>` 产物                              | 先运行 `extension build --browser=<target>`                                                 |
+| 运行时仍然有问题          | 最小可复现配置                                            | 缩小范围并记录精确的命令与错误                                                              |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a failing dev run, identify the error class, apply one fix, and rerun successfully. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 常见问题
+
+### 需要重启的诊断
+
+如果你看到"需要重启"的错误，停下来，重新运行 `extension dev`。
+
+典型触发：
+
+- manifest 入口列表发生变化。
+- 在 `pages/` 或 `scripts/` 中增删文件。
+- HTML 中结构性的脚本/样式条目变化。
+
+完整矩阵请参见[开发更新行为](/docs/workflows/dev-update-behavior)。
+
+### 缺少可选依赖
+
+CLI 会按需安装一些集成(例如 Vue/Preact 的 refresh 工具、样式预处理器)。
+
+如果 CLI 提示安装可选依赖：
+
+1. 允许安装。
+2. 重启 `extension dev`。
+3. 在依赖安装完成后再运行。
+
+### 浏览器二进制问题
+
+如果目标浏览器启动失败：
+
+- 验证自定义 binary 路径(`--chromium-binary` / `--gecko-binary`)。
+- 确认浏览器目标与所提供的 binary 兼容。
+- 退回到默认的 `chromium` 目标以隔离配置问题。
+
+### build 成功但 preview 失败
+
+`preview` 依赖已有的构建产物。
+
+- 运行 `extension build --browser=<target>`。
+- 然后运行 `extension preview --browser=<target>`。
+
+### manifest 引用错误
+
+如果构建报告缺少 manifest 文件：
+
+- 验证路径是否相对于 manifest 位置。
+- 验证前导 `/` 的用法(public-root 语义)。
+- 确保文件确实存在于源码/public 位置。
+
+### Docker、开发容器与 Codespaces
+
+在容器内运行时，开发服务器默认绑定到 `127.0.0.1`，所以宿主机无法访问。
+
+- 传入 `--host 0.0.0.0` 绑定到所有网卡。
+- 如果 `8080` 被占用，使用 `--port 0` 让操作系统分配空闲端口。
+- 如果在持续集成 (CI) 容器中浏览器连接缓慢或不稳定，可通过[浏览器传输调优变量](/docs/features/environment-variables#浏览器传输调优变量) 提高连接超时。
+
+```bash
+extension dev --host 0.0.0.0 --port 0
+```
+
+### `scripts/` 文件夹中的 Node.js 脚本
+
+如果构建失败并提示 `scripts/ is a reserved folder in Extension.js`，说明你在 `scripts/` 特殊文件夹中放了 Node.js 文件。Extension.js 会用浏览器 content-script 运行时包装 `scripts/` 中的每个文件，仅 Node.js 的文件在这种上下文中无法运行。
+
+把文件移到项目根下的其他文件夹(例如 `bin/`、`tools/` 或 `ci-scripts/`)。详情请参见[特殊文件夹](/docs/features/special-folders#scripts-中不允许放-nodejs-脚本)。
+
+### 修复后仍被卡住
+
+如果问题仍然存在：
+
+- 清理临时假设，从干净的终端会话开始重现。
+- 缩减到最小的、仍能复现失败的 manifest/入口情况。
+- 记录精确的命令与错误输出以便提交 issue。
+
+## 调试检查清单
+
+- 先用单个浏览器目标复现(`--browser=chromium`)。
+- 不带自定义 profile/binary 标志复现。
+- 检查问题是否在 `dev` 与 `build` 中都出现。
+- 在同时修改 manifest 与入口文件时，一次只改动一处。
+
+## 下一步
+
+- 查阅[安全检查清单](/docs/workflows/security-checklist)。
+- 查阅[性能手册](/docs/workflows/performance-playbook)。

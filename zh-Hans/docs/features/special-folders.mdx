@@ -1,0 +1,204 @@
+---
+title: "用于页面、脚本和资产的特殊文件夹"
+description: "使用特殊文件夹容纳无法放进 manifest.json 入口的额外页面、注入脚本、静态资产和附属扩展。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "manifest",
+    "react",
+    "hmr",
+    "content script",
+  ]
+---
+
+当你的扩展需要在 `manifest.json` 中无法妥善表达的入口或资产时，使用特殊文件夹。
+
+在不拆分项目结构的前提下，处理额外页面、运行时注入的脚本、需要精确路径的静态资产，以及用于本地开发的附属扩展。
+
+## 模板示例
+
+### `special-folders-pages`
+
+![special-folders-pages template screenshot](/images/examples/special-folders-pages/screenshot.png)
+
+通过额外的 HTML 入口看看 `pages/` 特殊文件夹是如何工作的。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=special-folders-pages
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=special-folders-pages
+```
+
+</CodeGroup>
+
+代码仓库：[extension-js/examples/special-folders-pages](https://github.com/extension-js/examples/tree/main/examples/special-folders-pages)
+
+### `special-folders-scripts`
+
+![special-folders-scripts template screenshot](/images/examples/special-folders-scripts/screenshot.png)
+
+通过独立的脚本入口看看 `scripts/` 特殊文件夹是如何工作的。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=special-folders-scripts
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=special-folders-scripts
+```
+
+</CodeGroup>
+
+代码仓库：[extension-js/examples/special-folders-scripts](https://github.com/extension-js/examples/tree/main/examples/special-folders-scripts)
+
+## 为什么重要
+
+manifest 并不会直接声明很多扩展文件，比如 iframe 页面、你用 `chrome.scripting.executeScript` 动态注入的脚本，以及静态厂商资产。开发期你还可能需要附属扩展。特殊文件夹让这些都成为构建流水线中的一等公民。
+
+## 工作原理
+
+每个特殊文件夹都有特定的角色：
+
+| 文件夹名      | 说明                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `pages/`      | 把 HTML 页面加入编译作为入口，即便 manifest 没有声明它们。                                                    |
+| `scripts/`    | 把脚本文件加入编译作为入口，即便没有 manifest 或 HTML 入口引用它们。                                          |
+| `public/`     | 把静态资产原样复制到输出根目录(`public/**` → `dist/**`)，不做打包或转换。                                     |
+| `extensions/` | 在 dev/preview/start 流程中作为仅加载的附属扩展的约定位置。                                                   |
+
+## `pages/`：额外的 HTML 入口
+
+把 `pages/` 用于额外的扩展页面，例如 sandbox iframe、诊断页或内部工具。
+
+Extension.js 会把 `pages/` 中的每个 `.html` 文件视为一个入口，按和 manifest 声明页面相同的方式编译。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a page added under `pages/` and then loaded in the running extension build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+sandbox iframe 示例可参见 [Chrome Sandbox Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox)。
+
+## `scripts/`：独立的脚本入口
+
+把 `scripts/` 用于可执行脚本，这些脚本你会动态加载、且并不绑定到某个 HTML 页面入口。
+
+Extension.js 会把 `scripts/` 中的文件作为入口编译，使用与项目其他部分相同的扩展解析流水线。
+
+### 重要契约
+
+当你把 `scripts/` 中的某个条目当作类似 content script 的运行时入口使用时，请遵循 content script 初始化模式。这是 Extension.js 期望的默认导出契约，用于安全地热重载注入脚本：
+
+- 导出一个默认函数。
+- 在该函数内完成初始化。
+- 可选地返回一个同步的清理函数。
+
+这在开发期尤其重要，Extension.js 会安全地重新挂载类似 content script 的入口，而不是触发整页重载。
+
+### `scripts/` 中不允许放 Node.js 脚本
+
+Extension.js 会用浏览器 content-script 挂载运行时包装 `scripts/` 中的每个文件。如果你把一个只能在 Node.js 中运行的文件(例如 CLI 启动器或构建辅助脚本)放进去，包装器会破坏该文件。
+
+shebang 不再位于第 1 行，且 Node 专属 API 在浏览器上下文中无法使用。
+
+Extension.js 会检测两类 Node.js 标志，并在构建时抛出错误：
+
+- 第 1 行的 shebang(`#!/usr/bin/env node`)。
+- 来自 `node:` 协议的 import(例如 `import fs from 'node:fs'`)。
+
+<Warning>
+  如果你看到 `scripts/ is a reserved folder in Extension.js`，请把文件移到项目根目录下其他文件夹，比如 `bin/`、`tools/`、`ops/`、`tasks/` 或 `ci-scripts/`。
+</Warning>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a script added under `scripts/` and injected at runtime with `scripting.executeScript`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+动态注入示例可参见 [Chrome Scripting Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/scripting)。
+
+## `public/`：仅复制的静态资产
+
+当你需要稳定的文件路径且不希望经过打包/转换时，使用 `public/`。
+
+Extension.js 会把 `public/` 下的所有内容 1:1 复制到输出根目录。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a static file in `public/` copied directly to `dist/` with unchanged path. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+### `public/` 的重要保护
+
+不要把 `manifest.json` 放到 `public/manifest.json`。为了避免在编译过程中覆盖生成的 manifest，Extension.js 会阻止这种用法。
+
+## `extensions/`：附属扩展(仅加载)
+
+当你使用附属扩展(例如 DevTools 辅助工具)时，Extension.js 在 dev/preview/start 流程中支持把 `extensions/` 文件夹作为仅加载来源。
+
+简要说明：
+
+- 扫描 `extensions/` 下含 `manifest.json` 的子文件夹作为未打包的扩展根。
+- Extension.js 会把附属扩展和你的主扩展一起加载。
+- 把这个文件夹用于加载附属扩展，而不是把它们构建进你的主产物。
+
+你也可以通过 `--extensions` CLI 参数或 `extension.config.js` 中的 `extensions` 键加载附属扩展：
+
+```bash
+# Load from a local folder
+extension dev --extensions ./path/to/companion
+
+# Load from Chrome Web Store or Firefox Add-ons
+extension dev --extensions "https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi"
+```
+
+Extension.js 会自动下载、解包并与你的扩展一起加载这些商店 URL。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a companion extension inside `extensions/` loading together with the main extension in dev mode. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 开发期行为(watch 模式)
+
+在 watch 模式下，Extension.js 会监控 `pages/` 与 `scripts/` 的文件集合变化：
+
+- 添加受支持的文件会触发一个警告(你可以继续工作)。
+- 删除受支持的文件会触发一个编译错误。重启开发服务器即可恢复。
+
+这能保护正在运行的编译图，防止它出现过期或损坏的入口。
+
+## 最佳实践
+
+- **把共享的运行时资产放在 `public/`**：用于必须在输出中保留原文件名和路径的文件。
+- **把 `pages/` 与 `scripts/` 用于真正的入口**：让 manifest 之外的执行路径保持显式。
+- **入口变化后重启开发服务器**：尤其在删除 `pages/` 或 `scripts/` 下的文件之后。
+- **让附属扩展保持隔离**：把 `extensions/` 视为本地工作流中的仅加载依赖。
+- **不要把 `manifest.json` 放进 `public/`**：Extension.js 会阻止 `public/manifest.json`，以保护生成的扩展产物。
+
+## 下一步
+
+- 进一步了解[页面重载与热模块替换 (HMR)](/docs/features/reload-and-hmr)。
+- 在 [Content scripts](/docs/implementation-guide/content-scripts) 中了解挂载契约。
+- 浏览[模板](/docs/getting-started/templates) 以快速搭建你的下一个扩展。

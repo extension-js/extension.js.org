@@ -1,0 +1,229 @@
+---
+title: "為 Chrome 與 Firefox 開發跨瀏覽器擴充功能"
+description: "用單一專案同時支援 Chrome、Edge 與 Firefox。Extension.js 會處理各目標的瀏覽器專屬 manifest 欄位與建置輸出。"
+keywords:
+  [
+    "cross-browser extension development",
+    "cross browser extension framework",
+    "chrome and firefox extension compatibility",
+    "browser-specific manifest fields",
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "manifest",
+    "popup",
+  ]
+---
+
+<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
+Extension.js 會在開發與建置期間處理瀏覽器專屬的設定。你可以用同一個專案
+為 Chromium 與 Gecko（Firefox 引擎）目標產出符合執行階段需求的輸出。
+
+## 跨瀏覽器擴充功能開發
+
+跨瀏覽器擴充功能開發指的是寫一個擴充功能，能同時上架到 Chrome、Edge 與 Firefox，而不需要分叉程式碼。Extension.js 會把單一專案編譯成各瀏覽器專屬的產物（`dist/chrome`、`dist/edge`、`dist/firefox`），並依當前目標過濾 manifest。重新載入流程、執行階段 API 與打包行為都會對應你正在除錯的瀏覽器。
+
+只使用一份 `manifest.json`，就能鎖定特定瀏覽器或自訂瀏覽器二進位檔。若你需要在 Chromium 家族目標中使用 `browser.*` API 相容性，可以啟用 polyfill。
+
+## Chrome 與 Firefox 擴充功能相容性
+
+Chrome 與 Firefox 擴充功能共用大部分 WebExtensions 表面，但每天都會碰到三個關鍵差異：
+
+- **背景腳本：** Chrome（Manifest V3）需要 `background.service_worker`。Firefox 則使用 `background.scripts` 搭配非持久的 event page。Extension.js 能用同一份帶前綴的 manifest 同時對應兩者。
+- **執行階段 API 命名空間：** Firefox 原生支援 `browser.*`，Chromium 使用 `chrome.*`。在 Chromium 目標可以加上 `--polyfill` 來彌平差異。
+- **權限與內容安全政策（CSP）：** 不同瀏覽器對某些 `permissions` 與 `host_permissions` 條目的判斷不同。將瀏覽器專屬的值放在帶前綴的 manifest 鍵內，而不是在執行階段做功能偵測。
+
+## 瀏覽器專屬的 manifest 欄位
+
+Extension.js 透過帶前綴的 manifest 欄位，讓單一份 `manifest.json` 在各瀏覽器上都能運作。在編譯時，Extension.js 會把帶前綴的鍵（`chromium:`、`chrome:`、`edge:`、`firefox:`、`gecko:`）過濾到當前目標，未加前綴的鍵則套用到所有目標。完整前綴清單請見 [瀏覽器專屬的 manifest 欄位](/docs/features/browser-specific-fields)。
+
+## 範本範例
+
+### `action`
+
+![action template screenshot](/images/examples/action/screenshot.png)
+
+用一個可在 Chrome、Firefox 與 Edge 執行的 action 彈出視窗，試試跨瀏覽器相容性。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=action
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=action
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=action
+```
+
+</CodeGroup>
+
+儲存庫：[extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+## 運作方式
+
+### 1) 選擇瀏覽器目標
+
+選擇你要執行擴充功能的瀏覽器。
+
+常見目標使用 `--browser`，或傳入自訂的瀏覽器二進位檔。
+
+<CodeGroup>
+
+```bash npm
+extension dev --browser firefox
+```
+
+```bash pnpm
+extension dev --browser firefox
+```
+
+```bash yarn
+extension dev --browser firefox
+```
+
+```bash bun
+extension dev --browser firefox
+```
+
+```bash bun
+extension dev --browser firefox
+```
+
+</CodeGroup>
+
+<CodeGroup>
+
+```bash npm
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+```bash pnpm
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+```bash yarn
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+```bash bun
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+```bash bun
+extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
+```
+
+</CodeGroup>
+
+依你的作業系統使用對應的二進位檔路徑：
+
+- **macOS**：`/Applications/Brave Browser.app/Contents/MacOS/Brave Browser`
+- **Linux**：`/usr/bin/brave-browser`（或其他 Chromium 系瀏覽器的二進位檔）
+- **Windows**：`"C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"`
+
+{/* VIDEO_PLACEHOLDER_TODO: Show switching targets with `--browser` and with a custom Chromium binary. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+當你傳入二進位檔時，Extension.js 會把它對應到一個瀏覽器引擎目標：
+
+- `--chromium-binary` 對應 `chromium-based`
+- `--gecko-binary` 對應 `gecko-based`
+
+### 2) 以瀏覽器專屬的 manifest 過濾進行編譯
+
+在編譯時，Extension.js 只會包含你選定瀏覽器所需的 manifest 欄位。
+
+例如：
+
+```json
+{
+  "chromium:background": {
+    "service_worker": "sw.js"
+  },
+  "firefox:background": {
+    "scripts": ["sw.js"]
+  }
+}
+```
+
+{/* VIDEO_PLACEHOLDER_TODO: Show one manifest with prefixed fields being compiled for Chrome vs Firefox. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+對 Chromium 家族目標，Extension.js 會使用 `chromium:`、`chrome:` 與 `edge:` 等前綴。  
+對 Firefox 家族目標，Extension.js 會使用 `firefox:` 與 `gecko:`。
+
+<Note>
+  完整的帶前綴 manifest 欄位細節，請參閱 [瀏覽器專屬的 manifest 欄位](/docs/features/browser-specific-fields)。
+</Note>
+
+### 3) 為每個瀏覽器目標輸出
+
+Extension.js 會把各目標寫入各自的建置資料夾：
+
+- `dist/chrome`
+- `dist/edge`
+- `dist/firefox`
+- `dist/chromium-based`（自訂 Chromium 引擎）
+- `dist/gecko-based`（自訂 Gecko 引擎）
+
+{/* VIDEO_PLACEHOLDER_TODO: Show build output folders changing by target in `dist/<browser>`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+這讓你的建置產物結構分明，也更容易在 CI 中發佈。
+
+### 4) Chromium 目標可選的 `browser.*` polyfill
+
+如果你的程式碼使用 `browser.*`，可為 Chromium 家族目標啟用 `--polyfill`：
+
+<CodeGroup>
+
+```bash npm
+extension build --browser chrome --polyfill
+```
+
+```bash pnpm
+extension build --browser chrome --polyfill
+```
+
+```bash yarn
+extension build --browser chrome --polyfill
+```
+
+```bash bun
+extension build --browser chrome --polyfill
+```
+
+```bash bun
+extension build --browser chrome --polyfill
+```
+
+</CodeGroup>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show a `browser.*` API working in Chromium with `--polyfill` enabled. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+啟用時，Extension.js 會在非 Firefox 目標使用 `webextension-polyfill`（Mozilla 的 `browser.*` 相容性函式庫）。  
+Firefox 本身已原生支援 `browser.*`，Extension.js 會略過這一步。
+
+## 最佳實務
+
+- **保持單一程式碼庫**：可能的話，把瀏覽器差異放在帶前綴的 manifest 欄位裡。
+- **一次只建一個目標**：在持續整合（CI）中為每個瀏覽器產出獨立的產物（`dist/<browser>`）。
+- **必要時才使用 `--polyfill`**：只有在程式碼於 Chromium 家族目標中需要 `browser.*` 時才啟用。
+- **及早確認 API 支援**：在依賴特定瀏覽器 API 前，先查閱 [MDN WebExtensions 文件](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions)。
+
+## 下一步
+
+- 進一步了解 [可用的瀏覽器](/docs/browsers/browsers-available)。
+- 進一步了解 [瀏覽器專屬的 manifest 欄位](/docs/features/browser-specific-fields)。

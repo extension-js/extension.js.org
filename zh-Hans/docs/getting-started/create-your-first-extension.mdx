@@ -1,0 +1,233 @@
+---
+title: "一步步创建你的第一个浏览器扩展"
+description: "用 Extension.js 端到端构建你的第一个浏览器扩展。创建一个 GitHub 搜索 Omnibox 快捷方式，并掌握核心开发循环。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "browser",
+    "manifest",
+    "playwright",
+    "service worker",
+    "docs",
+  ]
+---
+
+你将构建一个 Omnibox（地址栏）快捷方式。在地址栏输入 `gh`，再输入一个查询词，就会跳到 GitHub 搜索结果页。一路上你会接好一份 `manifest.json`，并在后台 service worker 中处理输入。你还会练习每个项目都会遵循的开发循环（`create` → `dev` → `build`）。
+
+## 你将构建什么
+
+| 能力                | 你会得到什么                                              |
+| ------------------- | --------------------------------------------------------- |
+| Omnibox 关键字流程  | 在浏览器地址栏中输入 `gh` 就能触发扩展行为                |
+| 后台事件处理        | 通过 service worker 处理用户输入                          |
+| 本地开发循环        | 快速运行、加载并验证扩展行为                              |
+| 渐进增强            | 基础流程跑通后，再加入实时 GitHub 建议                    |
+
+{/* VIDEO_PLACEHOLDER_TODO: Show the final UX first: type `gh` in the browser omnibox, enter a query, and open GitHub results in a new tab. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 计划
+
+让 GitHub 搜索像浏览器原生快捷方式一样快。扩展会保留关键字 `gh`；当你输入 `gh` 加一段查询后，它会打开 GitHub 搜索结果页。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show the interface and interaction model for the omnibox keyword (`gh`) before implementation details. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 第 1 步：创建扩展
+
+使用 Extension.js 的 `create` 命令脚手架生成一个名为 `github-search` 的最小扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create github-search
+```
+
+```bash pnpm
+pnpx extension@latest create github-search
+```
+
+```bash yarn
+yarn dlx extension@latest create github-search
+```
+
+```bash bun
+bunx extension@latest create github-search
+```
+
+```bash bun
+bunx extension@latest create github-search
+```
+
+</CodeGroup>
+
+## 第 2 步：创建 manifest 文件
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.loom.com/embed/1193dc69f7b74a56a5f5d9e0324c255d?sid=99132929-4c05-40e7-b804-3f242daf95ea"
+    title="Create the manifest file"
+    loading="lazy"
+    referrerPolicy="no-referrer-when-downgrade"
+    allow="clipboard-write; encrypted-media; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+每个扩展都从一份 manifest 文件开始。它定义元数据、权限以及运行时文件。基于 [上面的计划](#计划)，设置 `gh` 快捷方式，并为用户事件添加一个 service worker。
+
+```json
+{
+  "manifest_version": 3,
+  "name": "GitHub Search",
+  "version": "1.0",
+  "omnibox": { "keyword": "gh" },
+  "background": {
+    "service_worker": "service_worker.js"
+  }
+}
+```
+
+- `omnibox.keyword`：当你输入 `gh` 时，浏览器会触发一个事件。
+- `background.service_worker`：监听你触发的事件。
+
+## 第 3 步：创建后台 service worker
+
+在浏览器扩展中，后台 service worker（一个独立于任何可见页面运行的脚本）负责处理浏览器事件。
+
+在这个示例中，添加一个脚本，监听 Omnibox 输入，并把查询路由到 GitHub 搜索。
+
+创建 `service_worker.js`：
+
+```js
+// When the user has accepted what is typed into the omnibox.
+chrome.omnibox.onInputEntered.addListener((text) => {
+  // Convert any special character (spaces, &, ?, etc)
+  // into a valid character for the URL format.
+  const encodedSearchText = encodeURIComponent(text);
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
+
+  chrome.tabs.create({ url });
+});
+```
+
+每当你在地址栏中输入 "gh" 后跟其他内容时，上面的脚本会打开一个新标签页，显示 GitHub 搜索结果。
+
+## 第 4 步：加载扩展
+
+你的 `package.json` 文件现在看起来是这样的：
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "devDependencies": {
+    "extension": "latest"
+  }
+}
+```
+
+这些脚本就是 Extension.js 的默认命令。首次运行扩展：
+
+<CodeGroup>
+
+```bash npm
+npm run dev
+```
+
+```bash pnpm
+pnpm run dev
+```
+
+```bash yarn
+yarn run dev
+```
+
+```bash bun
+bun run dev
+```
+
+```bash bun
+bun run dev
+```
+
+</CodeGroup>
+
+如果设置正确，Extension.js 会使用全新的配置文件启动 Chrome，把 `github-search` 作为未打包扩展加载，并在终端中打印一条就绪横幅。Chrome 地址栏现在会把 `gh` 识别为关键字。
+
+输入 `gh` 后空一格，再输入 `extension.js`，按下回车。新标签页将打开 `https://github.com/search?q=extension.js&type=issues`。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.loom.com/embed/777544977a32444ba6de4ff23bdaccbc?sid=360eb1b1-af3a-480b-9e71-41a7fb01ca6e"
+    title="Load and run your first extension"
+    loading="lazy"
+    referrerPolicy="no-referrer-when-downgrade"
+    allow="clipboard-write; encrypted-media; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+你现在已经有了一个可以在 GitHub 上搜索的可用浏览器扩展。
+
+## 第 5 步：让它更好用
+
+通过为 Omnibox 添加输入监听器，让搜索体验更上一层楼——直接在地址栏中显示建议。
+
+更新 `service_worker.js`，在用户输入时拉取 GitHub 建议并展示：
+
+```js title="service_worker.js"
+// Create a debounce function to avoid excessive
+// calls to the GitHub API while the user is still
+// typing the search query.
+function debounce(fn, delay) {
+  let timeoutID;
+  return function (...args) {
+    if (timeoutID) clearTimeout(timeoutID);
+    timeoutID = setTimeout(() => fn(...args), delay);
+  };
+}
+
+// When the user has changed what is typed into the omnibox.
+chrome.omnibox.onInputChanged.addListener(
+  debounce(async (text, suggest) => {
+    const response = await fetch(
+      `https://api.github.com/search/issues?q=${text}`,
+    );
+    const data = await response.json();
+    const suggestions = data.items.map((issue) => ({
+      content: issue.html_url,
+      description: issue.title,
+    }));
+
+    suggest(suggestions);
+  }, 250),
+);
+
+// When the user has accepted what is typed into the omnibox.
+chrome.omnibox.onInputEntered.addListener((text) => {
+  // Convert any special character (spaces, &, ?, etc)
+  // into a valid character for the URL format.
+  const encodedSearchText = encodeURIComponent(text);
+  const url = `https://github.com/search?q=${encodedSearchText}&type=issues`;
+
+  chrome.tabs.create({ url });
+});
+```
+
+这段代码在地址栏中直接加入了实时的 GitHub 建议。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show omnibox live suggestions returned from GitHub API while typing, then selecting one result. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+你现在已经拥有了一个可用的 GitHub 搜索扩展。继续在上面迭代，根据你自己的工作流改造它。
+
+## 下一步
+
+- 使用 [模板](/docs/getting-started/templates) 创建另一个扩展。
+- 用 [Playwright 端到端测试](/docs/workflows/playwright-e2e) 添加自动化检查。
+- 随着扩展的成长，回顾 [故障排查](/docs/workflows/troubleshooting)、[安全清单](/docs/workflows/security-checklist) 与 [性能手册](/docs/workflows/performance-playbook)。
