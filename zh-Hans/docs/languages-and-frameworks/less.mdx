@@ -1,0 +1,219 @@
+---
+title: "在浏览器扩展中使用 Less CSS"
+description: "在扩展页面和 UI 组件中使用 Less CSS 与 Less 模块。Extension.js 会为 .less 文件配置 Rspack 预处理器。"
+keywords:
+  [
+    "less css",
+    "less file",
+    ".less file",
+    "less extension",
+    "less modules",
+    "less in browser extensions",
+    "extension.js",
+    "react",
+    "vue",
+    "svelte",
+    "preact",
+    "rspack",
+    "postcss",
+    "content script",
+  ]
+---
+
+用一条同样支持模块作用域样式的管线，在扩展页面和 UI 组件中使用 Less CSS。
+
+Extension.js 会检测项目中是否使用了 Less，自动在 Rspack 构建中配置预处理器，并支持浏览器扩展中的 `.less` 和 `.module.less` 文件。
+
+## 什么场景适合用 Less
+
+- 你在迁移一个基于 Less 的现有 web 代码库。
+- 你希望以较低的迁移成本获得变量与嵌套写法。
+- 你需要模块作用域的样式，同时又想保留 Less 的写法约定。
+
+## 模板示例
+
+### `new-less`
+
+![new-less template screenshot](/images/examples/new-less/screenshot.png)
+
+启动一个已配置好 Less 支持的新标签页扩展。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=new-less
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=new-less
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=new-less
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-less
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=new-less
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/new-less](https://github.com/extension-js/examples/tree/main/examples/new-less)
+
+## 在现有扩展中使用
+
+按下面的步骤把 Less 添加到现有扩展。
+
+### 安装
+
+安装所需依赖：
+
+<PackageManagerTabs command="install -D less less-loader" />
+
+### 在 HTML 文件中的用法
+
+在扩展页面（popup/options/新标签页）里，通过脚本入口引入 Less：
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>New Extension</title>
+    <script src="./main.ts"></script>
+  </head>
+  <body>
+    <h1 class="title">Hello, Extension.</h1>
+  </body>
+</html>
+```
+
+```ts
+import "./styles/globals.less";
+
+console.log("Less loaded");
+```
+
+### 在 `content_script` 文件中
+
+```ts
+import "./styles/content.less";
+
+console.log("Content styles loaded");
+```
+
+## 在浏览器扩展中使用 Less 模块
+
+像 CSS 模块一样，用 Less 模块把类名限定在本地作用域。这能默认避免全局样式冲突——这一点对扩展尤其重要，因为 content script 运行在宿主页面的 CSS 作用域内。
+
+### `content-less-modules`
+
+![content-less-modules template screenshot](/images/examples/content-less-modules/screenshot.png)
+
+当注入 UI 需要作用域样式时，在 content script 中使用 Less 模块。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-less-modules
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-less-modules
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-less-modules
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-less-modules
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-less-modules
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/content-less-modules](https://github.com/extension-js/examples/tree/main/examples/content-less-modules)
+
+## 在现有扩展中使用 Less 模块
+
+要启用 Less 模块，把 `.less` 文件重命名为 `.module.less`。这会自动开启类名的本地作用域。
+
+```diff
+- myStyles.less
++ myStyles.module.less
+```
+
+### 用法示例
+
+重命名 Less 文件后，你可以在脚本中导入它：
+
+```ts
+import styles from "./styles/myStyles.module.less";
+
+const element = document.createElement("h1");
+element.className = styles.primary;
+element.innerText = "Hello, Extension!";
+document.body.appendChild(element);
+```
+
+## React/Preact 用法示例
+
+在 React 或 Preact 中，导入 Less 模块并像在其他组件里一样应用样式：
+
+```jsx
+import styles from "./styles/myStyles.module.less";
+
+export default function MyComponent() {
+  return <h1 className={styles.primary}>Hello, Extension!</h1>;
+}
+```
+
+## Vue 用法示例
+
+在 Vue 中，优先在单文件组件（SFC）样式中使用 `lang="less"` 加 `module`：
+
+```vue
+<template>
+  <h1 :class="$style.primary">Hello, Extension!</h1>
+</template>
+
+<style lang="less" module>
+@import "./styles/myStyles.module.less";
+</style>
+```
+
+## Svelte 用法示例
+
+在 Svelte 中，导入 Less 模块映射并应用类名：
+
+```svelte
+<script>
+  import styles from "./styles/myStyles.module.less";
+</script>
+
+<h1 class={styles.primary}>Hello, Extension!</h1>
+```
+
+## 行为说明
+
+- 在扩展页面上下文里，`.module.less` 会按预期导出类名映射。
+- 在 content script 中，Extension.js 会把样式作为 CSS 资源输出，并以样式表的方式注入页面。
+- 如果项目缺少 Less 工具链，Extension.js 会安装可选依赖并提示重启。
+
+## 下一步
+
+- 进一步了解 [CSS 模块](/docs/languages-and-frameworks/css-modules)。
+- 在扩展中配置 [PostCSS](/docs/integrations/postcss)。
+
+## 视频讲解
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Less and Less modules usage across extension page and content-script styling. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}

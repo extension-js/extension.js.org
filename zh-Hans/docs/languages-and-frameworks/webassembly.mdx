@@ -1,0 +1,152 @@
+---
+title: "在浏览器扩展中使用 WebAssembly"
+description: "无需自定义打包配置即可在浏览器扩展中使用 WebAssembly。Extension.js 在其 Rspack 构建管线中内置了 Wasm 支持。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "typescript",
+    "javascript",
+  ]
+---
+
+无需自定义打包配置，即可在扩展中使用 WebAssembly。
+
+Extension.js 在其 Rspack 管线中带有内置的 WebAssembly（Wasm）默认设置，因此常见的 Wasm 工作流无需额外配置即可工作。
+
+## 什么场景适合用 WebAssembly
+
+- 你在扩展中运行计算密集型任务（解析、媒体、光学字符识别（OCR）、变换）。
+- 你需要让常用代码路径达到接近原生的性能。
+- 你要复用来自 web 项目的现有 Wasm 模块。
+
+## WebAssembly 的能力
+
+| 能力                          | 它能带来什么                                          |
+| ----------------------------- | ----------------------------------------------------- |
+| 内置的 Wasm 管线默认设置      | 无需手动接线打包器，即可运行常见 Wasm 流程            |
+| 异步 Wasm 支持                | 在扩展上下文中加载 `.wasm` 模块                        |
+| 运行时兼容性辅助              | 处理 Wasm 生态中常见的资源模式                        |
+| 一致的命令工作流              | 与 `dev`、`build` 命令搭配使用 Wasm                    |
+
+## 模板示例
+
+### `sidebar-transformers-js`
+
+![sidebar-transformers-js template screenshot](/images/examples/sidebar-transformers-js/screenshot.png)
+
+使用 Transformers.js 的 AI/ML sidebar 扩展，底层通过 WebAssembly 做推理。
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-transformers-js
+```
+
+</CodeGroup>
+
+仓库：[extension-js/examples/sidebar-transformers-js](https://github.com/extension-js/examples/tree/main/examples/sidebar-transformers-js)
+
+## Extension.js 为你启用了什么
+
+Wasm 插件会配置：
+
+- `experiments.asyncWebAssembly = true`
+- 在模块解析的扩展名中加入 `.wasm`
+- 为常用 Wasm 库设置路径别名（例如用于媒体处理的 ffmpeg、用于图像处理的 imagemagick、用于 OCR 的 tesseract），让导入在运行时能正确解析。
+
+这减少了从扩展脚本/页面里导入 Wasm 模块时的样板代码。
+
+## 用法
+
+把 Wasm 模块作为常规开发/构建流程的一部分使用：
+
+<CodeGroup>
+
+```bash npm
+npx extension dev ./my-extension
+```
+
+```bash pnpm
+pnpx extension dev ./my-extension
+```
+
+```bash yarn
+yarn dlx extension dev ./my-extension
+```
+
+```bash bun
+bunx extension dev ./my-extension
+```
+
+```bash bun
+bunx extension dev ./my-extension
+```
+
+</CodeGroup>
+
+你也可以用一个公开可用的 Wasm 示例进行测试：
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash pnpm
+pnpx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash yarn
+yarn dlx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash bun
+bunx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+```bash bun
+bunx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/cookbook.wasm-helloworld-print
+```
+
+</CodeGroup>
+
+{/* VIDEO_PLACEHOLDER_TODO: Show running a Wasm sample extension, loading it in the browser, and verifying Wasm-powered behavior. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 典型使用场景
+
+- 计算密集型的解析/变换。
+- 媒体处理管线。
+- OCR / 图像处理工作流。
+- 在 web/运行时上下文之间共享的、对性能敏感的算法。
+
+## 最佳实践
+
+- 让 Wasm 模块专注于热点路径，把编排逻辑保留在 JavaScript/TypeScript 里。
+- 对扩展上下文（background、content script、页面）验证产物体积和加载时机。
+- 在你所发布的目标浏览器上测试 Wasm 密集型流程（`chrome`、`edge`、`firefox`）。
+
+## 下一步
+
+- 进一步了解 [WebAssembly](https://webassembly.org/)。
+- 了解 Extension.js 如何处理 [ECMAScript 模块](/docs/languages-and-frameworks/ecmascript-modules)。

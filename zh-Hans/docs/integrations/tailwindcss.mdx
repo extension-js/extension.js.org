@@ -1,0 +1,200 @@
+---
+title: "在浏览器扩展中使用 Tailwind CSS"
+description: "用 Tailwind CSS 的工具类样式化浏览器扩展的 popup、options 页、sidebar 和 content script。通过 PostCSS 同时支持 Tailwind v3 和 v4。"
+keywords:
+  [
+    "tailwind css in browser extensions",
+    "tailwind extension",
+    "tailwind css browser extension",
+    "extension.js",
+    "tailwindcss",
+    "postcss",
+    "stylelint",
+    "content script",
+    "popup",
+    "docs",
+    "integrations",
+  ]
+---
+
+用工具类快速搭建扩展 UI，覆盖 popup、options、新标签页、sidebar 以及 content script 等入口。
+
+Extension.js 通过 PostCSS 集成 Tailwind，同时支持 Tailwind v3 和 v4。
+
+## 什么场景适合用 Tailwind CSS
+
+- 你需要在多个扩展界面之间快速迭代 UI。
+- 你更喜欢工具类优先、带有共享 token 的样式写法。
+- 你希望在页面和 content script 入口之间使用一致的样式模式。
+
+## Tailwind 的能力
+
+| 能力                         | 它能带来什么                                                                |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| 多界面样式化                 | 在扩展页面和 content script 之间复用工具类                                  |
+| 基于 PostCSS 的集成          | 让 Tailwind 和项目其余部分共享同一条 CSS 转换管线                           |
+| 版本灵活                     | 支持 Tailwind v3 和 v4 的插件模式                                            |
+| 通过模板上手                 | 从现成的设置开始，再逐步调整                                                |
+
+## 模板示例
+
+### Sidebar + Tailwind + shadcn/ui
+
+当你想要一套完整的 Tailwind 设置并落到真实的扩展界面里时，用这个模板。
+
+![`sidebar-shadcn` screenshot](/images/examples/sidebar-shadcn/screenshot.png)
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=sidebar-shadcn
+```
+
+</CodeGroup>
+
+仓库：[examples/sidebar-shadcn](https://github.com/extension-js/examples/tree/main/examples/sidebar-shadcn)
+
+## 在现有扩展中使用
+
+### 安装
+
+安装所需依赖：
+
+<CodeGroup>
+
+```bash npm
+npm install -D tailwindcss @tailwindcss/postcss postcss
+```
+
+```bash pnpm
+pnpm install -D tailwindcss @tailwindcss/postcss postcss
+```
+
+```bash yarn
+yarn add -D tailwindcss @tailwindcss/postcss postcss
+```
+
+```bash bun
+bun add --dev tailwindcss @tailwindcss/postcss postcss
+```
+
+```bash bun
+bun add --dev tailwindcss @tailwindcss/postcss postcss
+```
+
+</CodeGroup>
+
+### 配置
+
+创建 `postcss.config.js`：
+
+```js
+export default {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+```
+
+对于 Tailwind v3 项目，请使用 `tailwindcss` 作为 PostCSS 插件，并维护一份 `tailwind.config.js` 的 content 列表。
+
+### Tailwind v4 与 v3 的快速设置对比
+
+```js
+// Tailwind v4 postcss.config.js
+export default {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+```
+
+```js
+// Tailwind v3 postcss.config.js
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+```
+
+### Tailwind content 路径（v3 风格）
+
+```js
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./pages/**/*.{html,js,ts,jsx,tsx,mdx}",
+    "./scripts/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{html,js,ts,jsx,tsx,mdx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+};
+```
+
+### 用法
+
+创建一个全局样式表并引入 Tailwind：
+
+#### 创建全局 CSS 文件
+
+```css
+/* styles/globals.css */
+@import "tailwindcss";
+```
+
+在需要使用 Tailwind 类的入口脚本里引入这个文件。
+
+#### 在页面脚本里（popup/options/新标签页）
+
+```tsx
+import "./styles/globals.css";
+
+export default function MyNewTabPage() {
+  return <h1 className="text-4xl font-bold">Hello, Extension.</h1>;
+}
+```
+
+#### 在 content script 里
+
+```ts
+import "./styles/globals.css";
+
+console.log("Tailwind styles loaded for content script");
+```
+
+Extension.js 会把 content script 的 CSS 路由进其 content script 样式管线，并把这些资源输出到 `content_scripts/` 下。
+
+{/* VIDEO_PLACEHOLDER_TODO: Show Tailwind classes rendering in a sidebar page and then in a content script entry. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## 最佳实践
+
+- 把 Tailwind 源文件导入语句放在共享的样式入口里（`styles/globals.css`）。
+- 确保 content 扫描在相关情况下覆盖 `pages/`、`scripts/` 与 `src/`。
+- 在 monorepo 里，确认 Tailwind 的 content 路径是从扩展项目根目录解析的。
+- 尽量使用模板，以避免 PostCSS 与 Tailwind 版本之间出现配置漂移。
+
+## 下一步
+
+- 配置 [PostCSS](/docs/integrations/postcss) 做更多 CSS 转换。
+- 用 [Stylelint](/docs/integrations/stylelint) 确保 CSS 遵循最佳实践。
