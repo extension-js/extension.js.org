@@ -1,0 +1,73 @@
+---
+title: "Fix: Content script fileName is undefined (CRXJS + Vite 8)"
+description: "Fix the CRXJS build error [crx:manifest-post] Content script fileName is undefined on Vite 8 and Rolldown. Workarounds, root cause, and a migration path."
+keywords:
+  [
+    "crxjs content script filename is undefined",
+    "crx:manifest-post",
+    "@crxjs/vite-plugin vite 8",
+    "crxjs rolldown",
+    "vite 8 chrome extension",
+    "crxjs build error",
+    "crxjs migration",
+    "extension.js",
+    "browser extension framework",
+  ]
+---
+
+You ran `vite build` on a CRXJS extension project and got:
+
+```text
+[crx:manifest-post] Content script fileName is undefined: "src/content.ts"
+```
+
+The build fails, the manifest never gets written, and the path in the error is a file that exists in your project. This page explains why it happens, the workarounds that keep CRXJS running, and the structural fix.
+
+## What the error means
+
+`@crxjs/vite-plugin` builds your extension in two passes. During `generateBundle`, the `crx:manifest-post` step walks every `content_scripts` entry in your manifest and asks the bundler for the output filename of the chunk that was emitted for each source file. When the bundler returns no chunk for that source path, the lookup comes back `undefined` and the plugin throws.
+
+So the error is not "your file does not exist." It means the plugin and the bundler disagree about how the emitted chunk for your content script is named or keyed.
+
+## Why Vite 8 triggers it
+
+Vite 8 replaced Rollup with [Rolldown](https://vite.dev/blog/announcing-vite8) as the default bundler. CRXJS was written against Rollup's chunk emission model, and its content script resolution depends on internals that behave differently under Rolldown. The same error existed before in specific setups (it is tracked in [crxjs/chrome-extension-tools#883](https://github.com/crxjs/chrome-extension-tools/issues/883)), but the Vite 8 default made it the common case rather than the edge case.
+
+## Workarounds that keep CRXJS running
+
+Try these in order:
+
+1. **Pin Vite 7.** Vite 7 still uses Rollup, which CRXJS understands:
+
+   ```bash
+   npm install vite@^7 --save-dev --save-exact
+   ```
+
+   This unblocks the build today at the cost of staying behind on Vite.
+
+2. **Update `@crxjs/vite-plugin` to the latest release.** The project has been adding Rolldown compatibility incrementally. Check the [releases page](https://github.com/crxjs/chrome-extension-tools/releases) and the issue above for the current support status before pinning anything.
+
+3. **Check how the manifest references the script.** The lookup is keyed by path. Make the `content_scripts.js` entry match the path style of your project root (relative, no leading slash), and confirm the same file is not also imported dynamically elsewhere with a `?script` suffix.
+
+If none of these work for your setup, the remaining option is to stop depending on the Vite plugin layer entirely.
+
+## The structural fix
+
+The root issue is architectural: CRXJS rebuilds extension semantics (manifest wiring, content script emission, HMR) on top of a general-purpose bundler's plugin API, so every major bundler change can break it. Extension.js is a [browser extension framework](/docs/compare/extension-js-vs-wxt) where the manifest is the source of truth and the bundler is an internal detail you never wire up:
+
+```bash
+npx extension@latest dev
+```
+
+- Your `manifest.json` declares `content/index.ts` directly. No plugin resolves chunk names; the framework compiles whatever the manifest points to.
+- No `vite.config.ts`, no `manifest.config.ts`, no plugin-version matrix to keep aligned.
+- Chrome, Firefox, and Edge outputs from the same source, with reload behavior per surface.
+
+Your React, Vue, or Svelte components and your `chrome.*` calls carry over unchanged. The full walkthrough takes about ten minutes: [Migrate from CRXJS to Extension.js](/docs/migrate/from-crxjs).
+
+## See also
+
+- [Migrate from CRXJS to Extension.js](/docs/migrate/from-crxjs)
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)
+- [Manifest V3 troubleshooting](/docs/concepts/manifest-v3)
+- [Reload and HMR](/docs/features/reload-and-hmr)

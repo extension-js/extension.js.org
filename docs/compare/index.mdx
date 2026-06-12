@@ -1,0 +1,50 @@
+---
+title: "Browser extension framework comparison"
+description: "Compare browser extension frameworks: Extension.js, WXT, CRXJS, and Plasmo. Manifest model, bundler, cross-browser output, and migration guides for each."
+keywords:
+  [
+    "browser extension framework",
+    "chrome extension framework",
+    "cross browser extension framework",
+    "browser extension framework comparison",
+    "extension.js vs wxt",
+    "plasmo alternative",
+    "crxjs alternative",
+    "web extension framework",
+    "extension.js",
+  ]
+---
+
+A browser extension framework handles the work that browsers do not: compiling TypeScript and modern JavaScript for every extension surface, wiring the manifest to real output files, reloading service workers and content scripts during development, and emitting per-browser builds. This page compares the active options so you can choose with full information.
+
+## The frameworks
+
+| Dimension        | Extension.js                          | WXT                          | CRXJS                          | Plasmo                        |
+| ---------------- | ------------------------------------- | ---------------------------- | ------------------------------ | ----------------------------- |
+| Model            | `manifest.json` as source of truth    | File conventions + config    | Vite plugin reading a manifest | File conventions              |
+| Bundler          | Rspack (internal, zero config)        | Vite                         | Vite (plugin layer)            | Parcel                        |
+| Cross-browser    | Chrome, Edge, Firefox from one source | Chrome, Firefox, MV2 support | Chromium focus                 | Chrome, Firefox targets       |
+| Setup            | None required                         | `wxt.config.ts`              | `vite.config.ts` + plugin      | `package.json` manifest field |
+| Bundler coupling | Internal detail                       | Tracks Vite majors           | Breaks with bundler changes    | Tied to Parcel                |
+
+Two structural differences matter more than any feature row:
+
+- **Where the manifest lives.** Extension.js reads your `manifest.json` and compiles whatever it declares. WXT and Plasmo generate the manifest from file conventions and config. CRXJS reads a manifest but resolves it through Vite's plugin API, which is why bundler upgrades can break it (see [the Vite 8 fileName error](/docs/migrate/crxjs-content-script-filename-undefined)).
+- **Who owns the bundler.** A framework that wraps a general-purpose bundler inherits that bundler's breaking changes. Extension.js treats the bundler as an internal detail: you never configure it, and upgrades are the framework's problem, not yours.
+
+## Detailed comparisons and migrations
+
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt): the closest comparison, dimension by dimension.
+- [Migrate from CRXJS](/docs/migrate/from-crxjs): step-by-step, about ten minutes for a typical project.
+- [Fix: Content script fileName is undefined](/docs/migrate/crxjs-content-script-filename-undefined): the CRXJS + Vite 8 build error, with workarounds.
+- [Migrate from Plasmo](/docs/migrate/from-plasmo): convention-to-manifest mapping, env vars, and CSUI.
+
+## Try it without committing
+
+Run any extension template, or any extension repository on GitHub, with one command:
+
+```bash
+npx extension@latest dev
+```
+
+Your components, `chrome.*` calls, and styling carry over from any of these frameworks; the [migration guides](/docs/migrate/from-crxjs) cover the wiring that changes.

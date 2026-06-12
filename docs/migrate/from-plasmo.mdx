@@ -1,0 +1,137 @@
+---
+title: "Migrate from Plasmo to Extension.js"
+description: "Step-by-step migration from a Plasmo browser extension to Extension.js. Map file conventions to manifest.json, convert env vars, and keep your React code."
+keywords:
+  [
+    "plasmo migration",
+    "plasmo to extension.js",
+    "plasmo alternative",
+    "migrate from plasmo",
+    "plasmo framework",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+[Plasmo](https://www.plasmo.com) is a Parcel-based browser extension framework with file-convention routing. Its release cadence has slowed and its toolchain has aged against current bundlers, which is why many teams are re-evaluating. This guide migrates a typical Plasmo project to Extension.js without rewriting your UI code.
+
+## What changes, what stays
+
+**Stays the same:** your React components, your Tailwind config, your tests, your `chrome.*` API calls, and `@plasmohq/storage` if you use it (it wraps `chrome.storage`, which works the same here).
+
+**Changes:**
+
+- File-convention entrypoints (`popup.tsx`, `contents/*.ts`) become explicit entries in a real `manifest.json`.
+- The `manifest` field in `package.json` moves into `manifest.json`.
+- `plasmo dev` / `plasmo build` / `plasmo package` become `extension dev` / `extension build --zip`.
+- `PLASMO_PUBLIC_*` env vars become `EXTENSION_PUBLIC_*`.
+
+## Step 1: install Extension.js
+
+```bash
+npm install extension@latest --save-dev
+npm uninstall plasmo
+```
+
+## Step 2: write the manifest
+
+Plasmo generates the manifest from `package.json` plus file conventions. Extension.js treats `manifest.json` as the source of truth. Translate each convention:
+
+| Plasmo convention                   | `manifest.json` entry                                     |
+| ----------------------------------- | --------------------------------------------------------- |
+| `popup.tsx` or `src/popup.tsx`      | `"action": {"default_popup": "popup/index.html"}`         |
+| `options.tsx`                       | `"options_ui": {"page": "options/index.html"}`            |
+| `newtab.tsx`                        | `"chrome_url_overrides": {"newtab": "newtab/index.html"}` |
+| `background.ts`                     | `"background": {"service_worker": "background.ts"}`       |
+| `contents/inline.ts` with CS config | `"content_scripts": [{...}]` entry                        |
+| `manifest` field in `package.json`  | merge into `manifest.json` directly                       |
+
+HTML entrypoints are plain HTML files that load your React component. A popup looks like:
+
+```html popup/index.html
+<!doctype html>
+<html>
+  <body>
+    <div id="root"></div>
+    <script src="./index.tsx" type="module"></script>
+  </body>
+</html>
+```
+
+File extensions stay `.ts`/`.tsx` in the manifest and in script tags. Extension.js compiles them at build time.
+
+## Step 3: convert content scripts
+
+Plasmo reads the exported `PlasmoCSConfig` for matches:
+
+```ts contents/inline.tsx
+import type { PlasmoCSConfig } from "plasmo";
+
+export const config: PlasmoCSConfig = {
+  matches: ["https://example.com/*"],
+};
+```
+
+In Extension.js, the matches live in the manifest and the file is a plain module:
+
+```json manifest.json
+{
+  "content_scripts": [
+    {
+      "matches": ["https://example.com/*"],
+      "js": ["content/inline.tsx"]
+    }
+  ]
+}
+```
+
+If you used Plasmo CSUI (content script UI with `getRootContainer` and anchors), mount your component with regular DOM code instead: create a container element, append it where you anchored, and render into it. See [Content scripts](/docs/implementation-guide/content-scripts) for the full pattern, including shadow DOM isolation for styles.
+
+## Step 4: env vars and messaging
+
+- Rename `PLASMO_PUBLIC_*` to `EXTENSION_PUBLIC_*` in your `.env` files and code. See [Environment variables](/docs/features/environment-variables).
+- `@plasmohq/storage` keeps working as-is.
+- `@plasmohq/messaging` depends on Plasmo's `background/messages/*` build convention. Replace handlers with standard `chrome.runtime.onMessage` listeners in your background script. See [Messaging](/docs/implementation-guide/messaging).
+
+## Step 5: update package.json scripts
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "start": "extension start"
+  }
+}
+```
+
+Where Plasmo used `--target=firefox-mv2`, Extension.js targets browsers directly:
+
+```bash
+extension build --browser=chrome,firefox --zip
+```
+
+You get `dist/chrome` and `dist/firefox` with browser-correct manifests and `.zip` archives ready for the Chrome Web Store and addons.mozilla.org.
+
+## Step 6: verify
+
+```bash
+extension dev --browser=chrome
+```
+
+Check popup, options, content scripts, and background behavior, then run the same against Firefox with `--browser=firefox`. Use `--polyfill` if your code calls `chrome.*` and you want identical source running on Firefox.
+
+## Common gotchas
+
+- **Icons in `assets/`:** Plasmo auto-generates icon sizes from `assets/icon.png`. Extension.js uses whatever `"icons"` declares in the manifest; export the sizes you need. See [Icons](/docs/implementation-guide/icons).
+- **`~` import alias:** Plasmo aliases `~` to the project root. Map it in `tsconfig.json` paths, or switch to relative imports. See [Path resolution](/docs/features/path-resolution).
+- **Storage hooks:** `useStorage` from `@plasmohq/storage/hook` works unchanged; it only depends on React and `chrome.storage`.
+
+## See also
+
+- [Migrate from CRXJS](/docs/migrate/from-crxjs)
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)
+- [Cross-browser compatibility](/docs/features/cross-browser-compatibility)
+- [Reload and HMR](/docs/features/reload-and-hmr)
