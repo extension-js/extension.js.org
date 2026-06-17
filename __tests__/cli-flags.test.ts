@@ -106,7 +106,6 @@ describe("CLI command flags match source", () => {
         );
       });
 
-      // Only run flag checks if both files exist
       if (existsSync(docPath) && existsSync(sourcePath)) {
         const docContent = readFileSync(docPath, "utf-8");
         const docFlags = extractDocFlags(docContent);
