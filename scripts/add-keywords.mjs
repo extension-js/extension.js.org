@@ -171,14 +171,14 @@ function extractKeywords(fm, body, slug) {
   }
 
   // Tokens from title (weighted high)
-  for (const tok of title.split(/[\s.,?!:()\/]+/)) {
+  for (const tok of title.split(/[\s.,?!:()/]+/)) {
     const w = tok.replace(/[^\w-]/g, "");
     if (w.length > 2 && !STOPWORDS.has(w) && !/^\d+$/.test(w)) pool.add(w);
   }
 
   // Tokens from first two headings
   for (const h of headings.slice(0, 2)) {
-    for (const tok of h.split(/[\s.,?!:()\/]+/)) {
+    for (const tok of h.split(/[\s.,?!:()/]+/)) {
       const w = tok.replace(/[^\w-]/g, "");
       if (w.length > 2 && !STOPWORDS.has(w) && !/^\d+$/.test(w)) pool.add(w);
     }
@@ -195,7 +195,7 @@ function processFile(path) {
   const src = readFileSync(path, "utf8");
   const { frontmatter, body, fmRaw } = parseFrontmatter(src);
   if (!frontmatter) return false;
-  if (frontmatter.keywords) return false; // already has keywords
+  if (frontmatter.keywords) return false;
 
   const slug = path
     .replace(`${ROOT}/`, "")
