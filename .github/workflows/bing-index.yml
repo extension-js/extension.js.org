@@ -1,0 +1,69 @@
+name: Bing instant indexing
+
+# Pushes changed docs pages to Bing's URL Submission API on every content change.
+# Bing's index feeds ChatGPT Search and Copilot, our largest agent traffic source.
+# Mintlify hosting cannot serve a root IndexNow key file, so we use Bing's
+# apikey-authenticated SubmitUrlBatch endpoint instead (no hosted key file needed).
+# Requires repo secret BING_API_KEY (Bing Webmaster Tools > Settings > API Access).
+
+on:
+  push:
+    branches: [main]
+    paths: ["**/*.mdx"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bing-index-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Submit changed pages to Bing
+        env:
+          BING_API_KEY: ${{ secrets.BING_API_KEY }}
+        run: |
+          if [ -z "$BING_API_KEY" ]; then
+            echo "BING_API_KEY secret is not set; skipping." && exit 0
+          fi
+
+          BASE="https://extension.js.org"
+
+          # Added/modified .mdx in this push (fallback to last commit for manual runs).
+          FILES=$(git diff --name-only --diff-filter=AM \
+                    "${{ github.event.before }}" "${{ github.sha }}" -- '**/*.mdx' 2>/dev/null \
+                  || git diff --name-only --diff-filter=AM HEAD~1 HEAD -- '**/*.mdx')
+
+          if [ -z "$FILES" ]; then
+            echo "No .mdx changes to submit." && exit 0
+          fi
+
+          # Map file path -> public URL: drop .mdx, collapse /index, root index -> /.
+          URLS=$(for f in $FILES; do
+                   p="${f%.mdx}"
+                   p="${p%/index}"
+                   [ "$p" = "index" ] && p=""
+                   printf '"%s/%s",' "$BASE" "$p"
+                 done | sed 's/,$//')
+
+          echo "Submitting URLs: [$URLS]"
+
+          HTTP=$(curl -sS -o /tmp/bing.out -w "%{http_code}" -X POST \
+            "https://ssl.bing.com/webmaster/api.svc/json/SubmitUrlbatch?apikey=$BING_API_KEY" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d "{\"siteUrl\":\"$BASE\",\"urlList\":[$URLS]}")
+
+          echo "Bing response ($HTTP):"; cat /tmp/bing.out; echo
+          # 200 = accepted. Quota errors should warn, not fail the pipeline.
+          if [ "$HTTP" != "200" ]; then
+            echo "::warning::Bing submission returned HTTP $HTTP (likely quota). See response above."
+          fi
