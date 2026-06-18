@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- CommonJS (.cjs) config consumed by cspell; require is the correct module form here
 const { banWords } = require("cspell-ban-words");
 
 module.exports = {
