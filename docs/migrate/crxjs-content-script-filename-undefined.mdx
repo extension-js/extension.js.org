@@ -1,6 +1,6 @@
 ---
-title: "Fix: Content script fileName is undefined (CRXJS + Vite 8)"
-description: "Fix the CRXJS build error [crx:manifest-post] Content script fileName is undefined on Vite 8 and Rolldown. Workarounds, root cause, and a migration path."
+title: 'Fix: CRXJS "Content script fileName is undefined"'
+description: "What the CRXJS [crx:manifest-post] Content script fileName is undefined build error means, and how to fix it on current @crxjs/vite-plugin and Vite 8."
 keywords:
   [
     "crxjs content script filename is undefined",
@@ -9,9 +9,6 @@ keywords:
     "crxjs rolldown",
     "vite 8 chrome extension",
     "crxjs build error",
-    "crxjs migration",
-    "extension.js",
-    "browser extension framework",
   ]
 ---
 
@@ -21,53 +18,28 @@ You ran `vite build` on a CRXJS extension project and got:
 [crx:manifest-post] Content script fileName is undefined: "src/content.ts"
 ```
 
-The build fails, the manifest never gets written, and the path in the error is a file that exists in your project. This page explains why it happens, the workarounds that keep CRXJS running, and the structural fix.
+The build fails before the manifest is written, and the path in the error points to a file that exists in your project. Here is what it means and how to fix it.
 
 ## What the error means
 
-`@crxjs/vite-plugin` builds your extension in two passes. During `generateBundle`, the `crx:manifest-post` step walks every `content_scripts` entry in your manifest and asks the bundler for the output filename of the chunk that was emitted for each source file. When the bundler returns no chunk for that source path, the lookup comes back `undefined` and the plugin throws.
+`@crxjs/vite-plugin` resolves each content script to its emitted output file during the `crx:manifest-post` step (in `generateBundle`). If the plugin cannot match your content-script source to an output chunk — because of how that chunk is named or keyed — the filename comes back `undefined` and the plugin throws. It is not "your file does not exist"; it is the plugin and the bundler disagreeing about the emitted chunk for your content script.
 
-So the error is not "your file does not exist." It means the plugin and the bundler disagree about how the emitted chunk for your content script is named or keyed.
+## Is this a Vite 8 / Rolldown problem?
 
-## Why Vite 8 triggers it
+Mostly historical. Vite 8 switched its default bundler from Rollup to [Rolldown](https://vite.dev/blog/announcing-vite8), and CRXJS needed compatibility work for that transition (see [#1042](https://github.com/crxjs/chrome-extension-tools/pull/1042) and [#1067](https://github.com/crxjs/chrome-extension-tools/issues/1067)). That work landed: `@crxjs/vite-plugin` now supports Vite 8 ([#1132](https://github.com/crxjs/chrome-extension-tools/issues/1132)).
 
-Vite 8 replaced Rollup with [Rolldown](https://vite.dev/blog/announcing-vite8) as the default bundler. CRXJS was written against Rollup's chunk emission model, and its content script resolution depends on internals that behave differently under Rolldown. The same error existed before in specific setups (it is tracked in [crxjs/chrome-extension-tools#883](https://github.com/crxjs/chrome-extension-tools/issues/883)), but the Vite 8 default made it the common case rather than the edge case.
+On current versions (`@crxjs/vite-plugin@2.7.0` with Vite 8) this error does not reproduce in common setups — including a content script that is also imported with `?script`. The original report ([#883](https://github.com/crxjs/chrome-extension-tools/issues/883)) was on Vite 5 with SolidStart/vinxi, not Rolldown.
 
-## Workarounds that keep CRXJS running
+## How to fix it
 
-Try these in order:
-
-1. **Pin Vite 7.** Vite 7 still uses Rollup, which CRXJS understands:
+1. **Update `@crxjs/vite-plugin` to the latest release** (2.7.0 or newer), which supports Vite 8 / Rolldown:
 
    ```bash
-   npm install vite@^7 --save-dev --save-exact
+   npm install @crxjs/vite-plugin@latest --save-dev
    ```
 
-   This unblocks the build today at the cost of staying behind on Vite.
+2. **Check how the manifest references the script.** Use a root-relative path that matches your project, and confirm the same file is not also imported elsewhere with a `?script` suffix (double-registration is the most common remaining edge case).
 
-2. **Update `@crxjs/vite-plugin` to the latest release.** The project has been adding Rolldown compatibility incrementally. Check the [releases page](https://github.com/crxjs/chrome-extension-tools/releases) and the issue above for the current support status before pinning anything.
+3. **If you cannot upgrade yet,** pinning `vite@^7` (still Rollup-based) is a temporary unblock until you can move to a current `@crxjs/vite-plugin`.
 
-3. **Check how the manifest references the script.** The lookup is keyed by path. Make the `content_scripts.js` entry match the path style of your project root (relative, no leading slash), and confirm the same file is not also imported dynamically elsewhere with a `?script` suffix.
-
-If none of these work for your setup, the remaining option is to stop depending on the Vite plugin layer entirely.
-
-## The structural fix
-
-The root issue is architectural. CRXJS rebuilds extension semantics (manifest wiring, content script emission, HMR) on top of a general-purpose bundler's plugin API, so every major bundler change can break it. Extension.js is a [browser extension framework](/docs/compare/extension-js-vs-wxt) where the manifest is the source of truth and the bundler is an internal detail you never wire up:
-
-```bash
-npx extension@latest dev
-```
-
-- Your `manifest.json` declares `content/index.ts` directly. No plugin resolves chunk names; the framework compiles whatever the manifest points to.
-- No `vite.config.ts`, no `manifest.config.ts`, no plugin-version matrix to keep aligned.
-- Chrome, Firefox, and Edge outputs from the same source, with reload behavior per surface.
-
-Your React, Vue, or Svelte components and your `chrome.*` calls carry over unchanged. The full walkthrough takes about ten minutes: [Migrate from CRXJS to Extension.js](/docs/migrate/from-crxjs).
-
-## See also
-
-- [Migrate from CRXJS to Extension.js](/docs/migrate/from-crxjs)
-- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)
-- [Manifest V3 troubleshooting](/docs/concepts/manifest-v3)
-- [Reload and HMR](/docs/features/reload-and-hmr)
+If you still hit this on current versions, the maintainers are responsive — open an issue with a minimal reproduction at [crxjs/chrome-extension-tools](https://github.com/crxjs/chrome-extension-tools/issues).
