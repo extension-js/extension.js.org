@@ -122,9 +122,12 @@ Treat `ready.json` as the readiness contract:
 
 ### `--no-browser` and readiness synchronization
 
-`--no-browser` disables browser launch but keeps the full dev loop. The dev server still watches your files, and on each rebuild it broadcasts a reload over the control bridge to the extension's service worker, which reloads itself — so content scripts, the service worker, and pages pick up your changes without a launched browser driving them. A content-script-only change reloads just the matching tabs (granular reload); a service-worker or manifest change restarts the extension.
+`--no-browser` disables browser launch but keeps the full dev loop. The dev server still watches your files, and on each rebuild it broadcasts a reload over the control bridge to the extension's service worker so your changes apply without a launched browser driving them:
 
-This makes `--no-browser` behave like a normal `dev` session for headless, continuous integration (CI), and remote/dev-container workflows: load the built `dist/<browser>` into any browser you control, and it keeps reloading on save. (Use `--no-reload` if you want a static dev bundle that never reloads — see below.)
+- A **content-script** change is re-injected into the already-open matching tabs in place (the service worker runs `chrome.scripting.executeScript` with the fresh build), so the page updates on save without a manual refresh.
+- A **service-worker / manifest** change restarts the extension.
+
+So `--no-browser` behaves like a normal `dev` session for headless, continuous integration (CI), and remote/dev-container workflows: load the built `dist/<browser>` into any browser you control and it keeps updating on save. (Use `--no-reload` for a static dev bundle that never reloads — see below.)
 
 `--no-browser` does not block external runners until the compile finishes.
 
