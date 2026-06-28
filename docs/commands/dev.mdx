@@ -79,26 +79,27 @@ These cover the 80% case. Skip to the [full reference](#arguments-and-flags) for
 
 ## Arguments and flags
 
-| Flag                           | Alias              | What it does                                                                                                | Default                     |
-| ------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------- | --------------------------- |
-| `[path or url]`                | -                  | Extension path or remote URL.                                                                               | `process.cwd()`             |
-| `--browser <browser>`          | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values). | `chromium`                  |
-| `--profile <path\|boolean>`    | -                  | Browser profile path or boolean profile mode.                                                               | fresh profile               |
-| `--chromium-binary <path>`     | -                  | [Custom Chromium-family binary path](/docs/browsers/running-other-browsers).                                | system default              |
-| `--gecko-binary <path>`        | `--firefox-binary` | [Custom Gecko-family binary path](/docs/browsers/running-other-browsers).                                   | system default              |
-| `--polyfill [boolean]`         | -                  | Enable `browser.*` API compatibility polyfill for Chromium targets.                                         | `false`                     |
-| `--starting-url <url>`         | -                  | Starting URL in launched browser.                                                                           | unset                       |
-| `--port <port>`                | -                  | Dev server port. Use `0` for OS-assigned port.                                                              | `8080`                      |
-| `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/dev containers.                                    | `127.0.0.1`                 |
-| `--no-open`                    | -                  | Do not automatically launch browser.                                                                        | browser launches by default |
-| `--no-browser`                 | -                  | Do not launch browser.                                                                                      | browser launch enabled      |
-| `--no-reload`                  | -                  | Skip the content-script reload runtime and on-rebuild reload dispatch. Reload tabs manually to see changes. | reload runtime enabled      |
-| `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit.                                                 | disabled                    |
-| `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                                                                  | `60000`                     |
-| `--wait-format <pretty\|json>` | -                  | Output format for wait results (`json` is machine-readable).                                                | `pretty`                    |
-| `--extensions <list>`          | -                  | Comma-separated companion extensions or store URLs.                                                         | unset                       |
-| `--install [boolean]`          | -                  | Install project dependencies when missing.                                                                  | command behavior default    |
-| `--author`                     | `--author-mode`    | Enable maintainer diagnostics.                                                                              | disabled                    |
+| Flag                           | Alias              | What it does                                                                                                                     | Default                                         |
+| ------------------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `[path or url]`                | -                  | Extension path or remote URL.                                                                                                    | `process.cwd()`                                 |
+| `--browser <browser>`          | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values).                      | `chromium`                                      |
+| `--profile <path\|boolean>`    | -                  | Browser profile path or boolean profile mode.                                                                                    | fresh profile                                   |
+| `--chromium-binary <path>`     | -                  | [Custom Chromium-family binary path](/docs/browsers/running-other-browsers).                                                     | system default                                  |
+| `--gecko-binary <path>`        | `--firefox-binary` | [Custom Gecko-family binary path](/docs/browsers/running-other-browsers).                                                        | system default                                  |
+| `--polyfill [boolean]`         | -                  | Enable `browser.*` API compatibility polyfill for Chromium targets.                                                              | `false`                                         |
+| `--starting-url <url>`         | -                  | Starting URL in launched browser.                                                                                                | unset                                           |
+| `--port <port>`                | -                  | Dev server port. Use `0` for OS-assigned port.                                                                                   | `8080`                                          |
+| `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/dev containers.                                                         | `127.0.0.1`                                     |
+| `--public-host <host>`         | -                  | Connectable host the browser dials for HMR and the reload bridge, when it differs from the bind `--host` (remote/dev container). | bind host (`127.0.0.1` when bound to `0.0.0.0`) |
+| `--no-open`                    | -                  | Do not automatically launch browser.                                                                                             | browser launches by default                     |
+| `--no-browser`                 | -                  | Do not launch browser.                                                                                                           | browser launch enabled                          |
+| `--no-reload`                  | -                  | Skip the content-script reload runtime and on-rebuild reload dispatch. Reload tabs manually to see changes.                      | reload runtime enabled                          |
+| `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit.                                                                      | disabled                                        |
+| `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                                                                                       | `60000`                                         |
+| `--wait-format <pretty\|json>` | -                  | Output format for wait results (`json` is machine-readable).                                                                     | `pretty`                                        |
+| `--extensions <list>`          | -                  | Comma-separated companion extensions or store URLs.                                                                              | unset                                           |
+| `--install [boolean]`          | -                  | Install project dependencies when missing.                                                                                       | command behavior default                        |
+| `--author`                     | `--author-mode`    | Enable maintainer diagnostics.                                                                                                   | disabled                                        |
 
 ## Automation metadata (recommended for scripts/agents)
 
@@ -116,10 +117,16 @@ Treat `ready.json` as the readiness contract:
 - `status: "error"` for startup/compile failures
 - `runId` uniquely identifies a runtime session
 - `startedAt` marks the runtime session start timestamp
+- `port` is the dev server port; `host` is the connectable host clients dial (see [bind host vs. connectable host](#bind-host-vs-connectable-host))
+- `controlPort` / `instanceId` locate the control bridge used by `extension logs` and the act verbs
 
 ### `--no-browser` and readiness synchronization
 
-`--no-browser` only disables browser launch. It does not block external runners until the compile finishes.
+`--no-browser` disables browser launch but keeps the full dev loop. The dev server still watches your files, and on each rebuild it broadcasts a reload over the control bridge to the extension's service worker, which reloads itself — so content scripts, the service worker, and pages pick up your changes without a launched browser driving them. A content-script-only change reloads just the matching tabs (granular reload); a service-worker or manifest change restarts the extension.
+
+This makes `--no-browser` behave like a normal `dev` session for headless, continuous integration (CI), and remote/dev-container workflows: load the built `dist/<browser>` into any browser you control, and it keeps reloading on save. (Use `--no-reload` if you want a static dev bundle that never reloads — see below.)
+
+`--no-browser` does not block external runners until the compile finishes.
 
 For Playwright/CI/AI workflows:
 
@@ -395,6 +402,36 @@ extension dev ./my-extension --host 0.0.0.0 --port 0
 ```
 
 </CodeGroup>
+
+#### Bind host vs. connectable host
+
+`--host` is the address the dev server **binds** to. The browser (the HMR client and the reload bridge) needs an address it can actually **connect** to, which is not always the same value:
+
+- `--host 0.0.0.0` binds every interface, but `0.0.0.0` is not a connectable address. Extension.js automatically advertises `127.0.0.1` to the browser instead — the right target for the common port-forwarded Docker/dev-container/Codespaces setup, where the browser runs on the host and the port is forwarded to the container.
+- For a true **remote** setup — the browser runs on a different machine than the dev server — pass `--public-host` with the address the browser can reach (an LAN IP or hostname). It is propagated to the HMR client URL, `ready.json`, and the reload bridge baked into the extension.
+
+<CodeGroup>
+
+```bash npm
+# Browser on another machine reaches the dev server at devbox.local
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+```bash pnpm
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+```bash yarn
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+```bash bun
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+</CodeGroup>
+
+When `--host` is a concrete address already (for example `--host 192.168.1.50`), that value is connectable as-is and is used directly — `--public-host` is only needed when the bind host and the browser-facing host differ.
 
 ### Running in Brave as a custom binary
 
