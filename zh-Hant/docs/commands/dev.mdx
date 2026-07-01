@@ -22,7 +22,6 @@ keywords:
 
 - 開發功能並即時驗證變更。
 - 在一個或多個瀏覽器目標中除錯擴充功能行為。
-- 透過 `--source` 進行原始碼檢視的工作流程。
 
 需要正式版產物請用 `build`,需要正式版建置 + 啟動請用 `start`,只執行既有建置輸出請用 `preview`。
 
@@ -35,7 +34,6 @@ keywords:
 | 監看模式迭代         | 編寫時保持「編輯 → 重建 → 驗證」緊密迴圈              |
 | 瀏覽器目標控制       | 透過明確的指令進行跨瀏覽器驗證                        |
 | 設定檔感知執行       | 依工作流程需求可靠地選擇全新或持久設定檔              |
-| 原始碼檢視模式       | 透過 source 旗標取得結構化輸出與診斷                  |
 
 ## 用法
 
@@ -82,7 +80,7 @@ extension dev [path-or-url] [options]
 | 旗標                           | 別名               | 用途                                                                                                  | 預設值                       |
 | ------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------- | ---------------------------- |
 | `[path or url]`                | -                  | 擴充功能路徑或遠端 URL。                                                                              | `process.cwd()`              |
-| `--browser <browser>`          | `-b`               | 瀏覽器/引擎目標(`chromium`、`chrome`、`edge`、`firefox`、引擎別名,或逗號分隔的值)。                | `chromium`                   |
+| `--browser <browser>`          | `-b`               | 瀏覽器/引擎目標(`chromium`、`chrome`、`edge`、`firefox`、具名分支如 `brave`/`waterfox`、引擎別名,或逗號分隔的值)。 | `chromium`                   |
 | `--profile <path\|boolean>`    | -                  | 瀏覽器設定檔路徑,或布林模式。                                                                        | 全新設定檔                   |
 | `--chromium-binary <path>`     | -                  | [自訂 Chromium 系列執行檔路徑](/docs/browsers/running-other-browsers)。                               | 系統預設                     |
 | `--gecko-binary <path>`        | `--firefox-binary` | [自訂 Gecko 系列執行檔路徑](/docs/browsers/running-other-browsers)。                                  | 系統預設                     |
@@ -136,33 +134,6 @@ extension dev [path-or-url] [options]
 `--no-reload` 會略過 content script 的重新注入包裝,以及重建時的 reload dispatch。開發版的 `dist` 會更接近正式版打包,並且當檔案變更時不會擾動已開啟的分頁。請自行重新載入擴充功能或頁面以套用變更。
 
 `--no-reload` 只在 `extension dev` 支援。把它傳給 `start`、`preview` 或 `build` 會以錯誤結束。它在內部會設定 `EXTENSION_NO_RELOAD=true`,讓 develop 程序能從 CLI argv 之外讀取它。
-
-## 原始碼檢視工作流程
-
-原始碼選項僅與 `dev` 搭配使用。原始碼檢視會在瀏覽器中開啟目標 URL,並在你的 content script 執行**之後**印出完整的即時 HTML。可用來驗證擴充功能實際做了哪些改動。
-
-- `--source [url]` 檢視一個頁面(預設為 `--starting-url`,否則為 `https://example.com`)
-- `--watch-source` / `--no-watch-source` 在每次重建時重新印出 HTML
-
-`start` 與 `preview` 不支援原始碼檢視旗標。
-
-### Source 旗標
-
-| 旗標                                            | 用途                                       | 預設行為                           |
-| ----------------------------------------------- | ------------------------------------------ | ---------------------------------- |
-| `--source [url]`                                | 啟用原始碼檢視流程。                       | 停用                               |
-| `--watch-source [boolean]`                      | 在監看更新時重新印出原始碼輸出。           | 啟用 `--source` 時為 `true`         |
-| `--source-format <pretty\|json\|ndjson>`        | 原始碼檢視的輸出格式。                     | 回退到 log 格式或 `json`           |
-| `--source-summary [boolean]`                    | 發出精簡的摘要輸出。                       | 停用                               |
-| `--source-meta [boolean]`                       | 包含頁面中介資料。                         | 開啟 source 時啟用                 |
-| `--source-probe <selectors>`                    | 以逗號分隔的 CSS 選擇器探測。              | 未設                               |
-| `--source-tree <off\|root-only>`                | 包含精簡的擴充功能樹狀詳情。               | 未設                               |
-| `--source-console [boolean]`                    | 包含 console 摘要。                        | 停用                               |
-| `--source-dom [boolean]`                        | 包含 DOM 快照/差異。                       | 開啟 watch-source 時啟用            |
-| `--source-max-bytes <bytes>`                    | 限制輸出 payload 大小。                    | 未設                               |
-| `--source-redact <off\|safe\|strict>`           | 原始碼輸出的遮蔽策略。                     | 依格式決定                         |
-| `--source-include-shadow <off\|open-only\|all>` | 控制 Shadow DOM 的包含方式。               | 開啟 source 時為 `open-only`        |
-| `--source-diff [boolean]`                       | 在監看更新時包含 diff 中介資料。           | 開啟 watch-source 時啟用            |
 
 ## 記錄旗標
 
@@ -254,34 +225,6 @@ extension dev https://github.com/nicedoc/browserless/tree/main/packages/screenca
 
 ```bash bun
 extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
-```
-
-</CodeGroup>
-
-### 使用 source 模式檢視頁面 HTML
-
-{/* VIDEO_PLACEHOLDER_TODO: Show `--source` flow for page inspection and output updates while watching source changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
-
-<CodeGroup>
-
-```bash npm
-extension dev ./my-extension --source https://example.com
-```
-
-```bash pnpm
-extension dev ./my-extension --source https://example.com
-```
-
-```bash yarn
-extension dev ./my-extension --source https://example.com
-```
-
-```bash bun
-extension dev ./my-extension --source https://example.com
-```
-
-```bash bun
-extension dev ./my-extension --source https://example.com
 ```
 
 </CodeGroup>
@@ -428,7 +371,6 @@ extension dev ./my-extension --chromium-binary /path/to/brave
 
 - **瀏覽器相容性:** 在不同瀏覽器中測試,確認每個目標都能正常運作。
 - **使用 polyfill:** 如果 Firefox 或 Gecko 系列瀏覽器也是目標,使用 `--polyfill`。此旗標會在 Chromium 系列瀏覽器中啟用 `browser.*` API 相容性。
-- **原始碼檢視工作流程:** 當你需要原始碼檢視時,使用 `dev`,而非 `start`/`preview`。
 - **自動化可靠性:** 把 `dev` 視為監看模式的搭配(`--no-browser` + `dev --wait`)。把 `start` 視為正式版的搭配(`--no-browser` + `start --wait`)。對腳本與 CI 自動化,使用 `--wait-format=json`。
 
 ## 後續步驟
