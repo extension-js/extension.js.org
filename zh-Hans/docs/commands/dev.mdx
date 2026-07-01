@@ -22,7 +22,6 @@ keywords:
 
 - 构建特性并实时验证改动。
 - 在一个或多个浏览器目标里调试扩展行为。
-- 用 `--source` 跑源代码检视工作流。
 
 生产产物用 `build`；生产构建 + 启动用 `start`；只运行已有构建产物用 `preview`。
 
@@ -35,7 +34,6 @@ keywords:
 | watch 模式迭代        | 编码时紧凑的「编辑 → 重新构建 → 验证」循环              |
 | 浏览器目标控制        | 按命令进行显式的跨浏览器验证                            |
 | 感知 profile 的运行   | 按工作流需要可靠地使用全新或持久的 profile              |
-| 源代码检视模式        | 通过 source flag 得到结构化输出与诊断信息               |
 
 ## 用法
 
@@ -82,7 +80,7 @@ extension dev [path-or-url] [options]
 | flag                           | 别名               | 作用                                                                                                       | 默认值                       |
 | ------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------- | ---------------------------- |
 | `[path or url]`                | -                  | 扩展路径或远程 URL。                                                                                       | `process.cwd()`              |
-| `--browser <browser>`          | `-b`               | 浏览器 / 引擎目标（`chromium`、`chrome`、`edge`、`firefox`、引擎别名或逗号分隔的多个值）。                 | `chromium`                   |
+| `--browser <browser>`          | `-b`               | 浏览器 / 引擎目标（`chromium`、`chrome`、`edge`、`firefox`、像 `brave`/`waterfox` 这样的命名分支、引擎别名或逗号分隔的多个值）。 | `chromium`                   |
 | `--profile <path\|boolean>`    | -                  | 浏览器 profile 路径或布尔的 profile 模式。                                                                 | 全新 profile                 |
 | `--chromium-binary <path>`     | -                  | [自定义的 Chromium 家族二进制路径](/docs/browsers/running-other-browsers)。                                | 系统默认                     |
 | `--gecko-binary <path>`        | `--firefox-binary` | [自定义的 Gecko 家族二进制路径](/docs/browsers/running-other-browsers)。                                   | 系统默认                     |
@@ -136,33 +134,6 @@ extension dev [path-or-url] [options]
 `--no-reload` 会跳过 content script 重注入包装器与重建时的重载派发。dev 下的 `dist` 会更接近生产 bundle，文件变更时已打开的标签页也不会被打扰。你需要自己重载扩展或页面来看到改动。
 
 `--no-reload` 仅在 `extension dev` 上受支持。把它传给 `start`、`preview` 或 `build` 会以错误退出。内部上它会设置 `EXTENSION_NO_RELOAD=true`，方便 develop 进程在 CLI argv 之外读取。
-
-## 源代码检视工作流
-
-源代码选项只能与 `dev` 配合使用。源代码检视会在浏览器中打开目标 URL，并在你的 content script 运行 **之后** 打印完整的实时 HTML。用它可以验证你的扩展实际改动了什么。
-
-- `--source [url]` 检视一个页面（默认使用 `--starting-url` 或 `https://example.com`）
-- `--watch-source` / `--no-watch-source` 在每次重建后重新打印 HTML
-
-`start` 与 `preview` 不支持源代码检视相关的 flag。
-
-### source flag
-
-| flag                                            | 作用                                       | 默认行为                          |
-| ----------------------------------------------- | ------------------------------------------ | --------------------------------- |
-| `--source [url]`                                | 启用源代码检视流程。                       | 关闭                              |
-| `--watch-source [boolean]`                      | 在监听到更新时重新打印源代码输出。         | 启用 `--source` 时默认为 `true`   |
-| `--source-format <pretty\|json\|ndjson>`        | 源代码检视的输出格式。                     | 回落到日志格式或 `json`           |
-| `--source-summary [boolean]`                    | 输出紧凑的摘要。                           | 关闭                              |
-| `--source-meta [boolean]`                       | 包含页面元数据。                           | 启用 source 时默认开启            |
-| `--source-probe <selectors>`                    | 用逗号分隔的 CSS 选择器进行探测。          | 未设置                            |
-| `--source-tree <off\|root-only>`                | 包含紧凑的扩展树细节。                     | 未设置                            |
-| `--source-console [boolean]`                    | 包含 console 摘要。                        | 关闭                              |
-| `--source-dom [boolean]`                        | 包含 DOM 快照 / diff。                     | 启用 watch-source 时默认开启      |
-| `--source-max-bytes <bytes>`                    | 限制输出 payload 的大小。                  | 未设置                            |
-| `--source-redact <off\|safe\|strict>`           | 源代码输出的脱敏策略。                     | 与格式相关                        |
-| `--source-include-shadow <off\|open-only\|all>` | 控制 Shadow DOM 的包含范围。               | 启用 source 时默认为 `open-only`  |
-| `--source-diff [boolean]`                       | 在 watch 更新中包含 diff 元数据。          | 启用 watch-source 时默认开启      |
 
 ## 日志 flag
 
@@ -254,34 +225,6 @@ extension dev https://github.com/nicedoc/browserless/tree/main/packages/screenca
 
 ```bash bun
 extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
-```
-
-</CodeGroup>
-
-### 用 source 模式检视页面 HTML
-
-{/* VIDEO_PLACEHOLDER_TODO: Show `--source` flow for page inspection and output updates while watching source changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
-
-<CodeGroup>
-
-```bash npm
-extension dev ./my-extension --source https://example.com
-```
-
-```bash pnpm
-extension dev ./my-extension --source https://example.com
-```
-
-```bash yarn
-extension dev ./my-extension --source https://example.com
-```
-
-```bash bun
-extension dev ./my-extension --source https://example.com
-```
-
-```bash bun
-extension dev ./my-extension --source https://example.com
 ```
 
 </CodeGroup>
@@ -428,7 +371,6 @@ extension dev ./my-extension --chromium-binary /path/to/brave
 
 - **浏览器兼容性：** 在不同浏览器中测试你的扩展，确保在每个目标上都能工作。
 - **polyfill：** 如果 Firefox 或 Gecko-based 浏览器也是目标，使用 `--polyfill`。这个 flag 在 Chromium-based 浏览器中启用 `browser.*` API 兼容。
-- **源代码检视工作流：** 需要源代码检视选项时使用 `dev`（不要用 `start` / `preview`）。
 - **自动化可靠性：** 把 `dev` 当作 watch 模式的伴侣（`--no-browser` + `dev --wait`）；把 `start` 当作生产的伴侣（`--no-browser` + `start --wait`）。脚本与 CI 自动化使用 `--wait-format=json`。
 
 ## 下一步
