@@ -211,21 +211,30 @@ In Svelte, import Less module mappings and apply classes:
 
 ## About the `less` post-install warning
 
-After installing, your package manager may report that build scripts for
-`less` were not run (pnpm prints `Ignored build scripts: less` and asks you to
-approve them; npm shows a similar notice). This is expected and **safe to
-ignore** — Extension.js compiles Less through its own bundler pipeline, so it
-does not rely on Less's optional post-install step. Your `.less` and
-`.module.less` files build and hot-reload the same either way.
+With some package managers, installing a project that uses Less can surface a
+notice that build scripts for `less` were not run (pnpm prints
+`Ignored build scripts: less` and asks you to approve them). This is expected
+and **safe to ignore** — Extension.js compiles Less through its own bundler
+pipeline, so it does not rely on Less's optional post-install step (which only
+sets up Playwright inside Less's own repository and is a no-op for consumers).
+Your `.less` and `.module.less` files build and hot-reload the same either way.
 
-If you prefer to silence the warning, you can explicitly allow the script:
+Projects scaffolded with `create-extension` already silence this notice: the
+generated `package.json` declares `pnpm.ignoredBuiltDependencies: ["less"]`,
+which tells pnpm you have intentionally skipped the (no-op) script, so a single
+install is clean with no `approve-builds` prompt. npm and yarn run the script by
+default and print nothing.
 
-- **pnpm:** run `pnpm approve-builds` and select `less`, or add
-  `pnpm.onlyBuiltDependencies: ["less"]` to your `package.json`.
-- **npm:** the notice is informational; no action is required.
+If you hit the warning in an existing project, you have two equivalent ways to
+silence it:
 
-There is no functional downside to leaving the scripts unrun for typical
-Extension.js projects.
+- **Skip it (recommended)** — add `pnpm.ignoredBuiltDependencies: ["less"]` to
+  your `package.json`. This matches what new scaffolds ship and acknowledges the
+  script without running the no-op.
+- **Run it** — run `pnpm approve-builds` and select `less`, or add
+  `pnpm.onlyBuiltDependencies: ["less"]`. Harmless, just unnecessary.
+
+Either way there is no functional difference for typical Extension.js projects.
 
 ## Next steps
 
