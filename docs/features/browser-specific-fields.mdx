@@ -27,10 +27,10 @@ Browsers still differ in key manifest areas, like background configuration and v
 
 Extension.js scans manifest keys and resolves prefixed entries for the selected browser:
 
-- Chromium-family targets (`chrome`, `edge`, `chromium-based`) resolve: `chromium:`, `chrome:`, `edge:`
-- Gecko-family targets (`firefox`, `gecko-based`) resolve: `firefox:`, `gecko:`
+- Chromium-family targets (`chrome`, `edge`, `chromium-based`, and the forks `brave`, `opera`, `vivaldi`, `yandex`) resolve: `chromium:`, `chrome:`, `edge:`
+- Gecko-family targets (`firefox`, `gecko-based`, and the forks `waterfox`, `librewolf`) resolve: `firefox:`, `gecko:`
 
-When a prefixed key matches the active target, Extension.js rewrites it to the unprefixed key in the emitted manifest.
+When a prefixed key matches the active target, Extension.js rewrites it to the unprefixed key in the emitted manifest. Fork targets inherit their engine family's prefixes, so a manifest that only carries `chromium:`/`firefox:` keys still resolves correctly when you target a fork like `brave` or `waterfox`. An exact browser-name prefix also matches its own target (for example, `brave:` when you run `--browser=brave`).
 
 {/* VIDEO_PLACEHOLDER_TODO: Show one prefixed manifest being compiled for Chrome and Firefox, then compare generated outputs. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
@@ -71,13 +71,15 @@ This makes `service_worker` available only for Chromium-family outputs while kee
 
 Supported prefix map:
 
-| Prefix      | Included for target browser               |
-| ----------- | ----------------------------------------- |
-| `chromium:` | `chrome`, `edge`, `chromium-based`        |
-| `chrome:`   | `chrome`, `chromium-based`                |
-| `edge:`     | `edge`, `chromium-based`                  |
-| `firefox:`  | `firefox`, `gecko-based`, `firefox-based` |
-| `gecko:`    | `firefox`, `gecko-based`, `firefox-based` |
+| Prefix      | Included for target browser                                                            |
+| ----------- | -------------------------------------------------------------------------------------- |
+| `chromium:` | `chrome`, `edge`, `chromium-based`, `brave`, `opera`, `vivaldi`, `yandex`               |
+| `chrome:`   | `chrome`, `edge`, `chromium-based`, `brave`, `opera`, `vivaldi`, `yandex`               |
+| `edge:`     | `edge`, `chromium-based`, and other Chromium-family targets                             |
+| `firefox:`  | `firefox`, `gecko-based`, `firefox-based`, `waterfox`, `librewolf`                      |
+| `gecko:`    | `firefox`, `gecko-based`, `firefox-based`, `waterfox`, `librewolf`                      |
+
+An exact browser-name prefix (for example, `brave:`, `vivaldi:`, or `waterfox:`) resolves only when you target that same browser.
 
 This works for any manifest field at any level, including `permissions`, `content_scripts`, and `background`.
 

@@ -15,13 +15,36 @@ keywords:
 ---
 
 <AvatarBrowsers browsers={["waterfox", "opera", "brave"]} />
-通过显式提供二进制路径，运行除默认具名目标之外的 Chromium 与 Gecko 家族浏览器。
+运行常见的 Chromium 与 Gecko 分支：既可以直接按名称运行（Extension.js 会为你定位已安装的二进制），也可以显式提供二进制路径。
 
-在同一套 Extension.js 工作流中测试自定义浏览器二进制（例如 Brave、Vivaldi 或 Waterfox）。可在 `dev`、`start` 与 `preview` 中使用二进制 flag 与 `extension.config.*`。
+在同一套 Extension.js 工作流中测试 Brave、Opera、Vivaldi、Yandex、Waterfox 与 LibreWolf。既可以直接指定分支名称，也可以在 `dev`、`start` 与 `preview` 中通过二进制 flag 与 `extension.config.*` 指向任意自定义二进制。
 
-## 工作原理
+## 按名称运行分支
 
-使用以下任一 flag：
+这些分支是一等公民的浏览器目标。把名称传给 `--browser`，Extension.js 会自动在你的系统上找到已安装的二进制，并通过其引擎家族的启动器运行：
+
+| 浏览器目标  | 引擎家族 | 自动定位 |
+| ----------- | -------- | -------- |
+| `brave`     | Chromium | 是       |
+| `opera`     | Chromium | 是       |
+| `vivaldi`   | Chromium | 是       |
+| `yandex`    | Chromium | 是       |
+| `waterfox`  | Gecko    | 是       |
+| `librewolf` | Gecko    | 是       |
+
+```bash
+extension dev --browser=brave
+```
+
+```bash
+extension dev --browser=waterfox
+```
+
+如果该浏览器未安装，Extension.js 会带上安装指引退出。具名分支会继承其家族的 manifest 键，因此带 `chromium:`/`firefox:` 前缀的字段会被正确解析（参见 [按浏览器划分的 manifest 字段](/docs/features/browser-specific-fields)）。
+
+## 运行自定义二进制
+
+要运行没有内置定位器的浏览器，或覆盖已定位到的二进制，请使用以下任一 flag：
 
 - `--chromium-binary <path>`
 - `--gecko-binary <path>`（别名：`--firefox-binary <path>`）
@@ -97,15 +120,17 @@ export default {
 
 ## 可用浏览器
 
-可通过二进制 flag 运行的常见浏览器：
+带内置定位器的分支可按名称运行；其他任何浏览器则通过二进制 flag 运行：
 
-| 浏览器名称                    | 类型                  | CLI flag            | 官方网站                                                  |
-| ----------------------------- | --------------------- | ------------------- | --------------------------------------------------------- |
-| **Brave**                     | Chromium-based 浏览器 | `--chromium-binary` | [brave.com](https://brave.com)                            |
-| **Opera**                     | Chromium-based 浏览器 | `--chromium-binary` | [opera.com](https://www.opera.com)                        |
-| **Vivaldi**                   | Chromium-based 浏览器 | `--chromium-binary` | [vivaldi.com](https://vivaldi.com)                        |
-| **Waterfox**                  | Gecko-based 浏览器    | `--gecko-binary`    | [Waterfox](https://www.waterfox.net)                      |
-| **Firefox Developer Edition** | Gecko-based 浏览器    | `--gecko-binary`    | [firefox.com](https://www.mozilla.org/firefox/developer/) |
+| 浏览器名称                    | 类型                  | 运行方式                                    | 官方网站                                                  |
+| ----------------------------- | --------------------- | ------------------------------------------- | --------------------------------------------------------- |
+| **Brave**                     | Chromium-based 浏览器 | `--browser=brave` 或 `--chromium-binary`    | [brave.com](https://brave.com)                            |
+| **Opera**                     | Chromium-based 浏览器 | `--browser=opera` 或 `--chromium-binary`    | [opera.com](https://www.opera.com)                        |
+| **Vivaldi**                   | Chromium-based 浏览器 | `--browser=vivaldi` 或 `--chromium-binary`  | [vivaldi.com](https://vivaldi.com)                        |
+| **Yandex**                    | Chromium-based 浏览器 | `--browser=yandex` 或 `--chromium-binary`   | [browser.yandex.com](https://browser.yandex.com)          |
+| **Waterfox**                  | Gecko-based 浏览器    | `--browser=waterfox` 或 `--gecko-binary`    | [Waterfox](https://www.waterfox.net)                      |
+| **LibreWolf**                 | Gecko-based 浏览器    | `--browser=librewolf` 或 `--gecko-binary`   | [librewolf.net](https://librewolf.net)                    |
+| **Firefox Developer Edition** | Gecko-based 浏览器    | `--gecko-binary`                            | [firefox.com](https://www.mozilla.org/firefox/developer/) |
 
 ## 重要约束
 
