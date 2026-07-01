@@ -22,7 +22,6 @@ Use `dev` for day-to-day browser extension development with watch mode, browser 
 
 - Building features and validating changes in real time.
 - Debugging extension behavior in one or more browser targets.
-- Running source-inspection workflows with `--source`.
 
 Use `build` for production artifacts, `start` for production build + launch, and `preview` to run existing build output only.
 
@@ -35,7 +34,6 @@ If your extension lives inside a monorepo/submodule, review how `extension.confi
 | Watch mode iteration   | Tight edit → rebuild → validate loop while coding     |
 | Browser-target control | Explicit cross-browser validation per command         |
 | Profile-aware runs     | Reliable fresh or persisted profiles by workflow need |
-| Source inspection mode | Structured output and diagnostics with source flags   |
 
 ## Usage
 
@@ -82,7 +80,7 @@ These cover the 80% case. Skip to the [full reference](#arguments-and-flags) for
 | Flag                           | Alias              | What it does                                                                                                                     | Default                                         |
 | ------------------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | `[path or url]`                | -                  | Extension path or remote URL.                                                                                                    | `process.cwd()`                                 |
-| `--browser <browser>`          | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values).                      | `chromium`                                      |
+| `--browser <browser>`          | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, named forks like `brave`/`waterfox`, engine aliases, or comma-separated values). | `chromium`                                      |
 | `--profile <path\|boolean>`    | -                  | Browser profile path or boolean profile mode.                                                                                    | fresh profile                                   |
 | `--chromium-binary <path>`     | -                  | [Custom Chromium-family binary path](/docs/browsers/running-other-browsers).                                                     | system default                                  |
 | `--gecko-binary <path>`        | `--firefox-binary` | [Custom Gecko-family binary path](/docs/browsers/running-other-browsers).                                                        | system default                                  |
@@ -146,33 +144,6 @@ If you pass both `--wait` and `--no-browser` in the same command invocation, `--
 `--no-reload` skips the content-script reinjection wrapper and the on-rebuild reload dispatch. The dev `dist` stays close to a production bundle and an open tab is not disturbed when files change. Reload the extension or page yourself to pick up changes.
 
 `--no-reload` is only supported on `extension dev`. Passing it to `start`, `preview`, or `build` exits with an error. Internally it sets `EXTENSION_NO_RELOAD=true` so the develop process can read it from outside the CLI argv.
-
-## Source inspection workflow
-
-Use source options only with `dev`. Source inspection opens a target URL in the browser and prints the full, live HTML **after** your content scripts run. Use this to verify what your extension actually changes.
-
-- `--source [url]` to inspect a page (defaults to `--starting-url` or `https://example.com`)
-- `--watch-source` / `--no-watch-source` to re-print HTML on each rebuild
-
-`start` and `preview` do not support source-inspection flags.
-
-### Source flags
-
-| Flag                                            | What it does                               | Default behavior                   |
-| ----------------------------------------------- | ------------------------------------------ | ---------------------------------- |
-| `--source [url]`                                | Enable source inspection flow.             | disabled                           |
-| `--watch-source [boolean]`                      | Re-print source output on watched updates. | `true` when `--source` is enabled  |
-| `--source-format <pretty\|json\|ndjson>`        | Output format for source inspection.       | falls back to log format or `json` |
-| `--source-summary [boolean]`                    | Emit compact summary output.               | disabled                           |
-| `--source-meta [boolean]`                       | Include page metadata.                     | enabled when source is on          |
-| `--source-probe <selectors>`                    | Comma-separated CSS selectors to probe.    | unset                              |
-| `--source-tree <off\|root-only>`                | Include compact extension tree details.    | unset                              |
-| `--source-console [boolean]`                    | Include console summary.                   | disabled                           |
-| `--source-dom [boolean]`                        | Include DOM snapshots/diffs.               | enabled when watch-source is on    |
-| `--source-max-bytes <bytes>`                    | Cap output payload size.                   | unset                              |
-| `--source-redact <off\|safe\|strict>`           | Redaction strategy for source output.      | format-dependent                   |
-| `--source-include-shadow <off\|open-only\|all>` | Control Shadow DOM inclusion.              | `open-only` when source is on      |
-| `--source-diff [boolean]`                       | Include diff metadata on watch updates.    | enabled when watch-source is on    |
 
 ## Logging flags
 
@@ -264,34 +235,6 @@ extension dev https://github.com/nicedoc/browserless/tree/main/packages/screenca
 
 ```bash deno
 extension dev https://github.com/nicedoc/browserless/tree/main/packages/screencast
-```
-
-</CodeGroup>
-
-### Inspecting page HTML with source mode
-
-{/* VIDEO_PLACEHOLDER_TODO: Show `--source` flow for page inspection and output updates while watching source changes. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
-
-<CodeGroup>
-
-```bash npm
-extension dev ./my-extension --source https://example.com
-```
-
-```bash pnpm
-extension dev ./my-extension --source https://example.com
-```
-
-```bash yarn
-extension dev ./my-extension --source https://example.com
-```
-
-```bash bun
-extension dev ./my-extension --source https://example.com
-```
-
-```bash deno
-extension dev ./my-extension --source https://example.com
 ```
 
 </CodeGroup>
@@ -468,7 +411,6 @@ extension dev ./my-extension --chromium-binary /path/to/brave
 
 - **Browser compatibility:** Test your extension in different browsers to verify it works on every target.
 - **Polyfilling:** If Firefox or a Gecko-based browser is also a target, use `--polyfill`. This flag enables `browser.*` API compatibility in Chromium-based browsers.
-- **Source inspection workflows:** Use `dev` (not `start`/`preview`) when you need source inspection options.
 - **Automation reliability:** Treat `dev` as the watch-mode companion (`--no-browser` + `dev --wait`). Treat `start` as the production companion (`--no-browser` + `start --wait`). Use `--wait-format=json` for scripts and CI automation.
 
 ## Next steps
