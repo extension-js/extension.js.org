@@ -1,0 +1,184 @@
+---
+title: "Migrate from WXT to Extension.js"
+description: "Step-by-step migration from a WXT browser extension to Extension.js. Convert entrypoints/ conventions to manifest.json, unwrap defineContentScript, and keep your UI code."
+keywords:
+  [
+    "wxt migration",
+    "wxt to extension.js",
+    "wxt alternative",
+    "migrate from wxt",
+    "wxt framework",
+    "defineContentScript",
+    "entrypoints",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+[WXT](https://wxt.dev) is a Vite-based browser extension framework with file-system
+entrypoints and a generated manifest. It is actively maintained and a solid choice — teams
+usually migrate because they want the opposite trade-off: a hand-authored `manifest.json`
+as the source of truth, Rspack builds, and output that mirrors what the browser loads. See
+[Extension.js vs WXT](/docs/compare/extension-js-vs-wxt) for the full comparison. This
+guide migrates a typical WXT project to Extension.js without rewriting your UI code.
+
+## What changes, what stays
+
+**Stays the same:** your React/Vue/Svelte components, your styles, your tests, your
+`browser.*`/`chrome.*` API calls (use `--polyfill` to keep the `browser` namespace
+cross-browser), and `@wxt-dev/storage` if you use it standalone (it wraps the extension
+storage APIs, which work the same here).
+
+**Changes:**
+
+- File-convention entrypoints (`entrypoints/popup/`, `entrypoints/content.ts`) become
+  explicit entries in a real `manifest.json`.
+- The `manifest` option in `wxt.config.ts` (and `<meta name="manifest.*">` tags in HTML
+  entrypoints) move into `manifest.json`.
+- `defineBackground()` / `defineContentScript()` wrappers unwrap into plain modules.
+- WXT auto-imports become explicit imports.
+- `wxt` / `wxt build` / `wxt zip` become `extension dev` / `extension build --zip`.
+- `import.meta.env.WXT_*` env vars become `EXTENSION_PUBLIC_*`.
+
+## Step 1: install Extension.js
+
+```bash
+npm install extension@latest --save-dev
+npm uninstall wxt
+```
+
+## Step 2: write the manifest
+
+WXT generates the manifest from `wxt.config.ts` plus the `entrypoints/` layout.
+Extension.js treats `manifest.json` as the source of truth. Translate each convention:
+
+| WXT convention                               | `manifest.json` entry                                     |
+| -------------------------------------------- | --------------------------------------------------------- |
+| `entrypoints/popup/index.html`               | `"action": {"default_popup": "popup/index.html"}`         |
+| `entrypoints/options/index.html`             | `"options_ui": {"page": "options/index.html"}`            |
+| `entrypoints/newtab/index.html`              | `"chrome_url_overrides": {"newtab": "newtab/index.html"}` |
+| `entrypoints/background.ts`                  | `"background": {"service_worker": "background.ts"}`       |
+| `entrypoints/content.ts` (or `*.content.ts`) | `"content_scripts": [{...}]` entry                        |
+| `manifest: {...}` in `wxt.config.ts`         | merge into `manifest.json` directly                       |
+| `<meta name="manifest.*">` in HTML pages     | the equivalent `manifest.json` key                        |
+
+Move each entrypoint directory's files wherever you like in the project (a common layout is
+`popup/`, `options/`, `content/`) and point the manifest at them. File extensions stay
+`.ts`/`.tsx` in the manifest and in script tags — Extension.js compiles them at build time.
+
+## Step 3: unwrap `defineBackground` and `defineContentScript`
+
+WXT wraps runtime code so it can parse manifest options out of your source:
+
+```ts entrypoints/content.ts
+export default defineContentScript({
+  matches: ["https://example.com/*"],
+  main(ctx) {
+    console.log("content script running");
+  },
+});
+```
+
+In Extension.js, the `matches` live in the manifest and the file is a plain module — the
+body of `main()` becomes top-level code:
+
+```json manifest.json
+{
+  "content_scripts": [
+    {
+      "matches": ["https://example.com/*"],
+      "js": ["content/script.ts"]
+    }
+  ]
+}
+```
+
+```ts content/script.ts
+console.log("content script running");
+```
+
+The same applies to `defineBackground(() => {...})` — its body becomes the top level of
+your background file. Two WXT-specific helpers need replacing:
+
+- **`ctx` (ContentScriptContext):** WXT's `ctx` cancels work when the extension updates and
+  the content script is orphaned. Replace `ctx`-bound listeners with regular
+  `addEventListener` calls; if you relied on invalidation handling, guard long-lived
+  callbacks with a `chrome.runtime.id` check.
+- **`createShadowRootUi` / `createIntegratedUi`:** mount your component with regular DOM
+  code instead — create a container element, append it, and render into it. See
+  [Content scripts](/docs/implementation-guide/content-scripts) for the full pattern,
+  including shadow DOM isolation for styles.
+
+## Step 4: make auto-imports explicit
+
+WXT auto-imports `browser`, `defineContentScript`, `storage`, and friends. Extension.js
+does not inject globals, so add explicit imports:
+
+- `browser.*` calls: keep them and run with `--polyfill`, or switch to `chrome.*`.
+- `storage` from WXT: `import { storage } from "@wxt-dev/storage"` keeps working as a
+  standalone package.
+- Framework auto-imports (from `@wxt-dev/module-react` and similar): import from the
+  framework package directly.
+
+## Step 5: env vars and scripts
+
+- Rename `WXT_*` (and `VITE_*`) variables to `EXTENSION_PUBLIC_*` in your `.env` files, and
+  replace `import.meta.env.WXT_FOO` with `process.env.EXTENSION_PUBLIC_FOO`. See
+  [Environment variables](/docs/features/environment-variables).
+- Update `package.json` scripts:
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "start": "extension start"
+  }
+}
+```
+
+Where WXT used `wxt build -b firefox` and `wxt zip`, Extension.js targets browsers and
+packages in one command:
+
+```bash
+extension build --browser=chrome,firefox --zip
+```
+
+You get `dist/chrome` and `dist/firefox` (instead of `.output/chrome-mv3`) with
+browser-correct manifests and `.zip` archives ready for the Chrome Web Store and
+addons.mozilla.org.
+
+## Step 6: verify
+
+```bash
+extension dev --browser=chrome
+```
+
+Check popup, options, content scripts, and background behavior, then run the same against
+Firefox with `--browser=firefox`. Use `--polyfill` if your code calls `browser.*` and you
+want identical source running on both.
+
+## Common gotchas
+
+- **Manifest V2:** WXT supports MV2 as a build target; Extension.js targets Manifest V3.
+  If you still ship an MV2 build, finish that migration first — see
+  [Manifest V3 concepts](/docs/concepts/manifest-v3).
+- **`public/` directory:** files in WXT's `public/` are copied as-is. Extension.js does the
+  same with `public/` — paths referenced from the manifest or HTML keep working.
+- **`assets/` and the `~`/`@` aliases:** map aliases in `tsconfig.json` paths, or switch to
+  relative imports. See [Path resolution](/docs/features/path-resolution).
+- **WXT modules** (`@wxt-dev/module-react`, `-vue`, `-svelte`): not needed — framework
+  support is built in. Compare with a fresh [template](/docs/getting-started/templates) for
+  the reference setup.
+- **`app.config.ts` runtime config:** replace with your own module (a plain exported object
+  gives you the same thing without the framework layer).
+
+## See also
+
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)
+- [Migrate from Plasmo](/docs/migrate/from-plasmo)
+- [Migrate from CRXJS](/docs/migrate/from-crxjs)
+- [Cross-browser compatibility](/docs/features/cross-browser-compatibility)
+- [Reload and HMR](/docs/features/reload-and-hmr)
