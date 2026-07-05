@@ -25,9 +25,9 @@ Browsers still differ in key manifest areas, like background configuration and v
 
 ## How it works
 
-Extension.js scans manifest keys and resolves prefixed entries for the selected browser:
+Extension.js scans manifest keys and resolves prefixed entries for the selected browser. Resolution is per engine family, not per vendor:
 
-- Chromium-family targets (`chrome`, `edge`, `chromium-based`, and the forks `brave`, `opera`, `vivaldi`, `yandex`) resolve: `chromium:`, `chrome:`, `edge:`
+- Chromium-family targets (`chromium`, `chrome`, `edge`, `chromium-based`, the forks `brave`, `opera`, `vivaldi`, `yandex`, and Safari builds) resolve: `chromium:`, `chrome:`, `edge:`
 - Gecko-family targets (`firefox`, `gecko-based`, and the forks `waterfox`, `librewolf`) resolve: `firefox:`, `gecko:`
 
 When a prefixed key matches the active target, Extension.js rewrites it to the unprefixed key in the emitted manifest. Fork targets inherit their engine family's prefixes, so a manifest that only carries `chromium:`/`firefox:` keys still resolves correctly when you target a fork like `brave` or `waterfox`. An exact browser-name prefix also matches its own target (for example, `brave:` when you run `--browser=brave`).
@@ -54,36 +54,44 @@ When a prefixed key matches the active target, Extension.js rewrites it to the u
 }
 ```
 
-You can also target vendor-specific variants inside the same browser family:
-
-```json
-{
-  "chrome:action": {
-    "default_title": "Chrome variant"
-  },
-  "edge:action": {
-    "default_title": "Edge variant"
-  }
-}
-```
-
 This makes `service_worker` available only for Chromium-family outputs while keeping `background.scripts` for Firefox outputs.
 
 Supported prefix map:
 
-| Prefix      | Included for target browser                                                            |
-| ----------- | -------------------------------------------------------------------------------------- |
-| `chromium:` | `chrome`, `edge`, `chromium-based`, `brave`, `opera`, `vivaldi`, `yandex`               |
-| `chrome:`   | `chrome`, `edge`, `chromium-based`, `brave`, `opera`, `vivaldi`, `yandex`               |
-| `edge:`     | `edge`, `chromium-based`, and other Chromium-family targets                             |
-| `firefox:`  | `firefox`, `gecko-based`, `firefox-based`, `waterfox`, `librewolf`                      |
-| `gecko:`    | `firefox`, `gecko-based`, `firefox-based`, `waterfox`, `librewolf`                      |
+| Prefix      | Included for target browser                                                                        |
+| ----------- | -------------------------------------------------------------------------------------------------- |
+| `chromium:` | Every Chromium-family target: `chromium`, `chrome`, `edge`, `chromium-based`, forks, Safari builds |
+| `chrome:`   | Every Chromium-family target (same list as `chromium:`)                                            |
+| `edge:`     | Every Chromium-family target (same list as `chromium:`)                                            |
+| `firefox:`  | `firefox`, `gecko-based`, `firefox-based`, `waterfox`, `librewolf`                                 |
+| `gecko:`    | `firefox`, `gecko-based`, `firefox-based`, `waterfox`, `librewolf`                                 |
 
-An exact browser-name prefix (for example, `brave:`, `vivaldi:`, or `waterfox:`) resolves only when you target that same browser.
+An exact browser-name prefix (for example, `brave:`, `vivaldi:`, or `waterfox:`) additionally resolves only when you target that same browser.
 
 This works for any manifest field at any level, including `permissions`, `content_scripts`, and `background`.
 
-{/* VIDEO_PLACEHOLDER_TODO: Show adding vendor-specific `chrome:` and `edge:` fields and validating the generated target manifest. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+### Family-wide resolution, not per vendor
+
+`chromium:`, `chrome:`, and `edge:` are interchangeable within the Chromium family: each of them applies to every Chromium-family target. Building for `chrome` versus `chromium` therefore emits an identical manifest; only the `dist/<browser>` folder name and the preferred launch binary differ. If you need a field for one vendor only, use its exact browser-name prefix (for example, `brave:`), which resolves only for that target.
+
+When two matching prefixes set the same field, the last one in source order wins:
+
+```json
+{
+  "chrome:action": {
+    "default_title": "First"
+  },
+  "edge:action": {
+    "default_title": "Second"
+  }
+}
+```
+
+Both prefixes match any Chromium-family target, so every Chromium-family build (including `chrome`) emits `"default_title": "Second"`.
+
+A matching prefixed key always overrides a plain key with the same name, regardless of where each appears in the file.
+
+{/* VIDEO_PLACEHOLDER_TODO: Show family-wide `chrome:` and `edge:` prefix resolution (last one wins) and an exact-vendor prefix like `brave:`, then validate the generated target manifest. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 ## Best practices
 
