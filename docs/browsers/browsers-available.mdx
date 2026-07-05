@@ -15,21 +15,23 @@ keywords:
 ---
 
 <AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
-See which browsers Extension.js supports and validate your extension across Chrome, Edge, Firefox, and custom binaries from a single CLI workflow within the same project.
+See which browsers Extension.js supports and validate your extension across
+Chrome, Edge, Firefox, and custom binaries from a single CLI workflow within the
+same project.
 
 ## Choose the right target
 
-| Target           | Use when                                            | Example                                                                     |
-| ---------------- | --------------------------------------------------- | --------------------------------------------------------------------------- |
-| `chromium`       | Fast default local development                      | `extension dev --browser=chromium`                                          |
-| `chrome`         | Validating Chrome-specific behavior                 | `extension dev --browser=chrome`                                            |
-| `edge`           | Validating Edge distribution behavior               | `extension dev --browser=edge`                                              |
-| `firefox`        | Validating Gecko compatibility and APIs             | `extension dev --browser=firefox`                                           |
-| `chrome,firefox` | Release checks across both major engines            | `extension build --browser=chrome,firefox`                                  |
-| Named forks      | Running an installed fork by name (auto-located)    | `extension dev --browser=brave` (also `opera`, `vivaldi`, `yandex`, `waterfox`, `librewolf`) |
-| `chromium-based` | Running custom Chromium binaries not auto-located   | `extension dev --browser=chromium-based --chromium-binary=/path/to/browser` |
-| `gecko-based`    | Running custom Firefox-family binaries              | `extension dev --browser=gecko-based --gecko-binary=/path/to/browser`       |
-| `safari`         | Building a Safari app on macOS (Xcode required)     | `extension build --browser=safari`                                          |
+| Target           | Use when                                          | Example                                                                                      |
+| ---------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `chromium`       | Fast default local development                    | `extension dev --browser=chromium`                                                           |
+| `chrome`         | Validating Chrome-specific behavior               | `extension dev --browser=chrome`                                                             |
+| `edge`           | Validating Edge distribution behavior             | `extension dev --browser=edge`                                                               |
+| `firefox`        | Validating Gecko compatibility and APIs           | `extension dev --browser=firefox`                                                            |
+| `chrome,firefox` | Release checks across both major engines          | `extension build --browser=chrome,firefox`                                                   |
+| Named forks      | Running an installed fork by name (auto-located)  | `extension dev --browser=brave` (also `opera`, `vivaldi`, `yandex`, `waterfox`, `librewolf`) |
+| `chromium-based` | Running custom Chromium binaries not auto-located | `extension dev --browser=chromium-based --chromium-binary=/path/to/browser`                  |
+| `gecko-based`    | Running custom Firefox-family binaries            | `extension dev --browser=gecko-based --gecko-binary=/path/to/browser`                        |
+| `safari`         | Building a Safari app on macOS (Xcode required)   | `extension build --browser=safari`                                                           |
 
 ## How it works
 
@@ -40,6 +42,26 @@ If you do not specify a browser, the CLI defaults to `chromium`.
 `safari` (and its `webkit-based` alias) is the exception: it's an **alpha**, macOS-only build target supported by `build` and `dev` only — not `preview` or `start`. See [Building Safari extensions](/docs/browsers/safari).
 
 {/* VIDEO_PLACEHOLDER_TODO: Show switching the same extension run between `chrome`, `edge`, and `firefox` with `--browser`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+
+## Requested target vs. launch binary
+
+The browser you request determines the artifact. The binary is just the runtime.
+
+When you run `extension dev --browser=chromium`, Extension.js always:
+
+- Writes output to `dist/chromium` (the folder is named after the requested target, never after the binary that launches).
+- Resolves [browser-specific manifest fields](/docs/features/browser-specific-fields) for the requested target.
+
+If the requested browser is not installed, Extension.js does not change the target. For `chrome` and `chromium` it looks for another managed Chromium-family binary (one previously downloaded by `npx extension install`) and uses it as the runtime instead:
+
+- Requested `chromium` missing: falls back to managed Chrome, then managed Edge.
+- Requested `chrome` missing: falls back to managed Chromium, then managed Edge.
+
+When this happens, the CLI prints an info line naming the substitute binary and its path, and suggests `npx extension install <browser>` to get the browser you asked for. The output folder and the emitted manifest are exactly what they would be without the fallback.
+
+Within the Chromium family this substitution is safe: `dist/chrome` and `dist/chromium` are byte-identical because manifest prefixes resolve per engine family, not per vendor. See [Browser-specific manifest fields](/docs/features/browser-specific-fields) for the prefix rules.
+
+To pre-install managed binaries for reproducible runs, use `npx extension install <browser>` or `npx extension install all` (which covers `chromium` too).
 
 ## Supported browsers
 
@@ -54,14 +76,14 @@ Named browser targets:
 
 Named forks (auto-located from your system, no binary path required):
 
-| Browser       | Engine   | Usage                                    |
-| ------------- | -------- | ---------------------------------------- |
-| **Brave**     | Chromium | `npx extension dev --browser=brave`      |
-| **Opera**     | Chromium | `npx extension dev --browser=opera`      |
-| **Vivaldi**   | Chromium | `npx extension dev --browser=vivaldi`    |
-| **Yandex**    | Chromium | `npx extension dev --browser=yandex`     |
-| **Waterfox**  | Gecko    | `npx extension dev --browser=waterfox`   |
-| **LibreWolf** | Gecko    | `npx extension dev --browser=librewolf`  |
+| Browser       | Engine   | Usage                                   |
+| ------------- | -------- | --------------------------------------- |
+| **Brave**     | Chromium | `npx extension dev --browser=brave`     |
+| **Opera**     | Chromium | `npx extension dev --browser=opera`     |
+| **Vivaldi**   | Chromium | `npx extension dev --browser=vivaldi`   |
+| **Yandex**    | Chromium | `npx extension dev --browser=yandex`    |
+| **Waterfox**  | Gecko    | `npx extension dev --browser=waterfox`  |
+| **LibreWolf** | Gecko    | `npx extension dev --browser=librewolf` |
 
 If a named fork is not installed, Extension.js exits with install guidance. See [Running other browsers](/docs/browsers/running-other-browsers).
 
