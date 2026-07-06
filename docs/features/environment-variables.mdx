@@ -103,17 +103,22 @@ When building your extension, the compiler chooses **one** env file from your ex
 
 1. `.env.[browser].[mode]` (for example, `.env.chrome.development`)
 2. `.env.[browser]`
-3. `.env.[mode]`
-4. `.env.local`
-5. `.env`
-6. `.env.example`
+3. Engine-family variants of the two above (see the note below)
+4. `.env.[mode]`
+5. `.env.local`
+6. `.env`
+
+Browser-scoped files resolve **per engine family**, matching [browser-specific manifest fields](/docs/features/browser-specific-fields). After the exact browser name, Chromium-family targets (`chromium`, `chrome`, `edge`, `chromium-based`, the Chromium forks, and Safari builds) also try `.env.chromium`, `.env.chrome`, `.env.edge`, and `.env.chromium-based` (each with their `.[mode]` variants first). Gecko-family targets also try `.env.firefox` and `.env.gecko-based`. A single `.env.chromium` file therefore covers a `chrome`, `edge`, or `brave` build, and an exact browser file always wins over family files.
 
 Extension.js **always merges** `.env.defaults` first when present, then the selected file's variables. Finally, **system** `process.env` takes highest precedence for overlapping keys.
 
 <Note>
   Selection is a **single** env file from the list above (plus `.env.defaults`),
-  not a full cascade through every file.
+  not a full cascade through every file. `.env.example` is documentation only
+  and is never loaded as a value source.
 </Note>
+
+If env files exist next to your project but none match the current browser and mode, the build prints a warning naming the files it found and the candidates it looked for, so a misspelled browser suffix fails loudly instead of silently shipping without values.
 
 If no matching file exists next to the project, Extension.js repeats the same search from the **nearest workspace root**. That root is the closest ancestor folder containing `pnpm-workspace.yaml`. Extensions inside monorepos can share root-level env files for **bundle** injection.
 
@@ -232,10 +237,12 @@ Priority order is:
 
 - `.env.[browser].[mode]`
 - `.env.[browser]`
+- Engine-family variants (for example, `.env.chromium` for any Chromium-family target)
 - `.env.[mode]`
 - `.env.local`
 - `.env`
-- `.env.example`
+
+You rarely need one file per vendor. Because resolution is per engine family, `.env.chromium` covers `chrome`, `edge`, and the Chromium forks, and `.env.firefox` covers the Gecko forks. Add an exact browser file (such as `.env.edge`) only when one target needs different values from the rest of its family.
 
 ### Example files
 
@@ -359,6 +366,8 @@ console.log(`API URL for the current environment: ${apiUrl}`);
 
 `import.meta.env` and `process.env` have parity for injected env keys.
 
+Reading a key that no env file defines yields `undefined` instead of crashing: Extension.js defines the bare `import.meta.env` as an object of every injected variable (Vite parity), so `import.meta.env.MISSING_KEY` and destructuring like `const {FOO} = import.meta.env` are both safe in any output format.
+
 {/* VIDEO_PLACEHOLDER_TODO: Show one value consumed in `manifest.json`, HTML, and JS (`process.env` / `import.meta.env`) during a build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 ## Secrets in browser extension builds
@@ -377,7 +386,7 @@ A few rules to follow:
 - **Expose only what must ship:** Prefix only client-safe keys with `EXTENSION_PUBLIC_`.
 - **Use `.env.defaults` for shared defaults:** Keep predictable team defaults while allowing local/system overrides.
 - **Keep secrets out of static placeholders:** Avoid putting secret `$EXTENSION_*` tokens in HTML/JSON templates.
-- **Version control hygiene:** Commit `.env.example` and ignore real env files (`.env`, `.env.local`, browser/mode variants).
+- **Version control hygiene:** Commit `.env.example` as documentation (the build never reads it as a value source) and ignore real env files (`.env`, `.env.local`, browser/mode variants).
 
 ## Next steps
 
