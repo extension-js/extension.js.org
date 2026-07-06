@@ -52,37 +52,37 @@ deno run -A npm:extension@latest create my-extension --template=action
 
 Repository: [extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
 
-### `action-chatgpt`
+### `ai-chatgpt`
 
-![action-chatgpt template screenshot](/images/examples/action-chatgpt/screenshot.png)
+![ai-chatgpt template screenshot](/images/examples/ai-chatgpt/screenshot.png)
 
 Action popup with a background service worker that integrates with an external API (ChatGPT).
 
 <CodeGroup>
 
 ```bash npm
-npx extension@latest create my-extension --template=action-chatgpt
+npx extension@latest create my-extension --template=ai-chatgpt
 ```
 
 ```bash pnpm
-pnpx extension@latest create my-extension --template=action-chatgpt
+pnpx extension@latest create my-extension --template=ai-chatgpt
 ```
 
 ```bash yarn
-yarn dlx extension@latest create my-extension --template=action-chatgpt
+yarn dlx extension@latest create my-extension --template=ai-chatgpt
 ```
 
 ```bash bun
-bunx extension@latest create my-extension --template=action-chatgpt
+bunx extension@latest create my-extension --template=ai-chatgpt
 ```
 
 ```bash deno
-deno run -A npm:extension@latest create my-extension --template=action-chatgpt
+deno run -A npm:extension@latest create my-extension --template=ai-chatgpt
 ```
 
 </CodeGroup>
 
-Repository: [extension-js/examples/action-chatgpt](https://github.com/extension-js/examples/tree/main/examples/action-chatgpt)
+Repository: [extension-js/examples/ai-chatgpt](https://github.com/extension-js/examples/tree/main/examples/ai-chatgpt)
 
 ## Background capabilities
 
@@ -159,6 +159,15 @@ The exact output depends on which manifest field remains active after browser fi
 - `background.type: "module"` uses module worker semantics.
 - Classic service worker mode uses `importScripts`-based chunk loading behavior.
 - Avoid dynamic imports in background code that must load immediately on startup.
+
+## Runtime-loaded files
+
+Some files never appear as import statements but still must ship with the extension. Extension.js traces these into the output so the built extension behaves like the source loaded unpacked in the browser:
+
+- **`importScripts(...)` dependencies of classic service workers.** String-literal arguments are resolved recursively (a dependency can call `importScripts` itself) against the emitted worker location, so worker-relative URLs keep working even though the worker moves to `background/service_worker.js`. WebAssembly sibling files loaded by wasm-bindgen glue (`*_bg.wasm`) ship alongside their loader.
+- **`chrome.scripting.executeScript({files: [...]})` and `insertCSS({files: [...]})` payloads.** Files referenced only from `files:` arrays (not declared in manifest `content_scripts`) are copied verbatim at their extension-root paths.
+
+A referenced file that does not exist in your project produces a build warning naming the missing path, instead of a silent runtime failure.
 
 ## Recommended architecture
 
