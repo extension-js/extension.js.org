@@ -21,17 +21,17 @@ same project.
 
 ## Choose the right target
 
-| Target           | Use when                                          | Example                                                                                      |
-| ---------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `chromium`       | Fast default local development                    | `extension dev --browser=chromium`                                                           |
-| `chrome`         | Validating Chrome-specific behavior               | `extension dev --browser=chrome`                                                             |
-| `edge`           | Validating Edge distribution behavior             | `extension dev --browser=edge`                                                               |
-| `firefox`        | Validating Gecko compatibility and APIs           | `extension dev --browser=firefox`                                                            |
-| `chrome,firefox` | Release checks across both major engines          | `extension build --browser=chrome,firefox`                                                   |
-| Named forks      | Running an installed fork by name (auto-located)  | `extension dev --browser=brave` (also `opera`, `vivaldi`, `yandex`, `waterfox`, `librewolf`) |
-| `chromium-based` | Running custom Chromium binaries not auto-located | `extension dev --browser=chromium-based --chromium-binary=/path/to/browser`                  |
-| `gecko-based`    | Running custom Firefox-family binaries            | `extension dev --browser=gecko-based --gecko-binary=/path/to/browser`                        |
-| `safari`         | Building a Safari app on macOS (Xcode required)   | `extension build --browser=safari`                                                           |
+| Target           | Use when                                                                  | Example                                                                                      |
+| ---------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `chromium`       | Fast default local development                                            | `extension dev --browser=chromium`                                                           |
+| `chrome`         | Validating Chrome-specific behavior                                       | `extension dev --browser=chrome`                                                             |
+| `edge`           | Validating Edge distribution behavior                                     | `extension dev --browser=edge`                                                               |
+| `firefox`        | Validating Gecko compatibility and APIs                                   | `extension dev --browser=firefox`                                                            |
+| `chrome,firefox` | Release checks across both major engines                                  | `extension build --browser=chrome,firefox`                                                   |
+| Named forks      | Running an installed fork by name (auto-located)                          | `extension dev --browser=brave` (also `opera`, `vivaldi`, `yandex`, `waterfox`, `librewolf`) |
+| `chromium-based` | Custom Chromium binaries in `dev`; family-generic `build` artifacts       | `extension dev --browser=chromium-based --chromium-binary=/path/to/browser`                  |
+| `gecko-based`    | Custom Firefox-family binaries in `dev`; family-generic `build` artifacts | `extension dev --browser=gecko-based --gecko-binary=/path/to/browser`                        |
+| `safari`         | Building a Safari app on macOS (Xcode required)                           | `extension build --browser=safari`                                                           |
 
 ## How it works
 
@@ -123,14 +123,15 @@ Use comma-separated values to run multiple named targets in sequence (for exampl
 
 ## Constraints and behavior
 
-- `chromium-based` requires `--chromium-binary`.
-- `gecko-based` / `firefox-based` require `--gecko-binary`.
+- `chromium-based` requires `--chromium-binary` in commands that launch a browser (`dev`, `start`, `preview`); `build` needs no binary.
+- `gecko-based` / `firefox-based` require `--gecko-binary` under the same conditions.
 - Engine-based targets route to the same Chromium/Firefox runners with engine-aware behavior.
+- As `build` targets, engine targets get their own `dist/<target>` folder, `.env.<target>` resolution, `EXTENSION_BROWSER` value, and manifest prefix — see [What engine targets mean for `build`](/docs/commands/build#what-engine-targets-mean-for-build).
 
 ## Best practices
 
 - **Use named browsers for daily iteration**: `chrome`, `edge`, and `firefox` are the fastest path for regular testing.
-- **Use engine-based mode intentionally**: Prefer `chromium-based` / `gecko-based` only when validating custom binaries.
+- **Use engine-based mode intentionally**: Prefer `chromium-based` / `gecko-based` when validating custom binaries or shipping a family-generic build.
 - **Keep profiles isolated per browser**: Reduce cross-browser state leakage while debugging.
 - **Pair with browser-specific fields**: Use browser-prefixed manifest keys for true behavior differences.
 
