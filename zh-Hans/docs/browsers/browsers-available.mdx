@@ -23,17 +23,17 @@ keywords:
 
 ## 选择合适的目标
 
-| 目标             | 适用场景                                  | 示例                                                                                            |
-| ---------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `chromium`       | 快速的默认本地开发                        | `extension dev --browser=chromium`                                                              |
-| `chrome`         | 验证 Chrome 特有行为                      | `extension dev --browser=chrome`                                                                |
-| `edge`           | 验证 Edge 的分发行为                      | `extension dev --browser=edge`                                                                  |
-| `firefox`        | 验证 Gecko 兼容性与 API                   | `extension dev --browser=firefox`                                                               |
-| `chrome,firefox` | 在两大主流引擎上做发布前检查              | `extension build --browser=chrome,firefox`                                                      |
-| 具名分支         | 按名称运行已安装的分支（自动定位）        | `extension dev --browser=brave`（也支持 `opera`、`vivaldi`、`yandex`、`waterfox`、`librewolf`） |
-| `chromium-based` | 运行未被自动定位的自定义 Chromium 二进制  | `extension dev --browser=chromium-based --chromium-binary=/path/to/browser`                     |
-| `gecko-based`    | 运行自定义的 Firefox 家族二进制           | `extension dev --browser=gecko-based --gecko-binary=/path/to/browser`                           |
-| `safari`         | 在 macOS 上构建 Safari 应用（需要 Xcode） | `extension build --browser=safari`                                                              |
+| 目标             | 适用场景                                                              | 示例                                                                                            |
+| ---------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `chromium`       | 快速的默认本地开发                                                    | `extension dev --browser=chromium`                                                              |
+| `chrome`         | 验证 Chrome 特有行为                                                  | `extension dev --browser=chrome`                                                                |
+| `edge`           | 验证 Edge 的分发行为                                                  | `extension dev --browser=edge`                                                                  |
+| `firefox`        | 验证 Gecko 兼容性与 API                                               | `extension dev --browser=firefox`                                                               |
+| `chrome,firefox` | 在两大主流引擎上做发布前检查                                          | `extension build --browser=chrome,firefox`                                                      |
+| 具名分支         | 按名称运行已安装的分支（自动定位）                                    | `extension dev --browser=brave`（也支持 `opera`、`vivaldi`、`yandex`、`waterfox`、`librewolf`） |
+| `chromium-based` | 在 `dev` 中运行自定义 Chromium 二进制；用 `build` 产出家族通用产物    | `extension dev --browser=chromium-based --chromium-binary=/path/to/browser`                     |
+| `gecko-based`    | 在 `dev` 中运行自定义 Firefox 家族二进制；用 `build` 产出家族通用产物 | `extension dev --browser=gecko-based --gecko-binary=/path/to/browser`                           |
+| `safari`         | 在 macOS 上构建 Safari 应用（需要 Xcode）                             | `extension build --browser=safari`                                                              |
 
 ## 工作原理
 
@@ -105,14 +105,15 @@ npx extension dev --browser=chrome,firefox
 
 ## 约束与行为
 
-- `chromium-based` 需要配合 `--chromium-binary`。
-- `gecko-based` / `firefox-based` 需要配合 `--gecko-binary`。
+- 在会启动浏览器的命令（`dev`、`start`、`preview`）中，`chromium-based` 需要配合 `--chromium-binary`；`build` 不需要二进制。
+- `gecko-based` / `firefox-based` 在同样的前提下需要配合 `--gecko-binary`。
 - 基于引擎的目标会被路由到同样的 Chromium / Firefox 运行器，并具有引擎感知的行为。
+- 作为 `build` 目标时，引擎目标拥有独立的 `dist/<target>` 目录、`.env.<target>` 解析、`EXTENSION_BROWSER` 值与 manifest 前缀——见[引擎目标对 `build` 意味着什么](/zh-Hans/docs/commands/build#引擎目标对-build-意味着什么)。
 
 ## 最佳实践
 
 - **日常迭代用具名浏览器**：`chrome`、`edge` 与 `firefox` 是常规测试中最快的路径。
-- **有意识地使用引擎模式**：只有在验证自定义二进制时才选用 `chromium-based` / `gecko-based`。
+- **有意识地使用引擎模式**：在验证自定义二进制或需要家族通用构建时选用 `chromium-based` / `gecko-based`。
 - **每个浏览器保持 profile 隔离**：减少调试时的跨浏览器状态泄漏。
 - **配合按浏览器划分的字段**：用带浏览器前缀的 manifest 键处理真正的行为差异。
 

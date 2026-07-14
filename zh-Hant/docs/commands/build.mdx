@@ -87,11 +87,21 @@ dist/
 
 ## 瀏覽器目標矩陣
 
-| 目標類型 | 範例                                             | 說明                           |
-| -------- | ------------------------------------------------ | ------------------------------ |
-| 具名目標 | `chromium`、`chrome`、`edge`、`firefox`          | 建置一個特定瀏覽器目標         |
-| 引擎目標 | `chromium-based`、`gecko-based`、`firefox-based` | 適合以引擎家族為單位的工作流程 |
-| 多目標   | `chrome,firefox`                                 | 以逗號分隔的目標               |
+| 目標類型 | 範例                                             | 說明                                                       |
+| -------- | ------------------------------------------------ | ---------------------------------------------------------- |
+| 具名目標 | `chromium`、`chrome`、`edge`、`firefox`          | 建置一個特定瀏覽器目標                                     |
+| 引擎目標 | `chromium-based`、`gecko-based`、`firefox-based` | 面向引擎家族的通用產物——見[下文](#引擎目標對-build-的意義) |
+| 多目標   | `chrome,firefox`                                 | 以逗號分隔的目標                                           |
+
+### 引擎目標對 `build` 的意義
+
+`build` 不會啟動瀏覽器，因此引擎目標在這裡並不指向某個執行檔——但它們仍會產出一個獨立的產物，而不是具名目標建置的改名副本：
+
+- **獨立的輸出目錄。** `--browser=chromium-based` 輸出到 `dist/chromium-based`，與 `dev`、`preview`、`start` 在該目標下使用的目錄一致——以自訂 Chromium 執行檔開發的專案，建置產物路徑完全對應。
+- **獨立的 env 解析。** `.env.chromium-based` 與 `.env.chromium-based.production` 優先於家族層級的 `.env.chromium`/`.env.chrome`/`.env.edge`，且打包後的程式碼中 `EXTENSION_BROWSER === "chromium-based"`——程式碼與設定可以據此區分「通用 Chromium」與特定商店建置。
+- **獨立的 manifest 前綴。** `manifest.json` 中的 `chromium-based:` 鍵會作為該目標最具體的匹配生效，疊加在家族層級的 `chrome:`/`chromium:`/`edge:` 鍵之上。
+
+`gecko-based` 相對 `firefox` 的行為完全相同。建置不需要瀏覽器執行檔——`--chromium-binary`/`--gecko-binary` 只對會啟動瀏覽器的指令有意義。
 
 ## 引數與旗標
 

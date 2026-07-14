@@ -88,11 +88,21 @@ dist/
 
 ## 浏览器目标矩阵
 
-| 目标类型 | 示例                                             | 说明                         |
-| -------- | ------------------------------------------------ | ---------------------------- |
-| 具名目标 | `chromium`、`chrome`、`edge`、`firefox`          | 构建某一个特定的浏览器目标   |
-| 引擎目标 | `chromium-based`、`gecko-based`、`firefox-based` | 适合以引擎家族为单位的工作流 |
-| 多目标   | `chrome,firefox`                                 | 用逗号分隔的多个目标         |
+| 目标类型 | 示例                                             | 说明                                                           |
+| -------- | ------------------------------------------------ | -------------------------------------------------------------- |
+| 具名目标 | `chromium`、`chrome`、`edge`、`firefox`          | 构建某一个特定的浏览器目标                                     |
+| 引擎目标 | `chromium-based`、`gecko-based`、`firefox-based` | 面向引擎家族的通用产物——见[下文](#引擎目标对-build-意味着什么) |
+| 多目标   | `chrome,firefox`                                 | 用逗号分隔的多个目标                                           |
+
+### 引擎目标对 `build` 意味着什么
+
+`build` 不会启动浏览器，因此引擎目标在这里并不指向某个二进制——但它们仍会产出一个独立的产物，而不是具名目标构建的改名副本：
+
+- **独立的输出目录。** `--browser=chromium-based` 输出到 `dist/chromium-based`，与 `dev`、`preview`、`start` 在该目标下使用的目录一致——用自定义 Chromium 二进制开发的项目，构建产物路径完全对应。
+- **独立的 env 解析。** `.env.chromium-based` 与 `.env.chromium-based.production` 优先于家族级的 `.env.chromium`/`.env.chrome`/`.env.edge`，且打包后的代码中 `EXTENSION_BROWSER === "chromium-based"`——代码与配置可以据此区分“通用 Chromium”与某个具体商店构建。
+- **独立的 manifest 前缀。** `manifest.json` 中的 `chromium-based:` 键会作为该目标最具体的匹配生效，叠加在家族级 `chrome:`/`chromium:`/`edge:` 键之上。
+
+`gecko-based` 相对 `firefox` 的行为完全相同。构建不需要浏览器二进制——`--chromium-binary`/`--gecko-binary` 只对会启动浏览器的命令有意义。
 
 ## 参数与 flag
 
