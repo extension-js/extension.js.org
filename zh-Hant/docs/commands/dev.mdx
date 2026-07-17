@@ -95,7 +95,8 @@ extension dev [path-or-url] [options]
 | `--wait-timeout <ms>`          | -                  | `--wait` 模式的逾時時間。                                                                                          | `60000`                 |
 | `--wait-format <pretty\|json>` | -                  | 等待結果的輸出格式(`json` 為機器可讀)。                                                                            | `pretty`                |
 | `--extensions <list>`          | -                  | 以逗號分隔的搭配擴充功能或 store URL。                                                                             | 未設                    |
-| `--install [boolean]`          | -                  | 當缺少時安裝專案相依套件。                                                                                         | 依指令行為而定          |
+| `--install [boolean]`          | -                  | 當缺少時安裝專案相依套件。基於安全預設停用生命週期指令稿;設 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true` 可執行它們。    | 依指令行為而定          |
+| `--parent-pid <pid>`           | -                  | 指定的處理程序 ID 一旦死亡就立即結束 dev 伺服器。供衍生 `dev` 的 harness / agent 使用,宿主當掉不會外洩伺服器。     | 未設                    |
 | `--author`                     | `--author-mode`    | 啟用維護者診斷。                                                                                                   | 停用                    |
 
 ## 自動化中介資料(建議用於腳本/代理)
@@ -114,6 +115,13 @@ extension dev [path-or-url] [options]
 - 啟動/編譯失敗:`status: "error"`
 - `runId` 唯一識別一次執行階段工作階段
 - `startedAt` 標示執行階段開始時間
+- `command` 記錄產生它的指令(`dev`、`start`、`preview` 或 `build`)
+- `toolchainVersion`、`extensionName` 與 `extensionVersion` 記錄是哪個 Extension.js 版本、為哪個擴充功能產出了這棵目錄樹——終端機捲動紀錄消失後,這個檔案仍是一份建置回執
+- `controlPort` / `instanceId` 定位 `extension logs` 與 act verb 使用的控制橋
+
+`events.ndjson` 只屬於目前這次執行:新一次執行開始時檔案會重設,且每筆記錄都蓋上本次執行的 `runId`(與 `ready.json` 一致),消費端不會看到上一個工作階段的事件與目前的交錯。
+
+工作階段行為異常時,執行 [`extension doctor`](/docs/commands/doctor)——它依序檢查契約、控制通道、權杖、執行器與瀏覽器,並指出第一個失敗的環節與修復方式。
 
 ### `--no-browser` 與就緒同步
 
