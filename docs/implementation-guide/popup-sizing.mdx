@@ -1,0 +1,101 @@
+---
+title: "Popup sizing"
+description: "How browsers size action popups, the real min and max dimensions, and the CSS patterns that keep popups stable across Chrome, Firefox, and Safari."
+keywords:
+  [
+    "extension.js",
+    "popup",
+    "action popup",
+    "popup size",
+    "popup width",
+    "popup height",
+    "chrome",
+    "firefox",
+    "safari",
+  ]
+---
+
+An action popup has no window you can size from JavaScript. The browser measures your rendered HTML and draws the popup around it, within hard limits. Sizing a popup means sizing its content with CSS.
+
+## The rules browsers apply
+
+- The popup grows to fit the rendered size of your document.
+- Chromium browsers clamp the popup to a maximum of **800 x 600 px** and a minimum of **25 x 25 px**.
+- Firefox applies the same **800 x 600 px** ceiling.
+- Content that exceeds the maximum gets scrollbars; the popup itself never grows past the clamp.
+- There is no API to set the popup size directly. `chrome.windows` APIs size browser windows, not action popups.
+
+## The baseline pattern
+
+Give the document an explicit width and let height follow content:
+
+```css
+/* popup.css */
+html,
+body {
+  margin: 0;
+}
+
+body {
+  width: 360px;
+  min-height: 120px;
+  max-height: 600px;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+```
+
+A fixed width in the 320 to 400 px range reads well on every desktop browser. Height is the dimension you want to stay flexible: let it track content and rely on the 600 px clamp as the ceiling.
+
+## Pitfalls that cause broken or jumpy popups
+
+### Viewport units
+
+Avoid `vh` and `vw` inside a popup. The viewport is the popup, and the popup is sized from your content, so viewport units create a circular measurement. In practice `100vh` collapses to unexpected values, especially in Firefox. Use fixed `px` values or content-driven sizing instead.
+
+### Percentage heights
+
+`height: 100%` on `body` has the same circularity problem: the parent has no fixed height until your content gives it one. Prefer `min-height` with a pixel value.
+
+### Late-loading content resizes the popup
+
+The popup opens at the size of the first paint, then visibly jumps when fonts, images, or async data arrive. To keep it stable:
+
+- Set explicit `width` and `height` attributes on images.
+- Reserve space for async sections with `min-height` skeletons.
+- Keep the initial render synchronous where you can; hydrate data into pre-sized containers.
+
+### Scrollbar flash
+
+If content briefly overflows during load, a scrollbar flashes in and shifts layout. `overflow-x: hidden` on `body` removes the horizontal flash; `scrollbar-gutter: stable` keeps the vertical gutter from shifting content when a real scrollbar appears.
+
+### Zoom changes the effective limits
+
+Browser zoom scales the popup's CSS pixels, so a 360 px popup at 150% zoom occupies more screen space and hits the 800 x 600 clamp earlier. If users report clipped popups, zoom is a common cause; keeping the layout under ~750 x 550 CSS px leaves headroom.
+
+## Firefox notes
+
+- Firefox needs the width on `body` (or a fixed-width root element); an unconstrained popup can render collapsed or at an unexpected width.
+- With `browser_style` removed in Manifest V3, you own all popup styling. Ship your own base styles.
+
+## Safari notes
+
+Safari renders the popup as a popover with the same content-driven model. Keep the explicit-width pattern and test with `extension dev --browser=safari`; Safari is stricter about drawing before layout settles, so pre-sized containers matter more there.
+
+## Debugging popup size
+
+Run your extension and inspect the popup like any page:
+
+```bash
+npx extension@latest dev
+```
+
+Open the popup, right-click inside it, and choose Inspect. The popup stays open while DevTools is attached, so you can toggle CSS and watch the popup resize live. Extension.js reloads the popup on save, which makes iterating on sizing fast.
+
+## Quick checklist
+
+- Fixed `width` on `body`, in the 320 to 400 px range.
+- `min-height` in pixels, no `vh`, no percentage heights.
+- Pre-size images and async sections.
+- Stay under the 800 x 600 clamp with headroom for zoom.
+- Test Chrome, Firefox, and Safari builds; the clamp is shared but rendering differs.
