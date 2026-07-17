@@ -1,0 +1,111 @@
+---
+title: "Doctor 指令:診斷 dev 工作階段"
+description: "用 Extension.js 的 doctor 指令診斷執行中的 dev 工作階段。依序檢查就緒契約、控制通道、權杖、執行器與瀏覽器。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "doctor",
+    "diagnostics",
+  ]
+---
+
+當 dev 工作階段(或與它溝通的自動化 verb)無法運作時,用 `doctor` 找出原因。
+
+`doctor` 依相依順序逐一檢查 dev 工作階段的控制通道環節——從磁碟上的就緒契約一路到對擴充功能內執行器的即時探測——並指出**第一個失敗的環節**與具體修復方式,而不是讓你面對每個指令各自的死巷錯誤。
+
+## 何時使用 `doctor`
+
+- `extension logs` 或某個 act verb 連不上,你想知道是哪個環節斷了。
+- agent 或指令稿透過 `ready.json` 驅動工作階段,需要機器可讀的健康檢查。
+- dev 工作階段看起來還活著,但擴充功能不再回應。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension doctor [project-path] [options]
+```
+
+```bash pnpm
+extension doctor [project-path] [options]
+```
+
+```bash yarn
+extension doctor [project-path] [options]
+```
+
+```bash bun
+extension doctor [project-path] [options]
+```
+
+```bash deno
+extension doctor [project-path] [options]
+```
+
+</CodeGroup>
+
+省略路徑時,Extension.js 會診斷目前工作資料夾對應的工作階段。
+
+## 參數與 flag
+
+| flag                      | 作用                                                        | 預設值          |
+| ------------------------- | ----------------------------------------------------------- | --------------- |
+| `[project-path]`          | 擴充功能專案根目錄路徑。                                    | `process.cwd()` |
+| `--browser <browser>`     | 診斷哪個工作階段(`chrome`、`chromium`、`edge`、`firefox`)。 | `chromium`      |
+| `--output <pretty\|json>` | 輸出格式(`json` 為 agent 輸出原始檢查結果)。                | `pretty`        |
+
+## 檢查內容
+
+檢查依相依順序執行。某個環節失敗時,依賴它的後續檢查會標成 **skip**,並註明被哪個檢查擋住——skip 不等於通過。
+
+| #   | 檢查              | 驗證內容                                                                                          |
+| --- | ----------------- | ------------------------------------------------------------------------------------------------- |
+| 1   | `ready-contract`  | `dist/extension-js/<browser>/ready.json` 存在且 `status: "ready"`。                               |
+| 2   | `server-process`  | 契約中的 dev 伺服器 `pid` 仍然存活(pid 已死代表契約已過期)。                                      |
+| 3   | `port-agreement`  | 持久化的控制連接埠與即時契約的 `controlPort` 一致(不一致會讓快取的 service worker 卡在舊連接埠)。 |
+| 4   | `control-channel` | 控制伺服器在契約連接埠上接受此 `instanceId` 的連線。                                              |
+| 5   | `eval-token`      | 工作階段以 `--allow-eval` 執行時,工作階段權杖可從專案根目錄讀取。                                 |
+| 6   | `executor`        | 一次即時探測能在擴充功能的 background 情境中往返。                                                |
+| 7   | `browser`         | 已啟動的瀏覽器沒有在 dev 伺服器仍在執行時意外結束。                                               |
+
+pretty 輸出每個檢查印出一行,並附上第一個失敗檢查的修復建議。全部通過時結束碼為 `0`,任一檢查失敗時為 `1`,CI 與指令稿可以直接據此把關。
+
+## 機器可讀輸出
+
+`--output json` 會把檢查結果印成 JSON 陣列,每個檢查一個物件:
+
+```json
+[
+  {
+    "check": "ready-contract",
+    "status": "pass",
+    "detail": "status ready — controlPort 43021, instanceId a1b2c3"
+  },
+  {
+    "check": "server-process",
+    "status": "fail",
+    "detail": "dev-server pid 4242 is dead — ready.json is stale",
+    "remediation": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control"
+  }
+]
+```
+
+`status` 為 `pass`、`fail` 或 `skip`;有已知修復方式的失敗會帶 `remediation`。
+
+## 典型流程
+
+1. 啟動工作階段:`extension dev --browser=chromium --allow-control`(需要 eval verb 時加上 `--allow-eval`)。
+2. 後續指令連不上時,在同一個專案根目錄執行 `extension doctor`。
+3. 依第一個失敗檢查給的修復建議處理,然後再次執行 `doctor` 確認。
+
+## 後續步驟
+
+- 在 [`dev`](/docs/commands/dev) 了解 `doctor` 的起點——就緒契約。
+- 透過 [除錯](/docs/debugging) 從健康的工作階段串流讀取擴充功能記錄。
+- 在 [全域 flag](/docs/workflows/global-flags) 查看共用 flag。

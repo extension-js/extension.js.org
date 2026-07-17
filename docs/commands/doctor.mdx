@@ -1,0 +1,111 @@
+---
+title: "Doctor command for diagnosing dev sessions"
+description: "Diagnose a running Extension.js dev session with the doctor command. Walks the ready contract, control channel, token, executor, and browser checks in order."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "doctor",
+    "diagnostics",
+  ]
+---
+
+Use `doctor` to find out why a dev session (or an automation verb talking to it) is not working.
+
+`doctor` walks the control-channel legs of a dev session in dependency order — from the on-disk readiness contract all the way to a live probe of the in-extension executor — and names the **first failing leg** with a concrete fix, instead of the dead-end error each command gives on its own.
+
+## When to use `doctor`
+
+- `extension logs` or an act verb can't connect and you want to know which leg is broken.
+- An agent or script drives a session via `ready.json` and needs a machine-readable health check.
+- A dev session looks alive but the extension stopped responding.
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension doctor [project-path] [options]
+```
+
+```bash pnpm
+extension doctor [project-path] [options]
+```
+
+```bash yarn
+extension doctor [project-path] [options]
+```
+
+```bash bun
+extension doctor [project-path] [options]
+```
+
+```bash deno
+extension doctor [project-path] [options]
+```
+
+</CodeGroup>
+
+If you omit the path, Extension.js diagnoses the session for the current working folder.
+
+## Arguments and flags
+
+| Flag                      | What it does                                                         | Default         |
+| ------------------------- | -------------------------------------------------------------------- | --------------- |
+| `[project-path]`          | Path to the extension project root.                                  | `process.cwd()` |
+| `--browser <browser>`     | Which session to diagnose (`chrome`, `chromium`, `edge`, `firefox`). | `chromium`      |
+| `--output <pretty\|json>` | Output format (`json` prints the raw check results for agents).      | `pretty`        |
+
+## What it checks
+
+Checks run in dependency order. When a leg fails, later checks that depend on it are marked **skip** and name the check that blocked them — a skip is not a pass.
+
+| #   | Check             | What it verifies                                                                                                                  |
+| --- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `ready-contract`  | `dist/extension-js/<browser>/ready.json` exists and reports `status: "ready"`.                                                    |
+| 2   | `server-process`  | The dev-server `pid` from the contract is still alive (a dead pid means the contract is stale).                                   |
+| 3   | `port-agreement`  | The persisted control port matches the live contract's `controlPort` (a mismatch strands cached service workers on the old port). |
+| 4   | `control-channel` | The control server accepts a connection on the contract port for this `instanceId`.                                               |
+| 5   | `eval-token`      | When the session runs with `--allow-eval`, the session token is readable from the project root.                                   |
+| 6   | `executor`        | A live probe round-trips through the extension's background context.                                                              |
+| 7   | `browser`         | The launched browser has not exited out from under the still-running dev server.                                                  |
+
+The pretty output prints one line per check plus the first failing check's remediation. The exit code is `0` when nothing failed and `1` when any check failed, so CI and scripts can gate on it directly.
+
+## Machine-readable output
+
+`--output json` prints the check results as a JSON array, one object per check:
+
+```json
+[
+  {
+    "check": "ready-contract",
+    "status": "pass",
+    "detail": "status ready — controlPort 43021, instanceId a1b2c3"
+  },
+  {
+    "check": "server-process",
+    "status": "fail",
+    "detail": "dev-server pid 4242 is dead — ready.json is stale",
+    "remediation": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control"
+  }
+]
+```
+
+`status` is `pass`, `fail`, or `skip`; `remediation` is present on failures that have a known fix.
+
+## Typical flow
+
+1. Start a session: `extension dev --browser=chromium --allow-control` (add `--allow-eval` for the eval verb).
+2. When a follow-up command can't reach it, run `extension doctor` from the same project root.
+3. Apply the remediation printed for the first failing check, then re-run `doctor` to confirm.
+
+## Next steps
+
+- Read the readiness contract `doctor` starts from in [`dev`](/docs/commands/dev#automation-metadata-recommended-for-scriptsagents).
+- Stream extension logs from a healthy session with [Debugging](/docs/debugging).
+- Review shared flags in [Global flags](/docs/workflows/global-flags).
