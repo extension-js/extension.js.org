@@ -95,7 +95,8 @@ extension dev [path-or-url] [options]
 | `--wait-timeout <ms>`          | -                  | `--wait` 模式的超时时间。                                                                                                        | `60000`            |
 | `--wait-format <pretty\|json>` | -                  | 等待结果的输出格式（`json` 适合机器读取）。                                                                                      | `pretty`           |
 | `--extensions <list>`          | -                  | 用逗号分隔的协同扩展或商店 URL。                                                                                                 | 未设置             |
-| `--install [boolean]`          | -                  | 缺失依赖时安装项目依赖。                                                                                                         | 按命令默认行为     |
+| `--install [boolean]`          | -                  | 缺失依赖时安装项目依赖。出于安全考虑默认禁用生命周期脚本；设 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true` 可运行它们。                 | 按命令默认行为     |
+| `--parent-pid <pid>`           | -                  | 给定进程 ID 一旦死亡就立即退出 dev 服务器。供派生 `dev` 的 harness / agent 使用，宿主崩溃不会泄漏服务器。                        | 未设置             |
 | `--author`                     | `--author-mode`    | 启用维护者诊断信息。                                                                                                             | 关闭               |
 
 ## 自动化元数据（推荐用于脚本 / agent）
@@ -114,6 +115,13 @@ extension dev [path-or-url] [options]
 - 启动 / 编译失败时 `status: "error"`
 - `runId` 唯一标识一次运行时会话
 - `startedAt` 标记运行时会话的起始时间戳
+- `command` 记录产生它的命令（`dev`、`start`、`preview` 或 `build`）
+- `toolchainVersion`、`extensionName` 与 `extensionVersion` 记录是哪个 Extension.js 版本、为哪个扩展产出了这棵目录树——终端滚屏丢失后，这个文件仍是一份构建回执
+- `controlPort` / `instanceId` 定位 `extension logs` 与 act verb 使用的控制桥
+
+`events.ndjson` 只属于当前这次运行：新一次运行开始时文件会重置，且每条记录都盖有本次运行的 `runId`（与 `ready.json` 一致），消费者不会看到上一个会话的事件与当前会话交错。
+
+会话行为异常时，运行 [`extension doctor`](/docs/commands/doctor)——它按顺序检查契约、控制通道、令牌、执行器与浏览器，并指出第一个失败的环节和修复方法。
 
 ### `--no-browser` 与就绪同步
 
