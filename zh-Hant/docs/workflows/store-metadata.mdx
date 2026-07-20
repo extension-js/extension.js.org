@@ -1,0 +1,112 @@
+---
+title: "用一個 STORE.md 管理商店中繼資料"
+description: "把 Chrome、Firefox 與 Edge 的商店文案、權限說明、隱私揭露和審查備註放進一個納入版本控制的 STORE.md 檔案。"
+keywords:
+  [
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+    "store metadata",
+    "chrome web store",
+    "firefox add-ons",
+    "edge add-ons",
+    "permissions justification",
+    "reviewer notes",
+  ]
+---
+
+跨瀏覽器擴充功能要提交到多個商店，而每個商店索取的材料幾乎相同：商店文案、權限說明、隱私揭露、審查備註和版本說明。`STORE.md` 慣例把這些內容全部放進專案根目錄下一個納入版本控制的檔案，重新提交時不必再從頭整理。
+
+這個檔案還有第二個用途。支援該慣例的部署工具會在提交時讀取它，並附上各商店 API 接受的欄位。其餘內容則作為商店後台表單的複製貼上參考。
+
+## 結構
+
+每個商店一個 `##` 小節，共享材料放在商店小節之上。商店小節按標題文字比對，因此 `## Firefox Add-ons`、`## firefox-amo` 和 `## AMO` 都有效；Chrome 與 Edge 同理。
+
+```markdown
+# Store metadata
+
+Last updated: 2026-07-20
+
+## Listing
+
+名稱、一句話簡介、詳細描述、分類、截圖清單。
+寫使用者收益，不寫實作細節。
+
+## Privacy and data use
+
+收集、儲存或傳輸了什麼資料，以及隱私權政策 URL。
+這一節必須與程式碼的實際行為以及 manifest 中 Firefox 的
+data_collection_permissions 宣告一致。
+
+## Chrome Web Store
+
+### Permissions justification
+
+- tabs: 讀取目前分頁 URL 以顯示依站點的設定。
+- storage: 在本機保存使用者偏好。
+
+### Single purpose
+
+用一句話陳述擴充功能的單一用途。
+
+## Firefox Add-ons
+
+### Reviewer notes
+
+測試憑證以及審查者驗證擴充功能所需的步驟。上傳物是打包產物時，
+附上從原始碼建置的說明；此時 AMO 要求提供原始碼 zip。
+
+### Release notes
+
+面向使用者的本版本說明。
+
+## Edge Add-ons
+
+### Certification notes
+
+認證團隊測試擴充功能所需的一切資訊。
+
+## Version history
+
+- 1.2.0 (2026-07-20): 新增依站點設定。已提交到所有商店。
+- 1.1.0 (2026-07-01): 因 tabs 權限說明含糊被 AMO 拒絕。
+  透過寫明擴充功能讀取的確切資料修復。
+```
+
+## 各商店讀取什麼
+
+Firefox 與 Edge 的提交 API 接受面向審查者的備註，支援 `STORE.md` 的工具可以替你送出：
+
+| 商店小節 | `###` 欄位          | 送出為               |
+| -------- | ------------------- | -------------------- |
+| Firefox  | Reviewer notes      | AMO `approval_notes` |
+| Firefox  | Release notes       | AMO `release_notes`  |
+| Edge     | Certification notes | Edge 提交 `notes`    |
+
+Chrome Web Store 的 API 不接受任何商店頁中繼資料，因此整個 Chrome 小節是開發者後台的參考材料。它的結構與 agent 工具在 `CHROMEWEBSTORE.md` 檔案中期望的小節一致，尋找那些小節的 agent 在這裡就能找到。
+
+## 每個範本都自帶起步檔案
+
+每個 Extension.js 範本都附帶一個由自身 manifest 產生的起步 `STORE.md`。權限說明已經與範本請求的權限一一對應，佔位行標註為 `TODO`。從任何範本建立專案，這個慣例從第一次提交起就已就位：
+
+```bash
+npx extension@latest create my-extension --template react
+```
+
+## 保持內容最新
+
+在讓它過期的同一個改動裡更新 `STORE.md`：
+
+- **manifest 變了**（`permissions`、`host_permissions`、`content_scripts`）：重新檢查每條權限說明。每個權限都需要具體、直白的理由。「擴充功能運作需要」在每個商店都過不了審。
+- **使用者可見行為變了**：更新商店文案並刷新最後更新日期。
+- **發佈新版本**：追加版本歷史條目並重寫版本說明。
+- **資料處理變了**：同時更新隱私小節、它連結的隱私權政策，以及 manifest 中 Firefox 的 `data_collection_permissions` 宣告。三者必須一致。必填的 manifest 鍵參見 [Firefox 商店審核的資料收集權限](/zh-Hant/docs/features/multi-platform-builds#firefox-商店審核的資料收集權限)。
+- **被商店拒絕**：在版本歷史中記錄原因與修復方式，下次提交不再重蹈覆轍。
+
+## 衛生守則
+
+- 把檔案納入 git。它是專案的一部分，不是草稿。
+- 別把它打進擴充功能 zip。正式建置只打包 `dist/<browser>/`，根目錄的 `STORE.md` 永遠不會隨擴充功能發佈。
+- 絕不放真實使用者憑證。審查用測試帳號從設計上就應該是一次性的。

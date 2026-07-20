@@ -236,6 +236,26 @@ bunx extension build --zip --zip-filename=my-release
 
 {/* VIDEO_PLACEHOLDER_TODO: Show source archive generation and where `-source.zip` is written. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
+## Firefox 商店审核的数据收集权限
+
+自 2025 年 11 月起，[addons.mozilla.org](https://addons.mozilla.org) 会拒绝所有 manifest 中缺少 `browser_specific_settings.gecko.data_collection_permissions` 的新扩展，Mozilla 也已宣布该键将在 2026 年内对所有扩展强制生效。即使扩展不传输任何数据，也必须显式声明：
+
+```json
+{
+  "firefox:browser_specific_settings": {
+    "gecko": {
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}
+```
+
+用 `extension create` 脚手架生成的新项目已包含此声明，`firefox:` 前缀让它不会进入 Chromium 构建。生产环境的 Firefox 构建会在最终 manifest 缺少该键时发出警告，因此缺失声明会在构建时暴露，而不是等到商店审核。
+
+扩展确实传输用户数据却声明 `"none"` 属于违反 AMO 政策的行为。如果你的扩展收集或传输任何数据，请声明对应的分类。分类列表见 Mozilla 的[内置数据同意文档](https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/)。Firefox 桌面版从 140 起（Android 从 142 起）解析该键，Manifest V2 与 V3 均可安全使用。
+
 ## 为浏览器 API 打 polyfill
 
 如果你的代码依赖 Gecko 风格的 `browser.*` API，并且需要 Chromium 兼容性，请启用 `--polyfill`：

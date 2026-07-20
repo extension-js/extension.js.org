@@ -1,0 +1,113 @@
+---
+title: "Store metadata in one STORE.md file"
+description: "Keep listing copy, permission justifications, privacy disclosures, and reviewer notes for Chrome, Firefox, and Edge in one tracked STORE.md file."
+keywords:
+  [
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+    "store metadata",
+    "chrome web store",
+    "firefox add-ons",
+    "edge add-ons",
+    "permissions justification",
+    "reviewer notes",
+  ]
+---
+
+A cross-browser extension submits to several stores, and every store asks for the same paperwork: listing copy, permission justifications, privacy disclosures, reviewer notes, and release notes. The `STORE.md` convention puts all of it in one tracked file at the project root, so a resubmission never reinvents it.
+
+The file has a second job. Deployment tooling that supports the convention reads it at submission time and attaches the fields each store API accepts. Everything else stays a copy-paste reference for the store dashboards.
+
+## Structure
+
+One `##` section per store, with shared material above the store sections. Store sections match by heading text, so `## Firefox Add-ons`, `## firefox-amo`, and `## AMO` all work. The same applies to Chrome and Edge.
+
+```markdown
+# Store metadata
+
+Last updated: 2026-07-20
+
+## Listing
+
+Name, one-line summary, long description, category, screenshot list.
+Write user benefits, not implementation.
+
+## Privacy and data use
+
+What is collected, stored, or transmitted, and the privacy policy URL.
+This section must match what the code does and what the manifest's
+Firefox data_collection_permissions key declares.
+
+## Chrome Web Store
+
+### Permissions justification
+
+- tabs: reads the current tab URL to show per-site settings.
+- storage: persists user preferences locally.
+
+### Single purpose
+
+One sentence that states the extension's single purpose.
+
+## Firefox Add-ons
+
+### Reviewer notes
+
+Test credentials and the steps a reviewer needs to exercise the
+extension. Include build-from-source instructions when the upload
+is bundled; AMO requires a source zip in that case.
+
+### Release notes
+
+User-facing notes for this version.
+
+## Edge Add-ons
+
+### Certification notes
+
+Anything the certification team needs to test the extension.
+
+## Version history
+
+- 1.2.0 (2026-07-20): added per-site settings. Submitted to all stores.
+- 1.1.0 (2026-07-01): rejected on AMO for a vague tabs justification.
+  Fixed by naming the exact data the extension reads.
+```
+
+## What each store reads
+
+The Firefox and Edge submission APIs accept reviewer-facing notes, so tooling that supports `STORE.md` can send them for you:
+
+| Store section | `###` field         | Sent as                 |
+| ------------- | ------------------- | ----------------------- |
+| Firefox       | Reviewer notes      | AMO `approval_notes`    |
+| Firefox       | Release notes       | AMO `release_notes`     |
+| Edge          | Certification notes | Edge submission `notes` |
+
+The Chrome Web Store accepts no listing metadata over its API, so the whole Chrome section is a reference for the developer dashboard. Its shape mirrors the sections agent tooling expects from a `CHROMEWEBSTORE.md` file, so an agent that looks for those sections finds them here.
+
+## Starter files in every template
+
+Every Extension.js template ships a starter `STORE.md` generated from its own manifest. The permission justifications already match the permissions the template requests, and the placeholder lines are marked `TODO`. Create a project from any template and the convention is in place from the first commit:
+
+```bash
+npx extension@latest create my-extension --template react
+```
+
+## Keep it current
+
+Update `STORE.md` in the same change that makes it stale:
+
+- **Manifest changed** (`permissions`, `host_permissions`, `content_scripts`): revisit every justification. Each permission needs a specific, plain-English reason. "Needed for the extension to work" fails review on every store.
+- **User-facing behavior changed**: refresh the listing copy and bump the last-updated date.
+- **New release**: add a version history entry and rewrite the release notes.
+- **Data handling changed**: update the privacy section, the policy it links to, and the manifest's Firefox `data_collection_permissions` declaration together. The three must agree. See [Firefox store readiness](/docs/features/multi-platform-builds#firefox-store-readiness-data-collection-permissions) for the mandatory manifest key.
+- **Store rejection**: record the reason and the fix in version history, so the next submission does not repeat it.
+
+## Hygiene
+
+- Track the file in git. It is part of the project, not a scratch note.
+- Keep it out of the extension zip. The production build packages only `dist/<browser>/`, so a root-level `STORE.md` never ships to users.
+- Never put real user credentials in it. Reviewer test accounts are throwaway by construction.
