@@ -18,7 +18,7 @@ keywords:
 
 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) gives an AI agent raw control of a live Chrome instance, and recent versions added extension tools (`install`, `list`, `reload`, `trigger`, and `uninstall`, plus service-worker logs). The Extension.js MCP server (`@extension.dev/mcp`) covers the same extension capabilities, but build-aware and across browsers.
 
-They are complementary, not competing. Run both: let chrome-devtools-mcp drive Chrome itself, and let Extension.js own everything that depends on your project — the build, hot reload, the generated manifest, storage, logs across every context, and the same workflow on Firefox, Edge, and Safari.
+They are complementary, not competing. Run both: let chrome-devtools-mcp drive Chrome itself, and let Extension.js own everything that depends on your project: the build, hot reload, the generated manifest, storage, logs across every context, and the same workflow on Firefox, Edge, and Safari.
 
 ## When to use which
 
@@ -97,19 +97,19 @@ claude mcp add chrome-devtools npx chrome-devtools-mcp@latest --categoryExtensio
 
 Every chrome-devtools-mcp extension verb has an Extension.js counterpart, plus a build platform around it.
 
-| chrome-devtools-mcp        | Extension.js                            | Notes                                                                                                                                                                                  |
-| -------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `install_extension`        | `extension_dev`, `extension_preview`    | Loading is tied to a real build + hot reload, not a static folder                                                                                                                      |
-| `list_extensions`          | `extension_list_extensions`             | Lists extensions with a live context; read-only via the Extensions domain                                                                                                              |
-| `reload_extension`         | `extension_reload`                      | Rebuild-aware; reloads background or a tab                                                                                                                                             |
-| `trigger_extension_action` | `extension_open` (`surface: "action"`)  | Portable replay of the `onClicked` handler — cross-browser, **no gesture** (see caveat). For a genuine-gesture click (activeTab), use chrome-devtools-mcp's `trigger_extension_action` |
-| —                          | `extension_open` (`surface: "command"`) | Replays a `chrome.commands.onCommand` keyboard-shortcut handler — no chrome-devtools-mcp equivalent                                                                                    |
-| `uninstall_extension`      | managed by the dev session lifecycle    | Extension.js owns load/unload through `dev` / `preview`                                                                                                                                |
-| service-worker logs        | `extension_logs`                        | One ordered timeline across every context, with `follow`                                                                                                                               |
+| chrome-devtools-mcp        | Extension.js                            | Notes                                                                                                                                                                                 |
+| -------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `install_extension`        | `extension_dev`, `extension_preview`    | Loading is tied to a real build + hot reload, not a static folder                                                                                                                     |
+| `list_extensions`          | `extension_list_extensions`             | Lists extensions with a live context; read-only via the Extensions domain                                                                                                             |
+| `reload_extension`         | `extension_reload`                      | Rebuild-aware; reloads background or a tab                                                                                                                                            |
+| `trigger_extension_action` | `extension_open` (`surface: "action"`)  | Portable replay of the `onClicked` handler, cross-browser, **no gesture** (see caveat). For a genuine-gesture click (activeTab), use chrome-devtools-mcp's `trigger_extension_action` |
+| n/a                        | `extension_open` (`surface: "command"`) | Replays a `chrome.commands.onCommand` keyboard-shortcut handler, no chrome-devtools-mcp equivalent                                                                                    |
+| `uninstall_extension`      | managed by the dev session lifecycle    | Extension.js owns load/unload through `dev` / `preview`                                                                                                                               |
+| service-worker logs        | `extension_logs`                        | One ordered timeline across every context, with `follow`                                                                                                                              |
 
-### How the action / command triggers work — and their one caveat
+### How the action / command triggers work, and their one caveat
 
-chrome-devtools-mcp triggers an action by clicking the real toolbar button, which needs a visible window and a genuine user gesture. Extension.js takes a different approach: it captures the extension's `chrome.action.onClicked` (and `chrome.commands.onCommand`) listeners at build time and **replays** them on demand. That makes triggering scriptable and reproducible — the natural mode for agentic testing — and, because it only touches `addListener`, it works on both **Chromium and Firefox** (verified on both). A single `background.service_worker` source works on Firefox too — Extension.js translates it to a `background.scripts` event page for the Firefox target, since Firefox doesn't run service-worker backgrounds.
+chrome-devtools-mcp triggers an action by clicking the real toolbar button, which needs a visible window and a genuine user gesture. Extension.js takes a different approach: it captures the extension's `chrome.action.onClicked` (and `chrome.commands.onCommand`) listeners at build time and **replays** them on demand. That makes triggering scriptable and reproducible (the natural mode for agentic testing) and, because it only touches `addListener`, it works on both **Chromium and Firefox** (verified on both). A single `background.service_worker` source works on Firefox too: Extension.js translates it to a `background.scripts` event page for the Firefox target, since Firefox doesn't run service-worker backgrounds.
 
 <Warning>
   Replay invokes your handler **without a user gesture**. A real toolbar click
@@ -127,16 +127,16 @@ chrome-devtools-mcp triggers an action by clicking the real toolbar button, whic
 
 The two are complementary, not competing:
 
-- **`extension_open` (`surface: "action"`)** — the everyday path. Replays the handler, cross-browser, headless, no gesture (`activeTab` not granted). Use it for the vast majority of handler testing.
-- **chrome-devtools-mcp `trigger_extension_action`** — a _real_ action invocation through Puppeteer (over the supported pipe transport), so `activeTab` is granted exactly like a user click. Chromium only. Reach for it only when your handler genuinely depends on the gesture.
+- **`extension_open` (`surface: "action"`)**: the everyday path. Replays the handler, cross-browser, headless, no gesture (`activeTab` not granted). Use it for the vast majority of handler testing.
+- **chrome-devtools-mcp `trigger_extension_action`**: a _real_ action invocation through Puppeteer (over the supported pipe transport), so `activeTab` is granted exactly like a user click. Chromium only. Reach for it only when your handler genuinely depends on the gesture.
 
-Since this page already recommends running both servers, let chrome-devtools-mcp own genuine-gesture browser driving and let Extension.js own the build-aware, cross-browser replay — no need to duplicate it.
+Since this page already recommends running both servers, let chrome-devtools-mcp own genuine-gesture browser driving and let Extension.js own the build-aware, cross-browser replay, with no need to duplicate it.
 
 See [Reload and HMR](/docs/features/reload-and-hmr).
 
 ### Safe by construction
 
-The replay wraps are injected **only into your dev build** — the agent bridge is gated on a control port that exists solely during `extension dev`/`preview`, and nothing is added to a production build. The `addListener` wraps delegate transparently to the originals, so your extension behaves identically with or without the bridge.
+The replay wraps are injected **only into your dev build**: the agent bridge is gated on a control port that exists solely during `extension dev`/`preview`, and nothing is added to a production build. The `addListener` wraps delegate transparently to the originals, so your extension behaves identically with or without the bridge.
 
 ## Next steps
 
