@@ -129,10 +129,10 @@ When a session misbehaves, run [`extension doctor`](/docs/commands/doctor) — i
 
 `--no-browser` disables browser launch but keeps the full dev loop. The dev server still watches your files, and on each rebuild it broadcasts a reload over the control bridge to the extension's service worker so your changes apply without a launched browser driving them:
 
-- A **content-script** change is re-injected into the already-open matching tabs in place (the service worker runs `chrome.scripting.executeScript` with the fresh build), so the page updates on save without a manual refresh. Tabs opened afterward get the new build too — the service worker re-registers the content scripts dynamically (`chrome.scripting.registerContentScripts`).
+- A **content-script** change is re-injected into the already-open matching tabs in place (the service worker runs `chrome.scripting.executeScript` with the fresh build), so the page updates on save without a manual refresh. Tabs opened afterward get the new build too, because the service worker re-registers the content scripts dynamically (`chrome.scripting.registerContentScripts`).
 - A **service-worker / manifest** change restarts the extension.
 
-So `--no-browser` behaves like a normal `dev` session for headless, continuous integration (CI), and remote/dev-container workflows: load the built `dist/<browser>` into any browser you control and it keeps updating on save. (Use `--no-reload` for a static dev bundle that never reloads — see below.)
+So `--no-browser` behaves like a normal `dev` session for headless, continuous integration (CI), and remote/dev-container workflows: load the built `dist/<browser>` into any browser you control and it keeps updating on save. (Use `--no-reload` for a static dev bundle that never reloads. See below.)
 
 `--no-browser` does not block external runners until the compile finishes.
 
@@ -360,8 +360,8 @@ extension dev ./my-extension --host 0.0.0.0 --port 0
 
 `--host` is the address the dev server **binds** to. The browser (the HMR client and the reload bridge) needs an address it can actually **connect** to, which is not always the same value:
 
-- `--host 0.0.0.0` binds every interface, but `0.0.0.0` is not a connectable address. Extension.js automatically advertises `127.0.0.1` to the browser instead — the right target for the common port-forwarded Docker/dev-container/Codespaces setup, where the browser runs on the host and the port is forwarded to the container.
-- For a true **remote** setup — the browser runs on a different machine than the dev server — pass `--public-host` with the address the browser can reach (an LAN IP or hostname). It is propagated to the HMR client URL, `ready.json`, and the reload bridge baked into the extension.
+- `--host 0.0.0.0` binds every interface, but `0.0.0.0` is not a connectable address. Extension.js automatically advertises `127.0.0.1` to the browser instead, the right target for the common port-forwarded Docker/dev-container/Codespaces setup, where the browser runs on the host and the port is forwarded to the container.
+- For a true **remote** setup (the browser runs on a different machine than the dev server), pass `--public-host` with the address the browser can reach (an LAN IP or hostname). It is propagated to the HMR client URL, `ready.json`, and the reload bridge baked into the extension.
 
 <CodeGroup>
 
@@ -384,7 +384,7 @@ extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
 
 </CodeGroup>
 
-When `--host` is a concrete address already (for example `--host 192.168.1.50`), that value is connectable as-is and is used directly — `--public-host` is only needed when the bind host and the browser-facing host differ.
+When `--host` is a concrete address already (for example `--host 192.168.1.50`), that value is connectable as-is and is used directly. `--public-host` is only needed when the bind host and the browser-facing host differ.
 
 ### Running in Brave as a custom binary
 
