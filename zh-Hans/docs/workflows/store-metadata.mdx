@@ -1,0 +1,112 @@
+---
+title: "用一个 STORE.md 管理商店元数据"
+description: "把 Chrome、Firefox 与 Edge 的商店文案、权限说明、隐私披露和审核备注放进一个纳入版本控制的 STORE.md 文件。"
+keywords:
+  [
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+    "store metadata",
+    "chrome web store",
+    "firefox add-ons",
+    "edge add-ons",
+    "permissions justification",
+    "reviewer notes",
+  ]
+---
+
+跨浏览器扩展要提交到多个商店，而每个商店索要的材料几乎相同：商店文案、权限说明、隐私披露、审核备注和版本说明。`STORE.md` 约定把这些内容全部放进项目根目录下一个纳入版本控制的文件，重新提交时不必再从头整理。
+
+这个文件还有第二个用途。支持该约定的部署工具会在提交时读取它，并附上各商店 API 接受的字段。其余内容则作为商店后台表单的复制粘贴参考。
+
+## 结构
+
+每个商店一个 `##` 小节，共享材料放在商店小节之上。商店小节按标题文本匹配，因此 `## Firefox Add-ons`、`## firefox-amo` 和 `## AMO` 都有效；Chrome 与 Edge 同理。
+
+```markdown
+# Store metadata
+
+Last updated: 2026-07-20
+
+## Listing
+
+名称、一句话简介、详细描述、分类、截图列表。
+写用户收益，不写实现细节。
+
+## Privacy and data use
+
+收集、存储或传输了什么数据，以及隐私政策 URL。
+这一节必须与代码的实际行为以及 manifest 中 Firefox 的
+data_collection_permissions 声明一致。
+
+## Chrome Web Store
+
+### Permissions justification
+
+- tabs: 读取当前标签页 URL 以展示按站点的设置。
+- storage: 在本地保存用户偏好。
+
+### Single purpose
+
+用一句话陈述扩展的单一用途。
+
+## Firefox Add-ons
+
+### Reviewer notes
+
+测试凭据以及审核者验证扩展所需的步骤。上传物是打包产物时，
+附上从源码构建的说明；此时 AMO 要求提供源码 zip。
+
+### Release notes
+
+面向用户的本版本说明。
+
+## Edge Add-ons
+
+### Certification notes
+
+认证团队测试扩展所需的一切信息。
+
+## Version history
+
+- 1.2.0 (2026-07-20): 新增按站点设置。已提交到所有商店。
+- 1.1.0 (2026-07-01): 因 tabs 权限说明含糊被 AMO 拒绝。
+  通过写明扩展读取的确切数据修复。
+```
+
+## 各商店读取什么
+
+Firefox 与 Edge 的提交 API 接受面向审核者的备注，支持 `STORE.md` 的工具可以替你发送：
+
+| 商店小节 | `###` 字段          | 发送为               |
+| -------- | ------------------- | -------------------- |
+| Firefox  | Reviewer notes      | AMO `approval_notes` |
+| Firefox  | Release notes       | AMO `release_notes`  |
+| Edge     | Certification notes | Edge 提交 `notes`    |
+
+Chrome Web Store 的 API 不接受任何商店页元数据，因此整个 Chrome 小节是开发者后台的参考材料。它的结构与 agent 工具在 `CHROMEWEBSTORE.md` 文件中期望的小节一致，寻找那些小节的 agent 在这里就能找到。
+
+## 每个模板都自带起步文件
+
+每个 Extension.js 模板都附带一个由自身 manifest 生成的起步 `STORE.md`。权限说明已经与模板请求的权限一一对应，占位行标注为 `TODO`。从任何模板创建项目，这个约定从第一次提交起就已就位：
+
+```bash
+npx extension@latest create my-extension --template react
+```
+
+## 保持内容最新
+
+在让它过期的同一个改动里更新 `STORE.md`：
+
+- **manifest 变了**（`permissions`、`host_permissions`、`content_scripts`）：重新检查每条权限说明。每个权限都需要具体、直白的理由。"扩展运行需要" 在每个商店都过不了审。
+- **用户可见行为变了**：更新商店文案并刷新最后更新日期。
+- **发布新版本**：追加版本历史条目并重写版本说明。
+- **数据处理变了**：同时更新隐私小节、它链接的隐私政策，以及 manifest 中 Firefox 的 `data_collection_permissions` 声明。三者必须一致。必填的 manifest 键参见 [Firefox 商店审核的数据收集权限](/zh-Hans/docs/features/multi-platform-builds#firefox-商店审核的数据收集权限)。
+- **被商店拒绝**：在版本历史中记录原因与修复方式，下次提交不再重蹈覆辙。
+
+## 卫生守则
+
+- 把文件纳入 git。它是项目的一部分，不是草稿。
+- 别把它打进扩展 zip。生产构建只打包 `dist/<browser>/`，根目录的 `STORE.md` 永远不会随扩展发布。
+- 绝不放真实用户凭据。审核用测试账号从设计上就应该是一次性的。
