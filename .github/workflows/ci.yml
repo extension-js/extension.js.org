@@ -34,6 +34,22 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Install Vale
+        run: |
+          curl -sfL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin vale
+        env:
+          VALE_VERSION: 3.14.1
+
+      # Errors only. Suggestions and warnings are advisory and do not gate.
+      - name: Check prose
+        run: pnpm run check:prose:errors
+
+      # Informational: en to zh drift is tracked, not yet gated.
+      - name: Report locale drift
+        run: pnpm run check:locales
+        continue-on-error: true
+
       - name: Validate Mintlify build
         run: npx -y mint@latest validate
 

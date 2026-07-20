@@ -16,7 +16,7 @@ keywords:
 ---
 
 <AvatarBrowsers browsers={["safari"]} />
-Package your existing web extension into a native Safari app on macOS — no
+Package your existing web extension into a native Safari app on macOS, with no
 separate Xcode project to maintain by hand.
 
 <Warning>
@@ -29,7 +29,7 @@ Use `--browser=safari` to turn the same extension you ship to Chrome and Firefox
 
 ## Requirements
 
-Safari is **macOS-only** and needs the **full Xcode app** — not just the Command Line Tools. The converter (`safari-web-extension-converter`) and `xcodebuild` ship inside `Xcode.app`.
+Safari is **macOS-only** and needs the **full Xcode app**, not just the Command Line Tools. The converter (`safari-web-extension-converter`) and `xcodebuild` ship inside `Xcode.app`.
 
 ```bash
 # Install Xcode from the Mac App Store, then point the toolchain at it:
@@ -37,7 +37,7 @@ sudo xcode-select --switch /Applications/Xcode.app
 xcodebuild -runFirstLaunch
 ```
 
-If Xcode is missing, `extension build`/`dev --browser=safari` fail fast — before bundling — with guidance instead of a late, confusing error.
+If Xcode is missing, `extension build`/`dev --browser=safari` fail fast, before bundling, with guidance instead of a late, confusing error.
 
 ## What it produces
 
@@ -49,7 +49,7 @@ If Xcode is missing, `extension build`/`dev --browser=safari` fail fast — befo
 | `dist/safari-xcode`   | The generated Xcode project (app + Safari extension targets). |
 | `…/Release/<App>.app` | The compiled, ad-hoc–signed app that hosts your extension.    |
 
-The pipeline runs end to end: **bundle → convert → `xcodebuild`** — plus **open
+The pipeline runs end to end: **bundle → convert → `xcodebuild`**, plus **open
 the app → guided enable** in `dev` (or with `build --open`). A plain `build`
 stops after packaging and prints the `open` command instead.
 
@@ -62,7 +62,7 @@ The app name and bundle identifier are derived from your manifest `name` (for ex
 <Warning>
   The generated `dev.extensionjs.*` bundle id is a development placeholder. If
   you plan to distribute your app, set a bundle id you own **from the first
-  build** — changing it later makes Safari treat the extension as a brand-new
+  build**. Changing it later makes Safari treat the extension as a brand-new
   identity (users lose their enable state and data).
 </Warning>
 
@@ -70,13 +70,13 @@ The app name and bundle identifier are derived from your manifest `name` (for ex
 
 Both `dev` and `build` accept identity overrides (Safari targets only):
 
-| Flag                 | What it does                                                                     |
-| -------------------- | -------------------------------------------------------------------------------- |
-| `--bundle-id`        | User-owned reverse-DNS bundle identifier (e.g. `com.example.my-extension`).      |
-| `--app-name`         | Override the app name (defaults to the manifest `name`).                         |
-| `--force-regenerate` | Regenerate the Xcode project even when it is up to date.                         |
-| `--safari-binary`    | `dev` only: the Safari binary to open after packaging.                           |
-| `--open`             | `build` only: open the built app after packaging (off by default).               |
+| Flag                 | What it does                                                                |
+| -------------------- | --------------------------------------------------------------------------- |
+| `--bundle-id`        | User-owned reverse-DNS bundle identifier (e.g. `com.example.my-extension`). |
+| `--app-name`         | Override the app name (defaults to the manifest `name`).                    |
+| `--force-regenerate` | Regenerate the Xcode project even when it is up to date.                    |
+| `--safari-binary`    | `dev` only: the Safari binary to open after packaging.                      |
+| `--open`             | `build` only: open the built app after packaging (off by default).          |
 
 The same options can live in `extension.config.js` (CLI flags win):
 
@@ -84,11 +84,11 @@ The same options can live in `extension.config.js` (CLI flags win):
 export default {
   browser: {
     safari: {
-      appName: 'My Extension',
-      bundleId: 'com.example.my-extension'
-    }
-  }
-}
+      appName: "My Extension",
+      bundleId: "com.example.my-extension",
+    },
+  },
+};
 ```
 
 Changing the bundle id, app name, or manifest regenerates the Xcode project on
@@ -100,7 +100,7 @@ the next run (see the regeneration warning below).
 the complete `dist/safari` web-extension bundle and **skips the Xcode packaging
 step** with a warning. This lets CI build the payload anywhere and a Mac (or a
 macOS runner) do the convert + `xcodebuild` part later. `dev --browser=safari`
-still requires macOS with Xcode — a Safari dev loop without packaging has
+still requires macOS with Xcode, because a Safari dev loop without packaging has
 nothing to run.
 
 ## Enabling the extension in Safari
@@ -125,8 +125,8 @@ Local builds are **ad-hoc signed** (no Apple Developer account required), so Saf
 npx extension dev --browser=safari
 ```
 
-- **First compile** — full package: convert, build, open the app, and print the enable steps.
-- **On every save** — incremental `xcodebuild` resync (typically a couple of seconds) that updates the app's resources from the freshly rebuilt `dist/safari`.
+- **First compile**: full package: convert, build, open the app, and print the enable steps.
+- **On every save**: incremental `xcodebuild` resync (typically a couple of seconds) that updates the app's resources from the freshly rebuilt `dist/safari`.
 
 Safari has no live-reload channel like Chromium or Firefox, so after a rebuild **refresh the page (or toggle the extension)** in Safari to pick up changes.
 
@@ -136,7 +136,7 @@ The Xcode project is generated once and reused for resyncs. It is **regenerated*
 (the converter runs again) when your `manifest.json` changes semantically, when
 the app name / bundle id / platform changes, or when you pass
 `--force-regenerate`. Regeneration replaces the project: customizations made in
-Xcode — entitlements, capabilities, added files or targets — are **discarded**.
+Xcode (entitlements, capabilities, added files or targets) are **discarded**.
 Only these signing settings are preserved automatically: `DEVELOPMENT_TEAM`,
 `CODE_SIGN_STYLE`, and `PROVISIONING_PROFILE_SPECIFIER`. Extension.js warns
 before every regeneration of an existing project; if you customized the project
@@ -151,7 +151,7 @@ channel), but Web Inspector covers every extension context:
   Content ▸ _your extension_.
 - **Popup/options/sidebar pages**: open the surface, then right-click ▸ Inspect
   Element (or Develop ▸ _your Mac_ ▸ the page).
-- **Content scripts**: inspect the host page — extension script contexts appear
+- **Content scripts**: inspect the host page, where extension script contexts appear
   in the Sources tab under Extension Scripts.
 
 If a build fails, the CLI prints the tail of the failing `xcrun`/`xcodebuild`
@@ -169,12 +169,12 @@ npx extension build --browser=webkit-based
 
 ## Command support
 
-| Command   | Safari support                                                                 |
-| --------- | ------------------------------------------------------------------------------ |
-| `build`   | ✅ Builds and packages the Safari app.                                         |
-| `dev`     | ✅ Watch + incremental rebuild (refresh in Safari to apply).                   |
-| `preview` | ❌ Not supported — Safari extensions can't be auto-loaded into a live browser. |
-| `start`   | ❌ Not supported — same reason as `preview`.                                   |
+| Command   | Safari support                                                                |
+| --------- | ----------------------------------------------------------------------------- |
+| `build`   | ✅ Builds and packages the Safari app.                                        |
+| `dev`     | ✅ Watch + incremental rebuild (refresh in Safari to apply).                  |
+| `preview` | ❌ Not supported. Safari extensions can't be auto-loaded into a live browser. |
+| `start`   | ❌ Not supported. Same reason as `preview`.                                   |
 
 `preview` and `start` exist to launch your extension in a running browser. Safari requires the manual, security-gated enable step above, so those commands point you to `build` instead.
 
@@ -189,7 +189,7 @@ npx extension build --browser=webkit-based
 ## After dev: shipping to the App Store
 
 The Safari workflow above ends with an ad-hoc–signed local app. Distributing it
-— to the Mac App Store, or as a notarized direct download — is a separate
+(to the Mac App Store, or as a notarized direct download) is a separate
 pipeline that Extension.js plans to offer through the
 [extension.dev](https://extension.dev) platform. Until that lands, follow
 Apple's own guides:
@@ -197,19 +197,19 @@ Apple's own guides:
 - [Distributing your Safari web extension](https://developer.apple.com/documentation/safariservices/safari_web_extensions/distributing_your_safari_web_extension) (Apple Developer Program, signing, App Store Connect).
 - [Notarizing macOS software](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution) for non–App Store distribution.
 
-Two things from the Extension.js side make that path smooth — do them early:
+Two things from the Extension.js side make that path smooth. Do them early:
 
 1. **Set your own `--bundle-id`** (reverse-DNS, a domain you own) from the first
    build. Bundle id is the extension's identity on Apple platforms.
-2. **Set your `DEVELOPMENT_TEAM` in Xcode once** — it survives project
+2. **Set your `DEVELOPMENT_TEAM` in Xcode once**: it survives project
    regeneration automatically, along with `CODE_SIGN_STYLE` and
    `PROVISIONING_PROFILE_SPECIFIER`.
 
 ## Best practices
 
-- **Build other targets normally**: Safari is additive — keep iterating in `chromium`/`firefox` and run `--browser=safari` when you want to validate Safari.
-- **Use browser-specific fields** for true behavioral differences. Safari resolves the chromium-family prefixes (`chromium:`, `chrome:`, `edge:`), and `safari:`/`webkit:` prefixed keys win over them on Safari targets — for both `--browser=safari` and `--browser=webkit-based`.
-- **Keep the generated project** unless you need a clean slate — regenerating discards Xcode-side customizations beyond the preserved signing settings.
+- **Build other targets normally**: Safari is additive, so keep iterating in `chromium`/`firefox` and run `--browser=safari` when you want to validate Safari.
+- **Use browser-specific fields** for true behavioral differences. Safari resolves the chromium-family prefixes (`chromium:`, `chrome:`, `edge:`), and `safari:`/`webkit:` prefixed keys win over them on Safari targets, for both `--browser=safari` and `--browser=webkit-based`.
+- **Keep the generated project** unless you need a clean slate, because regenerating discards Xcode-side customizations beyond the preserved signing settings.
 
 ## Next steps
 

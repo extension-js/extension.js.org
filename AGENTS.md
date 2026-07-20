@@ -40,6 +40,7 @@ pnpm build          # Build the site (mint build)
 pnpm broken-links   # Check internal links
 pnpm validate       # Validate the docs build
 pnpm check          # lint + format + spellcheck
+pnpm check:prose    # Vale: house voice + ASD-STE100 subset (see Prose rules)
 pnpm test           # Run vitest tests
 ```
 
@@ -56,6 +57,33 @@ Always run `pnpm check` before opening a PR.
 - **Punctuation:** no em dashes. Use commas, colons, or parentheses.
 - **Verbs:** prefer "choose" over "pick" or "select" for selection/option language (see commit history for prior standardizations).
 - **Code blocks:** always tag with a language.
+
+## Prose rules
+
+Run `pnpm check:prose`. Rules live in `styles/` and split into two sets.
+
+`ExtensionJS/` enforces the Voice, Punctuation, and Verbs conventions above,
+which were documented here from the start but never machine-checked.
+
+`STE/` is a small subset of ASD-STE100 (Simplified Technical English), chosen
+for the rules that reduce mistranslation into the zh-Hans and zh-Hant mirrors:
+
+- `SentenceLength`: descriptive sentences under 25 words.
+- `StepLength`: procedural steps under 20 words.
+- `RelativePronoun`: write "the file that you created", never "the file you
+  created". A dropped pronoun forces a translator to guess the clause boundary.
+- `OneInstruction`: one action per step, no "and then" chains.
+
+The full ASD-STE100 dictionary is deliberately not adopted. It is licensed, its
+approved word list does not cover this domain, and its one-meaning-per-word rule
+conflicts with terms like `build`, `run`, and `load` that are genuinely
+overloaded here.
+
+One STE rule cannot be automated and belongs on the review checklist instead:
+**warnings and prerequisites go before the step they apply to, never after.**
+Vale matches text patterns, not document structure, so it cannot see ordering.
+
+The rules are English-only. Do not run them against `zh-Hans/` or `zh-Hant/`.
 
 ## AI access surfaces
 
@@ -83,7 +111,10 @@ Load these when working on related tasks rather than guessing Mintlify behavior.
 3. Read 2-3 nearby pages to match tone and structure.
 4. Write content, update `docs.json` if a new page is added.
 5. Run `pnpm check`, `pnpm broken-links`, `pnpm validate`.
-6. Commit with a conventional prefix (`docs:`, `fix:`, `feat:`). Do not include AI co-author trailers.
+6. Commit following the workspace rule in the parent `CLAUDE.md`: one single line
+   written as a natural human sentence, 74 characters maximum, no `docs:` /
+   `fix:` / `feat:` prefix, no scope, no em dashes, and no AI co-author or
+   generated-with trailer. Example: `Add Vale rules for house voice and STE`.
 
 ## What not to do
 
