@@ -238,6 +238,26 @@ Use `--zip-source` to generate a source archive alongside distribution output.
 
 {/* VIDEO_PLACEHOLDER_TODO: Show source archive generation and where `-source.zip` is written. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
+## Firefox store readiness: data collection permissions
+
+Since November 2025, [addons.mozilla.org](https://addons.mozilla.org) rejects every new add-on whose manifest lacks `browser_specific_settings.gecko.data_collection_permissions`, and Mozilla has announced the key becomes mandatory for all extensions during 2026. Extensions that transmit no data must still declare it explicitly:
+
+```json
+{
+  "firefox:browser_specific_settings": {
+    "gecko": {
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}
+```
+
+New projects scaffolded with `extension create` include this declaration, and the `firefox:` prefix keeps it out of Chromium builds. A production Firefox build warns when the resolved manifest lacks the key, so a missing declaration surfaces at build time instead of at submission review.
+
+Declaring `"none"` when the extension does transmit user data is an AMO policy violation — if your extension collects or transmits anything, declare the matching categories instead. See Mozilla's [built-in data consent documentation](https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/) for the category list. Firefox parses the key from version 140 on desktop (142 on Android) and it is safe on both Manifest V2 and V3.
+
 ## Polyfilling browser APIs
 
 If your code relies on Gecko-style `browser.*` APIs and you need Chromium compatibility, enable `--polyfill`:
