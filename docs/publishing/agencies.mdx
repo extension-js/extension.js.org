@@ -1,0 +1,102 @@
+---
+title: "Agencies and multiple clients"
+description: "How store credentials are isolated per project on the Extension.dev platform, how one team manages many client store accounts, and what a client handoff involves today."
+keywords:
+  [
+    "agency",
+    "clients",
+    "credentials",
+    "isolation",
+    "mirror repo",
+    "handoff",
+    "rotation",
+    "publish",
+    "store",
+  ]
+---
+
+Teams that ship extensions for several clients juggle several Chrome Web Store
+publishers, AMO accounts, and Partner Center enrollments at once. This page
+states the credential model the platform uses, so you can plan a multi-client
+setup without reverse-engineering it.
+
+## The isolation model
+
+Store credentials are scoped **per project**. There is no workspace-level or
+organization-level credential store.
+
+Each project gets a managed GitHub mirror repository. Saving credentials in
+the project's Settings, under Stores, writes them as GitHub Actions repository
+secrets on that project's mirror. The submission workflow for a project reads
+only that project's mirror. Structurally, client A's Chrome keys cannot leak
+into client B's pipeline: the two sets of secrets live in two different
+repositories.
+
+Properties that follow:
+
+- **No cross-project reuse.** Credentials are entered per project, even when
+  two projects share a store account. Setting up client number seven is the
+  same walk as client number one.
+- **Write-only secrets.** Saved secrets cannot be read back through the UI or
+  the API. To re-test a connection, re-enter the values.
+- **Per-client revocation.** Rotating or revoking one client's credentials
+  touches exactly one project. Ending an engagement is one revocation per
+  store, done in that client's store portals.
+- **Independent health.** Each project's saved credentials are probe-checked
+  on its own mirror, and failures surface on that project only.
+
+## One human, many store accounts
+
+Because credentials never cross projects, you can hold several publisher
+accounts per store without conflicts:
+
+- Create each client's extensions under that client's own store accounts
+  (Chrome publisher, AMO account, Partner Center enrollment). All three
+  stores' API credentials are account-wide, so a per-client account is the
+  only real isolation boundary on the store side.
+- Enter each client's credentials into that client's project on the platform.
+- Bill the store fees to the client: the one-time $5 Chrome registration is
+  per developer account.
+
+## CI without client secrets
+
+On the platform track, your CI holds one revocable `EXTENSION_DEV_TOKEN` per
+project instead of nine store secrets. The platform's mirror holds the store
+credentials and dispatches the submission. Mint and revoke the token in the
+project settings under Access tokens.
+
+On the direct track, the `.env.submit` file that `npx extension-deploy init`
+writes is the per-client credential file: one per repository, kept out of
+git, backed by your own secret storage.
+
+## Client handoff, today
+
+There is no project-transfer feature yet. A handoff to a client who takes the
+extension in-house looks like this:
+
+1. The store listings already belong to the client's store accounts, if you
+   followed the per-client account model above. Nothing moves on the store
+   side. Otherwise, transfer the listings first: the Chrome Web Store,
+   AMO, and Partner Center each have their own dashboard-side transfer or
+   ownership process.
+2. The client creates their own project on the platform (or their own direct
+   pipeline) and imports the source repository.
+3. The client enters their store credentials into the new project. Secrets
+   are write-only, so credentials cannot be exported from your project and
+   must be re-entered from the client's own records.
+4. You revoke the credentials your project held: rotate the Chrome refresh
+   token or service account key, regenerate the AMO API pair, and generate a
+   new Edge API key. Rotation on the store side invalidates what your
+   project's mirror stored.
+5. Submission history stays with the old project. Record anything worth
+   keeping (rejection reasons, review quirks) in the version history section
+   of [STORE.md](/docs/workflows/store-metadata), which travels with the
+   source repository.
+
+## Related pages
+
+- [Publish to the browser stores](/docs/publishing) for the full journey.
+- Per-store credential guides:
+  [Chrome](/docs/publishing/chrome-credentials),
+  [Firefox](/docs/publishing/firefox-credentials),
+  [Edge](/docs/publishing/edge-credentials).
