@@ -1,6 +1,6 @@
 ---
 title: "Debug a running browser extension from the terminal"
-description: "Drive a live extension dev session from the terminal: read logs, inspect the DOM, eval in the worker, read chrome.storage, and reload on Chrome or Firefox."
+description: "Drive a live extension dev session from the terminal: read logs, inspect the DOM, eval in your extension's contexts, read chrome.storage, and reload on Chrome or Firefox."
 keywords:
   [
     "debug chrome extension",
@@ -57,29 +57,41 @@ Reading and acting share one vocabulary: you name the surface, Extension.js reso
 | `--context content --url "https://shop.example/*"` | the isolated content world on matching pages |
 | `--context content --tab 7`                        | the content world in a specific tab          |
 
-## Example: did my background handler actually run?
+## Example: did my extension actually change the page?
+
+This runs on the default template as-is. `--context page` evaluates in the active tab's MAIN world, so you can check what your content script really did to the page:
 
 ```bash
-pnpm extension eval "globalThis.__lastSyncAt" --context background --allow-eval
+pnpm extension eval "document.title" --context page --allow-eval
 ```
 
 ```json
-{ "ok": true, "value": 1718000000000 }
+{ "ok": true, "value": "Example Domain" }
 ```
 
 Any `console.log` your expression triggers flows out through `extension logs` at the same time, correlated by sequence, so you see the return value _and_ the side effects.
+
+To call into the background instead, target a Firefox or MV2 session, where the background is a page that evaluates normally:
+
+```bash
+pnpm extension eval "globalThis.__lastSyncAt" --context background --allow-eval --browser firefox
+```
+
+On Chromium MV3 (what the default template builds for Chrome) the background is a service worker, and Chrome's extension CSP blocks eval there. `--context background` returns an explanatory error instead of a value on those builds. Use `--context page` or `--context content` on Chromium MV3. The `extension_eval` MCP tool defaults to the `page` context on Chromium MV3 sessions for exactly this reason; on Firefox/MV2 its default stays `background`.
 
 ## Cross-browser support
 
 Extension.js debugs through an **in-browser companion**, not the Chrome DevTools Protocol, so the core loop reaches your own surfaces on **both Chrome and Firefox**. The old "Firefox uses RDP, not supported" wall is gone for these tools.
 
-| Capability                                                                        | Chromium | Firefox        |
-| --------------------------------------------------------------------------------- | -------- | -------------- |
-| `logs`, `inspect`, `eval`, `storage`, `reload`, `open` (incl. `action`/`command`) | ✓        | ✓ (verified)   |
-| `inspect --deep-dom` (closed shadow roots)                                        | ✓        | n/a (uses CDP) |
-| `extension_list_extensions` (MCP tool)                                            | ✓        | n/a (uses CDP) |
+| Capability                                                               | Chromium                      | Firefox        |
+| ------------------------------------------------------------------------ | ----------------------------- | -------------- |
+| `logs`, `inspect`, `storage`, `reload`, `open` (incl. `action`/`command`) | ✓                             | ✓ (verified)   |
+| `eval` in `page` / `content` contexts                                    | ✓                             | ✓              |
+| `eval --context background`                                              | MV2 builds only (see footnote) | ✓ (MV2 background page) |
+| `inspect --deep-dom` (closed shadow roots)                               | ✓                             | n/a (uses CDP) |
+| `extension_list_extensions` (MCP tool)                                   | ✓                             | n/a (uses CDP) |
 
-(`extension_list_extensions` is an MCP tool rather than a CLI verb: it connects over the DevTools Protocol, so it's Chromium-only.)
+(`eval --context background` on a Chromium MV3 build returns an explanatory error. The MV3 background is a service worker, and Chrome's extension CSP rejects `unsafe-eval` there on every MV3 build, not only in production. Evaluate in `page`/`content` on Chromium MV3, or target the background on a Firefox/MV2 build. `extension_list_extensions` is an MCP tool rather than a CLI verb: it connects over the DevTools Protocol, so it's Chromium-only.)
 
 ## Safety
 
