@@ -1,0 +1,135 @@
+---
+title: "Publish to the browser stores"
+description: "The full store journey for a browser extension: register store accounts, get API credentials, configure the project, author STORE.md, submit, track review, and handle rejections."
+keywords:
+  [
+    "publish",
+    "store",
+    "submission",
+    "chrome web store",
+    "firefox add-ons",
+    "edge add-ons",
+    "credentials",
+    "review",
+    "rejection",
+  ]
+---
+
+Shipping an extension to the Chrome Web Store, Firefox Add-ons, and Edge Add-ons is one journey with the same shape on every store: register a developer account, create the listing once, get API credentials, and automate every submission after that. This page walks the whole journey. The per-store guides cover each credential portal in detail:
+
+- [Get your Chrome Web Store credentials](/docs/publishing/chrome-credentials)
+- [Get your Firefox Add-ons credentials](/docs/publishing/firefox-credentials)
+- [Get your Edge Add-ons credentials](/docs/publishing/edge-credentials)
+
+## The journey
+
+<Steps>
+  <Step title="Register the store accounts">
+    Each store requires a developer account before anything else works. See
+    [account prerequisites](#account-prerequisites) below for the fee,
+    agreement, and enrollment each store demands.
+  </Step>
+  <Step title="Create each listing once by hand">
+    The Chrome and Edge APIs cannot create a new listing. Upload the first zip
+    manually in the store dashboard. That first upload is what creates the
+    extension ID (Chrome) and the Product ID (Edge) that automation needs.
+    Firefox can create a new unlisted add-on through the API; a listed add-on
+    still needs a first manual submission.
+  </Step>
+  <Step title="Get API credentials per store">
+    Follow the per-store guides linked above. Each guide names the exact portal
+    page, shows what every value looks like, and lists the expiry rules.
+  </Step>
+  <Step title="Enter the credentials">
+    On the platform track, open your project on
+    [extension.dev](https://extension.dev), go to Settings, then Stores, and use
+    the guided setup dialog. On the direct track, run `npx extension-deploy
+    init` to write a `.env.submit` file, or set the environment variables in
+    your own CI.
+  </Step>
+  <Step title="Author STORE.md">
+    Write the [STORE.md metadata file](/docs/workflows/store-metadata) before
+    the first submission. Submission tooling reads it and attaches reviewer
+    notes, release notes, and certification notes automatically. Without it,
+    submissions go out noteless.
+  </Step>
+  <Step title="Submit">
+    Submit from the project's release flow on extension.dev, from your own CI
+    with
+    [`@extension.dev/deploy`](https://www.npmjs.com/package/@extension.dev/deploy),
+    or from an AI agent through the [MCP server](/docs/ai-access). Dry-run
+    first: a dry run verifies credentials and zips without uploading anything.
+  </Step>
+  <Step title="Track the review">
+    A successful submission means the store accepted the upload and queued it
+    for review. Review is a third-party decision. The platform polls review
+    status and reports it in the project dashboard; it never claims a listing is
+    live before the store confirms it.
+  </Step>
+  <Step title="Handle a rejection">
+    Read the failure reason the store returned, fix the cause, and record both
+    in the version history section of `STORE.md` so the next submission does not
+    repeat the mistake. Vague permission justifications are the most common
+    rejection on every store.
+  </Step>
+</Steps>
+
+## Account prerequisites
+
+| Store            | Account                                                                                                                   | Cost        | Before automation works                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Chrome Web Store | [Developer Dashboard](https://chrome.google.com/webstore/devconsole) registration                                         | One-time $5 | Upload the first zip manually in the dashboard. The API cannot create a new item, and the extension ID only exists afterwards. |
+| Firefox Add-ons  | [AMO](https://addons.mozilla.org) developer account plus the Firefox Add-on Distribution Agreement                        | Free        | Accept the agreement. The API key page stays locked until you do.                                                              |
+| Edge Add-ons     | [Partner Center](https://partner.microsoft.com/dashboard/microsoftedge/overview) enrollment in the Microsoft Edge program | Free        | Create the product with a first manual submission. There is no create-product API, and automation requires the Product ID.     |
+
+## Where credentials live
+
+Store credentials on the platform track are **per project, not per workspace**.
+
+Each project gets a managed GitHub mirror repository. When you save store
+credentials in the project's Settings, under Stores, the platform writes them
+as GitHub Actions repository secrets on that project's mirror (names like
+`STORE_CHROME_CLIENT_ID` and `STORE_FIREFOX_API_KEY`). Non-secret identifiers,
+such as the extension ID and the publisher ID, go into the mirror's
+`_extension-dev/settings.json`.
+
+Three consequences follow from that model:
+
+- **Isolation.** One project's credentials can never reach another project's
+  pipeline. See [Agencies and multiple clients](/docs/publishing/agencies) for
+  what this means when you manage several store accounts.
+- **Write-only storage.** Saved secrets cannot be read back, by you or by the
+  platform UI. To re-run a live connection test, re-enter the secret values.
+- **Per-project rotation.** Rotating a credential for one project touches
+  nothing else.
+
+On the direct track, you hold the credentials yourself. The
+`.env.submit` file that `npx extension-deploy init` writes is the per-project
+credential file for that track. Keep it out of git.
+
+## Platform track and direct track
+
+|                             | Platform track                                                      | Direct track                                 |
+| --------------------------- | ------------------------------------------------------------------- | -------------------------------------------- |
+| Who holds store credentials | The project's managed mirror, entered once in project Settings      | You, in `.env.submit` or your own CI secrets |
+| What CI needs               | One revocable `EXTENSION_DEV_TOKEN`                                 | Every store credential as a secret           |
+| Submission command          | The release flow on extension.dev, or `extension-deploy --platform` | `npx extension-deploy`                       |
+| Review tracking             | Dashboard status, polled automatically                              | `extension-deploy watch`                     |
+
+## What a submission needs, per store
+
+| Store   | Secrets                                                                        | Identifiers                                   | Store-specific rules                                                                 |
+| ------- | ------------------------------------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Chrome  | OAuth client ID, client secret, and refresh token, or one service account JSON | Extension ID, publisher ID                    | First upload is manual. Listing copy is dashboard-only: the API accepts no metadata. |
+| Firefox | JWT issuer and JWT secret                                                      | Add-on GUID (required for the listed channel) | New add-ons must declare `data_collection_permissions` in the manifest.              |
+| Edge    | Client ID and API key                                                          | Product ID (always required)                  | The product must already exist in Partner Center.                                    |
+
+## Next steps
+
+- Get credentials: [Chrome](/docs/publishing/chrome-credentials),
+  [Firefox](/docs/publishing/firefox-credentials),
+  [Edge](/docs/publishing/edge-credentials).
+- Managing stores for several clients? Read
+  [Agencies and multiple clients](/docs/publishing/agencies).
+- Write the paperwork once:
+  [Store metadata in one STORE.md file](/docs/workflows/store-metadata).
