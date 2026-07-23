@@ -4,7 +4,7 @@
 
 > The documentation website for Extension.js
 
-![Extension.js banner](./BANNER.png)
+<a href="https://extension.js.org"><img alt="Extension.js — the cross-browser extension framework" src="https://media.extension.land/brand/extension-js/social/github-banner.png" /></a>
 
 Extension.js Docs is the documentation site for the cross-browser extension framework. It publishes the guides, references, workflows, and implementation notes for [Extension.js](https://extension.js.org).
 
