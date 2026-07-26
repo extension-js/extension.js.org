@@ -1,0 +1,192 @@
+---
+title: "Publish command for shareable build URLs"
+description: "Turn a project on extension.dev into a shareable URL with the Extension.js publish command. Requires an access token and prints the share link."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "publish",
+    "share",
+  ]
+---
+
+Ask [extension.dev](https://docs.extension.dev) for a shareable URL to a project you already have there.
+
+`publish` is a thin client. It does not compile, package, or upload anything. It sends one authenticated request to the platform and prints the URL the platform answers with.
+
+## When to use `publish`
+
+- Sending a reviewer a link to a build instead of a zip file.
+- Wiring a share link into CI after `build` produced the artifacts.
+- Pinning a share link to one specific build rather than the project's latest.
+
+<Note>
+  `publish` talks to the extension.dev platform, which is a separate product
+  from Extension.js. The Extension.js commands that run on your machine
+  (`create`, `dev`, `build`, `preview`, `start`) never need an account.
+  `publish` does.
+</Note>
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension publish [project-path] [options]
+```
+
+```bash pnpm
+extension publish [project-path] [options]
+```
+
+```bash yarn
+extension publish [project-path] [options]
+```
+
+```bash bun
+extension publish [project-path] [options]
+```
+
+```bash deno
+extension publish [project-path] [options]
+```
+
+</CodeGroup>
+
+The path argument is accepted for symmetry with the other commands and does not select what gets published. The project is whatever your access token is scoped to.
+
+## Token requirement
+
+`publish` refuses to run without an access token. Provide it in one of two ways:
+
+- `EXTENSION_DEV_TOKEN` in the environment (preferred for CI).
+- `--token <token>` on the command line.
+
+Without either, the command prints `No token.` and exits with code `1` before any network call happens. Create a token from the extension.dev dashboard or the project access-tokens API, documented in [Access tokens](https://docs.extension.dev/tools/access-tokens).
+
+The token carries the workspace and project it belongs to, which is why `publish` needs no project flags.
+
+## Arguments and flags
+
+| Flag                      | What it does                                                        | Default                                    |
+| ------------------------- | ------------------------------------------------------------------- | ------------------------------------------ |
+| `[project-path]`          | Accepted for symmetry with other commands. Not used for resolution. | `process.cwd()`                            |
+| `--token <token>`         | extension.dev access token.                                         | `EXTENSION_DEV_TOKEN`                      |
+| `--api <url>`             | Platform base URL. Useful for self-hosted or staging endpoints.     | `EXTENSION_DEV_API_URL`, then platform URL |
+| `--ttl <hours>`           | Share-link lifetime in hours, from 1 to 168. Private projects only. | `24`                                       |
+| `--build-sha <sha>`       | Pin the share URL to a specific build instead of the latest.        | latest build                               |
+| `--output <pretty\|json>` | Output format. `json` prints the full platform response.            | `pretty`                                   |
+
+## What it prints
+
+Pretty output is a single line, the share URL, so it pipes cleanly:
+
+```bash
+extension publish
+# https://<workspace>.extension.dev/<project>
+```
+
+`--output json` prints the raw response, which carries more than the URL:
+
+```json
+{
+  "shareUrl": "https://<workspace>.extension.dev/<project>?share=<share-token>",
+  "visibility": "private",
+  "token": "<share-token>",
+  "expiresAt": "2026-01-01T00:00:00.000Z",
+  "ttlHours": 24
+}
+```
+
+With `--build-sha`, the URL points at that build instead of the project overview: `https://<workspace>.extension.dev/<project>/builds/<sha>`.
+
+## Public and private projects
+
+The platform decides what kind of link you get:
+
+| Project visibility | What comes back                                                              |
+| ------------------ | ---------------------------------------------------------------------------- |
+| Public or unlisted | A plain share URL with no token. `--ttl` is ignored because nothing expires. |
+| Private            | A tokenized share URL that stops working after `--ttl` hours (default `24`). |
+
+## Pinning to a build
+
+`--build-sha` links to one build instead of the project's latest. The platform verifies the sha against the project's build index and answers with a `404` and an `UNKNOWN_BUILD` code when no completed build matches, so a typo fails loudly instead of producing a link to the wrong artifact.
+
+<CodeGroup>
+
+```bash npm
+extension publish --build-sha=9fceb02
+```
+
+```bash pnpm
+extension publish --build-sha=9fceb02
+```
+
+```bash yarn
+extension publish --build-sha=9fceb02
+```
+
+```bash bun
+extension publish --build-sha=9fceb02
+```
+
+```bash deno
+extension publish --build-sha=9fceb02
+```
+
+</CodeGroup>
+
+## Examples
+
+### Publishing from CI
+
+```bash
+EXTENSION_DEV_TOKEN=$EXTENSION_DEV_TOKEN extension build --browser=chrome --zip
+SHARE_URL=$(EXTENSION_DEV_TOKEN=$EXTENSION_DEV_TOKEN extension publish)
+echo "Review build: $SHARE_URL"
+```
+
+### A short-lived link for one reviewer
+
+<CodeGroup>
+
+```bash npm
+extension publish --ttl=4
+```
+
+```bash pnpm
+extension publish --ttl=4
+```
+
+```bash yarn
+extension publish --ttl=4
+```
+
+```bash bun
+extension publish --ttl=4
+```
+
+```bash deno
+extension publish --ttl=4
+```
+
+</CodeGroup>
+
+## Behavior notes
+
+- `publish` never compiles. Run [`build`](/docs/commands/build) first when you want the link to point at fresh output.
+- Every failure path exits with code `1`: a missing token, an unreachable platform, or any non-2xx response, which is printed as `publish failed (<status>): <message>`.
+- `--api` accepts a base URL with or without a trailing slash. The command appends `/api/cli/publish` itself.
+- `--ttl` is clamped by the platform to the 1 to 168 hour range.
+
+## Next steps
+
+- Produce the artifacts to share with [`build`](/docs/commands/build).
+- Validate the artifacts locally first with [`preview`](/docs/commands/preview).
+- Read how share links behave in [Shared previews](https://docs.extension.dev/share/shared-previews).
+- Read how builds are recorded in [Builds](https://docs.extension.dev/builds/overview).
