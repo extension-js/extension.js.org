@@ -28,6 +28,7 @@ const COMMAND_MAP: Record<string, CommandMapping> = {
   build: { doc: "commands/build.mdx", source: "build.ts" },
   start: { doc: "commands/start.mdx", source: "start.ts" },
   preview: { doc: "commands/preview.mdx", source: "preview.ts" },
+  publish: { doc: "commands/publish.mdx", source: "publish.ts" },
   install: {
     doc: "commands/install.mdx",
     source: "install.ts",
