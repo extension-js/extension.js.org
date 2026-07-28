@@ -68,7 +68,13 @@ The path argument is accepted for symmetry with the other commands and does not 
 - `EXTENSION_DEV_TOKEN` in the environment (preferred for CI).
 - `--token <token>` on the command line.
 
-Without either, the command prints `No token.` and exits with code `1` before any network call happens. Create a token from the extension.dev dashboard or the project access-tokens API, documented in [Access tokens](https://docs.extension.dev/tools/access-tokens?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam).
+Without either, the command exits with code `1` before any network call happens, and prints this to stderr:
+
+```plaintext
+No token. Set EXTENSION_DEV_TOKEN (create one in the extension.dev dashboard, or via the project access-tokens API) or pass --token.
+```
+
+Create a token from the extension.dev dashboard or the project access-tokens API, documented in [Access tokens](https://docs.extension.dev/tools/access-tokens?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam).
 
 The token carries the workspace and project it belongs to, which is why `publish` needs no project flags.
 
@@ -92,28 +98,40 @@ extension publish
 # https://<workspace>.extension.dev/<project>
 ```
 
-`--output json` prints the raw response, which carries more than the URL:
+`--output json` prints one envelope. The platform response sits in `value`, and it carries more than the URL:
 
 ```json
 {
-  "shareUrl": "https://<workspace>.extension.dev/<project>?share=<share-token>",
-  "visibility": "private",
-  "token": "<share-token>",
-  "expiresAt": "2026-01-01T00:00:00.000Z",
-  "ttlHours": 24
+  "schema": 1,
+  "ok": true,
+  "command": "publish",
+  "status": "published",
+  "value": {
+    "shareUrl": "https://<workspace>.extension.dev/<project>?share=<share-token>",
+    "visibility": "private",
+    "token": "<share-token>",
+    "expiresAt": "2026-01-01T00:00:00.000Z",
+    "ttlHours": 24
+  },
+  "error": null,
+  "warnings": []
 }
 ```
+
+A public project answers with `value.shareUrl` and `value.visibility` only. There is no token to carry.
 
 With `--build-sha`, the URL points at that build instead of the project overview: `https://<workspace>.extension.dev/<project>/builds/<sha>`.
 
 ## Public and private projects
 
-The platform decides what kind of link you get:
+A project is either public or private. `publish` only reads that setting; it never changes it. The platform decides what kind of link you get:
 
-| Project visibility | What comes back                                                              |
-| ------------------ | ---------------------------------------------------------------------------- |
-| Public or unlisted | A plain share URL with no token. `--ttl` is ignored because nothing expires. |
-| Private            | A tokenized share URL that stops working after `--ttl` hours (default `24`). |
+| Project visibility | What comes back                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| Public             | The project's own address, with no token. `--ttl` is ignored because nothing expires. |
+| Private            | That same address plus `?share=<token>`, which stops working after `--ttl` hours.     |
+
+Both answers point at the same page. Visibility decides whether a token is attached, not which address you get.
 
 ## Pinning to a build
 
@@ -185,6 +203,7 @@ extension publish --ttl=4
 - Every failure path exits with code `1`: a missing token, an unreachable platform, or any non-2xx response, which is printed as `publish failed (<status>): <message>`.
 - `--api` accepts a base URL with or without a trailing slash. The command appends `/api/cli/publish` itself.
 - `--ttl` is clamped by the platform to the 1 to 168 hour range.
+- The `?share=` token this command returns is not the 30 day revocable preview link. That link comes from a different verb, which uploads the build; `publish` uploads nothing. See [the platform's publish page](https://docs.extension.dev/tools/publish?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam).
 
 ## Next steps
 
