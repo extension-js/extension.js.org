@@ -19,6 +19,19 @@ A browser extension is hard to debug because the interesting state lives in plac
 
 It's local, it needs no account, and observation is always free. Anything that _changes_ state is opt-in per session.
 
+{/* VIDEO_SPEC id=debug-drive grammar=A→B ~10s loop  [SHIPPED: video/scenes/debug-drive.scene.mjs]
+  Needs: mock transcript `debug-drive` (eval round-trip; pretty output is
+    JSON.stringify(value, null, 2), NOT an envelope — the schema-1 envelope
+    prints only under --output json); one command only, since a second verb
+    would need a second take; a real take needs a dev session already running
+  A terminal.type('extension eval "({title: document.title, url: location.href})" --context page')
+                                                    mark:command-submitted
+  B the object comes back from the live tab — no DevTools window, no context
+    dropdown, just a value at a prompt      mark:eval-returned → hold read → end
+  post: trim start→end at rate 2.0 through command-submitted (77 chars of
+    typing), return leg unramped, posterAt eval-returned, loop
+  run: node video/record.mjs debug-drive --mock */}
+
 ## Turn it on
 
 Start a dev session with the control flags you need:
@@ -62,11 +75,25 @@ Reading and acting share one vocabulary: you name the surface, Extension.js reso
 This runs on the default template as-is. `--context page` evaluates in the active tab's MAIN world, so you can check what your content script really did to the page:
 
 ```bash
-pnpm extension eval "document.title" --context page --allow-eval
+pnpm extension eval "document.title" --context page
 ```
 
+```text
+Example Domain
+```
+
+Default output is the value itself: a string prints raw, anything else prints as indented JSON. Add `--output json` when a script is reading, and you get the full envelope instead:
+
 ```json
-{ "ok": true, "value": "Example Domain" }
+{
+  "schema": 1,
+  "ok": true,
+  "command": "eval",
+  "status": "ok",
+  "value": "Example Domain",
+  "error": null,
+  "warnings": []
+}
 ```
 
 Any `console.log` your expression triggers flows out through `extension logs` at the same time, correlated by sequence, so you see the return value _and_ the side effects.
@@ -74,7 +101,7 @@ Any `console.log` your expression triggers flows out through `extension logs` at
 To call into the background instead, target a Firefox or MV2 session, where the background is a page that evaluates normally:
 
 ```bash
-pnpm extension eval "globalThis.__lastSyncAt" --context background --allow-eval --browser firefox
+pnpm extension eval "globalThis.__lastSyncAt" --context background --browser firefox
 ```
 
 On Chromium MV3 (what the default template builds for Chrome) the background is a service worker, and Chrome's extension CSP blocks eval there. `--context background` returns an explanatory error instead of a value on those builds. Use `--context page` or `--context content` on Chromium MV3. The `extension_eval` MCP tool defaults to the `page` context on Chromium MV3 sessions for exactly this reason; on Firefox/MV2 its default stays `background`.

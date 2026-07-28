@@ -57,29 +57,55 @@ pnpm extension dev --allow-control --allow-eval
 | `--context content --url "https://shop.example/*"` | 匹配页面上的隔离 content 世界            |
 | `--context content --tab 7`                        | 特定标签页中的 content 世界              |
 
-## 示例：我的后台处理器到底有没有运行？
+## 示例：我的扩展真的改动了页面吗？
+
+这个例子在默认模板上可以直接运行。`--context page` 在当前标签页的 MAIN 世界中求值，因此你可以检查 content script 到底对页面做了什么：
 
 ```bash
-pnpm extension eval "globalThis.__lastSyncAt" --context background --allow-eval
+pnpm extension eval "document.title" --context page
 ```
 
+```text
+Example Domain
+```
+
+默认输出就是值本身：字符串按原样打印，其他类型按缩进的 JSON 打印。当脚本需要读取结果时加上 `--output json`，你会得到完整的信封：
+
 ```json
-{ "ok": true, "value": 1718000000000 }
+{
+  "schema": 1,
+  "ok": true,
+  "command": "eval",
+  "status": "ok",
+  "value": "Example Domain",
+  "error": null,
+  "warnings": []
+}
 ```
 
 你的表达式触发的任何 `console.log` 都会同时通过 `extension logs` 输出，并按序号相关联——这样你能同时看到返回值**和**副作用。
+
+如果要调用后台，请针对 Firefox 或 MV2 会话，那里的后台是一个可以正常求值的页面：
+
+```bash
+pnpm extension eval "globalThis.__lastSyncAt" --context background --browser firefox
+```
+
+在 Chromium MV3 上（默认模板为 Chrome 构建的就是它），后台是一个 service worker，而 Chrome 的扩展 CSP 会在那里阻止 eval。在这类构建上，`--context background` 返回的是一条解释性错误而不是值。在 Chromium MV3 上请改用 `--context page` 或 `--context content`。`extension_eval` MCP 工具正是出于这个原因，在 Chromium MV3 会话上默认使用 `page` 上下文；在 Firefox/MV2 上它的默认值仍然是 `background`。
 
 ## 跨浏览器支持
 
 Extension.js 通过**浏览器内伴侣进程**进行调试，而不是 Chrome DevTools Protocol，因此核心循环可以在 **Chrome 与 Firefox** 上都到达你自己的界面——曾经那堵“Firefox 用 RDP，所以不支持”的墙在这些工具上已经不存在了。
 
-| 能力                                                                            | Chromium | Firefox       |
-| ------------------------------------------------------------------------------- | -------- | ------------- |
-| `logs`、`inspect`、`eval`、`storage`、`reload`、`open`（含 `action`/`command`） | ✓        | ✓（已验证）   |
-| `inspect --deep-dom`（闭合 shadow root）                                        | ✓        | —（依赖 CDP） |
-| `extension_list_extensions`（MCP 工具）                                         | ✓        | —（依赖 CDP） |
+| 能力                                                                    | Chromium             | Firefox                  |
+| ----------------------------------------------------------------------- | -------------------- | ------------------------ |
+| `logs`、`inspect`、`storage`、`reload`、`open`（含 `action`/`command`） | ✓                    | ✓（已验证）              |
+| `page` / `content` 上下文中的 `eval`                                    | ✓                    | ✓                        |
+| `eval --context background`                                             | 仅 MV2 构建（见脚注) | ✓（MV2 background 页面） |
+| `inspect --deep-dom`（闭合 shadow root）                                | ✓                    | —（依赖 CDP）            |
+| `extension_list_extensions`（MCP 工具）                                 | ✓                    | —（依赖 CDP）            |
 
-（`extension_list_extensions` 是 MCP 工具而不是 CLI 子命令——它通过 DevTools Protocol 连接，因此仅支持 Chromium。）
+（在 Chromium MV3 构建上，`eval --context background` 返回的是一条解释性错误。MV3 的后台是 service worker，而 Chrome 的扩展 CSP 在每个 MV3 构建上都拒绝 `unsafe-eval`，不只是生产环境。在 Chromium MV3 上请在 `page` / `content` 中求值，或者针对 Firefox/MV2 构建调用后台。`extension_list_extensions` 是 MCP 工具而不是 CLI 子命令——它通过 DevTools Protocol 连接，因此仅支持 Chromium。）
 
 ## 安全性
 
