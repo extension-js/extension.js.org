@@ -56,7 +56,10 @@ describe("supported surface", () => {
   );
 
   it("every page with package-manager command tabs includes all package managers", () => {
-    const pages = [...getAllMdxFiles(DOCS_DIR), resolve(SITE_ROOT, "index.mdx")];
+    const pages = [
+      ...getAllMdxFiles(DOCS_DIR),
+      resolve(SITE_ROOT, "index.mdx"),
+    ];
     for (const page of pages) {
       const content = readFileSync(page, "utf-8");
       if (!content.includes("```bash npm")) continue;
@@ -121,7 +124,10 @@ describe("supported surface", () => {
   });
 
   it("never mentions stylus (no stylus support exists)", () => {
-    const pages = [...getAllMdxFiles(DOCS_DIR), resolve(SITE_ROOT, "index.mdx")];
+    const pages = [
+      ...getAllMdxFiles(DOCS_DIR),
+      resolve(SITE_ROOT, "index.mdx"),
+    ];
     for (const page of pages) {
       expect(
         /\bstylus\b/i.test(readFileSync(page, "utf-8")),
@@ -131,16 +137,25 @@ describe("supported surface", () => {
   });
 
   it("compatibility matrix page exists, is in the nav, and covers all categories", () => {
-    const matrixPath = resolve(DOCS_DIR, "features", "compatibility-matrix.mdx");
+    const matrixPath = resolve(
+      DOCS_DIR,
+      "features",
+      "compatibility-matrix.mdx",
+    );
     expect(existsSync(matrixPath)).toBe(true);
     const nav = readFileSync(resolve(SITE_ROOT, "docs.json"), "utf-8");
     expect(nav).toContain("docs/features/compatibility-matrix");
     const content = readFileSync(matrixPath, "utf-8").toLowerCase();
-    for (const item of [...SUPPORTED_PACKAGE_MANAGERS, ...SUPPORTED_UI_FRAMEWORKS]) {
+    for (const item of [
+      ...SUPPORTED_PACKAGE_MANAGERS,
+      ...SUPPORTED_UI_FRAMEWORKS,
+    ]) {
       expect(content, `compatibility matrix omits ${item}`).toContain(item);
     }
     for (const browser of ["chrome", "edge", "firefox", "safari"]) {
-      expect(content, `compatibility matrix omits ${browser}`).toContain(browser);
+      expect(content, `compatibility matrix omits ${browser}`).toContain(
+        browser,
+      );
     }
   });
 });
