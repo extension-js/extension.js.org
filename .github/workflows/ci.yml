@@ -14,7 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  docs:
+  test:
+    name: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -34,6 +35,24 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+  prose:
+    name: prose
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Install Vale
         run: |
           curl -sfL "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz" \
@@ -41,17 +60,59 @@ jobs:
         env:
           VALE_VERSION: 3.14.1
 
-      # Errors only. Suggestions and warnings are advisory and do not gate.
+      - name: Assert the MDX parser resolves from the lockfile
+        run: node_modules/.bin/mdx2vast --version
+
       - name: Check prose
         run: pnpm run check:prose:errors
 
-      # Informational: en to zh drift is tracked, not yet gated.
+  locales:
+    name: locales
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Report locale drift
         run: pnpm run check:locales
-        continue-on-error: true
+
+  mint-validate:
+    name: mint-validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
       - name: Validate Mintlify build
         run: npx -y mint@latest validate
+
+  broken-links:
+    name: broken-links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
       - name: Check for broken links
         run: npx -y mint@latest broken-links
