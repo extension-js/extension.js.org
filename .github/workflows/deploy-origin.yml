@@ -1,0 +1,42 @@
+name: deploy origin
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      simulate_owner:
+        description: "Override the origin owner to prove the guard rejects a foreign origin"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-origin-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  origin:
+    name: origin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Assert this deploy originates from the framework org
+        env:
+          OWNER: ${{ github.event.inputs.simulate_owner != '' && github.event.inputs.simulate_owner || github.repository_owner }}
+        run: bash .github/scripts/check-deploy-origin.sh "$OWNER"
+
+      - name: Prove the origin guard can reject a foreign origin
+        run: |
+          if bash .github/scripts/check-deploy-origin.sh "extensiondev" >/dev/null 2>&1; then
+            echo "ERROR The deploy origin guard accepted 'extensiondev'; a check that cannot fail is not a check." >&2
+            exit 1
+          fi
+          echo "Origin guard correctly rejects a non extension-js origin."
