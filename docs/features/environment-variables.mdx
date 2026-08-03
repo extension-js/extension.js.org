@@ -139,7 +139,20 @@ You can also rely on bundle-time env (described above) to inject `EXTENSION_PUBL
 
 This split exists because configuration loading is browser-agnostic at file-read time, while the bundler knows the active browser and mode.
 
-{/* VIDEO_PLACEHOLDER_TODO: Show env file resolution order for one build target and mode, then confirm selected values in output. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+{/* VIDEO_SPEC id=env-reload grammar=D→E ~14s loop  [SHIPPED: video/scenes/env-reload.scene.mjs]
+  Needs: mock transcript `cmd-dev` (reused); fixture .env + .env.pristine holding
+    EXTENSION_PUBLIC_HEADING, whose value is the sentence the mock page's #heading
+    already shows — the page renders no URL, so an API-URL value has nothing to
+    prove itself against; usesEditor .env line 2 column 1 (whole KEY=value retyped,
+    unquoted so no auto-closing pair lands mid-take); stage(): dev running,
+    browser open, editor on .env — clip opens mid-workflow
+  D editor.replaceToEndOfLine('EXTENSION_PUBLIC_HEADING=Welcome to your staging build.')
+                                                    mark:edited
+    editor.save()                                   mark:saved
+  E browser.focus(); rebuild picks the new value and the page shows it in place
+    (mock: hmr({heading}) drives the swap)          mark:updated → hold read → end
+  post: trim start→end, posterAt updated, ramps [start→edited 1.35x], loop
+  run: node video/record.mjs env-reload --mock */}
 
 ## Built-in environment variables
 
@@ -259,8 +272,6 @@ EXTENSION_PUBLIC_API_URL=https://api-dev.chrome.com
 EXTENSION_PUBLIC_API_URL=https://api.firefox.com
 ```
 
-{/* VIDEO_PLACEHOLDER_TODO: Show Chrome and Firefox runs picking different env files and producing different resolved values. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
-
 ## Custom environment variables
 
 You can define custom variables in env files at project root.  
@@ -370,8 +381,6 @@ console.log(`API URL for the current environment: ${apiUrl}`);
 `import.meta.env` and `process.env` have parity for injected env keys.
 
 Reading a key that no env file defines yields `undefined` instead of crashing: Extension.js defines the bare `import.meta.env` as an object of every injected variable (Vite parity), so `import.meta.env.MISSING_KEY` and destructuring like `const {FOO} = import.meta.env` are both safe in any output format.
-
-{/* VIDEO_PLACEHOLDER_TODO: Show one value consumed in `manifest.json`, HTML, and JS (`process.env` / `import.meta.env`) during a build. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 ## Secrets in browser extension builds
 

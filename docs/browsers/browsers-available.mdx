@@ -41,7 +41,30 @@ If you do not specify a browser, the CLI defaults to `chromium`.
 
 `safari` (and its `webkit-based` alias) is the exception: it's a **macOS-only** build target supported by `build` and `dev` only, not `preview` or `start`. See [Building Safari extensions](/docs/browsers/safari).
 
-{/* VIDEO_PLACEHOLDER_TODO: Show switching the same extension run between `chrome`, `edge`, and `firefox` with `--browser`. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+{/* VIDEO_SPEC id=browser-switch grammar=A→B→C ~14s loop  [SHIPPED: video/scenes/browser-switch.scene.mjs]
+  Needs: mock transcript `browser-switch` (one dev block per browser, in the
+    order typed); scene browserTargets ['chromium','edge','firefox'] — the
+    actor drives Edge, Firefox and Brave alongside Chromium now, so this is NOT
+    real-mode-only; recorder wiring still owed: scene targets passed into
+    createBrowser, the stage guard's app list taken from browser.processNames(),
+    and stage.register() accumulating a pid PER browser (it keeps one today, so
+    a switch orphans the earlier browsers and they fail the take as strangers)
+  NOTE the typed command says chromium, not chrome: Chrome 150 ignores
+    --load-extension silently, so a Chrome window here would carry no extension
+    and no theme. chromium is the CLI default and the table's first row.
+  NOTE Firefox's striped "under remote control" bar stays visible: dev always
+    passes -start-debugger-server, so every real Firefox session shows it.
+  A terminal.type('extension dev --browser=chromium,edge,firefox')
+                                                    mark:command-submitted
+  B the first browser's block streams (detect, card, ready, compiled)
+                                                    mark:build-streaming-done
+  C browser.open() then two switchTo(), each window raised into the same stage
+    rect, each held before the next          mark:chromium-visible → chromium-held
+                                             → edge-visible → edge-held
+                                             → firefox-visible → end
+  post: trim start→end, posterAt edge-visible, ramp the typing and each ~2s
+    launch/switch gap (the holds stay at 1x), loop
+  run: node video/record.mjs browser-switch --mock */}
 
 ## Requested target vs. launch binary
 
@@ -96,8 +119,6 @@ Engine-based targets (custom binary required):
 
 Extension.js treats `firefox-based` as a Gecko engine target internally.
 
-{/* VIDEO_PLACEHOLDER_TODO: Show using custom Chromium and Gecko binaries with engine-based browser targets. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
-
 ## Safari and other WebKit targets
 
 In addition to the Chromium family and Firefox (Gecko engine), Extension.js can build your extension into a **Safari** app on macOS.
@@ -118,8 +139,6 @@ npx extension dev --browser=chrome,firefox
 ```
 
 Use comma-separated values to run multiple named targets in sequence (for example, `--browser=chrome,edge,firefox`).
-
-{/* VIDEO_PLACEHOLDER_TODO: Show sequential multi-browser run using comma-separated browser targets. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 ## Constraints and behavior
 
