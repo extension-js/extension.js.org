@@ -80,14 +80,15 @@ A source that lives in both a service-worker chunk and a content-script chunk fa
 
 Each dev reload is announced with a single context label built by the dev server. The format is `context (fileA, fileB +2 more)`, for example `service_worker + content_script (shared/api.ts)`. The same label appears verbatim in CLI stdout, in the page devtools console, and in the devtools pill, so you can correlate a reload across all three without guessing.
 
-{/* VIDEO_SPEC id=reload-fanout grammar=A→B ~12s loop
-  Needs: mock transcript `reload-fanout` (dev session up on a project where
-    background and a content script both import shared/api.ts)
-  A editor edits shared/api.ts and saves           mark:saved
-  B one classified instruction fans out: the CLI prints
-    "service_worker + content_script (shared/api.ts)", the SW restarts AND the
-    content script re-injects, from a single save  mark:fanned-out → hold read → end
-  post: trim start→end, posterAt fanned-out, loop
+{/* VIDEO_SPEC id=reload-fanout grammar=D→B→E ~14s loop
+  Needs: mock transcript `reload-fanout` (dev boot + fan-out rebuild), fixture
+    shared/api.ts (imported by background.js and content/scripts.js), mock/site/fanout-host.html
+  D editor edits shared/api.ts, editor.save()                 mark:edited, saved
+  B terminal.focus(): one classified instruction fans out,
+    "Reloading service_worker + content_script (shared/api.ts)…"  mark:fanned-out
+  E browser.focus(): the widget re-injects with the new shared value,
+    no tab reload, the SW restart rides the same instruction  mark:updated → end
+  post: trim start→end, posterAt fanned-out, ramps [start→edited 1.35x], loop
   run: node video/record.mjs reload-fanout --mock */}
 
 If the browser serves a stale cached service worker after a reload, the dev server detects the version mismatch and resynchronizes the extension automatically. You should not need to manually remove and re-add the extension to recover.
