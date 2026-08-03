@@ -22,11 +22,12 @@ Inspect a page or content DOM through the agent bridge, without CDP and without 
 The session must run with the control channel unlocked: start it with `extension dev --allow-control`. A refusal names the missing flag, so a denied call tells you exactly how to restart the session.
 
 {/* VIDEO_SPEC id=inspect-loop grammar=A→B ~14s loop
-  Needs: mock transcript `inspect-loop` (tabs.query list with numeric ids, then an
-    inspect summary plus a short console tail for the chosen tab)
+  Needs: mock transcripts `inspect-loop.inspect` + `.inspect.2` (tabs.query rows
+    with numeric ids, then the DOM summary for the chosen tab)
   A terminal.type('extension inspect --list-tabs')  mark:tabs-listed
-  B terminal.type('extension inspect --tab 412 --with-console'), the DOM summary
-    and last console lines come back together       mark:inspect-returned → hold read → end
+  B terminal.type('extension inspect --tab 412 --with-console'), the DOM
+    summary returns with the console tail printed
+    below it in the shared logs line format         mark:inspect-returned → hold read → end
   run: node video/record.mjs inspect-loop --mock */}
 
 ## When to use `inspect`
@@ -69,7 +70,7 @@ extension inspect [project-path] [options]
 | `--context <context>`     | What to inspect: `content`, `page`, or an open surface (`popup`, `options`, `sidebar`, `devtools`, `newtab`, `history`, `bookmarks`).     | `content`       |
 | `--url <glob\|substring>` | For `content`/`page`: the document to target, resolved to its tab.                                                                        | unset           |
 | `--tab <id>`              | For `content`/`page`: a specific tab. Without it, the `--url` match wins, else the active tab.                                            | active tab      |
-| `--list-tabs`             | List open tabs as `{tabId, url, title}` and exit.                                                                                         | off             |
+| `--list-tabs`             | List open tabs as `{id, url, title, active, windowId}` and exit.                                                                          | off             |
 | `--include <list>`        | Comma-separated result parts: `html`, `summary`.                                                                                          | `summary`       |
 | `--max-bytes <n>`         | Cap on returned HTML bytes.                                                                                                               | `262144`        |
 | `--with-console [n]`      | Also include the last `n` console lines for the target.                                                                                   | `20` when set   |
@@ -88,11 +89,13 @@ extension inspect --list-tabs
 extension inspect --tab 412 --with-console
 ```
 
-`--list-tabs` needs the unlocked control channel but no eval token, so it works in any `--allow-control` session. The result is an array of `{tabId, url, title}` objects that you can feed straight into `--tab` here or in `eval`.
+`--list-tabs` needs the unlocked control channel but no eval token, so it works in any `--allow-control` session. The result is an array of `{id, url, title, active, windowId}` objects. Feed the `id` value straight into `--tab` here or in `eval`.
 
 ## Console augmentation
 
 `--with-console` merges a `console` array into the result: the last `n` log records for the same context and tab, read from the session's `logs.ndjson`. This gives an agent DOM state and console evidence in a single round trip. The augmentation is best effort and never fails the command.
+
+Both output modes show it. Pretty mode prints the console lines after the DOM summary in the same `[seq] LEVEL (context) message` format `logs` uses, or `(no console lines captured)` when the tail is empty. `--output json` carries the raw records in the envelope's `console` array.
 
 ## Truncation
 
