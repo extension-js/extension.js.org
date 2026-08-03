@@ -16,7 +16,7 @@ keywords:
 
 Use global flags to control CLI behavior consistently across commands, especially for telemetry and machine-readable output.
 
-Extension.js telemetry is intentionally anonymous and privacy-safe. It sends at most two event types (`command_executed` and `command_failed`) with three properties each (`command`, `success`, `version`).
+Extension.js telemetry is intentionally anonymous and privacy-safe. It sends at most two event types (`command_executed` and `command_failed`). Each event carries `command`, `success`, and `version`, and `create` runs add `template` and `source`. Coarse environment facts ride along (`os`, `arch`, `node_major`, `is_ci`, `is_source_build`).
 
 ## Global flag capabilities
 
@@ -30,10 +30,19 @@ Extension.js telemetry is intentionally anonymous and privacy-safe. It sends at 
 
 | Flag                      | Description                                                                                       | Default           |
 | ------------------------- | ------------------------------------------------------------------------------------------------- | ----------------- |
+| `--version`               | Print the CLI version and exit.                                                                   | n/a               |
 | `--no-telemetry`          | Disable anonymous telemetry for a single command execution.                                       | telemetry enabled |
 | `--no-browser`            | Skip browser launch. Applies to `dev`, `start`, and `preview`. Sets `EXTENSION_CLI_NO_BROWSER=1`. | browser enabled   |
+| `--no-reload`             | Skip the reload wrapper and dispatch so an open tab stays undisturbed. `dev` only.                | reload enabled    |
 | `--ai-help`               | Show AI-assistant oriented help output.                                                           | disabled          |
-| `--format <pretty\|json>` | Output format used with `--ai-help`.                                                              | `pretty`          |
+| `--output <pretty\|json>` | Result format. With `--ai-help`, choose the help payload format.                                  | `pretty`          |
+| `--debug`                 | Print maintainer diagnostics alongside normal output. On `dev`, `start`, `preview`, and `build`.  | disabled          |
+
+`--format` is a deprecated alias for `--output`. It still works, and the CLI prints a deprecation warning on stderr once per run. The same applies to the older `--wait-format` alias.
+
+Flag misuse fails with a stable code: `--no-reload` outside `dev` and `--no-browser` outside `dev`/`start`/`preview` fail with `E_FLAG_NOT_SUPPORTED_HERE`. The removed `--no-runner` flag fails with `E_REMOVED_FLAG`, use `--no-browser` instead.
+
+You can also set no-browser mode per command in `extension.config.js` with `commands.<command>.noBrowser: true`. The CLI flag wins when both are present.
 
 ## Optional boolean flags
 
@@ -76,7 +85,7 @@ Use this when policy requires explicitly disabling telemetry for automation runs
 ### Generate machine-readable help for tooling
 
 ```bash
-extension dev --ai-help --format=json
+extension dev --ai-help --output json
 ```
 
 Use this for AI tooling, wrappers, or scripts that parse command help output.
@@ -84,7 +93,7 @@ Use this for AI tooling, wrappers, or scripts that parse command help output.
 ### Keep readable help output for local debugging
 
 ```bash
-extension dev --ai-help --format=pretty
+extension dev --ai-help --output pretty
 ```
 
 Use pretty mode when you want assistant-friendly output that still reads well in terminal sessions.
@@ -92,11 +101,11 @@ Use pretty mode when you want assistant-friendly output that still reads well in
 ## Behavior notes
 
 - The CLI parses global flags before command-specific options.
-- See repository `TELEMETRY.md` and [Telemetry and privacy](/docs/features/telemetry-and-privacy) for telemetry behavior and privacy details.
+- See `docs/TELEMETRY.md` in the Extension.js repository and [Telemetry and privacy](/docs/features/telemetry-and-privacy) for telemetry behavior and privacy details.
 - Use `extension telemetry status` to check the current consent state.
 - Command pages document command-specific flags separately.
 - You can combine global flags with command-specific options.
-- Automated tools (AI assistants and CI scripts) should read command readiness from `dist/extension-js/<browser>/ready.json`, not from terminal log parsing.
+- Automated tools (AI assistants and CI scripts) should read command readiness from `dist/extension-js/<browser>/ready.json`, not from terminal log parsing. See [ready.json](/docs/contracts/ready-json).
 
 ## Next steps
 

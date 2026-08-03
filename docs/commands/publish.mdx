@@ -59,35 +59,48 @@ extension publish [project-path] [options]
 
 </CodeGroup>
 
-The path argument is accepted for symmetry with the other commands and does not select what gets published. The project is whatever your access token is scoped to.
+The project that gets published is whatever your token is scoped to. The path argument does not upload anything. It names the local directory whose project name the scope check below compares against.
 
 ## Token requirement
 
-`publish` refuses to run without an access token. Provide it in one of two ways:
+`publish` refuses to run without an access token. It looks in three places, in this order:
 
-- `EXTENSION_DEV_TOKEN` in the environment (preferred for CI).
-- `--token <token>` on the command line.
+1. `--token <token>` on the command line.
+2. `EXTENSION_DEV_TOKEN` in the environment (preferred for CI).
+3. The stored device login that `npx @extension.dev/mcp login` writes.
 
-Without either, the command exits with code `1` before any network call happens, and prints this to stderr:
+Without any of them, the command exits with code `1` before any network call happens, and prints this to stderr:
 
 ```plaintext
-No token. Set EXTENSION_DEV_TOKEN (create one in the extension.dev dashboard, or via the project access-tokens API) or pass --token.
+No token. Publishing needs an extension.dev access token.
+Get one: https://docs.extension.dev/tools/publish
+Pass --token, set EXTENSION_DEV_TOKEN, or run npx @extension.dev/mcp login.
 ```
 
 Create a token from the extension.dev dashboard or the project access-tokens API, documented in [Access tokens](https://docs.extension.dev/tools/access-tokens?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam).
 
-The token carries the workspace and project it belongs to, which is why `publish` needs no project flags.
+## Scope checks
+
+A stored device login is scoped to one project. Publishing from an unrelated directory would mint a share link for that project without naming it anywhere obvious. `publish` treats that mismatch as a refusal, not a warning:
+
+- When the directory's project name does not match the stored login's project, the command refuses and names both.
+- Pass `--project <slug>` to publish the login's project on purpose from anywhere.
+- Passing `--project` with a slug that does not match the stored login also refuses.
+- A `--token` or `EXTENSION_DEV_TOKEN` token skips the stored-login comparison entirely.
+
+The local project name comes from `package.json`, then `manifest.json`, then `src/manifest.json`, then the folder name.
 
 ## Arguments and flags
 
-| Flag                      | What it does                                                        | Default                                    |
-| ------------------------- | ------------------------------------------------------------------- | ------------------------------------------ |
-| `[project-path]`          | Accepted for symmetry with other commands. Not used for resolution. | `process.cwd()`                            |
-| `--token <token>`         | extension.dev access token.                                         | `EXTENSION_DEV_TOKEN`                      |
-| `--api <url>`             | Platform base URL. Useful for self-hosted or staging endpoints.     | `EXTENSION_DEV_API_URL`, then platform URL |
-| `--ttl <hours>`           | Share-link lifetime in hours, from 1 to 168. Private projects only. | `24`                                       |
-| `--build-sha <sha>`       | Pin the share URL to a specific build instead of the latest.        | latest build                               |
-| `--output <pretty\|json>` | Output format. `json` prints the full platform response.            | `pretty`                                   |
+| Flag                      | What it does                                                                       | Default                                    |
+| ------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------ |
+| `[project-path]`          | Directory whose project name the scope check reads. Not uploaded.                  | `process.cwd()`                            |
+| `--token <token>`         | extension.dev access token.                                                        | `EXTENSION_DEV_TOKEN`, then stored login   |
+| `--api <url>`             | Platform base URL. Useful for self-hosted or staging endpoints.                    | `EXTENSION_DEV_API_URL`, then platform URL |
+| `--ttl <hours>`           | Share-link lifetime in hours, from 1 to 168. Private projects only.                | `24`                                       |
+| `--build-sha <sha>`       | Pin the share URL to a specific build instead of the latest.                       | latest build                               |
+| `--project <slug>`        | Name the project this publish is for, when it is not the directory you are in.     | unset                                      |
+| `--output <pretty\|json>` | Output format. `json` prints the full platform response.                           | `pretty`                                   |
 
 ## What it prints
 
@@ -111,7 +124,9 @@ extension publish
     "visibility": "private",
     "token": "<share-token>",
     "expiresAt": "2026-01-01T00:00:00.000Z",
-    "ttlHours": 24
+    "ttlHours": 24,
+    "project": "<project>",
+    "tokenSource": "stored-login"
   },
   "error": null,
   "warnings": []
@@ -124,7 +139,7 @@ With `--build-sha`, the URL points at that build instead of the project overview
 
 ## Public and private projects
 
-A project is either public or private. `publish` only reads that setting; it never changes it. The platform decides what kind of link you get:
+A project is either public or private. `publish` only reads that setting and never changes it. The platform decides what kind of link you get:
 
 | Project visibility | What comes back                                                                       |
 | ------------------ | ------------------------------------------------------------------------------------- |

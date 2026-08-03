@@ -1,0 +1,42 @@
+---
+title: "Machine contracts overview"
+description: "Choose the right Extension.js machine contract for your job: session readiness, command results, error codes, lifecycle frames, or the control bridge."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "contracts",
+    "automation",
+    "agents",
+  ]
+---
+
+Read state from stable files and frames instead of parsing terminal text.
+
+Extension.js publishes a small set of machine contracts for scripts, CI jobs, and AI agents. Each contract has a fixed shape that releases extend but never break.
+
+## Which contract to read
+
+| Your job                                                      | Contract                                                 |
+| ------------------------------------------------------------- | -------------------------------------------------------- |
+| Gate a script or CI step on a running session                 | [ready.json](/docs/contracts/ready-json)                 |
+| Parse the result of one CLI command                           | [Result envelope](/docs/contracts/result-envelope)       |
+| Branch on a failure class instead of message text             | [Error codes](/docs/contracts/error-codes)               |
+| Follow a dev session as it compiles, recompiles, and fails    | [Lifecycle stream](/docs/contracts/lifecycle-stream)     |
+| Build a harness that speaks to the control channel directly   | [Control bridge](/docs/contracts/control-bridge)         |
+
+## How the contracts relate
+
+A session writes `dist/extension-js/<browser>/ready.json` and appends to `events.ndjson` and `logs.ndjson`. All three carry the same `runId`, so you can join them.
+
+Terminating commands answer with one schema-1 result envelope on stdout under `--output json`. Long-running commands stream the same envelope shape as newline-delimited lifecycle frames.
+
+Every failure carries a stable `E_*` code from one shared table. The control bridge is the WebSocket layer underneath `logs --follow` and the act commands.
+
+## Next steps
+
+- Start with [ready.json](/docs/contracts/ready-json), the contract that every automation flow reads first.
+- Let an assistant run the whole loop with [Driving the CLI](/docs/workflows/driving-the-cli).

@@ -1,0 +1,80 @@
+---
+title: "Deno projects with Extension.js"
+description: "Scaffold and build browser extensions in Deno-first projects. Extension.js reads deno.jsonc as the project manifest and resolves npm: imports."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "browser",
+    "deno",
+    "deno.jsonc",
+    "npm specifiers",
+    "typescript",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Extension.js treats Deno as a first-class runtime. Scaffold with Deno and the project gets a `deno.jsonc` instead of a `package.json`. Work in a hybrid project and `deno.jsonc` sits beside `package.json` for Deno-native settings. Either way, `extension dev` and `extension build` behave the same.
+
+## Create a project with Deno
+
+```bash
+deno run -A npm:extension@latest create my-extension --template=react
+```
+
+Then run the dev task:
+
+```bash
+cd my-extension
+deno task dev
+```
+
+## Primary mode: deno.jsonc is the project manifest
+
+When you scaffold under the Deno runtime, `deno.jsonc` becomes the project's only manifest and `package.json` is removed.
+
+- Template dependencies move into `imports` as `npm:` specifiers, and `deno install` resolves them.
+- The `extension` engine itself is declared there too, as `npm:extension@<version>`.
+- `nodeModulesDir` is set to `"auto"`, so `npm:` dependencies materialize in a real `node_modules` directory. The bundler resolves project dependencies from it at dev and build time.
+- `deno task <name>` also finds binaries in `node_modules/.bin`, so the generated tasks run the locally installed Extension.js CLI.
+
+A trimmed example:
+
+```jsonc
+{
+  "imports": {
+    "react": "npm:react@^19.0.0",
+    "react-dom": "npm:react-dom@^19.0.0",
+    "extension": "npm:extension@^4.0.0"
+  },
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "dev": "extension dev",
+    "build": "extension build"
+  }
+}
+```
+
+When a template ships its own Deno config, Extension.js merges into that file instead of creating a second one. Deno's own discovery prefers `deno.json` over `deno.jsonc`, so the merge targets the file that Deno will read.
+
+## Companion mode: deno.jsonc beside package.json
+
+Monorepo templates, and projects that already have a `package.json`, keep it. Dependencies stay declared in `package.json`, and `deno install` resolves them from there. The companion `deno.jsonc` carries only Deno-native settings and the `tasks` that run the CLI.
+
+## How the toolchain detects Deno
+
+Detection works on files, not on how you invoked the CLI:
+
+- Extension.js reads `deno.jsonc` or `deno.json` when it scans project dependencies. Framework, CSS, and TypeScript detection all see packages that `imports` declares through `npm:` specifiers.
+- When both manifests declare the same package, the `package.json` entry wins.
+- A project counts as Deno-managed when it has a `deno.lock`, or a Deno config with no `package.json` beside it. An npm-family lockfile wins for hybrids, and Deno is claimed only when the `deno` binary is on your PATH.
+
+## TypeScript in Deno projects
+
+TypeScript detection follows the same rules as everywhere else. See [TypeScript](/docs/languages-and-frameworks/typescript): SWC compiles the sources, and the `typescript` package is only needed for `tsc --noEmit`.
+
+## Next steps
+
+- Learn how Extension.js handles [Node APIs](/docs/languages-and-frameworks/node).
+- Learn how to manage [Extension configuration](/docs/features/extension-configuration).

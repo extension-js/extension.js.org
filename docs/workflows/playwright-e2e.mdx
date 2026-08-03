@@ -86,21 +86,24 @@ For deterministic automation, do not parse terminal text. Use the metadata files
 - `dist/extension-js/<browser>/ready.json`
 - `dist/extension-js/<browser>/events.ndjson` (newline-delimited JSON for watch/rebuild events)
 
-`ready.json` includes stable fields intended for scripts/agents:
+`ready.json` (schema v2) includes stable fields intended for scripts/agents:
 
-- `status`: `starting` | `ready` | `error`
-- `command`: `dev` | `start` | `preview`
+- `status`: `starting` | `ready` | `error` | `stopped`
+- `command`: `dev` | `start` | `preview` | `build`
 - `browser`
 - `distPath`
 - `manifestPath`
 - `port`
 - `pid`
+- `browserPid` (the launched browser process, use it for teardown)
 - `runId`
 - `startedAt`
 - `compiledAt`
 - `errors`
+- `runtime`: `"attached"` once the service worker is connected
+- `executorAttachedAt`
 
-Use this contract as the source of truth for readiness and failures.
+Use this contract as the source of truth for readiness and failures. The full field reference, including `extensionId`, `profilePath`, `cdpPort`, and the error states, is in [ready.json](/docs/contracts/ready-json).
 
 {/* VIDEO_SPEC id=e2e-run grammar=A→B ~10s loop  [SHIPPED: video/scenes/e2e-run.scene.mjs]
   Needs: mock transcript `e2e-run` (playwright 1.56 list reporter: 3 tests, one
@@ -149,6 +152,8 @@ deno run -A npm:playwright test
 3. Launch Playwright with the extension output from `distPath`.
 4. Run tests and shut down.
 
+One caveat on step 2: `status: "ready"` means compiled. If your test drives the extension through the act commands (`eval`, `storage`, `reload`, `open`), also wait until the contract carries `runtime: "attached"`. Playwright-launched browsers load `distPath` themselves, so plain UI tests need only `ready`.
+
 ### Development mode vs test mode
 
 - `dev` is for watch-mode iteration (`extension dev --no-browser` + `extension dev --wait`).
@@ -164,14 +169,16 @@ deno run -A npm:playwright test
 Use this two-process pattern:
 
 1. Process A: `extension dev --no-browser`
-2. Process B: `extension dev --wait --browser=<browser> --wait-format=json`
+2. Process B: `extension dev --wait --browser=<browser> --output json`
 3. Start Playwright only after the wait step exits successfully
 
 Production-oriented variant:
 
 1. Process A: `extension start --no-browser`
-2. Process B: `extension start --wait --browser=<browser> --wait-format=json`
+2. Process B: `extension start --wait --browser=<browser> --output json`
 3. Start Playwright only after the wait step exits successfully
+
+`--output json` prints one envelope on stdout, human copy moves to stderr. The older `--wait-format` alias still works but warns on stderr.
 
 ```ts
 import { spawn } from "node:child_process";
@@ -200,7 +207,7 @@ async function waitForReady() {
         "--wait",
         `--browser=${browserName}`,
         "--wait-timeout=60000",
-        "--wait-format=json",
+        "--output=json",
       ],
       { stdio: ["ignore", "pipe", "pipe"], env: process.env },
     );

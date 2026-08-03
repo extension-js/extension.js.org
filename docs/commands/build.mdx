@@ -109,16 +109,34 @@ dist/
 | Flag                     | Alias           | What it does                                                                                                | Default                  |
 | ------------------------ | --------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------ |
 | `[path]`                 | -               | Builds a local extension project.                                                                           | `process.cwd()`          |
-| `--browser <browser>`    | -               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, engine aliases, or comma-separated values). | `chromium`               |
+| `--browser <browser>`    | -               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, `safari`, engine aliases, or comma-separated values). | `chromium`               |
 | `--polyfill [boolean]`   | -               | Enables `browser.*` API compatibility polyfill for Chromium targets.                                        | `false`                  |
+| `--no-polyfill`          | -               | Disables the cross-browser polyfill.                                                                        | polyfill disabled        |
 | `--zip [boolean]`        | -               | Creates a packaged zip artifact.                                                                            | `false`                  |
 | `--zip-source [boolean]` | -               | Includes source files in zip output.                                                                        | `false`                  |
 | `--zip-filename <name>`  | -               | Sets custom zip filename.                                                                                   | extension name + version |
 | `--silent [boolean]`     | -               | Suppresses build logs.                                                                                      | `false`                  |
 | `--mode <mode>`          | -               | Bundler mode override (`development`, `production`, or `none`). Also sets `NODE_ENV`.                       | `production`             |
 | `--extensions <list>`    | -               | Comma-separated companion extensions or store URLs.                                                         | unset                    |
-| `--install [boolean]`    | -               | Install project dependencies when missing.                                                                  | command behavior default |
-| `--author`               | `--author-mode` | Enable maintainer diagnostics.                                                                              | disabled                 |
+| `--install [boolean]`    | -               | Internal flag. Install project dependencies when missing.                                                   | command behavior default |
+| `--output <pretty\|json>`| -               | Result format. `json` prints a schema-1 envelope on stdout.                                                 | `pretty`                 |
+| `--debug`                | -               | Enable maintainer diagnostics.                                                                              | disabled                 |
+
+`--author` and `--author-mode` are hidden, deprecated aliases for `--debug`.
+
+### Safari flags
+
+These flags apply to `safari` and `webkit-based` targets only. Passing any of them with another target exits with an error, so a typo never no-ops silently.
+
+| Flag                     | What it does                                                                                | Default                            |
+| ------------------------ | ------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `--open [boolean]`       | Open the built Safari app after packaging. `build` never opens it unless you ask.           | `false`                            |
+| `--app-name <name>`      | Override the Safari app name.                                                               | the manifest `name`                |
+| `--bundle-id <id>`       | User-owned bundle identifier in reverse-DNS form. A malformed value fails before any build. | a generated `dev.extensionjs.*` id |
+| `--macos-only [boolean]` | Generate a macOS-only Xcode project. Pass `false` for a universal macOS + iOS project.      | `true`                             |
+| `--force-regenerate`     | Regenerate the Safari Xcode project even when up to date.                                   | disabled                           |
+
+Safari packaging runs a preflight before the build. On a non-macOS host, `build` warns and skips the Safari packaging step but still compiles the bundle. On macOS with a broken or missing Xcode, the failure is fatal.
 
 ## Shared global options
 
@@ -152,7 +170,7 @@ extension build ./my-extension --mode development
 
 </CodeGroup>
 
-Invalid values exit with an error; the default remains `production`.
+Invalid values exit with an error. The default remains `production`.
 
 ## Zip behavior
 
@@ -269,7 +287,16 @@ Your extension is ready for deployment.
 
 Builds that succeed with warnings print `Build succeeded with N warning(s).` in place of the first line, then the warning details.
 
-The command prints no link and no next step. `build` is finished when the artifacts exist in `dist/<browser>`; where they go after that is your choice, and the options are below.
+The command prints no link and no next step. `build` is finished when the artifacts exist in `dist/<browser>`. Where they go after that is your choice, and the options are below.
+
+## Machine output with `--output json`
+
+`--output json` prints one schema-1 envelope on stdout and routes the human build lines to stderr. Stdout stays parseable as a single JSON document.
+
+- A successful run prints a `status: "built"` frame. Its `value` carries the project path, built browsers, the resolved mode, and one summary per browser. Each summary records the output path, asset totals, warning text, and the Safari app identity when relevant.
+- A failed build prints one `ok: false` frame with `status: "build-failed"` and `error.code: "E_COMPILE"` before the process exits `1`.
+
+Every build also writes `dist/extension-js/<browser>/build-summary.json`. Scripts that shell out to `extension build` can read structured warnings there. Guard against stale files by checking the file's modification time.
 
 ## Best practices
 

@@ -130,6 +130,12 @@ Example background script declaration in `manifest.json`:
 
 Firefox does not run MV3 `background.service_worker` (loading such an add-on fails with _"background.service_worker is currently disabled. Add background.scripts."_). You don't need to special-case it: for the Firefox build, Extension.js automatically translates a `background.service_worker` entry into a `background.scripts` event page pointing at the same compiled bundle. Author one `background.service_worker` and it loads on both Chromium and Firefox.
 
+## Chromium: scripts translated to a service worker
+
+The translation runs in the other direction too. In a Chromium MV3 build, a `background.scripts` array becomes `background.service_worker` pointing at the compiled bundle.
+
+Chromium MV3 rejects the whole extension whenever `background.scripts` is present, even next to a valid `service_worker`. Extension.js therefore always removes the `scripts` key from the emitted Chromium MV3 manifest. When the source declares both fields, the existing `service_worker` entry wins.
+
 ## MV3 service worker lifecycle
 
 `background.service_worker` runs under the browser's service-worker lifecycle, not as a long-running process.

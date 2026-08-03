@@ -33,7 +33,7 @@ Use one `manifest.json` and target specific browsers or custom binaries. Enable 
 
 Chrome and Firefox extensions share most of the WebExtensions surface but differ in three places that matter every day:
 
-- **Background scripts:** Chrome (Manifest V3) requires `background.service_worker`. Firefox uses `background.scripts` with non-persistent event pages. Extension.js routes both from one prefixed manifest.
+- **Background scripts:** Chrome (Manifest V3) requires `background.service_worker`. Firefox uses `background.scripts` with non-persistent event pages. Extension.js translates between the two shapes in both directions, so either spelling works from one manifest.
 - **Runtime API namespace:** Firefox supports `browser.*` natively. Chromium uses `chrome.*`. Pass `--polyfill` to bridge the gap on Chromium targets.
 - **Permissions and content security policy (CSP):** Browsers evaluate some `permissions` and `host_permissions` entries differently. Keep browser-specific values behind prefixed manifest keys instead of feature-detecting at runtime.
 
@@ -167,6 +167,15 @@ For Firefox-family targets, Extension.js uses `firefox:` and `gecko:`.
   for full details on prefixed manifest fields.
 </Note>
 
+#### Background translation is bidirectional
+
+You do not need prefixed background keys for the common case. Extension.js translates a plain MV3 `background` in both directions:
+
+- A Gecko build that finds `background.service_worker` and no `background.scripts` repoints the background at the emitted bundle through `scripts`. It drops `service_worker` and `type`, which Firefox rejects.
+- A Chromium MV3 build that finds `background.scripts` fills `service_worker` from the first script when no worker is set.
+
+In the Chromium direction, `scripts` is always removed from the output. Chromium MV3 rejects the whole extension whenever `background.scripts` is present, even beside a valid `service_worker`, so the key can never ship in a Chromium build.
+
 ### 3) Output per browser target
 
 Extension.js writes each target to its own build folder:
@@ -209,6 +218,8 @@ extension build --browser chrome --polyfill
 
 When enabled, Extension.js uses `webextension-polyfill` (Mozilla's `browser.*` compatibility library) for non-Firefox targets.  
 Extension.js skips this step for Firefox because Firefox already supports `browser.*` natively.
+
+The polyfill module resolves from your project first, then from the bundled Extension.js dependency. Package managers may hoist `webextension-polyfill` to your project root, and a copy you installed yourself wins over the bundled one. When no copy resolves at all, the build prints a warning and continues without the polyfill instead of failing.
 
 ## Best practices
 

@@ -1,0 +1,131 @@
+---
+title: "Control bridge wire contract"
+description: "The WebSocket frames behind Extension.js logs and act commands: LogEvent v1, ready capabilities, gap frames, command ops, refusal codes, and close codes."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "websocket",
+    "control bridge",
+    "contracts",
+  ]
+---
+
+Speak to a dev session over its WebSocket channel directly.
+
+The control bridge is the layer underneath `extension logs --follow` and the act commands. You only need this page when you build your own harness against the socket. For everything else, the CLI verbs are the supported surface.
+
+The dev server hosts the channel at path `/extjs-control` on the `controlPort` that [ready.json](/docs/contracts/ready-json) publishes. Clients say hello with envelope version 1 and a role: `producer`, `consumer`, or `controller`.
+
+The `extension-develop` package exports every type and constant on this page from its `bridge-entry` module, so a harness never has to copy wire strings into its own source.
+
+## LogEvent (version 1)
+
+One log record per frame, with `v: 1`. The broker assigns `seq` on ingest and normalizes `runId` to the session's `ready.json` value, so rows join the contract.
+
+| Field          | Type      | Meaning                                                                 |
+| -------------- | --------- | ----------------------------------------------------------------------- |
+| `v`            | `1`       | LogEvent version.                                                       |
+| `id`           | string    | Record id.                                                              |
+| `seq`          | number    | Broker-assigned sequence number. Resume reads after it.                 |
+| `timestamp`    | number    | Epoch milliseconds.                                                     |
+| `level`        | string    | `log`, `info`, `warn`, `error`, `debug`, or `trace`.                    |
+| `context`      | string    | `background`, `content`, `page`, `sidebar`, `popup`, `options`, or `devtools`. |
+| `messageParts` | array     | The console arguments as structured values.                             |
+| `eventType`    | string    | `log` (default) or `dx.signal`, see below.                              |
+| `code`         | string    | `dx.signal` only: the signal's machine name.                            |
+| `status`       | string    | `dx.signal` only: `ok`, `warn`, or `fail`.                              |
+| `remediation`  | string    | `dx.signal` only: a next-step hint.                                     |
+| `runId`        | string    | The session identity, equal to `ready.json`'s `runId`.                  |
+| `repeat`       | number    | Collapse counter for repeated identical records.                        |
+
+Optional locator fields ride beside them when known: `url`, `hostname`, `tabId`, `frameId`, `windowId`, `title`, `stack`, `errorName`, `sourceExtensionId`, `incognito`, and a free-form `data` object.
+
+A `dx.signal` event is a structured diagnostic that the runtime raises about the dev loop itself. Branch on its `code` and `status`, and surface `remediation` to the user.
+
+## ReadyFrame and capabilities
+
+After a successful hello, the server answers with a ready frame:
+
+```json
+{
+  "type": "ready",
+  "runId": "mdyq3k2p-a1b2c3d4",
+  "bufferedFrom": 120,
+  "engine": "chromium",
+  "capabilities": {
+    "eval": true,
+    "storage": true,
+    "reload": true,
+    "open": ["popup", "options", "action"],
+    "deepDom": true
+  }
+}
+```
+
+`capabilities` tells a controller what this session will accept: `eval`, `storage`, `reload`, the openable surfaces, and `deepDom` for deep DOM inspection. `deepDom` is a bridge capability field, not a CLI flag. `bufferedFrom` is the oldest buffered `seq` still replayable.
+
+## GapFrame
+
+The broker drops records rather than stall, and it says so. A gap frame reports how many records you lost and why:
+
+```json
+{"type": "gap", "dropped": 42, "reason": "slow_consumer", "sinceSeq": 118}
+```
+
+`reason` is one of `ring_overflow`, `rate_limit`, `disk_slow`, or `slow_consumer`.
+
+## CommandFrame and results
+
+Controllers issue commands with a `cmdId`, an op, and a target context:
+
+| Op            | What it does                                  |
+| ------------- | --------------------------------------------- |
+| `eval`        | Evaluate an expression in a context.          |
+| `storage.get` | Read `chrome.storage`.                        |
+| `storage.set` | Write `chrome.storage`.                       |
+| `reload`      | Reload the extension or a context.            |
+| `open`        | Open an extension surface.                    |
+| `tabs.query`  | List tabs. Needs no token.                    |
+| `inspect`     | Inspect DOM in a context.                     |
+
+The answer is a result frame with the same `cmdId`, `ok`, an optional `value`, and `truncated` plus `durationMs` when relevant. Command frames require a session started with `--allow-control`, and `eval` additionally requires `--allow-eval`.
+
+## Refusal codes
+
+When the guest refuses a command, the result frame's `error.code` carries a machine name beside the browser's own sentence. Branch on the code, never on the prose:
+
+| Code                  | Meaning                                                    |
+| --------------------- | ---------------------------------------------------------- |
+| `needs_headed_window` | The surface needs a headed browser window.                 |
+| `needs_user_gesture`  | The surface needs a real user gesture.                     |
+| `surface_not_open`    | The target surface is not open.                            |
+| `api_unavailable`     | The browser API behind the op is unavailable here.         |
+
+The exported constants are `REFUSAL_NEEDS_HEADED_WINDOW`, `REFUSAL_NEEDS_USER_GESTURE`, `REFUSAL_SURFACE_NOT_OPEN`, and `REFUSAL_API_UNAVAILABLE`.
+
+## WebSocket close codes
+
+A close in the 4000 range is a deliberate refusal, never a transport failure:
+
+| Code   | Constant                    | Why the server hung up                                        |
+| ------ | --------------------------- | ------------------------------------------------------------- |
+| `4001` | `CLOSE_BAD_INSTANCE`        | The hello named an `instanceId` from a previous dev session.  |
+| `4002` | `CLOSE_BAD_HELLO`           | The hello was malformed: wrong envelope version, or an unknown role. |
+| `4003` | `CLOSE_CONTROL_UNAVAILABLE` | A controller dialed a session started without `--allow-control`. |
+| `4008` | `CLOSE_SLOW_CONSUMER`       | The socket fell far enough behind that the broker dropped it. |
+
+## Other server frames
+
+The server also broadcasts dev-loop frames that a harness should tolerate and may use:
+
+- `reload`: a fire-and-forget reload signal to the service-worker producer, with a `reloadType` of `full`, `service-worker`, `content-scripts`, or `page`. The `page` kind is notify-only.
+- `ping`: a keepalive that resets the MV3 service worker's idle timer. Ignore it.
+
+## Next steps
+
+- Prefer the CLI verbs where they suffice, starting from [ready.json](/docs/contracts/ready-json).
+- Map bridge failures onto envelope codes with [Error codes](/docs/contracts/error-codes).

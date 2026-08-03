@@ -248,6 +248,17 @@ deno run -A npm:extension@latest create my-extension --template=content-multi-th
 
 Repository: [extension-js/examples/content-multi-three-entries](https://github.com/extension-js/examples/tree/main/examples/content-multi-three-entries)
 
+## Classic multi-file entries
+
+When one `content_scripts.js` array lists several plain JavaScript files with no `import` or `export`, Extension.js concatenates them into one bundle. Bundling each file as an isolated module would break them. The browser injects classic files in order into one shared scope, and concatenation preserves that:
+
+- Implicit cross-file globals keep working. A top-level `var` or function in the first file stays visible to the next file.
+- Each source file registers as a build dependency, so saving any file in the group triggers a rebuild.
+- The emitted source map points at your real files and lines, so errors trace back to the original code.
+- A raw `.ts` file inside a concat group gets its types stripped with the bundled SWC before concatenation.
+
+Entries that use `import` or `export` keep normal module bundling.
+
 ## `scripts/` folder behavior
 
 The `scripts/` folder is for script entrypoints that no HTML page entry declares. In practice, these entries follow the same default-export pattern as content scripts.
@@ -329,9 +340,18 @@ Repository: [extension-js/examples/content-main-world](https://github.com/extens
 
 - **`world: "MAIN"` is Chromium-only.** Firefox does not support the `world` field and ignores it. Your script still runs in the isolated world on Firefox.
 - **Cross-browser MAIN world behavior:** Use the `chromium:` manifest prefix to declare it only for Chromium targets. Then provide an isolated-world fallback for Firefox.
-- In development, MAIN-world scripts use an internal bridge mechanism to load code chunks and resolve public paths.
 - Extension APIs (`chrome.runtime`, `chrome.storage`, etc.) are **not available** in the MAIN world; you can only access page-context globals.
 - Treat MAIN world as an advanced path. Validate behavior on each target browser early.
+
+### The isolated-world bridge
+
+MAIN world scripts cannot call extension APIs, so Extension.js pairs each MAIN group with a helper that can. Expect the built manifest to differ from your source here:
+
+- The dist manifest contains more `content_scripts` entries than the source. Extension.js prepends one isolated-world bridge entry before each MAIN group.
+- Bridge entries take asset indices after your entries. Your `content_scripts/content-N` outputs keep the index of the source entry that produced them.
+- The bridge resolves extension URLs through `runtime.getURL` and injects the MAIN world's script chunks into the page.
+- The bridge validates that `event.source` is the same window before acting on a message.
+- It injects only extension-scheme URLs (`chrome-extension://`, `moz-extension://`) or relative paths, never arbitrary remote URLs.
 
 ### Isolated vs MAIN quick example
 
