@@ -1,0 +1,99 @@
+---
+title: "Eval command for running code in extension contexts"
+description: "Run a JavaScript expression inside any context of a running Extension.js dev session, from the background worker to a live page, straight from the terminal."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "eval",
+    "debugging",
+    "automation",
+  ]
+---
+
+Run a JavaScript expression inside a context of a running dev session and print the result.
+
+`eval` is the most powerful automation verb, so it is double locked. The session must be started with `extension dev --allow-eval`, and the CLI must present the session token that the dev server wrote for this project and browser. Both happen automatically when you run the two commands from the same project root.
+
+## When to use `eval`
+
+- You want to poke at extension state (`chrome.runtime`, storage, DOM) without opening DevTools.
+- An agent needs to run a check inside the page and get a structured value back.
+- You want a scriptable REPL against the background worker or a live tab.
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension eval <expression> [project-path] [options]
+```
+
+```bash pnpm
+extension eval <expression> [project-path] [options]
+```
+
+```bash yarn
+extension eval <expression> [project-path] [options]
+```
+
+```bash bun
+extension eval <expression> [project-path] [options]
+```
+
+```bash deno
+extension eval <expression> [project-path] [options]
+```
+
+</CodeGroup>
+
+For example, read the title and URL of the active tab from inside the page:
+
+```bash
+extension eval "({title: document.title, url: location.href})" --context page
+```
+
+## Arguments and flags
+
+| Flag                      | What it does                                                                                                                                              | Default         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `<expression>`            | The JavaScript expression to evaluate.                                                                                                                    | required        |
+| `[project-path]`          | Path to the extension project root.                                                                                                                       | `process.cwd()` |
+| `--context <context>`     | Target context: `background`, `popup`, `options`, `sidebar`, `devtools`, `newtab`, `history`, `bookmarks`, `content`, `page`.                             | `background`    |
+| `--url <glob\|substring>` | For `content`/`page`: the document to target, resolved to its tab.                                                                                        | unset           |
+| `--tab <id>`              | For `content`/`page`: a specific tab. Without it, the `--url` match wins, else the active tab.                                                            | active tab      |
+| `--browser <browser>`     | Which session to target (`chrome`, `chromium`, `edge`, `firefox`).                                                                                        | `chromium`      |
+| `--timeout <ms>`          | Command timeout in milliseconds.                                                                                                                          | `5000`          |
+| `--output <pretty\|json>` | Output format (`json` wraps the result in the schema-1 envelope).                                                                                         | `pretty`        |
+
+Extension pages (`popup`, `options`, `sidebar`, `devtools`, `newtab`, `history`, `bookmarks`) answer through their own in-page relay, so the surface must be open in the browser. Use `open` (documented in [Trigger actions and commands](/docs/debugging/trigger-actions-and-commands)) to open one first.
+
+Pretty output prints the value itself: strings as-is, everything else as indented JSON. The envelope shape appears only under `--output json` (see [Result envelope](/docs/contracts/result-envelope)).
+
+## How the unlock works
+
+1. `extension dev --allow-eval` starts the session with eval enabled. `--allow-eval` also unlocks the other control verbs, so you do not need both flags.
+2. The dev server writes a random session token to `.extension-js/control-token-<browser>` with `0600` permissions. The token is keyed per browser, so concurrent sessions do not collide.
+3. `eval` reads that token from the project root and presents it during the handshake.
+
+A session started without `--allow-eval` refuses the call, and the refusal names `--allow-eval` as the flag to add. A missing token fails with `E_TOKEN_MISSING`, a mismatched or disabled one with `E_EVAL_REFUSED`.
+
+## Failure modes
+
+- The expression threw inside the target: `E_EVAL`, with a hint that the expression itself is at fault. This is a result, not a transport error.
+- No session for the browser: `E_SESSION_NOT_FOUND`, with the exact `extension dev` command to run.
+- Target surface not open, or a stale `--tab` id: `E_TARGET_NOT_FOUND`. Use [`inspect --list-tabs`](/docs/commands/inspect#the-discovery-loop) to find live ids.
+- The call outlived `--timeout`: `E_TIMEOUT`.
+
+The exit code is `0` when the expression succeeds and `1` otherwise, so scripts can gate on it directly. Run [`doctor`](/docs/commands/doctor) when every verb fails and you want the broken leg named.
+
+## Next steps
+
+- Find tab ids and DOM state to target with [`inspect`](/docs/commands/inspect).
+- Read or write `chrome.storage` without writing an expression with [`storage`](/docs/commands/storage).
+- Read the wider debugging workflow in [Debugging](/docs/debugging).
+- Review the machine output format in [Result envelope](/docs/contracts/result-envelope).

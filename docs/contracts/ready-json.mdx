@@ -1,0 +1,152 @@
+---
+title: "ready.json session contract"
+description: "Full schema v2 field reference for ready.json, the Extension.js readiness contract that scripts and agents poll instead of parsing terminal output."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "ready.json",
+    "contracts",
+    "automation",
+  ]
+---
+
+Poll one JSON file to know when a session is ready, broken, or gone.
+
+Every `dev`, `start`, `preview`, and `build` run writes `dist/extension-js/<browser>/ready.json` atomically on each compile. The current contract is `schemaVersion: 2`.
+
+## Statuses
+
+| Status     | Meaning                                                                       |
+| ---------- | ----------------------------------------------------------------------------- |
+| `starting` | The run began. The file resets, and `events.ndjson` is truncated for the run. |
+| `ready`    | The latest compile succeeded and the output is on disk.                       |
+| `error`    | The compile failed, or the browser refused or lost the extension.             |
+| `stopped`  | The watch closed. Stamped with `code: "shutdown"` so a dead session can never advertise `ready`. |
+
+## Two-phase readiness
+
+`status: "ready"` means compiled, nothing more. The browser may still be launching, and the service worker may not be connected yet.
+
+Act tooling (`eval`, `storage`, `reload`, `open`, `inspect`) needs the second phase. Wait until the contract carries `runtime: "attached"` and an `executorAttachedAt` timestamp before you drive the extension.
+
+The attach stamp is idempotent and survives recompiles. An attach also clears any earlier `extension_load_refused` state, because the executor runs inside the guest.
+
+## Field reference (schema v2)
+
+Fields that are always present:
+
+| Field              | Type             | Meaning                                                                  |
+| ------------------ | ---------------- | ------------------------------------------------------------------------ |
+| `schemaVersion`    | `2`              | The ready contract's own version.                                        |
+| `schema`           | `1`              | Advertises that this engine speaks the schema-1 [result envelope](/docs/contracts/result-envelope). |
+| `status`           | string           | `starting`, `ready`, `error`, or `stopped`.                              |
+| `command`          | string           | `dev`, `start`, `preview`, or `build`.                                   |
+| `browser`          | string           | The browser target that this session serves.                             |
+| `runId`            | string           | The session identity. Join key across `ready.json`, `events.ndjson`, and `logs.ndjson`. |
+| `startedAt`        | ISO string       | When the run began.                                                      |
+| `distPath`         | string           | Absolute path to the compiled extension.                                 |
+| `manifestPath`     | string           | Absolute path to the source manifest.                                    |
+| `port`             | number or null   | The port that the dev server actually bound.                             |
+| `pid`              | number           | The dev server process id. Check liveness before trusting the contract.  |
+| `ts`               | ISO string       | When this document was last written.                                     |
+| `compiledAt`       | string or null   | When the latest successful compile finished.                             |
+| `errors`           | string[]         | ANSI-stripped compile errors, capped at 10 entries.                      |
+| `toolchainVersion` | string           | The Extension.js version that produced this tree.                        |
+
+Fields that appear when known:
+
+| Field              | Type     | Meaning                                                                          |
+| ------------------ | -------- | -------------------------------------------------------------------------------- |
+| `host`             | string   | The dev server host.                                                             |
+| `code`             | string   | Machine name for the error state, see below.                                     |
+| `message`          | string   | Human sentence beside `code`.                                                    |
+| `instanceId`       | string   | The dev instance identity for multi-instance setups.                             |
+| `instanceExplicit` | boolean  | Whether the instance id was user-supplied.                                       |
+| `controlPort`      | number or null | The control bridge WebSocket port.                                         |
+| `controlPath`      | string   | The control bridge WebSocket path (`/extjs-control`).                            |
+| `logsPath`         | string   | Relative path to `logs.ndjson`.                                                  |
+| `cdpPort`          | number   | Chromium launches: the CDP port, stamped post-launch.                            |
+| `rdpPort`          | number   | Gecko launches: the RDP debugger-server port, stamped post-launch.               |
+| `profilePath`      | string   | The resolved profile directory. Ephemeral profile names are generated, so read them here. |
+| `browserPid`       | number   | The browser process id. The supported handle for tearing the browser down.       |
+| `extensionId`      | string   | The id that the browser serves the dist under. Browser-confirmed when available, derived otherwise. |
+| `extensionName`    | string   | The extension's name, as build provenance.                                       |
+| `extensionVersion` | string   | The extension's version, as build provenance.                                    |
+| `browserExitedAt`  | ISO string | Stamped when the browser exits mid-session without being asked. Preserved across recompiles. |
+| `browserExitCode`  | number or null | The exit code beside `browserExitedAt`.                                    |
+| `runtime`          | `"attached"` | Present once the service worker has connected and can be driven.             |
+| `executorAttachedAt` | ISO string | When the service worker first connected.                                     |
+| `managedExtensions` | array   | Every extension that the engine loads besides yours, as `{path, id?}` records. Subtract them by id in a census. |
+
+## Error states
+
+The `code` field names the failure class. Three codes matter for automation:
+
+| `code`                    | What happened                                                                              |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| `extension_load_refused`  | The session runs, but the browser threw the extension out. Every other surface looks healthy, only the contract says so. Carries `extensionLoadRefusedAt` and `extensionLoadRefusedReason`. |
+| `profile_locked`          | Another live session holds the profile, so the browser never started. Carries `profileLockedAt` and a `profileLockOwner` with `host` and `pid`. |
+| `browser_exited`          | The browser process died. `start` and `preview` flip to `error`. `dev` keeps its compile status and only stamps `browserExitedAt`. |
+
+A load refusal outlives the next successful compile. Only a new run (`starting`) or a real executor attach clears it.
+
+## Waiting with --wait
+
+`extension dev --wait` and `extension start --wait` poll the contract every 250 ms and exit when it reports `ready`. Pair them with `--output json` for a machine result.
+
+The wait loop refuses to trust stale files. Three checks run on every read:
+
+1. The `command` field must match the waiting command.
+2. The `pid` must be alive. For `dev`, a dead producer always means stale, so polling continues.
+3. For `start`, a dead pid is accepted only when the contract is fresh. Freshness means `ts`, `compiledAt`, or `startedAt` is within the last 60 seconds.
+
+A timeout exits with `E_READY_TIMEOUT`. A contract in `error` status fails the wait with its message.
+
+## Joining the session files
+
+The same directory holds `events.ndjson` (compile timeline) and `logs.ndjson` (extension console output). Every row in both carries the `runId` from `ready.json`.
+
+`events.ndjson` is truncated at every run start, so it only ever describes the current run. Event types are `compile_start`, `compile_success`, `compile_error`, and `shutdown`.
+
+## Example
+
+```json
+{
+  "schemaVersion": 2,
+  "schema": 1,
+  "status": "ready",
+  "command": "dev",
+  "browser": "chromium",
+  "runId": "mdyq3k2p-a1b2c3d4",
+  "startedAt": "2026-08-03T14:05:12.000Z",
+  "distPath": "/home/dev/my-extension/dist/chromium",
+  "manifestPath": "/home/dev/my-extension/manifest.json",
+  "port": 8080,
+  "host": "127.0.0.1",
+  "pid": 51234,
+  "ts": "2026-08-03T14:05:19.412Z",
+  "compiledAt": "2026-08-03T14:05:19.401Z",
+  "errors": [],
+  "instanceId": "i-4b9a77",
+  "controlPort": 8081,
+  "controlPath": "/extjs-control",
+  "logsPath": "dist/extension-js/chromium/logs.ndjson",
+  "cdpPort": 9222,
+  "profilePath": "/tmp/extension-js/profiles/brisk-amber-fox",
+  "browserPid": 51302,
+  "extensionId": "abcdefghijklmnopabcdefghijklmnop",
+  "toolchainVersion": "4.0.22",
+  "runtime": "attached",
+  "executorAttachedAt": "2026-08-03T14:05:21.007Z"
+}
+```
+
+## Next steps
+
+- Read command results with the [Result envelope](/docs/contracts/result-envelope).
+- Stream the same session as frames with the [Lifecycle stream](/docs/contracts/lifecycle-stream).
+- Wire the whole loop into tests with [Playwright E2E](/docs/workflows/playwright-e2e).

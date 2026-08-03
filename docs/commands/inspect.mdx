@@ -1,0 +1,114 @@
+---
+title: "Inspect command for DOM and tab discovery"
+description: "Inspect a page or content DOM from the terminal with the Extension.js inspect command. List tabs, fetch HTML summaries, and attach recent console lines."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "inspect",
+    "dom",
+    "debugging",
+  ]
+---
+
+Inspect a page or content DOM through the agent bridge, without CDP and without opening DevTools.
+
+`inspect` asks a running dev session what a document looks like right now. It can list open tabs, return a structural summary or raw HTML, and attach the last console lines for the same target.
+
+The session must run with the control channel unlocked: start it with `extension dev --allow-control`. A refusal names the missing flag, so a denied call tells you exactly how to restart the session.
+
+{/* VIDEO_SPEC id=inspect-loop grammar=A→B ~14s loop
+  Needs: mock transcript `inspect-loop` (tabs.query list with numeric ids, then an
+    inspect summary plus a short console tail for the chosen tab)
+  A terminal.type('extension inspect --list-tabs')  mark:tabs-listed
+  B terminal.type('extension inspect --tab 412 --with-console'), the DOM summary
+    and last console lines come back together       mark:inspect-returned → hold read → end
+  run: node video/record.mjs inspect-loop --mock */}
+
+## When to use `inspect`
+
+- You want to confirm what your content script actually rendered into a page.
+- An agent needs tab ids to target [`eval`](/docs/commands/eval) or `inspect` calls precisely.
+- You want DOM state and the matching console tail in one machine-readable result.
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension inspect [project-path] [options]
+```
+
+```bash pnpm
+extension inspect [project-path] [options]
+```
+
+```bash yarn
+extension inspect [project-path] [options]
+```
+
+```bash bun
+extension inspect [project-path] [options]
+```
+
+```bash deno
+extension inspect [project-path] [options]
+```
+
+</CodeGroup>
+
+## Arguments and flags
+
+| Flag                      | What it does                                                                                                                              | Default         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `[project-path]`          | Path to the extension project root.                                                                                                       | `process.cwd()` |
+| `--context <context>`     | What to inspect: `content`, `page`, or an open surface (`popup`, `options`, `sidebar`, `devtools`, `newtab`, `history`, `bookmarks`).     | `content`       |
+| `--url <glob\|substring>` | For `content`/`page`: the document to target, resolved to its tab.                                                                        | unset           |
+| `--tab <id>`              | For `content`/`page`: a specific tab. Without it, the `--url` match wins, else the active tab.                                            | active tab      |
+| `--list-tabs`             | List open tabs as `{tabId, url, title}` and exit.                                                                                         | off             |
+| `--include <list>`        | Comma-separated result parts: `html`, `summary`.                                                                                          | `summary`       |
+| `--max-bytes <n>`         | Cap on returned HTML bytes.                                                                                                               | `262144`        |
+| `--with-console [n]`      | Also include the last `n` console lines for the target.                                                                                   | `20` when set   |
+| `--browser <browser>`     | Which session to target (`chrome`, `chromium`, `edge`, `firefox`).                                                                        | `chromium`      |
+| `--timeout <ms>`          | Command timeout in milliseconds.                                                                                                          | `5000`          |
+| `--output <pretty\|json>` | Output format (`json` wraps the result in the schema-1 envelope).                                                                         | `pretty`        |
+
+There is no `--deep-dom` flag. Deep DOM support is a bridge capability the session reports internally, not something you toggle per call.
+
+## The discovery loop
+
+Numeric tab ids make targeting deterministic. The intended flow is list first, then inspect:
+
+```bash
+extension inspect --list-tabs
+extension inspect --tab 412 --with-console
+```
+
+`--list-tabs` needs the unlocked control channel but no eval token, so it works in any `--allow-control` session. The result is an array of `{tabId, url, title}` objects that you can feed straight into `--tab` here or in `eval`.
+
+## Console augmentation
+
+`--with-console` merges a `console` array into the result: the last `n` log records for the same context and tab, read from the session's `logs.ndjson`. This gives an agent DOM state and console evidence in a single round trip. The augmentation is best effort and never fails the command.
+
+## Truncation
+
+HTML larger than `--max-bytes` comes back truncated. Pretty mode prints a truncation notice on stderr, and `--output json` sets `truncated: true` in the envelope (see [Result envelope](/docs/contracts/result-envelope)).
+
+## Failure modes
+
+- No session found for the browser: `E_SESSION_NOT_FOUND`, with the exact `extension dev` command to run.
+- Session running without `--allow-control`: the connection is refused and the error names the flag.
+- Target surface not open, or a `--tab` id that no longer exists: `E_TARGET_NOT_FOUND`.
+- The target took longer than `--timeout`: `E_TIMEOUT`.
+
+Run [`doctor`](/docs/commands/doctor) when the same session refuses every verb and you want the first broken leg named.
+
+## Next steps
+
+- Run an expression in the page that you just inspected with [`eval`](/docs/commands/eval).
+- Stream the same session's logs continuously with [`logs`](/docs/commands/logs).
+- Read the wider debugging workflow in [Debugging](/docs/debugging).

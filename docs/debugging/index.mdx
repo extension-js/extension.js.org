@@ -59,6 +59,24 @@ Every operation below targets that session and addresses a context the same way,
 | `extension open command --name <cmd>`      | [Replay a keyboard-shortcut command](/docs/debugging/trigger-actions-and-commands)                                  | `--allow-control` |
 | `extension eval "<expr>" --context <c>`    | Evaluate an expression in a context and return the value                                                            | `--allow-eval`    |
 
+`extension logs` and `extension inspect` have their own reference pages: [logs](/docs/commands/logs) and [inspect](/docs/commands/inspect).
+
+### Shared flags
+
+Every acting command accepts the same trio:
+
+- `--browser` chooses the session to target (default `chromium`).
+- `--timeout <ms>` bounds the round trip (default 5000).
+- `--output <pretty|json>` chooses the stdout dialect.
+
+When a session lacks the required unlock, the refusal names the exact flag to restart with: `--allow-eval` for `eval`, `--allow-control` for everything else. You never have to guess which gate you missed.
+
+### What lands on disk
+
+Beyond the live channel, the session writes append-only records under `dist/extension-js/<browser>/`: `logs.ndjson` holds every captured log event, and `actions.ndjson` (written when the session has `--allow-control`) audits the control actions that ran. Both are readable after the session ends.
+
+The log stream also carries structured `dx.signal` entries, machine-readable diagnostics the runtime emits about its own health. Filter to just those with `extension logs --signals-only`.
+
 ## Address a context
 
 Reading and acting share one vocabulary: you name the surface, Extension.js resolves it against the session it's already tracking.
@@ -115,7 +133,6 @@ Extension.js debugs through an **in-browser companion**, not the Chrome DevTools
 | `logs`, `inspect`, `storage`, `reload`, `open` (incl. `action`/`command`) | ✓                             | ✓ (verified)   |
 | `eval` in `page` / `content` contexts                                    | ✓                             | ✓              |
 | `eval --context background`                                              | MV2 builds only (see footnote) | ✓ (MV2 background page) |
-| `inspect --deep-dom` (closed shadow roots)                               | ✓                             | n/a (uses CDP) |
 | `extension_list_extensions` (MCP tool)                                   | ✓                             | n/a (uses CDP) |
 
 (`eval --context background` on a Chromium MV3 build returns an explanatory error. The MV3 background is a service worker, and Chrome's extension CSP rejects `unsafe-eval` there on every MV3 build, not only in production. Evaluate in `page`/`content` on Chromium MV3, or target the background on a Firefox/MV2 build. `extension_list_extensions` is an MCP tool rather than a CLI verb: it connects over the DevTools Protocol, so it's Chromium-only.)
@@ -136,5 +153,6 @@ The same operations are exposed as MCP tools through [`@extension.dev/mcp`](/doc
 ## Next steps
 
 - [Trigger actions and keyboard commands](/docs/debugging/trigger-actions-and-commands): test handlers without clicking, headless and in CI.
+- [Manifest refusals](/docs/debugging/manifest-refusals): why Chromium refuses an extension before the session can attach.
 - [Run both MCP servers](/docs/integrations/chrome-devtools-mcp): Extension.js control alongside Chrome DevTools MCP.
 - [CI templates](/docs/workflows/ci-templates): wire these into a pull-request gate.

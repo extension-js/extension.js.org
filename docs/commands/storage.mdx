@@ -1,0 +1,98 @@
+---
+title: "Storage command for reading and writing extension storage"
+description: "Read and write chrome.storage areas of a running Extension.js dev session from the terminal, with JSON values and per-area targeting."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "storage",
+    "debugging",
+    "automation",
+  ]
+---
+
+Read and write the extension's `chrome.storage` areas from the terminal.
+
+`storage` talks to a running dev session and runs the storage call inside the extension itself, so you see exactly what your code sees. No DevTools, no temporary `console.log`.
+
+The session must run with the control channel unlocked: start it with `extension dev --allow-control`. A refusal names the missing flag.
+
+## When to use `storage`
+
+- You want to check what your extension persisted without wiring up a debug UI.
+- A test or agent needs to seed storage state before exercising a flow.
+- You want to flip a stored feature flag in a live session and watch the effect.
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension storage <get|set> [project-path] [options]
+```
+
+```bash pnpm
+extension storage <get|set> [project-path] [options]
+```
+
+```bash yarn
+extension storage <get|set> [project-path] [options]
+```
+
+```bash bun
+extension storage <get|set> [project-path] [options]
+```
+
+```bash deno
+extension storage <get|set> [project-path] [options]
+```
+
+</CodeGroup>
+
+Read the whole `local` area, then one key, then write a value:
+
+```bash
+extension storage get
+extension storage get --key settings
+extension storage set --key settings --value '{"theme": "dark"}'
+```
+
+## Arguments and flags
+
+| Flag                      | What it does                                                                          | Default         |
+| ------------------------- | -------------------------------------------------------------------------------------- | --------------- |
+| `<action>`                | `get` or `set`.                                                                       | required        |
+| `[project-path]`          | Path to the extension project root.                                                   | `process.cwd()` |
+| `--area <area>`           | Storage area (`local`, `sync`, `session`, `managed`).                                 | `local`         |
+| `--key <key>`             | Key to get or set. `get` without a key returns the whole area.                        | unset           |
+| `--value <json>`          | Value to write with `set`. Parsed as JSON first, kept as a raw string if that fails.  | required for `set` |
+| `--context <context>`     | Context that runs the call (`background`, `popup`, `options`, `sidebar`, `content`).  | `background`    |
+| `--browser <browser>`     | Which session to target (`chrome`, `chromium`, `edge`, `firefox`).                    | `chromium`      |
+| `--timeout <ms>`          | Command timeout in milliseconds.                                                      | `5000`          |
+| `--output <pretty\|json>` | Output format (`json` wraps the result in the schema-1 envelope).                     | `pretty`        |
+
+## How values are parsed
+
+`--value` is parsed as JSON, so `'{"theme": "dark"}'`, `'42'`, and `'true'` arrive typed. Input that is not valid JSON falls back to a raw string, so `--value hello` stores the string `"hello"` without extra quoting.
+
+`set` requires both `--key` and `--value`. Leaving either out fails with `E_ARGS` before any connection is made. Any action other than `get` or `set` fails the same way.
+
+## Failure modes
+
+- No session for the browser: `E_SESSION_NOT_FOUND`, with the exact `extension dev --allow-control` command to run.
+- Session running without `--allow-control`: the connection is refused and the error names the flag.
+- The storage call threw inside the extension (for example, writing to the read-only `managed` area): `E_STORAGE`.
+- The call outlived `--timeout`: `E_TIMEOUT`.
+
+The exit code is `0` on success and `1` on any failure. Machine consumers should read the envelope from `--output json` (see [Result envelope](/docs/contracts/result-envelope)).
+
+## Next steps
+
+- Run arbitrary expressions in the same session with [`eval`](/docs/commands/eval).
+- Restart the background worker after seeding state with [`reload`](/docs/commands/reload).
+- Diagnose a session that refuses the call with [`doctor`](/docs/commands/doctor).
+- Read the wider debugging workflow in [Debugging](/docs/debugging).

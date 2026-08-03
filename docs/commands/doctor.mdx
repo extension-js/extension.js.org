@@ -64,15 +64,33 @@ If you omit the path, Extension.js diagnoses the session for the current working
 
 ## Arguments and flags
 
-| Flag                      | What it does                                                         | Default         |
-| ------------------------- | -------------------------------------------------------------------- | --------------- |
-| `[project-path]`          | Path to the extension project root.                                  | `process.cwd()` |
-| `--browser <browser>`     | Which session to diagnose (`chrome`, `chromium`, `edge`, `firefox`). | `chromium`      |
-| `--output <pretty\|json>` | Output format (`json` prints the raw check results for agents).      | `pretty`        |
+| Flag                      | What it does                                                         | Default              |
+| ------------------------- | -------------------------------------------------------------------- | -------------------- |
+| `[project-path]`          | Path to the extension project root.                                  | `process.cwd()`      |
+| `--browser <browser>`     | Which session to diagnose (`chrome`, `chromium`, `edge`, `firefox`). | resolved (see below) |
+| `--output <pretty\|json>` | Output format (`json` prints a schema-1 envelope for agents).        | `pretty`             |
+
+### How `doctor` picks the session
+
+Without `--browser`, `doctor` diagnoses the session that exists, not a hardcoded default. It lists the ready contracts under `dist/extension-js/` and resolves from there:
+
+- Exactly one live contract wins outright.
+- With several contracts, `chromium` wins when present, otherwise the first one alphabetically. A `session-resolution` warn check then names every candidate before the numbered checks run.
+- With no contracts at all, `doctor` falls back to `chromium`.
+
+{/* VIDEO_SPEC id=doctor-sessions grammar=A→B ~12s loop
+  Needs: mock transcript `doctor-sessions` (two live sessions: chromium + firefox
+    contracts under dist/extension-js/, then the doctor run)
+  A terminal.type('extension doctor')               mark:command-submitted
+  B checks stream: the session-resolution warn names both sessions and the
+    chosen one, then the numbered legs pass          mark:warn-shown → hold read → end
+  run: node video/record.mjs doctor-sessions --mock */}
 
 ## What it checks
 
 Checks run in dependency order. When a leg fails, later checks that depend on it are marked **skip** and name the check that blocked them: a skip is not a pass.
+
+A zeroth `session-resolution` check appears only when several live sessions exist. It warns and names the session that the run diagnoses.
 
 | #   | Check             | What it verifies                                                                                                                  |
 | --- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -84,29 +102,56 @@ Checks run in dependency order. When a leg fails, later checks that depend on it
 | 6   | `executor`        | A live probe round-trips through the extension's background context.                                                              |
 | 7   | `browser`         | The launched browser has not exited out from under the still-running dev server.                                                  |
 
-The pretty output prints one line per check plus the first failing check's remediation. The exit code is `0` when nothing failed and `1` when any check failed, so CI and scripts can gate on it directly.
+Some legs have deliberate soft answers:
+
+- `port-agreement` passes when no port file exists yet. A first session for this project and browser has nothing to disagree with.
+- `executor` reports **warn**, not fail, within 10 seconds of a fresh compile. The service worker may still be attaching. Wait for `runtime: "attached"` in `ready.json` before acting.
+- `browser` reports **skip** when the contract has no `cdpPort` stamped and no exit recorded. Absence of exit evidence is not proof of a live browser.
+
+The pretty output prints one line per check plus the first failing check's remediation. Each status has a glyph: `✓` pass, `✗` fail, `!` warn, `–` skip. The exit code is `0` when nothing failed and `1` when any check failed, so CI and scripts can gate on it directly.
 
 ## Machine-readable output
 
-`--output json` prints the check results as a JSON array, one object per check:
+`--output json` prints one schema-1 envelope. The check results ride in `value` on both verdicts, because an unhealthy report is still a report:
 
 ```json
-[
-  {
-    "check": "ready-contract",
-    "status": "pass",
-    "detail": "status ready — controlPort 43021, instanceId a1b2c3"
+{
+  "schema": 1,
+  "ok": false,
+  "command": "doctor",
+  "status": "unhealthy",
+  "value": [
+    {
+      "check": "ready-contract",
+      "status": "pass",
+      "detail": "status ready, controlPort 43021, instanceId a1b2c3"
+    },
+    {
+      "check": "server-process",
+      "status": "fail",
+      "detail": "dev-server pid 4242 is dead, ready.json is stale",
+      "remediation": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control"
+    }
+  ],
+  "error": {
+    "code": "E_SESSION_NOT_FOUND",
+    "message": "1 of 7 doctor checks failed."
   },
-  {
-    "check": "server-process",
-    "status": "fail",
-    "detail": "dev-server pid 4242 is dead — ready.json is stale",
-    "remediation": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control"
-  }
-]
+  "hint": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control",
+  "warnings": []
+}
 ```
 
-`status` is `pass`, `fail`, or `skip`; `remediation` is present on failures that have a known fix.
+A healthy run answers `ok: true` with `status: "healthy"` and `error: null`.
+
+`status` on each check is `pass`, `fail`, `warn`, or `skip`. `remediation` is present on failures that have a known fix. The envelope's `error.code` maps from the first failing check:
+
+| First failing check                              | `error.code`            |
+| ------------------------------------------------ | ----------------------- |
+| `ready-contract`, `server-process`               | `E_SESSION_NOT_FOUND`   |
+| `port-agreement`, `control-channel`, `executor`  | `E_CONTROL_UNAVAILABLE` |
+| `eval-token`                                     | `E_TOKEN_MISSING`       |
+| `browser`                                        | `E_BROWSER_LAUNCH`      |
 
 ## Typical flow
 

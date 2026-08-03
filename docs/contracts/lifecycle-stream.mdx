@@ -1,0 +1,88 @@
+---
+title: "Lifecycle stream for dev sessions"
+description: "The NDJSON lifecycle frames that Extension.js dev, start, and preview stream in machine mode: starting, compiled, recompiled, compile-failed, ready, browser-exited, and failed."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "ndjson",
+    "lifecycle",
+    "contracts",
+  ]
+---
+
+Follow a live session as one JSON frame per transition.
+
+A terminating envelope cannot describe a session, so `dev`, `start`, and `preview` stream one schema-1 frame per lifecycle transition. Each frame is a complete [result envelope](/docs/contracts/result-envelope) on its own line.
+
+## Turning the stream on
+
+The stream keys off the `EXTENSION_OUTPUT` environment variable. Set it to `json` or `ndjson` and frames own stdout:
+
+```bash
+EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-browser
+```
+
+While the stream is on, human copy that shares stdout moves to stderr. Error copy always stays on stderr, machine mode never hides a failure.
+
+{/* VIDEO_SPEC id=lifecycle-frames grammar=A→B ~10s loop
+  Needs: mock transcript `lifecycle-frames` (EXTENSION_OUTPUT=ndjson dev session
+    already streaming; terminal-only, frames are the whole story)
+  A terminal shows starting -> compiled -> ready frames, then an edit lands a
+    syntax error and a compile-failed frame arrives with ok:false and
+    value.output                                     mark:compile-failed
+  B a second edit fixes it and a recompiled frame closes the loop
+                                                     mark:recovered → hold read → end
+  run: node video/record.mjs lifecycle-frames --mock */}
+
+## Frame statuses
+
+| Status           | `ok`  | When it arrives                                                            |
+| ---------------- | ----- | -------------------------------------------------------------------------- |
+| `starting`       | true  | Once, when the session begins. Carries `requestedPort` and the bound `port`. |
+| `compiled`       | true  | The first successful compile. Carries `assets` and `durationMs`.            |
+| `recompiled`     | true  | Every later successful compile.                                             |
+| `compile-failed` | false | A compile finished with errors, first or later.                             |
+| `ready`          | true  | Once, when `ready.json` is on disk for this session.                        |
+| `browser-exited` | false | The browser died mid-session, see below.                                    |
+| `failed`         | false | A session-level failure, for example the server never bound, or `ready.json` reports `error`. |
+
+Every frame's `value` carries the session identity: `command`, `browser`, `distPath`, `pid`, `port`, plus `readyPath`, `eventsPath`, `runId`, `instanceId`, and `toolchainVersion` when known.
+
+## Compile failures
+
+A `compile-failed` frame carries the compiler output inside `value.output`, so you never scrape stdout. The output is ANSI-stripped and capped at 2000 characters. When the cap cuts it, the frame sets `truncated: true`.
+
+The first failure of a session uses code `E_FIRST_COMPILE`, every later one uses `E_COMPILE`.
+
+```jsonl
+{"schema":1,"ok":true,"command":"dev","status":"starting","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"requestedPort":8080},"error":null,"warnings":[]}
+{"schema":1,"ok":true,"command":"dev","status":"compiled","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","assets":12,"durationMs":841},"error":null,"warnings":[]}
+{"schema":1,"ok":true,"command":"dev","status":"ready","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4"},"error":null,"warnings":[]}
+{"schema":1,"ok":false,"command":"dev","status":"compile-failed","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","output":"ERROR in ./content/scripts.ts\nModule parse failed: Unexpected token (12:3)","durationMs":204},"error":{"code":"E_COMPILE","message":"A recompilation failed after a change."},"warnings":[]}
+```
+
+## Ready follows the contract
+
+The `ready` frame reads `ready.json` before it fires. A compile can succeed while the browser refuses the extension, and the contract stays in `error` when that happens.
+
+In that case the stream emits a `failed` frame with code `E_READY_ERROR_STATUS` instead, and `value.readyCode` names the contract's own error code.
+
+## Browser exits
+
+A background watcher polls `ready.json` once per second for the launcher's exit stamp. When `browserExitedAt` appears, the stream emits one `browser-exited` frame.
+
+The frame's code depends on the evidence in the contract:
+
+- `E_PROFILE_LOCKED` when the contract shows a locked profile. The browser never started, another session holds the profile.
+- `E_BROWSER_LAUNCH` for every other unexpected exit.
+
+The frame's `value` carries `exitCode` and `browserExitedAt` when the contract has them.
+
+## Next steps
+
+- Read the contract behind the frames in [ready.json](/docs/contracts/ready-json).
+- Drive the whole loop from an agent with [Driving the CLI](/docs/workflows/driving-the-cli).

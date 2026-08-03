@@ -85,7 +85,18 @@ The folder needs to contain an unpacked extension with a `manifest.json`. It doe
 | `--no-browser`              | -                  | Skip browser launch.                                                                              | browser launch enabled                          |
 | `--port <port>`             | -                  | Runner/devtools port when runner is enabled. Use `0` for OS-assigned port.                        | `8080`                                          |
 | `--extensions <list>`       | -                  | Comma-separated companion extensions or store URLs.                                               | unset                                           |
-| `--author`                  | `--author-mode`    | Enable maintainer diagnostics.                                                                    | disabled                                        |
+| `--output <pretty\|json>`   | -                  | Result format. `json` prints a schema-1 envelope on stdout.                                       | `pretty`                                        |
+| `--debug`                   | -                  | Enable maintainer diagnostics.                                                                    | disabled                                        |
+
+`--author` and `--author-mode` are hidden, deprecated aliases for `--debug`.
+
+## Browser support
+
+`preview` has no Safari path. Passing `--browser safari` (or `webkit-based`) exits with `E_COMMAND_UNSUPPORTED_FOR_TARGET`. Safari is a supported browser, but this command cannot launch it. Use [`dev`](/docs/commands/dev) or [`build`](/docs/commands/build) for Safari targets.
+
+## Remote URLs and light mode
+
+When the path argument is a remote `http(s)` URL, `preview` sets `EXTJS_LIGHT=1` automatically. This runs the launch in light mode for downloaded extensions. Set `EXTJS_LIGHT` yourself beforehand to override this behavior.
 
 ## Automation metadata
 
@@ -102,7 +113,17 @@ For `--no-browser` flows, this provides deterministic command state:
 
 `preview` does not provide a `--wait` gate flag. For `preview` automation, consume `ready.json` directly.
 
+### Machine output with `--output json`
+
+`--output json` prints one schema-1 envelope on stdout:
+
+- A successful run prints a `status: "ready"` frame. Its `value` carries the project path and the list of previewed browsers.
+- When there is nothing to preview, the frame is `ok: false` with `status: "not-found"` and `error.code: "E_PREVIEW_NO_DIST"`. Its hint says to run `extension build` first.
+- Other failures print `ok: false` with `status: "failed"` before the process exits `1`.
+
 ## Logging flags
+
+These flags are experimental and may change between minor releases.
 
 | Flag                                                 | What it does                                                                                 | Default            |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |

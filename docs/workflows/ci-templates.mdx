@@ -78,12 +78,14 @@ steps:
 - Use `dist/extension-js/<browser>/ready.json` as readiness contract before launching Playwright.
 - Avoid parsing human-readable logs in CI automation scripts.
 - Prefer the built-in wait commands: `extension dev --wait --browser=<browser>` (watch/dev) or `extension start --wait --browser=<browser>` (production/start).
-- For scripts or CI automation, prefer `--wait-format=json`.
+- For scripts or CI automation, prefer `--output json`. The older `--wait-format` alias still works but warns on stderr.
+- Under machine output, human copy moves to stderr, so stdout carries exactly one parseable JSON document.
+- For teardown, read `browserPid` from `ready.json` and signal that process. It is the supported handle for reaping the browser.
 
 ### Example readiness gate
 
 ```bash
-pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-format=json
+pnpm extension start --wait --browser=chromium --wait-timeout=60000 --output json
 ```
 
 ## Test handlers without a browser UI
@@ -91,7 +93,7 @@ pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-forma
 You don't always need Playwright. For event handlers (the toolbar action, keyboard commands), Extension.js can fire them directly against a dev session and you assert on the side effect. It's deterministic and headless, so it's a reliable gate.
 
 ```yaml
-- run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
+- run: pnpm extension dev --browser=chromium --allow-control --wait --output json
 - run: pnpm extension open action --browser=chromium --output json
 - run: |
     pnpm extension storage get --key lastClickedAt --browser=chromium --output json \

@@ -1,0 +1,56 @@
+---
+title: "Developing extensions under WSL"
+description: "Run Extension.js dev sessions inside Windows Subsystem for Linux. Covers the Linux-first browser ladder, the Windows .exe fallback, and the Chrome wrapper-script swap."
+keywords:
+  [
+    "extension.js",
+    "wsl",
+    "windows subsystem for linux",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "docs",
+    "browsers",
+  ]
+---
+
+Run the full Extension.js dev loop inside Windows Subsystem for Linux (WSL), with the browser resolved automatically from either side of the boundary.
+
+Extension.js detects WSL through the `WSL_DISTRO_NAME`, `WSL_INTEROP`, or `WSLENV` variables, or a Microsoft kernel signature. It then resolves a browser binary with a fixed ladder.
+
+## The resolution ladder
+
+1. **A Linux-native browser first.** When a GUI display is available (`DISPLAY` or `WAYLAND_DISPLAY` is set), Extension.js checks known Linux install locations. Examples are `/opt/google/chrome/chrome`, `/usr/bin/chromium`, `/snap/bin/chromium`, and `/usr/bin/firefox`. A Linux browser keeps the whole dev loop on the Linux side.
+2. **A Windows `.exe` under `/mnt/c` as fallback.** When no Linux browser exists, Extension.js looks for the Windows install. It checks `/mnt/c/Program Files/Google/Chrome/Application/chrome.exe`, the matching Chromium, Edge, and Firefox paths, and their `Program Files (x86)` variants.
+3. **A spawn-time retry.** If the chosen binary fails to spawn, Extension.js retries once with the Windows binary before giving up.
+
+You can skip the ladder entirely by passing an explicit path:
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
+```
+
+## The Chrome wrapper-script swap
+
+On Linux, `google-chrome` and its channel variants are shell wrapper scripts, not the real binary. The wrapper closes extra file descriptors when it execs Chrome, which breaks the `--remote-debugging-pipe` channel the dev session depends on.
+
+Under WSL with a GUI, Extension.js detects a wrapper by name (`google-chrome`, `google-chrome-stable`, `google-chrome-beta`, `google-chrome-dev`, `google-chrome-unstable`) and swaps it for the real binary at `/opt/google/chrome/chrome` when that file exists. Known install locations already list real binaries before wrappers for the same reason.
+
+## Shell aliases are not paths
+
+<Warning>
+  Extension.js launches browsers with `child_process.spawn`, which never reads
+  your shell configuration. A shell alias like `google-chrome=...` does not
+  exist for the launcher. Pass a real file path, or a wrapper script that is an
+  actual executable on disk.
+</Warning>
+
+## When nothing is found
+
+If neither side has a browser, the CLI exits with WSL-specific guidance: install a Linux browser inside WSL, or point `--chromium-binary` at the Windows `.exe`. Firefox resolves the same way through its own ladder (`/usr/bin/firefox`, `/snap/bin/firefox`, `/opt/firefox/firefox`, then `/mnt/c/Program Files/Mozilla Firefox/firefox.exe`).
+
+## Next steps
+
+- Choose a target in [Browsers available](/docs/browsers/browsers-available).
+- Point at custom binaries in [Running other browsers](/docs/browsers/running-other-browsers).

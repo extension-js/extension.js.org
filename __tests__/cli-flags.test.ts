@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -147,14 +147,29 @@ describe("CLI command flags match source", () => {
 
     if (existsSync(docPath) && existsSync(CLI_INDEX)) {
       const docContent = readFileSync(docPath, "utf-8");
-      const sourceContent = readFileSync(CLI_INDEX, "utf-8");
       const docFlags = extractDocFlags(docContent);
+
+      // The page also documents cross-cutting flags that commands register
+      // themselves (e.g. --debug), so search index.ts plus every command file.
+      const sourceContent = [CLI_INDEX]
+        .concat(
+          readdirSync(COMMANDS_DIR)
+            .filter((f) => f.endsWith(".ts"))
+            .map((f) => resolve(COMMANDS_DIR, f)),
+        )
+        .map((f) => readFileSync(f, "utf-8"))
+        .join("\n");
 
       for (const flag of docFlags) {
         it(`documented flag ${flag} exists in source`, () => {
+          // Commander synthesizes --version from the .version() call, the
+          // literal flag string never appears in source.
+          const found =
+            sourceContent.includes(flag) ||
+            (flag === "--version" && /\.version\(/.test(sourceContent));
           expect(
-            sourceContent.includes(flag),
-            `Global flag "${flag}" documented but not found in index.ts`,
+            found,
+            `Global flag "${flag}" documented but not found in index.ts or commands/`,
           ).toBe(true);
         });
       }

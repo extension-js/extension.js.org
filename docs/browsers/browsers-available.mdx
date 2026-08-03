@@ -39,6 +39,24 @@ Use `--browser` to choose a target in `dev`, `start`, `preview`, and `build`.
 
 If you do not specify a browser, the CLI defaults to `chromium`.
 
+`--browser` accepts exactly these values, alone or comma-separated:
+
+```text
+chrome | chromium | edge | firefox | brave | opera | vivaldi | yandex |
+waterfox | librewolf | chromium-based | gecko-based | firefox-based |
+safari | webkit-based
+```
+
+`--browser=all` is also accepted and expands to `chrome, edge, firefox`.
+
+<Warning>
+  Prefer `chromium` (or Chrome for Testing via `npx extension install chrome`)
+  over branded Chrome for development. Recent branded Chrome builds (150+) drop
+  the `--load-extension` switch unless a policy disables that behavior. A
+  dropped switch looks exactly like a healthy launch. When Extension.js cannot
+  confirm the load, it warns and points you at `chrome://extensions`.
+</Warning>
+
 `safari` (and its `webkit-based` alias) is the exception: it's a **macOS-only** build target supported by `build` and `dev` only, not `preview` or `start`. See [Building Safari extensions](/docs/browsers/safari).
 
 {/* VIDEO_SPEC id=browser-switch grammar=A→B→C ~14s loop  [SHIPPED: video/scenes/browser-switch.scene.mjs]
@@ -80,7 +98,22 @@ If the requested browser is not installed, Extension.js does not change the targ
 - Requested `chromium` missing: falls back to managed Chrome, then managed Edge.
 - Requested `chrome` missing: falls back to managed Chromium, then managed Edge.
 
-When this happens, the CLI prints an info line naming the substitute binary and its path, and suggests `npx extension install <browser>` to get the browser you asked for. The output folder and the emitted manifest are exactly what they would be without the fallback.
+When this happens, the CLI prints a warn naming the missing browser and the fix, for example `npx extension install chromium`. The warn deliberately omits the substitute binary path. The session's identity card already carries a Binary row that names the exact binary in use, so the fact is printed once. The output folder and the emitted manifest are exactly what they would be without the fallback.
+
+### Binary provenance labels
+
+The identity card labels where the session's binary came from:
+
+| Label      | Meaning                                                            |
+| ---------- | ------------------------------------------------------------------ |
+| `managed`  | A binary from the managed cache (`npx extension install <browser>`). |
+| `pinned`   | A binary you pinned with `--chromium-binary` or `--gecko-binary`.  |
+| `system`   | A browser found on your system.                                    |
+| `snapshot` | The managed Chromium tip-of-tree snapshot.                         |
+
+### Chromium snapshots vs stable
+
+The managed `chromium` install is a tip-of-tree snapshot, not a stable release. When a stable system Chromium exists, Extension.js swaps to it automatically and prints a warn with the opt-out. Set `EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true` to keep the cached snapshot instead.
 
 Within the Chromium family this substitution is safe: `dist/chrome` and `dist/chromium` are byte-identical because manifest prefixes resolve per engine family, not per vendor. See [Browser-specific manifest fields](/docs/features/browser-specific-fields) for the prefix rules.
 

@@ -78,17 +78,27 @@ If you omit the path, the command uses the current working folder.
 | `--chromium-binary <path>`     | -                  | Custom Chromium-family binary path.                                                               | system default                                  |
 | `--gecko-binary <path>`        | `--firefox-binary` | Custom Gecko-family binary path.                                                                  | system default                                  |
 | `--polyfill [boolean]`         | -                  | Enable `browser.*` API compatibility polyfill for Chromium targets.                               | `true`                                          |
+| `--no-polyfill`                | -                  | Disable the cross-browser polyfill.                                                               | polyfill enabled                                |
 | `--starting-url <url>`         | -                  | Starting URL in launched browser.                                                                 | unset                                           |
 | `--no-browser`                 | -                  | Build but skip browser launch.                                                                    | browser launch enabled                          |
 | `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit.                                       | disabled                                        |
 | `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                                                        | `60000`                                         |
-| `--wait-format <pretty\|json>` | -                  | Output format for wait results (`json` is machine-readable).                                      | `pretty`                                        |
+| `--output <pretty\|json>`      | -                  | Result format. `json` prints a schema-1 envelope on stdout.                                       | `pretty`                                        |
 | `--port <port>`                | -                  | Runner/devtools port when runner is enabled. Use `0` for OS-assigned port.                        | `8080`                                          |
 | `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/dev containers.                          | `127.0.0.1`                                     |
 | `--public-host <host>`         | -                  | Connectable host the browser dials when it differs from the bind `--host` (remote/dev container). | bind host (`127.0.0.1` when bound to `0.0.0.0`) |
 | `--extensions <list>`          | -                  | Comma-separated companion extensions or store URLs.                                               | unset                                           |
-| `--install [boolean]`          | -                  | Install project dependencies when missing.                                                        | command behavior default                        |
-| `--author`                     | `--author-mode`    | Enable maintainer diagnostics.                                                                    | disabled                                        |
+| `--install [boolean]`          | -                  | Experimental. Install project dependencies when missing.                                          | command behavior default                        |
+| `--debug`                      | -                  | Enable maintainer diagnostics.                                                                    | disabled                                        |
+
+Two deprecated aliases are hidden from `--help` but still work:
+
+- `--wait-format <pretty|json>` maps onto `--output` and warns once on stderr. Migrate scripts to `--output`.
+- `--author` and `--author-mode` map onto `--debug`.
+
+## Browser support
+
+`start` has no Safari path. Passing `--browser safari` (or `webkit-based`) exits with `E_UNSUPPORTED_BROWSER`. Use [`dev`](/docs/commands/dev) or [`build`](/docs/commands/build) for Safari targets.
 
 ## Automation metadata
 
@@ -113,9 +123,21 @@ For production-oriented Playwright, continuous integration (CI), and AI workflow
 3. Launch external browser automation only after `status: "ready"`.
 
 `--wait` exits non-zero on `error`/timeout and ignores stale contracts from dead processes (`pid` no longer alive).
+Because `start` can finish quickly, a contract from a completed run still counts when its timestamp is within a 60 second window.
+`--wait` requires a local project path. Passing a remote URL exits with `E_ARGS`.
 If you pass both `--wait` and `--no-browser` in the same invocation, `--wait` takes precedence. The command runs in wait-only mode.
 
+### Machine output with `--output json`
+
+`--output json` prints schema-1 envelopes on stdout, one JSON object per line:
+
+- A plain `start` run prints one `status: "started"` frame before the build. It carries the project path, browser list, requested port, and `pid`.
+- A `start --wait` run prints one `status: "ready"` frame on success. Its `value.results` array carries the full ready contract per browser.
+- A failed build prints one `ok: false` frame with `status: "build-failed"` and `error.code: "E_COMPILE"` before the process exits `1`.
+
 ## Logging flags
+
+These flags are experimental and may change between minor releases.
 
 | Flag                                                 | What it does                                                                                 | Default            |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
@@ -224,7 +246,7 @@ extension start --no-browser
 ## Behavior notes
 
 - `start` does not run a dev server and does not provide hot module replacement (HMR) or watch mode.
-- `start` is production-mode oriented; use `dev` for iterative local development.
+- `start` is production-mode oriented. Use `dev` for iterative local development.
 - For machine consumers, parse `dist/extension-js/<browser>/ready.json` instead of terminal text.
 
 ## Next steps

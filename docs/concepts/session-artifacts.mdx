@@ -1,0 +1,126 @@
+---
+title: "Session artifacts: where Extension.js keeps dev session state"
+description: "Learn the two on-disk roots Extension.js writes during a dev session: durable control files in .extension-js and per-browser contracts, logs, and profiles in dist/extension-js."
+keywords:
+  [
+    "extension.js",
+    "session artifacts",
+    "ready.json",
+    "events.ndjson",
+    "control port",
+    "control token",
+    "browser profile",
+    "dist folder",
+    "multi-browser development",
+    "debug port",
+    "instance id",
+  ]
+---
+
+Every `extension dev` session writes state to disk: machine contracts, logs, a control channel, and a managed browser profile. Knowing where each file lives tells you what survives a `dist/` wipe, what is safe to parse, and what must never reach a commit.
+
+## The two-root contract
+
+Session state splits across two roots with different lifetimes:
+
+| Root | Lifetime | Holds |
+| --- | --- | --- |
+| `<project>/.extension-js/` | Survives `dist/` wipes | `control-port-<browser>`, `control-token-<browser>` |
+| `<project>/dist/extension-js/` | Dies with `dist/` | `ready.json`, `events.ndjson`, `logs.ndjson`, `actions.ndjson`, `build-summary.json`, the managed profile |
+
+The split is deliberate. A browser profile can outlive `dist/`, and the extension cached inside it remembers the control coordinates it was given. When those coordinates lived under `dist/`, wiping the folder stranded the profile's cached service worker, which kept dialing a dead port. Anything a profile may have baked in now lives in `.extension-js/`, where a `dist/` wipe cannot touch it.
+
+The control token files are written with `0600` permissions. They authorize state-changing verbs such as `extension eval`, so only your user can read them.
+
+{/* VIDEO_SPEC id=multi-browser-dev grammar=A→B ~12s loop
+  Needs: mock transcripts for two parallel dev boots (chrome + firefox) on one
+    project; split-pane terminal layout, no browser window needed
+  A two terminals side by side type `extension dev --browser chrome` and
+    `extension dev --browser firefox` on the same project   mark:both-submitted
+  B both cards print: each session shows its own profile, port, and control
+    channel, no collision                                   mark:cards-visible → hold read → end
+  run: node video/record.mjs multi-browser-dev --mock */}
+
+## Per-browser keying
+
+Every artifact name embeds the browser: `control-token-chrome`, `dist/extension-js/firefox/ready.json`. A single per-project slot would break the moment a second browser session starts on the same project. The second session would overwrite the first session's token, and either shutdown would delete it for both.
+
+Because every slot is keyed, you can run `extension dev --browser chrome` and `extension dev --browser firefox` on one project at the same time. Each session keeps its own profile, its own debug port, and its own control channel.
+
+Inside `dist/extension-js/`, each browser gets its own artifact folder:
+
+```text
+dist/
+  chrome/                        # the compiled extension
+  extension-js/
+    .gitignore                   # auto-written, ignores everything below
+    chrome/
+      ready.json                 # machine contract for the current session
+      events.ndjson              # lifecycle event stream
+      logs.ndjson                # unified extension log stream
+      actions.ndjson             # audit log of control-channel actions
+      build-summary.json         # structured build result
+    profiles/
+      chrome-profile/            # managed browser profile root
+```
+
+## Debug port derivation
+
+Each session derives its own DevTools debug port instead of sharing one:
+
+1. Start from the base: your `--port` value plus a fixed offset of `100`, or the default `9222` when no valid base exists.
+2. Add a per-instance offset derived from the first 8 hex characters of the instance id, modulo 1000.
+
+`--port 0` means an OS-assigned dev server port, so Extension.js refuses to derive a debug port from it. Deriving from zero would yield an unbindable privileged port, so the default applies instead.
+
+## The instance registry
+
+Tooling that attaches to a session resolves ports through an instance registry keyed by exact instance id. An exact id wins. A known instance with no registered port returns the caller's own fallback, never another instance's port.
+
+When no instance id is given and no fallback exists, the lookup throws `AmbiguousInstanceError` instead of guessing. Falling back to the most recently launched browser would cross instance streams, so the registry refuses.
+
+## Teardown
+
+When a session ends, Extension.js tears the browser down in stages:
+
+- On the signal path, the browser child gets `SIGTERM`, then `SIGKILL` after a 5 second grace window.
+- On process exit, the handler gets one synchronous slice, so the child is force-killed synchronously with `SIGKILL`.
+- On Windows, `taskkill /PID <pid> /T /F` kills the whole process tree in both paths.
+
+Socket errors with the codes `ECONNRESET`, `EPIPE`, `ECONNABORTED`, or `ENOTCONN` during shutdown are treated as benign. They come from a socket the browser is closing, so a graceful shutdown stays graceful instead of exiting with code 1.
+
+## The auto-written gitignore
+
+<Warning>
+  The managed profile holds real browsing data: cookies, history, and any
+  logins you performed during a dev session. Never commit it and never ship it.
+</Warning>
+
+Extension.js writes a `.gitignore` containing `*` into `dist/extension-js/` so the whole session root stays out of commits. It also appends `.extension-js` to your project's root `.gitignore` when one already exists, because the live control token must never land in a commit either. Both writes are hygiene guards: they never overwrite existing content and never fail a build.
+
+## build-summary.json
+
+Hosts that shell out to `extension build` get a structured result channel instead of scraping stdout:
+
+| Field | Meaning |
+| --- | --- |
+| `browser` | The build's browser target. |
+| `output_path` | Absolute dist directory the build emitted into, when known. |
+| `total_assets` | Number of emitted assets. |
+| `total_bytes` | Total emitted size in bytes. |
+| `largest_asset_bytes` | Size of the largest single asset. |
+| `warnings_count`, `errors_count` | Totals from the compilation. |
+| `warnings` | Plain-text warning messages, ANSI-stripped, capped at 20 entries. |
+| `safari` | Present only for Safari builds that ran the packager. |
+
+The file is not deleted between runs, so consumers must guard against stale files. Compare the file's mtime against the time you started the build before trusting it.
+
+## hot/ pruning
+
+During dev, hot-update chunks are fetched from disk inside the extension origin, so stale generations would accumulate in what ships. After each compile, Extension.js prunes `hot/` down to the current generation plus the previous one. The previous generation survives one round so in-flight fetches still resolve.
+
+## Next steps
+
+- Parse session state through [ready.json and the event stream](/docs/workflows/playwright-e2e), not the terminal output.
+- Learn how the managed profile behaves in [Browser profile](/docs/browsers/browser-profile).
+- Read the terminal side of a session in [Reading CLI output](/docs/concepts/reading-cli-output).

@@ -82,12 +82,23 @@ extension uninstall [browser-name] [options]
 
 ## Arguments and flags
 
-| Flag / argument       | What it does                                                                       | Default  |
-| --------------------- | ---------------------------------------------------------------------------------- | -------- |
-| `[browser-name]`      | Remove a single managed browser such as `chrome`, `chromium`, `edge`, or `firefox` | unset    |
-| `--browser <browser>` | Explicit flag form of the browser argument                                         | unset    |
-| `--all`               | Remove all managed browser runtimes from the Extension.js cache                    | disabled |
-| `--where`             | Print the resolved cache root, or browser-specific managed paths                   | disabled |
+| Flag / argument           | What it does                                                                       | Default  |
+| ------------------------- | ---------------------------------------------------------------------------------- | -------- |
+| `[browser-name]`          | Remove a single managed browser such as `chrome`, `chromium`, `edge`, or `firefox` | unset    |
+| `--browser <browser>`     | Explicit flag form of the browser argument                                         | unset    |
+| `--all`                   | Remove all managed browser runtimes from the Extension.js cache                    | disabled |
+| `--where`                 | Print the resolved cache root, or browser-specific managed paths                   | disabled |
+| `--output <pretty\|json>` | Result format. `json` prints a schema-1 envelope on stdout                         | `pretty` |
+
+`--all` removes the same managed set that `install --browser all` creates: `chrome`, `chromium`, `edge`, and `firefox`.
+
+## Machine output with `--output json`
+
+`--output json` prints one schema-1 envelope on stdout:
+
+- A successful removal prints a `status: "uninstalled"` frame naming the target in `value`.
+- `--where` prints a `status: "located"` frame with the resolved paths in `value.paths`.
+- A failed removal prints `ok: false` with `error.code: "E_BROWSER_UNINSTALL"` before the process exits `1`.
 
 ## Examples
 
@@ -113,7 +124,7 @@ extension uninstall firefox --where
 
 - **Use `--all` in CI teardown** to clean up managed browsers after test runs.
 - **Use `--where` first** to confirm what will be removed before scripting bulk uninstalls.
-- `uninstall` is safe for system browsers; it only removes Extension.js-managed cache folders.
+- `uninstall` is safe for system browsers. It only removes Extension.js-managed cache folders.
 
 ## Behavior notes
 

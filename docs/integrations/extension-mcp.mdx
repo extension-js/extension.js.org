@@ -1,0 +1,107 @@
+---
+title: "The Extension.js MCP server"
+description: "Give AI agents build-aware control of your extension with @extension.dev/mcp: dev sessions, logs, eval, storage, reload, and manifest validation as MCP tools."
+keywords:
+  [
+    "extension.js",
+    "mcp",
+    "model context protocol",
+    "@extension.dev/mcp",
+    "ai agents",
+    "extension debugging",
+    "device login",
+    "publish token",
+    "docs",
+    "integrations",
+  ]
+---
+
+`@extension.dev/mcp` is the Extension.js MCP server. It exposes the whole Extension.js workflow as Model Context Protocol tools. An AI agent can build your extension, run it, and verify the result in a real browser. The tools are build-aware: they know your project, your generated manifest, and your dev session.
+
+Every tool lives under the `extension_*` namespace, and the server ships 28 of them. The table below covers the ones that you reach for most.
+
+{/* VIDEO_SPEC id=mcp-change-verify grammar=A→B ~14s loop
+  Needs: an MCP client session against a running extension_dev session
+  A the client asks for a change, the dev session rebuilds on save
+  B the client verifies the result in the browser through extension_logs
+    and extension_eval, no human touches the browser → hold read → end
+  run: node video/record.mjs mcp-change-verify --mock */}
+
+## Install the server
+
+<CodeGroup>
+
+```bash Claude Code
+claude mcp add extension-dev npx @extension.dev/mcp
+```
+
+```json Claude Desktop (claude_desktop_config.json)
+{
+  "mcpServers": {
+    "extension-dev": {
+      "command": "npx",
+      "args": ["@extension.dev/mcp"]
+    }
+  }
+}
+```
+
+```json Cursor (.cursor/mcp.json)
+{
+  "mcpServers": {
+    "extension-dev": {
+      "command": "npx",
+      "args": ["@extension.dev/mcp"]
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+## The core tools
+
+| Tool                          | What it does                                                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `extension_dev`               | Runs the extension while the agent edits it: dev build, hot reload, and a browser with the extension loaded     |
+| `extension_build`             | Builds for production into `dist/<browser>`, with optional store-ready zip packaging                            |
+| `extension_preview_web`       | Previews an in-progress build in the web emulator, with no real browser, and can return a shareable link        |
+| `extension_logs`              | Reads or streams logs from every context (service worker, content scripts, popup, options, sidebar, pages)      |
+| `extension_eval`              | Evaluates an expression in a running extension context                                                          |
+| `extension_storage`           | Reads or writes `chrome.storage` in a running extension                                                         |
+| `extension_reload`            | Reloads a running extension's background context, or a tab                                                      |
+| `extension_open`              | Opens a surface (popup, options, sidebar, override pages) or replays the action and command handlers            |
+| `extension_inspect`           | Inspects deeply over the debugger protocol: full HTML including shadow DOM, injection state, console, CSS probes |
+| `extension_list_extensions`   | Lists the extensions in the running dev browser, with id, name, version, and live contexts on Chromium          |
+| `extension_manifest_validate` | Validates `manifest.json` across browsers and marks the errors that make a build refuse                         |
+
+## The session model
+
+`extension_dev` is the entry point. It is the only tool that unlocks the local control channel that the act verbs ride:
+
+- `extension_storage`, `extension_reload`, and `extension_open` need a session started with `allowControl: true`.
+- `extension_eval` needs a session started with `allowEval: true`, which writes a session token file with `0600` permissions.
+
+Reading is always free. Anything that changes state is opt-in per session.
+
+## Device login
+
+The server includes a device login for the extension.dev platform:
+
+```bash
+npx @extension.dev/mcp login
+```
+
+The flow prints a code and a URL that you authorize at `extension.dev/device`. Minted tokens live at most 7 days, server-enforced.
+
+The stored login is also the third token source for [`extension publish`](/docs/commands/publish). The CLI resolves a token in this order: the `--token` flag, then the `EXTENSION_DEV_TOKEN` environment variable, then the stored device login.
+
+## Engine pinning for scaffolds
+
+Projects scaffolded through the server's create tool declare the Extension.js engine version inside the project itself. The project-local pin wins over the server environment, so later sessions build with the version that the scaffold declared.
+
+## Next steps
+
+- Run it beside Google's Chrome debugging server: [Chrome DevTools MCP](/docs/integrations/chrome-devtools-mcp) hosts the full capability comparison.
+- Connect the docs to your assistant too: [AI access via MCP and llms.txt](/docs/ai-access).
+- Wire the same checks into CI: [CI templates](/docs/workflows/ci-templates).

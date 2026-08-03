@@ -19,7 +19,7 @@ Keep development fast by using the lightest update strategy for each file change
 Need fast feedback after each file change? Extension.js chooses the safest and fastest update path automatically:
 
 - **HMR (hot module replacement)** when module updates are safe
-- **Hard extension reload** when runtime-critical assets change
+- **Classified reloads** (full, service worker, content scripts, or notify-only page) when runtime assets change
 - **Restart required errors/warnings** when entrypoint structure changes
 
 ## Reload prerequisites (devtools setup dialog)
@@ -56,26 +56,45 @@ Common examples:
   post: trim start→end, posterAt updated, ramps [start→edited 1.35x], loop
   run: node video/record.mjs hmr --mock */}
 
-### 2) Hard extension reload
+### 2) Classified reloads
 
-Some file changes require reloading the extension runtime itself.
+When a change needs more than HMR, Extension.js classifies it into one of four reload kinds:
 
-Typical hard reload triggers:
+| Kind              | What happens                                                                 |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `full`            | The whole extension reloads, so manifest and assets are re-read from disk.   |
+| `service-worker`  | The background service worker restarts.                                      |
+| `content-scripts` | The changed content-script entries re-inject into their tabs.                |
+| `page`            | Notify only. Livereload refreshes the page surface, no extension reload runs. |
 
-- `manifest.json`
-- `_locales/**.json`
-- Service worker/background runtime-critical changes
-- Content script output changes (the Extension.js browser runner enforces extension reload for consistency)
+The decision comes from the compiler's chunk graph, not from filenames, and follows a fixed order:
 
-Extension.js applies browser-specific hard reload mechanisms internally (Chromium and Firefox flows differ under the hood) but unifies behavior at the CLI level.
+1. **Forced full.** A change to `manifest.json` or anything under `_locales/` always classifies as `full`, no matter what else changed.
+2. **Chunk membership.** Extension.js looks up which chunks contain each changed source. A source in a `background/` chunk means `service-worker`. A source in a `content_scripts/` chunk means `content-scripts`.
+3. **Changed static asset.** Some changed files exist in the output directory but belong to no chunk: an icon, a web-accessible resource, a DNR ruleset. These force `full`, so the browser re-reads them from disk.
+4. **Name heuristics.** Only for sources the chunk graph does not know: paths matching `background` or `service worker` patterns classify as `service-worker`.
+5. **Content fallback.** If the manifest declares content scripts, remaining unknown changes re-inject every content-script entry.
+6. **Notify-only page.** Everything else is a `page` instruction: livereload owns the refresh, and the reload announcement still fires.
 
-Each dev reload is announced with a single context label built by the dev server (naming what changed and which surface it affects). The same label appears in CLI stdout, in the page devtools console, and in the devtools pill, so you can correlate a reload across all three without guessing.
+A source that lives in both a service-worker chunk and a content-script chunk fans out to both paths. One save triggers the SW restart and carries the stale content-script entries for re-injection, in a single classified instruction.
+
+Each dev reload is announced with a single context label built by the dev server. The format is `context (fileA, fileB +2 more)`, for example `service_worker + content_script (shared/api.ts)`. The same label appears verbatim in CLI stdout, in the page devtools console, and in the devtools pill, so you can correlate a reload across all three without guessing.
+
+{/* VIDEO_SPEC id=reload-fanout grammar=A→B ~12s loop
+  Needs: mock transcript `reload-fanout` (dev session up on a project where
+    background and a content script both import shared/api.ts)
+  A editor edits shared/api.ts and saves           mark:saved
+  B one classified instruction fans out: the CLI prints
+    "service_worker + content_script (shared/api.ts)", the SW restarts AND the
+    content script re-injects, from a single save  mark:fanned-out → hold read → end
+  post: trim start→end, posterAt fanned-out, loop
+  run: node video/record.mjs reload-fanout --mock */}
 
 If the browser serves a stale cached service worker after a reload, the dev server detects the version mismatch and resynchronizes the extension automatically. You should not need to manually remove and re-add the extension to recover.
 
 > **Why do content script filenames include hashes in dev?**
 >
-> Chrome aggressively caches `chrome-extension://` resources. A stable filename like `content-0.js` can serve stale code even after a full extension reload. Extension.js appends a short build hash in development (for example, `content-0.abcd1234.js`). Each rebuild produces a fresh URL that bypasses the cache. Production builds use clean names.
+> Chrome aggressively caches `chrome-extension://` resources. A stable filename like `content-0.js` can serve stale code even after a full extension reload. Extension.js appends a short build hash in development (for example, `content-0.abcd1234.js`). Each rebuild produces a fresh URL that bypasses the cache. Production builds use clean names. Set `hashContentScripts: false` in `extension.config.*` to opt out and keep stable dev filenames.
 
 ### 3) Restart required (dev server)
 
@@ -89,12 +108,31 @@ Typical restart-required scenarios:
 
 ## Behavior matrix
 
-| Change type                                                           | Default behavior                    |
-| --------------------------------------------------------------------- | ----------------------------------- |
-| JS/CSS module updates in existing entries                             | HMR where supported                 |
-| `manifest.json` / locales / service-worker-critical updates           | Hard extension reload               |
-| Entrypoint structure updates (manifest lists, HTML script/style refs) | Restart required                    |
-| `pages/` or `scripts/` file add/remove during watch                   | Warning/error with restart guidance |
+| Change type                                                           | Classified result                          |
+| --------------------------------------------------------------------- | ------------------------------------------ |
+| JS/CSS module updates in existing entries                             | HMR where supported                        |
+| `manifest.json` or `_locales/**` edits                                | `full` (forced, regardless of other files) |
+| A source in a background chunk                                        | `service-worker`                           |
+| A source in a content-script chunk                                    | `content-scripts` (only the affected entries) |
+| A source in both background and content chunks                        | `service-worker` + content re-inject (fan-out) |
+| A changed emitted static asset (icon, web-accessible resource)        | `full`                                     |
+| A page-only source (popup, options, sidebar, devtools)                | `page` (notify only, livereload refreshes) |
+| Entrypoint structure updates (manifest lists, HTML script/style refs) | Restart required                           |
+| `pages/` or `scripts/` file add/remove during watch                   | Warning/error with restart guidance        |
+
+## How the dev runtime gets injected
+
+The reload plugin instruments your build in five injection steps, then prunes:
+
+1. Strip the dev-server runtime from content-script chunks, which cannot host it.
+2. Set up the reload strategy on the background and content-script entries.
+3. Inject the service-worker scripts-replay shim, so `/scripts/*` injections re-run on edit.
+4. Inject the bridge producer, so the background forwards console output to the control channel.
+5. Inject the bridge relay, so content-script console output reaches the same channel.
+
+Afterward, a pruning step manages `hot/`. Hot-update chunks are fetched from disk on the extension origin, so stale generations would accumulate in what ships. Extension.js keeps the current generation plus one previous generation for in-flight fetches, and deletes the rest after every compile.
+
+The whole pipeline is development-only. It is a no-op in production builds and when you pass `--no-reload`.
 
 ## Reloading scripts and HTML outside the manifest
 

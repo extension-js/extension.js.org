@@ -59,15 +59,33 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 
 ## Arguments and flags
 
-| Flag                  | Alias | What it does                             | Default      |
-| --------------------- | ----- | ---------------------------------------- | ------------ |
-| `[path or name]`      | -     | Project folder/name to create.           | required     |
-| `--template <name>`   | `-t`  | Sets the template slug.                  | `javascript` |
-| `--install [boolean]` | -     | Installs dependencies after scaffolding. | `false`      |
+| Flag                      | Alias | What it does                                                        | Default      |
+| ------------------------- | ----- | ------------------------------------------------------------------- | ------------ |
+| `[path or name]`          | -     | Project folder/name to create.                                      | required     |
+| `--template <name\|url>`  | `-t`  | Catalog name, GitHub URL, or ZIP URL to scaffold from.              | `javascript` |
+| `--install [boolean]`     | -     | Installs dependencies after scaffolding.                            | `false`      |
+| `--source <source>`       | -     | Attribution tag for where this create started (for example `cli`). Recorded in anonymous telemetry only. | unset |
+| `--output <pretty\|json>` | -     | Result format. `json` prints a schema-1 envelope on stdout.         | `pretty`     |
 
-When you want the default JavaScript starter, omit `--template` entirely. Add `--template=<slug>` only for another stack from the [official examples](https://github.com/extension-js/examples/tree/main/examples).
+When you want the default JavaScript starter, omit `--template` entirely. Add `--template=<slug>` only for another stack from the [official examples](https://github.com/extension-js/examples/tree/main/examples). `--template` also accepts a GitHub URL or a ZIP URL, so you can scaffold from any repository.
 
-The slug `init` is an alias for the same default starter. Only use a literal slug named `default` if that folder actually exists in the examples repository.
+The catalog holds 52 templates in 6 groups: starters, sidebar, content scripts, new tab, toolbar action, and special folders. Run `extension create --help` for the full list. The default `javascript` template ships inside the CLI, so it scaffolds with no network call. Every other template downloads the catalog archive at create time.
+
+## Template corpus pinning
+
+Catalog downloads are pinned to one immutable commit of the examples repository. Two scaffolds of the same version therefore produce the same bytes. Two environment variables override the pin:
+
+- `EXTENSION_CREATE_TEMPLATE_REF` points at another ref. Set it to `main` to restore floating behavior.
+- `EXTENSION_CREATE_TEMPLATE_URL` points at another archive URL entirely.
+
+Each scaffold writes a `.extension-create.json` provenance file into the project. It records the create version, the template, the source, and the resolved ref, so template drift stays auditable.
+
+## Machine output with `--output json`
+
+`--output json` prints one schema-1 envelope on stdout and routes scaffold progress lines to stderr:
+
+- A successful run prints a `status: "created"` frame. Its `value` carries `projectPath`, `projectName`, `template`, and `depsInstalled`.
+- Failures print `ok: false` with an `error.code`: `E_TEMPLATE_NOT_FOUND` for an unknown catalog name, `E_NETWORK` for a failed download, `E_DESTINATION_NOT_EMPTY` or `E_DESTINATION_NOT_WRITABLE` for destination problems.
 
 ## Shared global options
 
@@ -144,7 +162,7 @@ deno run -A npm:extension@latest create my-extension --install
   <Card
     title="JavaScript (default)"
     icon="js"
-    href="https://github.com/extension-js/examples/tree/main/examples/init"
+    href="https://github.com/extension-js/examples/tree/main/examples/javascript"
   >
     Minimal starter. Use when you want a clean baseline.
   </Card>

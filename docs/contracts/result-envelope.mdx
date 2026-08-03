@@ -1,0 +1,123 @@
+---
+title: "Result envelope (schema 1)"
+description: "The schema-1 JSON envelope that every Extension.js command prints under --output json, plus the published schema, code table, and golden fixtures."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "envelope",
+    "contracts",
+    "json",
+  ]
+---
+
+Parse one JSON document per command instead of scraping log lines.
+
+Under `--output json`, every terminating command answers with exactly one schema-1 envelope on stdout. Long-running commands stream the same shape as [lifecycle frames](/docs/contracts/lifecycle-stream).
+
+## Envelope shape
+
+| Field       | Type            | Meaning                                                                     |
+| ----------- | --------------- | --------------------------------------------------------------------------- |
+| `schema`    | `1`             | The envelope version. Additive changes keep this number.                    |
+| `ok`        | boolean         | Whether the command succeeded.                                              |
+| `command`   | string          | The command that produced this result.                                      |
+| `status`    | string          | A short machine status, for example `ready`, `usage`, or `failed`.          |
+| `value`     | any or null     | The command's payload. A failure can still carry one, `doctor` is the motivating case. |
+| `error`     | object or null  | Present when `ok` is false, see below.                                      |
+| `warnings`  | string[]        | Non-fatal notices.                                                          |
+| `truncated` | boolean         | Optional. Set when a payload was cut to fit a size cap.                     |
+| `hint`      | string          | Optional. A next-step suggestion.                                           |
+
+The `error` object:
+
+| Field     | Type   | Meaning                                                                        |
+| --------- | ------ | ------------------------------------------------------------------------------ |
+| `code`    | string | A stable `E_*` identifier from the [error code table](/docs/contracts/error-codes). Match on this. |
+| `message` | string | Free copy that may be rewritten at any time. Never match on it.                |
+| `name`    | string | Optional. The originating error class name.                                    |
+| `engine`  | string | Optional. The browser engine where the failure happened.                       |
+| `hint`    | string | Optional. Remediation copy.                                                    |
+| `refs`    | object | Optional. The actionable parts that the message names: `flag`, `command`, `path`, `version`. |
+
+## Success and failure examples
+
+```json
+{
+  "schema": 1,
+  "ok": true,
+  "command": "capabilities",
+  "status": "ok",
+  "value": {
+    "name": "extension",
+    "version": "4.0.22",
+    "envelopeSchema": 1,
+    "readySchemaVersion": 2,
+    "outputJsonCommands": [
+      "build",
+      "capabilities",
+      "create",
+      "dev",
+      "doctor",
+      "eval",
+      "inspect",
+      "install",
+      "logs",
+      "open",
+      "preview",
+      "publish",
+      "reload",
+      "start",
+      "storage",
+      "telemetry"
+    ]
+  },
+  "error": null,
+  "warnings": []
+}
+```
+
+```json
+{
+  "schema": 1,
+  "ok": false,
+  "command": "eval",
+  "status": "failed",
+  "value": null,
+  "error": {
+    "code": "E_TARGET_NOT_FOUND",
+    "message": "No tab matched the requested target.",
+    "hint": "List targets with `extension inspect --list-tabs`."
+  },
+  "warnings": []
+}
+```
+
+## Where human copy goes
+
+The `EXTENSION_OUTPUT` environment variable is the machine-mode switch. When it is `json` or `ndjson`, frames own stdout and human copy moves aside:
+
+- Informational lines and warnings go quiet, or move to stderr where a stream needs them.
+- Error copy is never suppressed. It always writes to stderr, so a launch failure stays visible while stdout stays parseable.
+
+Pipe stdout to your parser and keep stderr for humans. The two never mix.
+
+## Published contract artifacts
+
+The `extension-develop` package ships the contract as importable files under the `./contract/*` export:
+
+| Artifact                             | What it is                                                                   |
+| ------------------------------------ | ---------------------------------------------------------------------------- |
+| `extension-develop/contract/envelope.schema.json` | JSON Schema for the envelope. Its `$id` is `https://extension.js.org/contract/envelope-1.json`. |
+| `extension-develop/contract/codes.json` | The durable error-code table with `folded` and `legacy` mappings.          |
+| `extension-develop/contract/golden.*.json` | Golden fixtures, one per command and status, for example `golden.dev.ready.json` and `golden.eval.target-not-found.json`. |
+
+Validate your consumer against the schema, and pin your tests to the golden fixtures. Codes may be added, never renamed or removed.
+
+## Next steps
+
+- Branch on failures with the [error code table](/docs/contracts/error-codes).
+- Follow long-running sessions with the [lifecycle stream](/docs/contracts/lifecycle-stream).

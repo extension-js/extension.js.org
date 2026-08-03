@@ -16,7 +16,7 @@ keywords:
 
 You can't click a toolbar icon in CI, and a popup-less action only does something when its `onClicked` fires. Extension.js lets you trigger those handlers directly (the toolbar action and keyboard-shortcut commands), so you can exercise them headlessly and assert on what they did.
 
-This works because Extension.js captures your `chrome.action.onClicked` and `chrome.commands.onCommand` listeners at build time (the dev runtime loads before your background code) and replays them on demand. No window, no mouse, no flake.
+This works because Extension.js captures your `chrome.action.onClicked` and `chrome.commands.onCommand` listeners at build time (the dev runtime loads before your background code) and replays them on demand. The replay runs in the background context, the same service worker or background page where your listeners live. No window, no mouse, no flake.
 
 {/* VIDEO_SPEC id=trigger-action grammar=A→B ~9s loop  [SHIPPED: video/scenes/trigger-action.scene.mjs]
   Needs: mock transcript `trigger-action` (the one-line --output json envelope —
@@ -136,7 +136,7 @@ Consider [running it alongside Extension.js](/docs/integrations/chrome-devtools-
 Boot a session, fire the action, and assert on the side effect, with no browser UI and no Playwright. This is the whole loop in a GitHub Actions job:
 
 ```yaml
-- run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
+- run: pnpm extension dev --browser=chromium --allow-control --wait --output json
 - run: pnpm extension open action --browser=chromium --output json
 - run: |
     pnpm extension storage get --key lastClickedAt --browser=chromium --output json \

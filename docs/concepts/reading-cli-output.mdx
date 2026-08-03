@@ -1,0 +1,89 @@
+---
+title: "Reading Extension.js CLI output"
+description: "Understand every line the Extension.js CLI prints: the five output channels, the identity card, warning timing, and how to read logs in CI without color."
+keywords:
+  [
+    "extension.js",
+    "cli output",
+    "terminal output",
+    "log channels",
+    "identity card",
+    "debug output",
+    "ci logs",
+    "extension dev output",
+  ]
+---
+
+Every line Extension.js prints follows one grammar. Once you know it, you can read any session at a glance, and a CI log parses the same way as your terminal.
+
+## The line grammar
+
+Every user-facing line is a prefix followed by one sentence, one concern per line:
+
+```text
+⏵⏵⏵ Extension ready for development. Watching for file changes.
+```
+
+Five channels share the prefix column:
+
+| Channel | Prefix | Color | Meaning |
+| --- | --- | --- | --- |
+| info | `⏵⏵⏵` | gray | progress and state |
+| success | `⏵⏵⏵` | green | a thing finished |
+| warn | `⏵⏵⏵` | bright yellow | proceeding, but you should know |
+| error | `⏵⏵⏵` | red | stopped, or a result is wrong |
+| debug | `···` | dim gray | maintainer internals |
+
+All five channels occupy the same three glyph columns, so output stays aligned no matter what happened. The color carries the severity, not the glyph.
+
+The debug channel only prints under `--debug` or `EXTENSION_DEBUG=1`. Debug adds searchable `key=value` lines and never rewrites a line you would have seen anyway.
+
+## The identity card
+
+At boot, a command prints one identity card per browser and dist pair:
+
+```text
+ 🧩 Extension.js 4.0.20
+    Browser        Chrome for Testing 138.0.7204.49
+    Extension      My Extension 1.0.0
+    Extension ID   pjkghmlbdmhkfellgkkcolmnlhwmubhe
+    Profile        ~/.extension-js/profiles/chrome
+    Run ID         f3a9 · PID 41250
+```
+
+Run two browsers on one project and you get two cards, one per session. The boot order is fixed: the compile line, then the card, then the green ready line.
+
+Rows with no value are omitted. There is no `n/a` placeholder, so row presence tells you what the session actually knows. A non-default binary adds a Binary row, and `build` swaps the Profile and Run ID rows for an Output row.
+
+## One fact once
+
+Every session fact has exactly one home:
+
+- Session identity (versions, browser, extension ID, profile, binary) lives in the card, only.
+- Events (compiled, recompiling, exited) are flow lines.
+- Diagnostics are debug `key=value` lines.
+
+Flow lines never restate what the card already shows. The ready line names no browser because the card's Browser row already did. If you are hunting for the extension ID or the profile path, look at the card, nowhere else.
+
+## Warnings fire at the moment they apply
+
+A warning prints immediately before the action it concerns, not at the end of the run. When you see a yellow line, the very next thing the CLI does is the thing the warning describes. That ordering means you never scroll back through a summary to find out which step a warning belonged to.
+
+## Add-on or Extension
+
+The artifact noun follows the engine. On Gecko targets (Firefox, Waterfox, LibreWolf) the CLI says `Add-on`. On Chromium and Safari targets it says `Extension`. Edge ships extensions through a store named Add-ons, but the artifact is still an Extension.
+
+## Reading a colorless CI log
+
+CI logs usually strip color, and meaning never lives only in color. In a colorless log:
+
+- Every `⏵⏵⏵` line is info, success, warn, or error. Read the sentence, the copy states the outcome on its own.
+- Every `···` line is debug output, safe to ignore unless you are diagnosing.
+- Errors follow a fixed anatomy: a label line, uppercase evidence rows such as `PATH` or `REASON`, then an imperative remedy.
+
+For machines, do not parse the human stream at all. Pass `--output json` for a single result envelope, and read session state from `ready.json` and `events.ndjson` under `dist/extension-js/<browser>/`.
+
+## Next steps
+
+- Learn where the machine-readable session files live in [Session artifacts](/docs/concepts/session-artifacts).
+- See the flags that shape output in [Global flags](/docs/workflows/global-flags).
