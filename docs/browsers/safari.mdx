@@ -90,9 +90,12 @@ Both `dev` and `build` accept identity overrides (Safari targets only):
 | -------------------- | --------------------------------------------------------------------------- |
 | `--bundle-id`        | User-owned reverse-DNS bundle identifier (e.g. `com.example.my-extension`). |
 | `--app-name`         | Override the app name (defaults to the manifest `name`).                    |
+| `--macos-only`       | Generate a macOS-only Xcode project (default `true`). Pass `--macos-only false` for a universal macOS + iOS project. |
 | `--force-regenerate` | Regenerate the Xcode project even when it is up to date.                    |
 | `--safari-binary`    | `dev` only: the Safari binary to open after packaging.                      |
 | `--open`             | `build` only: open the built app after packaging (off by default).          |
+
+Without `--bundle-id`, Extension.js derives `dev.extensionjs.<name>`, where `<name>` is your sanitized app name (non-alphanumeric runs become hyphens). A user-provided bundle id must be reverse-DNS shaped: at least two dot-separated segments of letters, digits, and hyphens, each starting with a letter. Invalid values are rejected before packaging.
 
 The same options can live in `extension.config.js` (CLI flags win):
 
@@ -144,19 +147,53 @@ npx extension dev --browser=safari
 - **First compile**: full package: convert, build, open the app, and print the enable steps.
 - **On every save**: incremental `xcodebuild` resync (typically a couple of seconds) that updates the app's resources from the freshly rebuilt `dist/safari`.
 
+Resyncs run in the background so the bundler loop is never blocked. A burst of saves collapses to a single follow-up resync against the newest output, so five quick saves cost one rebuild, not five. If the first full package fails, the next compile retries the full flow instead of resyncing a project that was never built.
+
 Safari has no live-reload channel like Chromium or Firefox, so after a rebuild **refresh the page (or toggle the extension)** in Safari to pick up changes.
 
 ### When the Xcode project regenerates
 
-The Xcode project is generated once and reused for resyncs. It is **regenerated**
-(the converter runs again) when your `manifest.json` changes semantically, when
-the app name / bundle id / platform changes, or when you pass
-`--force-regenerate`. Regeneration replaces the project: customizations made in
+The Xcode project is generated once and reused for resyncs. Staleness is decided
+by a fingerprint file, `dist/safari-xcode/.manifest-fingerprint`. The v2
+fingerprint stores your normalized `manifest.json` content plus the identity
+inputs: app name, bundle id, and the macOS-only setting. The converter runs
+again when the stored fingerprint no longer matches, or when you pass
+`--force-regenerate`. Cosmetic manifest edits (key order, whitespace) do not
+trigger it.
+
+Regeneration replaces the project: customizations made in
 Xcode (entitlements, capabilities, added files or targets) are **discarded**.
 Only these signing settings are preserved automatically: `DEVELOPMENT_TEAM`,
 `CODE_SIGN_STYLE`, and `PROVISIONING_PROFILE_SPECIFIER`. Extension.js warns
 before every regeneration of an existing project; if you customized the project
 in Xcode, back it up first. Delete `dist/safari-xcode` for a clean slate.
+
+### How the bundle id is enforced
+
+Apple's converter derives the parent app's id from the app name instead of
+taking `--bundle-identifier` verbatim. After every conversion, Extension.js
+rewrites both `PRODUCT_BUNDLE_IDENTIFIER` entries in the generated
+`project.pbxproj`: the app target gets your bundle id, and the extension target
+gets `<bundle-id>.Extension`. This keeps the identity you configured, not the
+one the converter guessed.
+
+### What `xcodebuild` runs
+
+The compile step uses the `Release` configuration with derived data written to
+`dist/safari-xcode/.derived`, a folder worth adding to `.gitignore`. Local
+builds pass ad-hoc signing settings (`CODE_SIGN_IDENTITY=-`,
+`CODE_SIGNING_REQUIRED=NO`, `CODE_SIGNING_ALLOWED=YES`) so the embedded
+`.appex` still validates without an Apple Developer account. The scheme name is
+your app name for a macOS-only project, and `<App> (macOS)` for a universal
+project.
+
+### Registration confirmation
+
+After opening the app, Extension.js polls `pluginkit` for the extension's
+registration, about 6 tries spread over 5 seconds, and prints a confirmation or
+a not-yet-registered note. Under `--no-open` (and plain `build` without
+`--open`) the app never launches, so registration cannot happen yet. The poll is
+skipped and the CLI prints the `open` command instead.
 
 ## Debugging in Safari
 
@@ -171,9 +208,10 @@ channel), but Web Inspector covers every extension context:
   in the Sources tab under Extension Scripts.
 
 If a build fails, the CLI prints the tail of the failing `xcrun`/`xcodebuild`
-output. Set `EXTENSION_AUTHOR_MODE=true` to stream the full tool output live.
-The converter's compatibility warnings (manifest keys Safari doesn't support)
-are surfaced as warnings during packaging.
+output, bounded to the last 50 lines and 8 KB so diagnostics stay readable.
+Pass `--debug` (or set `EXTENSION_DEBUG=true`) to stream the full tool output
+live instead. The converter's compatibility warnings (manifest keys Safari
+doesn't support) are surfaced as warnings during packaging.
 
 ## Engine target
 
@@ -192,7 +230,18 @@ npx extension build --browser=webkit-based
 | `preview` | ❌ Not supported. Safari extensions can't be auto-loaded into a live browser. |
 | `start`   | ❌ Not supported. Same reason as `preview`.                                   |
 
-`preview` and `start` exist to launch your extension in a running browser. Safari requires the manual, security-gated enable step above, so those commands point you to `build` instead.
+`preview` and `start` exist to launch your extension in a running browser. Safari requires the manual, security-gated enable step above, so those commands refuse Safari targets and point you to `build` instead. Under `--output json`, `preview` fails with `E_COMMAND_UNSUPPORTED_FOR_TARGET` (Safari is a supported browser, this command has no Safari path) and `start` fails with `E_UNSUPPORTED_BROWSER`.
+
+{/* VIDEO_SPEC id=safari-run grammar=A→B ~14s loop
+  Needs: mock transcript `safari-run` (dev boot on --browser=safari). Terminal
+    side ONLY: the existing safari-build spec abandoned its Safari-side half
+    (the enable toggles are security controls no recorder can drive), and this
+    spec covers the terminal side of the loop, nothing Safari-window-shaped.
+  A terminal.type('extension dev --browser=safari')  mark:command-submitted
+  B convert streams, then xcodebuild, then the open line, then the pluginkit
+    "registered" confirmation lands             mark:registered → hold read → end
+  post: trim start→end, ramp convert+xcodebuild 3.0x, posterAt registered, loop
+  run: node video/record.mjs safari-run --mock */}
 
 ## Limitations
 

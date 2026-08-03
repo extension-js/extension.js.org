@@ -105,6 +105,19 @@ extension install [browser-name] [options]
 | `[browser-name]`                                                                               | Install a single browser target such as `chrome`, `chromium`, `edge`, or `firefox` | `chromium` |
 | `--browser <chrome\|chromium\|edge\|firefox\|chromium-based\|gecko-based\|firefox-based\|all>` | Override the positional browser name and support multi-target installs             | unset      |
 | `--where`                                                                                      | Print the resolved managed cache root, or browser-specific install path            | disabled   |
+| `--output <pretty\|json>`                                                                      | Result format. `json` prints a schema-1 envelope on stdout                         | `pretty`   |
+
+### What `all` means here
+
+`extension install --browser all` installs `chrome`, `chromium`, `edge`, and `firefox`. This differs from `--browser all` on the run commands, which expands to `chrome`, `edge`, and `firefox` only. The install set also covers Chromium because it is the default launch target for `dev` and `start`.
+
+## Machine output with `--output json`
+
+`--output json` prints one schema-1 envelope on stdout:
+
+- A successful install prints a `status: "installed"` frame with the installed browsers in `value.browsers`.
+- `--where` prints a `status: "located"` frame with the resolved paths in `value.paths`.
+- A failed download prints `ok: false` with `error.code: "E_BROWSER_DOWNLOAD"` before the process exits `1`.
 
 ## Examples
 
@@ -135,6 +148,21 @@ By default, Extension.js stores managed browsers in a stable per-user cache:
 - Windows: `%LOCALAPPDATA%\extension.js\browsers`
 
 You can override the cache root with `EXT_BROWSERS_CACHE_DIR`.
+
+### What the cache holds
+
+Each browser gets its own folder under the cache root, but the layout inside differs by download engine:
+
+- `chrome`, `chromium`, and `firefox` come from `@puppeteer/browsers`. Expect its nested platform and version folders inside each browser directory.
+- `edge` comes from `playwright install msedge`, which lays the binary out in its own structure.
+- `safari` has no download. Safari ships with macOS and needs the full Xcode app for builds, so `extension install safari` refuses with an explanation.
+- Named forks such as Brave are never downloaded. Point at them with `--chromium-binary` or `--gecko-binary` instead.
+
+Use `--where` instead of hardcoding paths, because the nested layout can change with the download engines.
+
+### Project-local binaries
+
+Set `EXTENSIONJS_BINARIES_IN_DIST=1` to make the run commands resolve managed binaries under `dist/extension-js/binaries` inside the project instead of the shared per-user cache. This suits sandboxed or fully self-contained project setups.
 
 ## Best practices
 

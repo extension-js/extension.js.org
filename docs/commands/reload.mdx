@@ -1,0 +1,89 @@
+---
+title: "Reload command for restarting extension contexts"
+description: "Reload the background worker, a content script tab, or a page of a running Extension.js dev session on demand, from the terminal or a script."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "reload",
+    "debugging",
+    "automation",
+  ]
+---
+
+Reload a running extension or tab on demand.
+
+The [`dev`](/docs/commands/dev) session already reloads automatically when files change. `reload` is for the cases automatic reload cannot see: state you mutated by hand, a wedged service worker, or a test that needs a clean context between runs.
+
+The session must run with the control channel unlocked: start it with `extension dev --allow-control`. A refusal names the missing flag.
+
+## When to use `reload`
+
+- The background worker holds bad in-memory state and you want a clean restart.
+- A script seeded storage or triggered a flow and needs a fresh context afterward.
+- You changed something outside the watcher's view and want to force a re-read.
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension reload [project-path] [options]
+```
+
+```bash pnpm
+extension reload [project-path] [options]
+```
+
+```bash yarn
+extension reload [project-path] [options]
+```
+
+```bash bun
+extension reload [project-path] [options]
+```
+
+```bash deno
+extension reload [project-path] [options]
+```
+
+</CodeGroup>
+
+## Arguments and flags
+
+| Flag                      | What it does                                                        | Default         |
+| ------------------------- | -------------------------------------------------------------------- | --------------- |
+| `[project-path]`          | Path to the extension project root.                                 | `process.cwd()` |
+| `--context <context>`     | What to reload: `background`, `content`, or `page`.                 | `background`    |
+| `--tab <id>`              | For `content`/`page`: a specific tab.                               | active tab      |
+| `--browser <browser>`     | Which session to target (`chrome`, `chromium`, `edge`, `firefox`).  | `chromium`      |
+| `--timeout <ms>`          | Command timeout in milliseconds.                                    | `5000`          |
+| `--output <pretty\|json>` | Output format (`json` wraps the result in the schema-1 envelope).   | `pretty`        |
+
+## What each context reloads
+
+- `background` restarts the extension itself, which restarts the service worker and re-reads the manifest.
+- `content` reloads the tab that hosts the targeted content script, so the script re-injects.
+- `page` reloads the targeted tab as a plain page reload.
+
+Find numeric tab ids with [`inspect --list-tabs`](/docs/commands/inspect#the-discovery-loop) when the active tab is not the one you want.
+
+## Failure modes
+
+- No session for the browser: `E_SESSION_NOT_FOUND`, with the exact `extension dev --allow-control` command to run.
+- Session running without `--allow-control`: the connection is refused and the error names the flag.
+- A `--tab` id that no longer exists: `E_TARGET_NOT_FOUND`.
+- The call outlived `--timeout`: `E_TIMEOUT`.
+
+The exit code is `0` on success and `1` on any failure. Machine consumers should read the envelope from `--output json` (see [Result envelope](/docs/contracts/result-envelope)).
+
+## Next steps
+
+- Understand what automatic reload already covers in [Reload and HMR](/docs/features/reload-and-hmr).
+- Verify the reloaded context came back clean with [`logs`](/docs/commands/logs) or [`inspect`](/docs/commands/inspect).
+- Diagnose a session that refuses the call with [`doctor`](/docs/commands/doctor).
+- Read the wider debugging workflow in [Debugging](/docs/debugging).

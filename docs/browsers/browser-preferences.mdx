@@ -19,7 +19,7 @@ Get repeatable browser behavior during development (for example, homepage
 defaults, devtools settings, or notification behavior) without editing extension
 code.
 
-Extension.js reads `preferences` from `extension.config.*` and applies them during Firefox and Gecko browser launches.
+Extension.js reads `preferences` from `extension.config.*` and applies them at browser launch. Firefox and Gecko targets get a `user.js` file. Chromium targets get a seeded `Default/Preferences` file.
 
 ## How it works
 
@@ -66,11 +66,31 @@ If you enable system profile mode (`EXTENSION_USE_SYSTEM_PROFILE=true`), Extensi
 
 ## Chromium-family behavior
 
-Chromium-family launches (`chrome`, `edge`, `chromium`, `chromium-based`) primarily use **browser flags**.
+Chromium-family launches (`chrome`, `edge`, `chromium`, `chromium-based`) seed your `preferences` too, through the profile rather than a `user.js` file.
 
-`preferences` can still exist in merged configuration objects. However, flags and profile options control Chromium launch behavior. Chromium does not use a Firefox-style `user.js` preference file.
+At launch, Extension.js deep-merges your `preferences` object into the vendor's master-preferences baseline. The result is written once to `Default/Preferences` inside the active profile. The write happens only when that file does not exist yet, so a fresh profile gets seeded and an existing profile keeps its state. Chrome and Edge each have their own baseline object, chosen by the target you run.
 
-For Chromium customization, prefer:
+```js
+export default {
+  browser: {
+    chrome: {
+      preferences: {
+        download: { prompt_for_download: false },
+      },
+    },
+  },
+};
+```
+
+Your values win over the baseline on key conflicts, and nested objects merge key by key.
+
+<Note>
+  Because the write is once per profile, a persisted profile (`persistProfile`
+  or `keepProfileChanges`) does not pick up later preference edits. Delete the
+  profile, or run an ephemeral profile, to re-seed.
+</Note>
+
+For launch behavior that Chromium controls through the command line, use flags instead:
 
 - `browserFlags`
 - `excludeBrowserFlags`
@@ -126,7 +146,7 @@ For a comprehensive list of available Firefox preferences, explore the [Firefox 
 - **Prefer browser-scoped preferences**: Keep Firefox/Gecko preference keys under browser-targeted configuration blocks.
 - **Use command overrides for temporary experiments**: Put short-lived preference tweaks in `commands.dev`.
 - **Keep profiles isolated**: Use separate profiles for reproducible debugging.
-- **Use flags for Chromium tuning**: Treat flags as the primary configuration surface on Chromium-family targets.
+- **Use flags for Chromium launch tuning**: Preferences seed the profile once, so per-run behavior changes belong in flags.
 
 ## Next steps
 

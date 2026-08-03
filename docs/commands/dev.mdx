@@ -85,7 +85,7 @@ These cover the 80% case. Skip to the [full reference](#arguments-and-flags) for
 | Flag                   | What it does                                                             | Default    |
 | ---------------------- | ------------------------------------------------------------------------ | ---------- |
 | `--browser <target>`   | Target Chrome, Edge, Firefox, or comma-separated list.                   | `chromium` |
-| `--polyfill`           | Bridge `browser.*` API to Chromium targets for Firefox-flavored sources. | `false`    |
+| `--polyfill`           | Bridge `browser.*` API to Chromium targets for Firefox-flavored sources. | `true`     |
 | `--port <port>`        | Dev server port. Use `0` for OS-assigned.                                | `8080`     |
 | `--starting-url <url>` | Open this URL when the browser launches.                                 | unset      |
 | `--no-reload`          | Skip auto-reload. Use when you want a clean dev bundle.                  | reload on  |
@@ -99,21 +99,51 @@ These cover the 80% case. Skip to the [full reference](#arguments-and-flags) for
 | `--profile <path\|boolean>`    | -                  | Browser profile path or boolean profile mode.                                                                                                    | fresh profile                                   |
 | `--chromium-binary <path>`     | -                  | [Custom Chromium-family binary path](/docs/browsers/running-other-browsers).                                                                     | system default                                  |
 | `--gecko-binary <path>`        | `--firefox-binary` | [Custom Gecko-family binary path](/docs/browsers/running-other-browsers).                                                                        | system default                                  |
-| `--polyfill [boolean]`         | -                  | Enable `browser.*` API compatibility polyfill for Chromium targets.                                                                              | `false`                                         |
+| `--polyfill [boolean]`         | -                  | Enable `browser.*` API compatibility polyfill for Chromium targets.                                                                              | `true`                                          |
+| `--no-polyfill`                | -                  | Disable the cross-browser polyfill.                                                                                                              | polyfill enabled                                |
 | `--starting-url <url>`         | -                  | Starting URL in launched browser.                                                                                                                | unset                                           |
-| `--port <port>`                | -                  | Dev server port. Use `0` for OS-assigned port.                                                                                                   | `8080`                                          |
+| `--port <port>`                | -                  | Requested dev server port. Use `0` for an OS-assigned port. See [how the port resolves](#how-the-port-resolves).                                 | `8080`                                          |
 | `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/dev containers.                                                                         | `127.0.0.1`                                     |
 | `--public-host <host>`         | -                  | Connectable host the browser dials for HMR and the reload bridge, when it differs from the bind `--host` (remote/dev container).                 | bind host (`127.0.0.1` when bound to `0.0.0.0`) |
 | `--no-open`                    | -                  | Do not automatically launch browser.                                                                                                             | browser launches by default                     |
 | `--no-browser`                 | -                  | Do not launch browser.                                                                                                                           | browser launch enabled                          |
 | `--no-reload`                  | -                  | Skip the content-script reload runtime and on-rebuild reload dispatch. Reload tabs manually to see changes.                                      | reload runtime enabled                          |
-| `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit.                                                                                      | disabled                                        |
+| `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit. Requires a local project path.                                                       | disabled                                        |
 | `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                                                                                                       | `60000`                                         |
-| `--wait-format <pretty\|json>` | -                  | Output format for wait results (`json` is machine-readable).                                                                                     | `pretty`                                        |
+| `--output <pretty\|json>`      | -                  | Result format. `json` prints a schema-1 envelope on stdout.                                                                                      | `pretty`                                        |
 | `--extensions <list>`          | -                  | Comma-separated companion extensions or store URLs.                                                                                              | unset                                           |
-| `--install [boolean]`          | -                  | Install project dependencies when missing. Lifecycle scripts are disabled for safety; set `EXTENSION_ALLOW_INSTALL_SCRIPTS=true` to run them.    | command behavior default                        |
-| `--parent-pid <pid>`           | -                  | Exit the dev server as soon as the given process ID dies. For harnesses/agents that spawn `dev`, so a crashed owner cannot leak a server.        | unset                                           |
-| `--author`                     | `--author-mode`    | Enable maintainer diagnostics.                                                                                                                   | disabled                                        |
+| `--install [boolean]`          | -                  | Internal flag. Install project dependencies when missing. Lifecycle scripts stay disabled unless `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`.         | command behavior default                        |
+| `--allow-control`              | -                  | Enable the agent-bridge control channel for the bounded act verbs (`reload`, `storage`, `open`).                                                 | disabled                                        |
+| `--allow-eval`                 | -                  | Also enable `extension eval`. Implies `--allow-control` and writes a `0600` session token.                                                       | disabled                                        |
+| `--parent-pid <pid>`           | -                  | Exit the dev server as soon as the given process ID dies. See [parent watchdog](#parent-watchdog).                                               | unset                                           |
+| `--debug`                      | -                  | Enable maintainer diagnostics.                                                                                                                   | disabled                                        |
+
+Two deprecated aliases are hidden from `--help` but still work:
+
+- `--wait-format <pretty|json>` maps onto `--output` and warns once on stderr. Migrate scripts to `--output`.
+- `--author` and `--author-mode` map onto `--debug`.
+
+### Safari flags
+
+These flags apply to `safari` and `webkit-based` targets only. Passing any of them with another target exits with `E_INVALID_OPTION`, so a typo never no-ops silently.
+
+| Flag                      | What it does                                                                             | Default                       |
+| ------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------- |
+| `--safari-binary <path>`  | Safari binary to open after packaging.                                                   | system Safari                 |
+| `--app-name <name>`       | Override the Safari app name.                                                            | the manifest `name`           |
+| `--bundle-id <id>`        | User-owned bundle identifier in reverse-DNS form. A malformed value fails before any build. | a generated `dev.extensionjs.*` id |
+| `--macos-only [boolean]`  | Generate a macOS-only Xcode project. Pass `false` for a universal macOS + iOS project.   | `true`                        |
+| `--force-regenerate`      | Regenerate the Safari Xcode project even when up to date.                                | disabled                      |
+
+For Safari targets, `dev` also runs a toolchain preflight before the first bundle. A missing Xcode fails fast with `E_SAFARI_TOOLCHAIN`.
+
+### Parent watchdog
+
+`--parent-pid` is for harnesses and agents that spawn `dev`, so a crashed owner cannot leak a server. The value must be a positive integer, anything else exits with `E_INVALID_OPTION`. The watchdog polls the parent process every 2 seconds. When the parent is gone, the dev server shuts down via `SIGTERM`, with a 5 second hard-exit backstop if cleanup wedges.
+
+### How the port resolves
+
+`--port` is a request, not a guarantee. When the requested port is busy, the dev server walks upward to the nearest free port. `--port 0` asks the OS for any free port. Read the bound port from `ready.json`, not from the flag you passed.
 
 ## Automation metadata (recommended for scripts/agents)
 
@@ -127,14 +157,20 @@ For automation (Playwright, continuous integration (CI), AI agents), prefer thes
 Treat `ready.json` as the readiness contract:
 
 - `status: "starting"` while booting
-- `status: "ready"` when runtime is ready
+- `status: "ready"` when the build compiled
 - `status: "error"` for startup/compile failures
+- `status: "stopped"` after the session shut down, so a dead session never advertises `ready`
+- `runtime: "attached"` (with `executorAttachedAt`) once the service worker connected. Act verbs should wait for this, not for `ready`
 - `runId` uniquely identifies a runtime session
 - `startedAt` marks the runtime session start timestamp
 - `command` names the producing command (`dev`, `start`, `preview`, or `build`)
-- `toolchainVersion`, `extensionName`, and `extensionVersion` record which Extension.js version produced the tree, for which extension, so the file doubles as a build receipt after the terminal scrollback is gone
-- `port` is the dev server port; `host` is the connectable host clients dial (see [bind host vs. connectable host](#bind-host-vs-connectable-host))
+- `toolchainVersion`, `extensionName`, and `extensionVersion` record which Extension.js version produced the tree, for which extension. The file doubles as a build receipt after the terminal scrollback is gone
+- `port` is the bound dev server port, and `host` is the connectable host clients dial (see [bind host vs. connectable host](#bind-host-vs-connectable-host))
 - `controlPort` / `instanceId` locate the control bridge used by `extension logs` and the act verbs
+- `cdpPort` (Chromium) and `rdpPort` (Gecko) expose the browser debugging ports
+- `profilePath`, `browserPid`, and `extensionId` are stamped by the browser launcher after launch
+
+The full schema, error states, and two-phase readiness rules live in [the ready.json contract](/docs/contracts/ready-json).
 
 `events.ndjson` is scoped to the current run: starting a new run resets the file, and every entry is stamped with the run's `runId` (matching `ready.json`), so consumers never see events from a previous session interleaved with the live one.
 
@@ -159,7 +195,16 @@ For Playwright/CI/AI workflows:
 
 `--wait` targets a second process (or CI step) and exits non-zero on `error`/timeout.
 When `--wait` sees a stale `ready.json` from a dead process (`pid` no longer alive), it keeps waiting for a live producer.
+`--wait` requires a local project path. Passing a remote URL exits with `E_ARGS`.
 If you pass both `--wait` and `--no-browser` in the same command invocation, `--wait` takes precedence. The command runs in wait-only mode.
+
+### Machine output with `--output json`
+
+`--output json` prints schema-1 envelopes on stdout, one JSON object per line:
+
+- A plain `dev` run prints one `status: "started"` frame at startup. It carries the project path, browser list, requested port, and the dev server `pid`. `dev` never terminates on its own, so no result frame follows. Read `ready.json` for the live state.
+- A `dev --wait` run prints one `status: "ready"` frame on success. Its `value.results` array carries the full ready contract per browser.
+- Failures print one `ok: false` frame with an `error.code` (for example `E_READY_TIMEOUT`) before the process exits `1`.
 
 ### `--no-reload` for a clean dev bundle
 
@@ -168,6 +213,8 @@ If you pass both `--wait` and `--no-browser` in the same command invocation, `--
 `--no-reload` is only supported on `extension dev`. Passing it to `start`, `preview`, or `build` exits with an error. Internally it sets `EXTENSION_NO_RELOAD=true` so the develop process can read it from outside the CLI argv.
 
 ## Logging flags
+
+These flags are experimental and may change between minor releases.
 
 | Flag                                                 | What it does                                                                                 | Default            |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
@@ -435,8 +482,8 @@ extension dev ./my-extension --chromium-binary /path/to/brave
 ## Best practices
 
 - **Browser compatibility:** Test your extension in different browsers to verify it works on every target.
-- **Polyfilling:** If Firefox or a Gecko-based browser is also a target, use `--polyfill`. This flag enables `browser.*` API compatibility in Chromium-based browsers.
-- **Automation reliability:** Treat `dev` as the watch-mode companion (`--no-browser` + `dev --wait`). Treat `start` as the production companion (`--no-browser` + `start --wait`). Use `--wait-format=json` for scripts and CI automation.
+- **Polyfilling:** The polyfill is on by default in `dev`, so `browser.*` calls work in Chromium-based browsers. Pass `--no-polyfill` when you want the raw bundle.
+- **Automation reliability:** Treat `dev` as the watch-mode companion (`--no-browser` + `dev --wait`). Treat `start` as the production companion (`--no-browser` + `start --wait`). Use `--output=json` for scripts and CI automation.
 
 ## Next steps
 

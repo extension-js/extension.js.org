@@ -1,0 +1,143 @@
+---
+title: "Driving the CLI from an AI agent"
+description: "The playbook for agents that drive Extension.js: the capabilities handshake, machine output, the runtime attached gate, act verbs, and the --ai-help payload."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "ai",
+    "agents",
+    "automation",
+  ]
+---
+
+Drive a real dev session end to end without parsing human output.
+
+This page is the playbook for AI agents and harnesses that operate the CLI itself. If you want an assistant that answers questions from the docs, see [AI access](/docs/ai-access) instead.
+
+The loop is four steps: handshake, start, gate, act. Every step reads a [machine contract](/docs/contracts/index), never terminal prose.
+
+{/* VIDEO_SPEC id=agent-drives-dev grammar=A→B ~12s loop
+  Needs: mock transcripts for capabilities + dev + storage get (envelope on
+    stdout); terminal-only, the agent IS the terminal here
+  A terminal runs `extension capabilities`, then starts dev with
+    --allow-control and machine output, ready.json flips to
+    runtime:"attached"                               mark:attached
+  B one act verb (`extension storage get --output json`) answers with a
+    schema-1 envelope the agent parses               mark:envelope-read → hold read → end
+  run: node video/record.mjs agent-drives-dev --mock */}
+
+## Step 1: handshake with capabilities
+
+Ask the engine what it speaks before you assume anything:
+
+```bash
+extension capabilities
+```
+
+The command defaults to JSON, the only one that does. It answers with one envelope whose `value` is:
+
+```json
+{
+  "name": "extension",
+  "version": "4.0.22",
+  "envelopeSchema": 1,
+  "readySchemaVersion": 2,
+  "outputJsonCommands": [
+    "build",
+    "capabilities",
+    "create",
+    "dev",
+    "doctor",
+    "eval",
+    "inspect",
+    "install",
+    "logs",
+    "open",
+    "preview",
+    "publish",
+    "reload",
+    "start",
+    "storage",
+    "telemetry"
+  ]
+}
+```
+
+Check `envelopeSchema` and `readySchemaVersion` against what your parser expects. `outputJsonCommands` is read off the live registrations, so it never drifts from the release that you run.
+
+## Step 2: start a session with machine output
+
+```bash
+extension dev ./my-extension --browser=chromium --allow-control --output json
+```
+
+`--allow-control` unlocks the bounded act verbs (`storage`, `reload`, `open`, `inspect`). Add `--allow-eval` only when you need `extension eval`, it runs arbitrary code and writes a 0600 session token.
+
+Under `--output json` the command prints one `started` envelope, and failures arrive as envelopes too. Human copy moves to stderr, so stdout stays parseable.
+
+To follow the whole session frame by frame, set `EXTENSION_OUTPUT=ndjson` in the environment and read the [lifecycle stream](/docs/contracts/lifecycle-stream).
+
+## Step 3: gate on runtime attached
+
+Readiness has two phases, and acting too early is the most common agent failure:
+
+1. `ready.json` reports `status: "ready"`. This means compiled, nothing more.
+2. The contract carries `runtime: "attached"` and `executorAttachedAt`. Now the service worker is connected and can be driven.
+
+Block on phase 1 with a second process:
+
+```bash
+extension dev ./my-extension --wait --browser=chromium --output json
+```
+
+Then poll `dist/extension-js/chromium/ready.json` until `runtime` equals `"attached"` before you run any act verb. See [ready.json](/docs/contracts/ready-json) for the freshness and pid-liveness rules that keep you off stale contracts.
+
+## Step 4: act and read envelopes
+
+Every act verb takes `--output json` and answers with one schema-1 [result envelope](/docs/contracts/result-envelope):
+
+```bash
+extension storage get --key lastClickedAt --browser=chromium --output json
+extension reload --context background --browser=chromium --output json
+extension open action --browser=chromium --output json
+extension logs --context content --output ndjson
+```
+
+Branch on `ok` and `error.code`, never on `error.message`. The [error code table](/docs/contracts/error-codes) is stable across releases.
+
+## Discover the CLI with --ai-help
+
+`extension --ai-help --output json` prints a machine-readable self-description. Two mechanics matter to a caller:
+
+- `--ai-help` bypasses the argument parser. It runs before any subcommand parsing, so it works with otherwise-invalid invocations.
+- The payload can outgrow one pipe buffer, so the process drains stdout before it exits. Read until EOF.
+
+The payload shape:
+
+| Key             | What it holds                                                                                     |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `version`       | The CLI version.                                                                                    |
+| `commands`      | One entry per command: `name`, `summary`, `supportsSourceInspection`.                               |
+| `globalOptions` | One entry per global flag: `name`, `description`, plus `values` and `default` when constrained.     |
+| `templates`     | The scaffold catalog: `default`, `bundled`, `catalogUrl`, `names`, `groups`, and `notes`.           |
+| `capabilities`  | Behavior facts: `logger`, `managedDependencies`, `readyContract`, and `dockerAndContainers`.        |
+| `examples`      | Copy-pasteable invocations.                                                                         |
+
+The `capabilities.readyContract` block names the contract paths, statuses, fields, and event types, so an agent can self-configure without this docs site.
+
+## Rules that keep agents honest
+
+- Never parse pretty terminal output. Every fact that you need has a machine surface.
+- Verify `pid` liveness and contract freshness before trusting `ready.json`.
+- Join `ready.json`, `events.ndjson`, and `logs.ndjson` on `runId`.
+- Use `browserPid` from `ready.json` to tear the browser down, never process-name matching.
+- Treat unknown envelope fields as additive. The schema grows, it does not break.
+
+## Next steps
+
+- Keep the contract details open: [ready.json](/docs/contracts/ready-json) and [Result envelope](/docs/contracts/result-envelope).
+- Wire the same loop into CI with [CI templates](/docs/workflows/ci-templates).

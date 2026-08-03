@@ -32,7 +32,9 @@ Per CLI run, at most one of:
 | `command_executed` | 20 % (configurable, see below)             | `command`, `success: true`, `version`  |
 | `command_failed`   | 100 % (Extension.js always sends failures) | `command`, `success: false`, `version` |
 
-Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`. Nothing else.
+The `create` command may add two more properties: `template` (the sanitized template name) and `source` (where the template came from). The `create` command is also exempt from sampling, so template usage numbers stay accurate.
+
+Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`. Nothing else. `is_source_build` is a single boolean answering "was this a registry install or a repository checkout". It is computed from the shape of the install path (whether a `node_modules`-style segment sits above the CLI). The path itself is never read into the event, sent, or hashed.
 
 ## Volume controls
 
@@ -71,17 +73,23 @@ extension telemetry enable
 extension telemetry status    # show current state (default when no argument)
 ```
 
-The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent).
+The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent). When that location is not writable, storage falls back in order: the platform cache directory, then a folder under the system temp directory, then `./.cache/extensionjs` in the working directory.
 
 ## Default behavior
 
-Telemetry is **opt-out**. On the first run where none of the overrides above apply, Extension.js prints a one-line notice explaining how to disable it. It also records an `enabled` consent marker so the notice does not repeat.
+In an interactive terminal, telemetry is **opt-out**. On the first run where none of the overrides above apply, Extension.js prints a one-line notice explaining how to disable it. It also records an `enabled` consent marker so the notice does not repeat.
 
-Continuous integration (CI) environments follow the same rules. Set `EXTENSION_TELEMETRY=0` in your CI environment to disable telemetry across the board.
+### CI is off by default
+
+In CI with nothing attached to stdout (a CI marker set and no TTY), telemetry is **off by default** and reports `source: ci`. A stored `enabled` consent does not carry into a pipeline: consent recorded by a person at a keyboard cannot cover a pipeline that inherited that home directory, so the stored opt-in is demoted below the CI gate. A stored `disabled` is a refusal, and a refusal always wins, in CI and everywhere else.
+
+To send telemetry from a pipeline on purpose, set `EXTENSION_TELEMETRY=1`. That explicit machine-level opt-in sits above the CI gate.
 
 ## Local audit log
 
 Extension.js appends every event it considers sending (whether or not it actually ships) to `events.jsonl` next to the consent file. Inspect it any time. Delete it freely.
+
+The audit log stays bounded. At 1 MiB it rolls to a single `events.jsonl.1` backup, replacing any previous backup. Override the cap with `EXTENSION_TELEMETRY_AUDIT_MAX_BYTES`. A file grossly over the cap (10 times or more) is dropped instead of kept. If the audit write itself fails, Extension.js disables all further sends for that run: an event that cannot be audited locally is not sent.
 
 ## Best practices
 
@@ -93,4 +101,4 @@ Extension.js appends every event it considers sending (whether or not it actuall
 
 - Review [Global flags](/docs/workflows/global-flags) for `--no-telemetry` and environment variable overrides.
 - Use [build](/docs/commands/build) and [dev](/docs/commands/dev) for release and automation workflows.
-- Read the repository-level [`TELEMETRY.md`](https://github.com/extension-js/extension.js/blob/main/TELEMETRY.md) contract for the exact event list.
+- Read the repository-level [`docs/TELEMETRY.md`](https://github.com/extension-js/extension.js/blob/main/docs/TELEMETRY.md) contract for the exact event list.

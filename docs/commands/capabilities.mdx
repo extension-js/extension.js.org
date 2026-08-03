@@ -1,0 +1,106 @@
+---
+title: "Capabilities command for engine handshakes"
+description: "Print the Extension.js engine version, contract schema versions, and json-capable commands in one machine-readable handshake for scripts and agents."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "capabilities",
+    "automation",
+    "agents",
+  ]
+---
+
+Print the engine version, contract versions, and json-capable commands.
+
+`capabilities` is the handshake an agent or script runs before anything else. One call tells the caller which CLI it is talking to, which contract schemas that CLI writes, and which commands accept `--output json`. It needs no project, no session, and no browser.
+
+## When to use `capabilities`
+
+- An agent starts a session and must know which schema versions to parse.
+- A script wants to feature-detect `--output json` support instead of guessing by version.
+- You want to confirm which CLI build a `npx` invocation actually resolved.
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension capabilities [options]
+```
+
+```bash pnpm
+extension capabilities [options]
+```
+
+```bash yarn
+extension capabilities [options]
+```
+
+```bash bun
+extension capabilities [options]
+```
+
+```bash deno
+extension capabilities [options]
+```
+
+</CodeGroup>
+
+## Arguments and flags
+
+| Flag                      | What it does   | Default |
+| ------------------------- | -------------- | ------- |
+| `--output <pretty\|json>` | Result format. | `json`  |
+
+This is the only command that defaults to `json`. A handshake exists for machines, so the machine format is the default and `--output pretty` is the opt-in.
+
+## What it returns
+
+The JSON output is a schema-1 envelope (see [Result envelope](/docs/contracts/result-envelope)) whose `value` carries five fields:
+
+```json
+{
+  "schema": 1,
+  "ok": true,
+  "command": "capabilities",
+  "status": "ok",
+  "value": {
+    "name": "extension",
+    "version": "4.0.22",
+    "envelopeSchema": 1,
+    "readySchemaVersion": 2,
+    "outputJsonCommands": ["build", "capabilities", "dev", "doctor", "eval", "..."]
+  },
+  "error": null,
+  "warnings": []
+}
+```
+
+| Field                | What it tells you                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `name`               | The CLI package name.                                                                |
+| `version`            | The CLI version that answered.                                                       |
+| `envelopeSchema`     | The result envelope schema this CLI writes.                                          |
+| `readySchemaVersion` | The `ready.json` contract version this CLI's bundled engine writes.                  |
+| `outputJsonCommands` | Every command that accepts `--output json`, sorted.                                  |
+
+`outputJsonCommands` is read off the live command registrations, never a hand-kept list, so it cannot drift from what the CLI actually accepts. Treat the example above as illustrative and parse the real answer.
+
+Pretty output prints the same facts as four labeled lines. Both formats exit with code `0`.
+
+## Typical agent flow
+
+1. Run `extension capabilities` and check `envelopeSchema` and `readySchemaVersion` are versions that you support.
+2. Start the session: `extension dev --allow-control --output json`.
+3. Drive it with the act verbs: [`inspect`](/docs/commands/inspect), [`eval`](/docs/commands/eval), [`storage`](/docs/commands/storage), [`reload`](/docs/commands/reload).
+
+## Next steps
+
+- Read the envelope that every json-capable command emits in [Result envelope](/docs/contracts/result-envelope).
+- Start the session that the handshake prepares for with [`dev`](/docs/commands/dev).
+- Read the wider debugging workflow in [Debugging](/docs/debugging).

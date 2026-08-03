@@ -1,0 +1,64 @@
+---
+title: "Browser themes in Extension.js"
+description: "Ship one theme manifest to Chrome and Firefox: hex colors convert to Chromium integer arrays at build time, invalid values fail compilation, and static themes skip dev instrumentation."
+keywords:
+  [
+    "extension.js",
+    "browser theme",
+    "theme manifest",
+    "theme colors",
+    "static theme",
+    "chrome theme",
+    "firefox theme",
+    "theme_colors integer array",
+  ]
+---
+
+Chrome and Firefox disagree about what a theme color looks like. Firefox parses `theme.colors` values as CSS strings, while Chrome only accepts integer arrays. Extension.js resolves the difference at build time, so one `manifest.json` serves both engines.
+
+## One manifest, two color formats
+
+Write hex colors in your manifest and build for any target:
+
+```json
+{
+  "theme": {
+    "colors": {
+      "frame": "#1a1b26",
+      "toolbar": "#24283bcc"
+    }
+  }
+}
+```
+
+For Chromium-family targets, the build converts each hex string to the integer array Chrome requires. For Gecko targets, the string form ships unchanged, because Firefox parses it natively.
+
+The conversion accepts 3, 4, 6, and 8 digit hex. An 8 digit value becomes `[R, G, B, A]`, where the alpha byte is scaled to a 0 to 1 float and rounded to three decimals. `#24283bcc` becomes `[36, 40, 59, 0.8]`. Values that are not hex strings pass through untouched.
+
+## Invalid values fail the build
+
+Chrome refuses the whole extension when a theme value has the wrong shape, so Extension.js catches the mistake at compile time instead. On Chromium-family targets, every invalid theme value becomes a compilation error naming the exact field:
+
+- `theme.colors.*` entries must be `[R, G, B]` or `[R, G, B, A]` arrays, hex strings, or values the converter can produce those from. Channels must be integers from 0 to 255, and the alpha must be numeric.
+- `theme.tints.*` entries must be `[hue, saturation, lightness]` arrays of exactly 3 numbers.
+
+Each error explains what Chrome accepts for that specific field, so you fix the value instead of decoding a refusal screen in the browser.
+
+## Safari targets warn
+
+Safari has no theme surface. When you build for `safari` or a webkit-based target and the manifest carries any `theme` key, the build emits a warning. The field ships unchanged in the output manifest and Safari ignores it.
+
+## Static themes skip dev instrumentation
+
+A static theme is a manifest with a `theme` key and no runtime surface. Extension.js treats a manifest as a static theme when none of these 15 keys is present:
+
+`background`, `content_scripts`, `action`, `browser_action`, `page_action`, `sidebar_action`, `side_panel`, `options_page`, `options_ui`, `devtools_page`, `chrome_url_overrides`, `sandbox`, `user_scripts`, `declarative_net_request`, `web_accessible_resources`
+
+Static themes are exempt from all dev instrumentation. There is nothing to instrument: no background, no pages, no content scripts. More importantly, a theme is validated against the theme schema, which forbids extra top-level keys, and addons.mozilla.org hard-errors on each one. Injecting dev-only keys would make the artifact stop being a valid theme.
+
+The decision reads your `manifest.json` from disk, not the in-flight build output. By the time dev patches land, the compiled manifest already carries injected keys and no longer looks like a theme.
+
+## Next steps
+
+- Target one engine per field with [Browser-specific manifest fields](/docs/features/browser-specific-fields).
+- Build per-target artifacts with [Multi-platform builds](/docs/features/multi-platform-builds).

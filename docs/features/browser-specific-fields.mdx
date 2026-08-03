@@ -74,9 +74,17 @@ This works for any manifest field at any level, including `permissions`, `conten
 
 ### Family-wide resolution, not per vendor
 
-`chromium:`, `chrome:`, and `edge:` are interchangeable within the Chromium family: each of them applies to every Chromium-family target. Building for `chrome` versus `chromium` therefore emits an identical manifest; only the `dist/<browser>` folder name and the preferred launch binary differ. If you need a field for one vendor only, use its exact browser-name prefix (for example, `brave:`), which resolves only for that target.
+`chromium:`, `chrome:`, and `edge:` are family prefixes within the Chromium family: each of them applies to every Chromium-family target. If you need a field for one vendor only, use its exact browser-name prefix (for example, `brave:`), which resolves only for that target.
 
-When two matching prefixes set the same field, the last one in source order wins:
+### Precedence: the three-tier lattice
+
+When several keys set the same field, the winner is decided by tier, not by position in the file:
+
+1. A plain key is the base.
+2. A family prefix (`chromium:`, `chrome:`, `edge:` on Chromium targets, `firefox:`, `gecko:` on Gecko targets) overrides the plain key.
+3. A specific prefix overrides both. Specific means the prefix names the exact target, such as `chrome:` when you build for `chrome`, or `brave:` when you build for `brave`. On Safari and webkit-based targets, `safari:` and `webkit:` are both specific.
+
+Source order only breaks ties inside one tier. Consider:
 
 ```json
 {
@@ -89,9 +97,21 @@ When two matching prefixes set the same field, the last one in source order wins
 }
 ```
 
-Both prefixes match any Chromium-family target, so every Chromium-family build (including `chrome`) emits `"default_title": "Second"`.
+Building for `chrome` emits `"First"`: `chrome:` names the exact target, so it sits in the specific tier and beats `edge:`, which is only a family match there. Building for `edge` emits `"Second"` for the mirror-image reason. Building for `chromium` or `brave` emits `"Second"`, because both prefixes are family matches and the later one in source order wins the tie.
 
 A matching prefixed key always overrides a plain key with the same name, regardless of where each appears in the file.
+
+### Prefixes resolve at every depth
+
+The resolver walks the whole manifest tree, including arrays. A prefixed key inside a `content_scripts` entry, or inside any nested object, resolves by the same three-tier rule as a top-level key.
+
+### The same resolver drives entry discovery
+
+Prefix resolution is not only about the emitted JSON. The same resolver runs before script and HTML entry discovery, so a `firefox:background` script or a prefixed page becomes a compiled entry only on matching targets.
+
+### Forks and `*-based` aliases
+
+Family classification matches by substring, not by a closed list. Any browser name containing `chromium` classifies as Chromium-family, and any name containing `gecko` or `firefox` classifies as Gecko-family. That is why the `chromium-based` and `gecko-based` aliases, and arbitrary `*-based` names built on them, inherit their family's prefixed keys.
 
 ## Best practices
 

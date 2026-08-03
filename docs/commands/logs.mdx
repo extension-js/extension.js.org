@@ -1,0 +1,136 @@
+---
+title: "Logs command for reading dev session output"
+description: "Print or stream logs from every context of a running Extension.js dev session. Filter by context, level, URL, or tab, and pipe ndjson to tools."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "logs",
+    "ndjson",
+    "debugging",
+  ]
+---
+
+Print or stream logs from every context of a running dev session.
+
+`logs` reads the log records that a [`dev`](/docs/commands/dev) session collects from your extension: background, content scripts, popup, options, and the rest. One command shows them all, merged in order, without opening a single DevTools window.
+
+{/* VIDEO_SPEC id=logs-follow grammar=A→B ~12s loop
+  Needs: mock transcript `logs-follow` (running dev session, a file edit that logs
+    from background and content in the same second)
+  A terminal.type('extension logs --follow')        mark:command-submitted
+  B a source file is saved in a second pane, entries stream in seq order from
+    background and content contexts                 mark:stream-flowing → hold read → end
+  run: node video/record.mjs logs-follow --mock */}
+
+## When to use `logs`
+
+- You want console output from the background worker and a content script in one stream.
+- An agent or script needs machine-readable log records instead of screen-scraped terminal text.
+- You want to check what an extension logged earlier without re-triggering the behavior.
+
+## Usage
+
+<CodeGroup>
+
+```bash npm
+extension logs [project-path] [options]
+```
+
+```bash pnpm
+extension logs [project-path] [options]
+```
+
+```bash yarn
+extension logs [project-path] [options]
+```
+
+```bash bun
+extension logs [project-path] [options]
+```
+
+```bash deno
+extension logs [project-path] [options]
+```
+
+</CodeGroup>
+
+By default, `logs` prints the records already on disk and exits. Add `--follow` to stay attached and stream new records live.
+
+## Arguments and flags
+
+| Flag                              | What it does                                                                                        | Default                          |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `[project-path]`                  | Path to the extension project root.                                                                 | `process.cwd()`                  |
+| `--browser <browser>`             | Which session to read (`chrome`, `chromium`, `edge`, `firefox`).                                    | `chromium`                       |
+| `--follow`                        | Stream live over the control channel instead of printing and exiting.                               | off                              |
+| `--context <list>`                | Comma-separated contexts (`background`, `content`, `popup`, `options`, `sidebar`, `devtools`, `page`). | all contexts                     |
+| `--level <level>`                 | Minimum severity (`off`, `error`, `warn`, `info`, `debug`, `trace`, `all`).                         | `all`                            |
+| `--signals-only`                  | Show only structured `dx.signal` diagnostics.                                                       | off                              |
+| `--since <seq>`                   | Only show events after this sequence number.                                                        | unset                            |
+| `--url <glob\|substring>`         | Only events whose URL or hostname matches (glob with `*`, or a plain substring).                    | unset                            |
+| `--tab <id>`                      | Only events from this tab id.                                                                       | unset                            |
+| `--output <pretty\|json\|ndjson>` | Output format.                                                                                      | `pretty` on a TTY, `ndjson` when piped |
+
+Choosing a `--level` includes that level plus everything more severe. `--level warn` shows `warn` and `error`. Plain `console.log` records count as `info`.
+
+## One-shot mode
+
+Without `--follow`, the command reads `dist/extension-js/<browser>/logs.ndjson` directly and needs no live connection. The dev session appends every record to that file, so a one-shot read works even after you close the browser.
+
+If the file does not exist, `logs` prints a hint to start `extension dev` first and exits with code `1`. Machine formats also emit a failure envelope with code `E_LOGS_NOT_FOUND` (see [Result envelope](/docs/contracts/result-envelope)).
+
+## Follow mode
+
+`--follow` looks up the session's readiness contract, connects to the control channel as a log consumer, and streams records as they happen. It needs a running dev session, but no unlock flag: log consumption is always allowed.
+
+```bash
+extension logs --follow --context background,content --level info
+```
+
+If the stream falls behind and the session drops records, `logs` prints a one-line gap notice on stderr with the drop count and reason.
+
+When you stop the stream with `Ctrl+C`, machine formats print one terminating success envelope with status `interrupted`, so a consumer can tell a clean stop from a crash. The exit code is `0`.
+
+If no session is found for the chosen browser, the command fails with `E_SESSION_NOT_FOUND` and names the `extension dev` command to run.
+
+## Output formats
+
+Pretty mode prints one line per record:
+
+```plaintext
+[142] INFO (background) message text from the worker
+[143] ERROR (content) E_SOMETHING failed to reach the page
+    ↳ remediation hint, when the record carries one
+```
+
+`ndjson` prints one raw JSON record per line, ideal for `jq` and log shippers. `json` pretty-prints each record over multiple lines. When stdout is not a TTY, `ndjson` is already the default, so piping needs no extra flag:
+
+```bash
+extension logs --context content | jq -r '.messageParts | join(" ")'
+```
+
+## Examples
+
+Show only errors and warnings from content scripts on a specific site:
+
+```bash
+extension logs --context content --level warn --url "*.example.com"
+```
+
+Resume reading after a known record, useful for polling agents:
+
+```bash
+extension logs --since 142 --output ndjson
+```
+
+## Next steps
+
+- Diagnose a session that `logs --follow` cannot reach with [`doctor`](/docs/commands/doctor).
+- Grab a DOM snapshot with the recent console tail in one call with [`inspect`](/docs/commands/inspect).
+- Read the wider debugging workflow in [Debugging](/docs/debugging).
+- Review the machine failure format in [Result envelope](/docs/contracts/result-envelope).

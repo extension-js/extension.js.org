@@ -184,13 +184,43 @@ Extension.js applies these flags automatically when launching Chromium-family br
 | `--no-pings`                                               | Disable hyperlink auditing pings                                        |
 | `--enable-features=SidePanelUpdates`                       | Ensure side panel is visible                                            |
 | `--disable-features=DisableLoadExtensionCommandLineSwitch` | Allow `--load-extension` at the command line                            |
+| `--disable-features=ExtensionDisableUnsupportedDeveloper`  | Keep unpacked extensions alive across `runtime.reload()` (Chromium 152+) |
 | `--enable-unsafe-extension-debugging`                      | Allow Chrome DevTools Protocol (CDP) extension management (Chrome 126+) |
 | `--silent-debugger-extension-api`                          | Suppress the "X is debugging this browser" infobar                      |
+
+### Always-on session flags
+
+Beyond the default table, every Chromium launch gets a fixed block of session-stability flags. They keep background timers, occluded windows, and renderer throttling from distorting automated and AI-driven sessions. `excludeBrowserFlags` cannot remove them:
+
+```text
+--disable-background-timer-throttling
+--disable-renderer-backgrounding
+--disable-backgrounding-occluded-windows
+--disable-features=TranslateUI
+--disable-hang-monitor
+--disable-prompt-on-repost
+--memory-pressure-off
+--max_old_space_size=4096
+--disable-dev-shm-usage
+```
+
+In `dev` mode only, Extension.js also wires the debugging channel with three flags: `--remote-debugging-port=<derived port>`, `--remote-debugging-address=127.0.0.1`, and `--remote-debugging-pipe`. Production-mode launches (`start`, `preview`) skip this trio.
+
+### Feature-switch merging
+
+Chromium honors only the last occurrence of a repeated switch. Extension.js therefore merges every `--enable-features` and `--disable-features` occurrence into one comma-joined switch each. Defaults, config, and environment values all merge, and duplicate feature names are removed. You can safely pass `--disable-features=Foo` in `browserFlags` without erasing the defaults.
+
+### Environment switches
+
+- `EXTENSION_BROWSER_FLAGS` appends whitespace-separated flags to every launch. It is applied after config flags and after `excludeBrowserFlags` filtering, so `excludeBrowserFlags` cannot remove flags that come from this variable.
+- `EXTENSION_HEADLESS=1` (or `true`) forces `--headless=new`, unless a `--headless` flavor was already passed through config or environment flags. Use it as a focus-steal guard for automated sessions.
 
 <Note>
   In Docker, continuous integration (CI), or containerized environments,
   Extension.js also applies `--no-sandbox` and `--disable-setuid-sandbox`
-  automatically.
+  automatically. On Linux it detects a container through any of these signals:
+  `CI=true`, a `/.dockerenv` file, a `/run/.containerenv` file,
+  `REMOTE_CONTAINERS=true`, `CODESPACES=true`, or a set `container` variable.
 </Note>
 
 ## Supported targets and references

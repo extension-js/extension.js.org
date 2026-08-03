@@ -32,8 +32,9 @@ function extractTemplateNames(content: string): Map<string, string[]> {
   const repoRe = /extension-js\/examples\/tree\/main\/examples\/([\w-]+)/g;
   while ((m = repoRe.exec(content))) add(m[1], "repo-url");
 
-  // From create commands: --template=name or --template name
-  const templateRe = /--template[=\s]([\w-]+)/g;
+  // From create commands: --template=name or --template name.
+  // URL forms (--template=https://...) are not catalog names, skip them.
+  const templateRe = /--template[=\s](?!https?\b)([\w-]+)/g;
   while ((m = templateRe.exec(content))) add(m[1], "create-command");
 
   return templates;

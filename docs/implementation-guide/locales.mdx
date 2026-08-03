@@ -14,7 +14,7 @@ keywords:
   ]
 ---
 
-Extension.js discovers locale files next to your manifest and validates that each declared locale has a `messages.json`. It emits locale JSON assets into the browser-specific build. During development, it picks up edits to any locale file without a full restart.
+Extension.js reads the `_locales` folder at your project root and validates that each declared locale has a `messages.json`. It emits locale JSON assets into the browser-specific build. During development, it picks up edits to any locale file without a full restart.
 
 ## Template example
 
@@ -54,7 +54,7 @@ Repository: [extension-js/examples/action-locales](https://github.com/extension-
 
 | Capability           | What it gives you                                                  |
 | -------------------- | ------------------------------------------------------------------ |
-| Locale discovery     | Detect `_locales/<locale>/messages.json` from manifest location    |
+| Locale discovery     | Detect `_locales/<locale>/messages.json` at the project root       |
 | Validation           | Catch missing default locale files and unresolved `__MSG_*__` keys |
 | Build output mapping | Emit locale files in the expected extension output structure       |
 | Dev watch support    | Reload on locale file changes during development                   |
@@ -71,6 +71,10 @@ _locales/
 ```
 
 `default_locale` in `manifest.json` should map to an existing `_locales/<default>/messages.json`.
+
+### Legacy layout: `_locales` next to the manifest
+
+The project root is the canonical place for `_locales`, even when your manifest lives in a subfolder such as `src/`. A `_locales` folder next to a nested manifest still builds. The compiler emits a `LocalesLayoutWarning` that asks you to move it to the root. Browsers read locales from the extension root, so the root placement matches what ships.
 
 ## Sample locales declaration in `manifest.json`
 
@@ -127,10 +131,15 @@ _locales/<locale>/messages.json
 
 Extension.js validates:
 
-- `default_locale` presence when the project uses `_locales`
-- Existence of `_locales/<default>/messages.json`
-- JSON validity for locale files
-- `__MSG_*__` references in manifest against default locale keys
+- A `_locales` folder without `default_locale` in the manifest fails the build, because browsers reject that combination
+- Existence of `_locales/<default>` and its `messages.json`
+- JSON validity for every locale's `messages.json`
+- `__MSG_*__` references in the manifest against default locale keys
+
+Two details of the `__MSG_*__` scan:
+
+- Predefined `@@` messages, such as `__MSG_@@ui_locale__`, are exempt because the browser provides them.
+- The `@` character is allowed inside message keys, matching Chrome's grammar for message names.
 
 ### Troubleshooting missing locale keys
 
@@ -146,12 +155,18 @@ If your manifest uses `__MSG_extension_description__`, ensure the default locale
 
 If the default locale does not define the key, Extension.js surfaces a diagnostic explaining the mismatch.
 
+## Packaging behavior
+
+When you build with `--zip` or `--zip-source`, Extension.js checks the default locale again at zip time. A manifest that declares `default_locale` without a matching `messages.json` produces a warning, because stores reject packages without their default locale.
+
+Zip filenames come from the manifest name. A `__MSG_*__` name resolves against the default locale's `messages.json`, so the archive carries the translated name, not the placeholder.
+
 ## Best practices
 
 - Keep `messages.json` keys consistent across locales.
 - Update default locale first, then propagate keys to other locales.
 - Validate locale JSON in continuous integration (CI) to catch malformed files before packaging.
-- Keep locale files close to manifest (`manifestDir/_locales`) for predictable resolution.
+- Keep `_locales` at the project root, the placement that browsers and the packaging step read.
 
 ## Next steps
 

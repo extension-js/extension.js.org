@@ -36,6 +36,7 @@ Top-level keys:
 | `commands`          | Per-command defaults (`dev`, `start`, `preview`, `build`).                  |
 | `extensions`        | Companion extensions applied across commands (load-only).                   |
 | `transpilePackages` | Packages to compile before bundling (useful for monorepo/workspace setups). |
+| `perfBudgets`       | Per-category asset size budgets in bytes, overridable per command.          |
 | `config`            | Hook to extend/override the generated Rspack config.                        |
 
 ### Type-safe configuration
@@ -99,6 +100,8 @@ Common browser fields:
 | --------------------- | ------------------------------------------------------------------------ |
 | `profile`             | Sets the browser profile path (or profile behavior) used when launching. |
 | `persistProfile`      | Reuses profile data between runs.                                        |
+| `keepProfileChanges`  | Firefox only: persists changes made to the profile directory.            |
+| `copyFromProfile`     | Firefox only: copies an existing profile before launching.               |
 | `preferences`         | Applies browser preference overrides.                                    |
 | `browserFlags`        | Adds launch flags for the browser process.                               |
 | `excludeBrowserFlags` | Removes default launch flags you do not want.                            |
@@ -162,7 +165,8 @@ Notes:
 | `startingUrl`         | `dev`, `start`, `preview`          | Opens a specific URL on browser launch.                        |
 | `port`                | `dev`, `start`, `preview`          | Sets runner/DevTools port.                                     |
 | `host`                | `dev`, `start`, `preview`          | Sets dev server host. Use `0.0.0.0` for Docker/dev containers. |
-| `noBrowser`           | `dev`, `start`, `preview`          | Disables browser launch.                                       |
+| `publicHost`          | `start`, `preview`                 | Sets the externally reachable host clients connect back to.    |
+| `noBrowser`           | `dev`, `start`, `preview`          | Disables browser launch (`commands.<cmd>.noBrowser`).          |
 | `extensions`          | `dev`, `start`, `preview`, `build` | Loads companion extensions (or extension list).                |
 | `install`             | `dev`, `start`, `build`            | Installs missing dependencies before running.                  |
 | `transpilePackages`   | `dev`, `start`, `preview`, `build` | Transpiles listed workspace/external packages.                 |
@@ -175,22 +179,27 @@ Notes:
 | `zipSource`   | Adds source bundle/archive output for review/compliance workflows. |
 | `zipFilename` | Sets a custom zip output filename.                                 |
 | `silent`      | Reduces build log output.                                          |
+| `perfBudgets` | Overrides the top-level per-category asset budgets for builds.     |
 
 #### `dev` command capabilities
 
-| Key      | What it does                                  |
-| -------- | --------------------------------------------- |
-| `noOpen` | Runs dev server without auto-opening browser. |
+| Key                  | What it does                                                     |
+| -------------------- | ---------------------------------------------------------------- |
+| `noOpen`             | Runs dev server without auto-opening browser.                    |
+| `hashContentScripts` | Set `false` to disable content-hashed content-script filenames in dev (on by default). |
+| `perfBudgets`        | Overrides the top-level per-category asset budgets for dev.      |
 
 #### Logging capabilities
 
-| Key          | Applies to                | What it does                                             |
-| ------------ | ------------------------- | -------------------------------------------------------- |
-| `logs`       | `dev`, `start`, `preview` | Sets minimum log level (`off` to `all`).                 |
-| `logContext` | `dev`, `start`, `preview` | Filters logs by context (`background`, `content`, etc.). |
-| `logFormat`  | `dev`, `start`, `preview` | Sets output format (`pretty`, `json`, `ndjson`).         |
-| `logUrl`     | `dev`, `start`, `preview` | Filters logs by URL pattern.                             |
-| `logTab`     | `dev`, `start`, `preview` | Filters logs by tab ID.                                  |
+| Key             | Applies to                | What it does                                             |
+| --------------- | ------------------------- | -------------------------------------------------------- |
+| `logLevel`      | `dev`, `start`, `preview` | Sets minimum log level (`off` to `all`).                 |
+| `logContexts`   | `dev`, `start`, `preview` | Filters logs by context (`background`, `content`, etc.). |
+| `logFormat`     | `dev`, `start`, `preview` | Sets output format (`pretty`, `json`, `ndjson`).         |
+| `logTimestamps` | `dev`, `start`, `preview` | Toggles timestamps on log lines.                         |
+| `logColor`      | `dev`, `start`, `preview` | Toggles color in log output.                             |
+| `logUrl`        | `dev`, `start`, `preview` | Filters logs by URL pattern.                             |
+| `logTab`        | `dev`, `start`, `preview` | Filters logs by tab ID.                                  |
 
 ### Rspack configuration
 

@@ -16,6 +16,8 @@ keywords:
 
 Extension.js runs TypeScript across every extension context: background, content scripts, popup, options, and sidebar. It uses the Rspack + SWC pipeline by default. You do not need a separate `tsc` step, a ts-loader, or an extra bundler rule.
 
+Builds do not need the `typescript` package at all. SWC compiles your sources and strips the types. The package matters only for editor tooling and a `tsc --noEmit` typecheck. For that reason a missing `typescript` package never fails a build, unlike missing framework integration packages.
+
 ## When TypeScript is a good fit
 
 - You want safer refactors and clearer contracts across extension contexts.
@@ -156,8 +158,8 @@ deno run -A npm:typescript/tsc --init
 
 Extension.js looks for `tsconfig.json` next to your `package.json`.
 
-- If TypeScript source files are present and `tsconfig.json` is missing, Extension.js throws an error and asks you to create one.
-- If Extension.js detects TypeScript through dependencies or configuration without source files, it can scaffold a baseline `tsconfig.json`.
+- `.ts` source files with no `tsconfig.json` is a hard error. Create the file next to `package.json` to fix it.
+- A project that declares the `typescript` dependency but has no `tsconfig.json` and no `.ts` sources yet gets a baseline one written for it.
 
 Example baseline configuration:
 
@@ -173,7 +175,6 @@ Example baseline configuration:
     "lib": ["dom", "dom.iterable", "esnext"],
     "moduleResolution": "bundler",
     "module": "esnext",
-    "noEmit": true,
     "resolveJsonModule": true,
     "strict": true,
     "target": "esnext",
@@ -182,6 +183,11 @@ Example baseline configuration:
   "exclude": ["node_modules", "dist"]
 }
 ```
+
+Two defaults worth knowing:
+
+- `moduleResolution` is `bundler`, which models the Rspack + SWC pipeline. The removed `node` (node10) mode fails `tsc --noEmit` on TypeScript 7.
+- `jsx` is `react-jsx` only when Extension.js detects a JSX framework in the project. Without one, it stays `preserve`.
 
 #### Automatic types
 

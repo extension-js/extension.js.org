@@ -159,6 +159,36 @@ Choose the stack default that matches your project. Each card scaffolds a minima
 
 When you run `create --template=<slug>`, Extension.js fetches the selected template, scaffolds the project files, and optionally installs dependencies.
 
+Only the `javascript` template ships inside the CLI, so it scaffolds offline with no network call. It is also the default when you omit `--template`. Every other name downloads the template catalog archive at create time.
+
+The catalog holds 6 groups and roughly 50 templates: starters, sidebar, content scripts, new tab, toolbar action, and special folders. Run `extension create --help` to see every name.
+
+A name outside the catalog fails with `E_TEMPLATE_NOT_FOUND` and creates nothing. A failed download is reported as a download error instead, so a network problem never reads like a typo.
+
+### Reproducible scaffolds
+
+The template corpus is pinned to an immutable commit of the examples repository. Two scaffolds of the same template always produce the same files, and a shipped CLI never tracks a moving branch.
+
+You can point at a different corpus:
+
+```bash
+# A branch, tag, or commit SHA of extension-js/examples
+EXTENSION_CREATE_TEMPLATE_REF=main extension create my-extension --template=react
+
+# Override the archive URL entirely
+EXTENSION_CREATE_TEMPLATE_URL=https://example.com/examples.zip extension create my-extension --template=react
+```
+
+`EXTENSION_CREATE_TEMPLATE_REF` accepts a branch, a tag, or a commit SHA. Setting it to `main` restores the floating branch behavior.
+
+### Scaffold from a URL
+
+`--template` also accepts a GitHub URL or a ZIP URL in place of a catalog name:
+
+```bash
+extension create my-extension --template=https://github.com/extension-js/examples/tree/main/examples/content
+```
+
 ## More templates
 
 Find official template sources in the examples repository:

@@ -22,33 +22,51 @@ Keep browser sessions isolated or persistent based on your workflow. Extension.j
 
 Extension.js chooses the profile mode in this order:
 
-1. Explicit `profile` path (if provided)
-2. Managed profile mode (default)
+1. System profile mode when `profile: false` or `EXTENSION_USE_SYSTEM_PROFILE=true`
+2. Explicit `profile` path (if provided)
+3. Managed profile mode (default)
    - temporary (ephemeral) by default
-   - persistent when `persistProfile: true`
-3. System profile mode when `EXTENSION_USE_SYSTEM_PROFILE=true`
+   - persistent when `persistProfile: true` or `keepProfileChanges: true`
+
+### How `--profile` values are read
+
+The CLI delivers flag values as strings, so Extension.js normalizes them:
+
+- `--profile=false` (or `profile: false` in config) means the browser's own default profile.
+- `--profile=true` means the managed default, the same as leaving the option unset.
+- Any other string is an explicit profile path.
+
+A relative `--profile` path resolves against the project (compilation context), not your shell's working directory. This keeps sequential runs of different projects from collapsing onto one shared profile.
 
 ## Profile capabilities
 
-| Config / option                     | What it does                                                    |
-| ----------------------------------- | --------------------------------------------------------------- |
-| `browser.<target>.profile`          | Uses an explicit profile folder for that browser target.        |
-| `commands.dev.profile`              | Uses an explicit profile only for `dev`.                        |
-| `commands.start.profile`            | Uses an explicit profile only for `start`.                      |
-| `commands.preview.profile`          | Uses an explicit profile only for `preview`.                    |
-| `browser.<target>.persistProfile`   | Reuses managed profile state between runs for a target.         |
-| `commands.<name>.persistProfile`    | Reuses managed profile state in a command-specific context.     |
-| `--profile=/abs/path`               | CLI override for explicit profile path.                         |
-| `EXTENSION_USE_SYSTEM_PROFILE=true` | Uses the OS/browser system profile instead of managed profiles. |
+| Config / option                      | What it does                                                          |
+| ------------------------------------ | --------------------------------------------------------------------- |
+| `browser.<target>.profile`           | Uses an explicit profile folder for that browser target.              |
+| `commands.dev.profile`               | Uses an explicit profile only for `dev`.                              |
+| `commands.start.profile`             | Uses an explicit profile only for `start`.                            |
+| `commands.preview.profile`           | Uses an explicit profile only for `preview`.                          |
+| `browser.<target>.persistProfile`    | Reuses managed profile state between runs for a target.               |
+| `commands.<name>.persistProfile`     | Reuses managed profile state in a command-specific context.           |
+| `keepProfileChanges`                 | Keeps the managed profile and its changes across runs (same effect as `persistProfile`). |
+| `copyFromProfile`                    | Seeds the managed profile as a copy of an existing profile directory. |
+| `--profile=/abs/path`                | CLI override for explicit profile path.                               |
+| `--profile=false`                    | Launches the browser's own default profile (system mode).             |
+| `EXTENSION_USE_SYSTEM_PROFILE=true`  | Uses the OS/browser system profile instead of managed profiles.       |
+| `EXTJS_USE_SYSTEM_PROFILE=true`      | Alias of `EXTENSION_USE_SYSTEM_PROFILE`.                              |
+
+### Seeding with `copyFromProfile`
+
+`copyFromProfile` copies the source directory into the managed profile before launch. The copy happens only when the target is fresh, meaning it does not exist or is empty. A persisted profile therefore seeds once, and your later changes survive every run.
 
 ## Profile modes
 
 | Mode                    | How to enable                                   | Typical use                                   |
 | ----------------------- | ----------------------------------------------- | --------------------------------------------- |
 | Managed ephemeral       | default                                         | clean runs with isolated state                |
-| Managed persistent      | `persistProfile: true`                          | iterative debugging with stable browser state |
+| Managed persistent      | `persistProfile: true` or `keepProfileChanges: true` | iterative debugging with stable browser state |
 | Explicit custom profile | `profile: "/abs/path"` or `--profile=/abs/path` | reuse an existing profile                     |
-| System profile          | `EXTENSION_USE_SYSTEM_PROFILE=true`             | launch with OS/browser default profile        |
+| System profile          | `--profile=false` or `EXTENSION_USE_SYSTEM_PROFILE=true` | launch with OS/browser default profile        |
 
 Extension.js creates managed profiles under:
 
@@ -57,6 +75,8 @@ Extension.js creates managed profiles under:
 Persistent mode uses:
 
 - `dist/extension-js/profiles/<browser>-profile/dev`
+
+Each ephemeral run gets a generated three-word leaf name in adjective-color-animal form, for example `brave-magenta-heron`. The name is random per run, so do not hardcode it. Read the `profilePath` field in the session's `ready.json` to find the profile a run is using.
 
 {/* VIDEO_SPEC id=profile-persist grammar=A→B ~12s loop  [SHIPPED: video/scenes/profile-persist.scene.mjs]
   Needs: mock transcript `profile-persist` (dev boot with persistProfile: true in
@@ -84,6 +104,11 @@ export default {
     firefox: {
       // Keep a stable managed profile for repeated sessions:
       persistProfile: true,
+    },
+    edge: {
+      // Keep changes across runs and seed once from an existing profile:
+      keepProfileChanges: true,
+      copyFromProfile: "/path/to/existing/profile",
     },
   },
 };
@@ -115,7 +140,23 @@ Works similarly with `start` and `preview`.
 
 - Extension.js creates ephemeral managed profiles for each run.
 - Extension.js reuses the persistent managed profile (`dev`) across runs.
-- Extension.js automatically removes old managed profile folders. Set `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` to control the maximum age.
+- Each ephemeral profile carries a `.extension-js-managed-profile` marker file. On browser exit, Extension.js removes only directories that carry the marker, so kept and explicit profiles are never reclaimed.
+- Extension.js also sweeps stale marked profiles on the next launch. Set `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` to control the maximum age (default 12 hours).
+- On every Firefox launch, Extension.js deletes the profile's `startupCache` directory. A pinned or persisted profile can otherwise serve stale extension code across a full dev restart.
+
+## Locked Chromium profiles
+
+<Warning>
+  If another live browser process on the same machine owns the profile,
+  Extension.js refuses to launch instead of corrupting it. Close that browser or
+  choose a different profile first.
+</Warning>
+
+Before a Chromium launch, Extension.js reads the profile's `SingletonLock` artifact. A lock that names a dead process or another host is stale. Extension.js removes the stale `SingletonLock`, `SingletonSocket`, and `SingletonCookie` files and launches normally. When the owning process is still alive on this host, the launch aborts instead. The session's `ready.json` is stamped with the `profile_locked` error code, so machine consumers never parse the error sentence.
+
+## Privacy
+
+A managed profile is a full browser profile. It holds cookies, history, and login data from anything you do in that browser session. Extension.js writes a `.gitignore` with a `*` rule into `dist/extension-js` once, so profiles and session state never reach git. Do not commit or ship this directory.
 
 ## Best practices
 

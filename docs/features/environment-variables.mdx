@@ -203,8 +203,20 @@ All built-ins above are available through both `process.env.*` and `import.meta.
 | `EXTENSION_AUTO_EXIT_MS`          | Auto-exit dev process after N ms                                                                                                             | CI hard-stop control                                                          |
 | `EXTENSION_FORCE_KILL_MS`         | Force-kill timeout fallback                                                                                                                  | CI cleanup resilience                                                         |
 | `EXTENSION_VERBOSE`               | Verbose diagnostics in selected flows                                                                                                        | Debugging CLI behavior                                                        |
-| `EXTENSION_AUTHOR_MODE`           | Maintainer/author diagnostics mode                                                                                                           | Internal diagnostics and tooling                                              |
+| `EXTENSION_DEBUG`                 | Enable the debug output channel (`1`/`true` to set), same as passing `--debug`                                                               | Diagnosing CLI behavior without editing commands                              |
+| `EXTENSION_AUTHOR_MODE`           | Legacy alias for `EXTENSION_DEBUG`; an explicit `EXTENSION_DEBUG` value wins over it                                                         | Superseded, use `EXTENSION_DEBUG`                                             |
+| `EXTENSION_OUTPUT`                | Force machine output (`json` or `ndjson`); human stdout goes quiet, any other value means pretty                                             | Same effect as `--output` for wrapped invocations                             |
 | `EXTENSION_CLI_NO_BROWSER`        | Disable browser launch from CLI (`1` to set)                                                                                                 | Equivalent to `--no-browser` flag                                             |
+| `EXTENSION_DEV_INSTANCE_ID`       | Pin the dev-session instance id instead of generating one                                                                                    | Stable session identity for harnesses that attach to a run                    |
+| `EXTENSION_CONTROL_PORT`          | Set by the dev server to hand the control-channel port to the compiler in the same process                                                   | Internal coordination value, read it, do not set it                           |
+| `EXTENSION_WATCH_POLL`            | Switch file watching to polling (`true` to set)                                                                                              | Network drives and containers where inotify events do not arrive              |
+| `EXTENSION_WATCH_POLL_INTERVAL`   | Polling interval in ms when polling is on (default `1000`)                                                                                   | Tune rebuild latency against CPU cost                                         |
+| `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` | Age in hours before ephemeral managed profiles are swept on launch (default `12`)                                                        | Keep or reclaim temp profiles faster in CI                                    |
+| `EXTENSION_USE_SYSTEM_PROFILE`    | Launch with the system browser profile instead of a managed one (`true` to set); `EXTJS_USE_SYSTEM_PROFILE` is an accepted alias             | Sessions that need your real logins and extensions                            |
+| `EXTENSION_HEADLESS`              | Force the headless backend (`1`/`true` to set)                                                                                               | Focus-steal guard for automated sessions on macOS                             |
+| `EXTENSION_PREFER_CHROMIUM_SNAPSHOT` | Prefer the managed Chromium tip-of-tree snapshot over a system stable browser (`true` to set)                                             | Testing against the newest Chromium                                           |
+| `EXTENSIONJS_BINARIES_IN_DIST`    | Store managed browser binaries under the project `dist/` instead of the shared cache (`1` to set)                                            | Fully self-contained project checkouts                                        |
+| `EDGE_BINARY`                     | Absolute path to the Edge binary to launch                                                                                                   | Non-standard Edge install locations                                           |
 | `EXTENSION_DEV_NO_BROWSER`        | Disable browser launch in dev server                                                                                                         | Monorepo watch without browser spawns                                         |
 | `EXTENSION_NO_RELOAD`             | Skip content-script reload runtime in dev                                                                                                    | Equivalent to `extension dev --no-reload`                                     |
 | `EXTENSION_DEV_DRY_RUN`           | Skip dev server startup (return early)                                                                                                       | Smoke-testing CLI wiring                                                      |
@@ -221,11 +233,23 @@ All built-ins above are available through both `process.env.*` and `import.meta.
 | `EXTENSION_TELEMETRY`             | Back-compat disable (`0` to disable)            | unset   |
 | `EXTENSION_TELEMETRY_SAMPLE_RATE` | Sampling rate for `command_executed` (0.0–1.0)  | `0.2`   |
 | `EXTENSION_TELEMETRY_MAX_EVENTS`  | Maximum events emitted per CLI process          | `3`     |
-| `EXTENSION_TELEMETRY_DEBOUNCE_MS` | Dedup window for identical event tuples (ms)    | `60000` |
+| `EXTENSION_TELEMETRY_DEBOUNCE_MS` | Deduplication window for identical event tuples (ms)    | `60000` |
 | `EXTENSION_TELEMETRY_TIMEOUT_MS`  | HTTP timeout for telemetry requests (ms)        | `300`   |
 | `EXTENSION_TELEMETRY_DEBUG`       | Print telemetry payloads to stderr (`1` to set) | unset   |
+| `EXTENSION_TELEMETRY_AUDIT_MAX_BYTES` | Local audit log rotation cap in bytes       | `1048576` |
 
-See [Telemetry and privacy](/docs/features/telemetry-and-privacy) for the full opt-out contract.
+`EXTENSION_TELEMETRY=1` is also the explicit opt-in for CI, where telemetry is otherwise off by default. See [Telemetry and privacy](/docs/features/telemetry-and-privacy) for the full consent contract.
+
+### Scaffolding (`extension create`) variables
+
+| Variable                          | Purpose                                                                                     | Default        |
+| --------------------------------- | ------------------------------------------------------------------------------------------- | -------------- |
+| `EXTENSION_CREATE_TEMPLATE_REF`   | Template corpus ref: a branch, tag, or commit SHA; `main` restores the floating branch      | a pinned commit |
+| `EXTENSION_CREATE_TEMPLATE_URL`   | Override the template archive URL entirely                                                  | unset          |
+| `EXTENSION_CREATE_ENGINE_VERSION` | Pin the `extension` dependency version written into scaffolded projects                     | CLI version    |
+| `EXTENSION_CREATE_TIMEOUT_MS`     | Network timeout for template downloads (ms)                                                 | `60000`        |
+
+See [Templates](/docs/getting-started/templates) for how the pinned corpus works.
 
 ### Browser transport tuning variables
 
@@ -239,6 +263,7 @@ These variables override internal Chrome DevTools Protocol (CDP) and Remote Debu
 | `EXTENSION_RDP_EVAL_TIMEOUT_MS`       | Firefox RDP evaluation timeout (ms)     | `8000`  |
 | `EXTENSION_RDP_MAX_RETRIES`           | Firefox RDP connect retry count         | `150`   |
 | `EXTENSION_RDP_RETRY_INTERVAL_MS`     | Firefox RDP connect retry interval (ms) | `1000`  |
+| `EXTENSION_RDP_REQUEST_TIMEOUT_MS`    | Firefox RDP per-request timeout (ms)    | `30000` |
 
 ## Browser-specific environment variables
 

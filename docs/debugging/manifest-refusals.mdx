@@ -1,0 +1,87 @@
+---
+title: "Manifest refusals: why Chromium won't load your extension"
+description: "Diagnose manifest shapes that make Chromium refuse the whole extension before launch, and see which fatal shapes Extension.js repairs automatically."
+keywords:
+  [
+    "chrome refuses to load extension",
+    "manifest.json invalid",
+    "required value name is missing or invalid",
+    "invalid match pattern",
+    "could not load icon",
+    "default_locale",
+    "manifest v2 not supported",
+    "extension.js",
+    "debugging",
+  ]
+---
+
+Some manifest shapes make Chromium refuse to load the whole extension. The refusal surfaces as a native dialog, or as nothing at all, never as a console error. Without help, a dev session just wedges: the browser runs, the extension is absent, and the debug channel never attaches.
+
+Extension.js closes that gap in two places:
+
+- **Before launch**, it reads the built `manifest.json` of every extension it is about to load and warns about each refusal it can prove, naming the field and the reason.
+- **At build time**, it repairs a small set of unambiguous fatal shapes and prints a fix line for each repair.
+
+## Pre-launch diagnosis
+
+These checks run against the built extension, right before the browser spawns.
+
+### Manifest version refusals
+
+| Shape                                                | Why Chromium refuses                                                              |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `manifest_version: 2`                                | Modern Chromium refuses MV2 outright. Run it on Firefox or migrate to MV3.       |
+| MV3 with `background.scripts` and no `service_worker` | A Firefox-style background. Chromium needs `background.service_worker`.          |
+| Any other value (missing, `1`, above `3`)            | Refused as an unsupported manifest version.                                       |
+
+### Invalid match patterns
+
+One invalid pattern makes Chrome refuse the whole extension. Extension.js checks `host_permissions`, `optional_host_permissions`, `content_scripts` (`matches` and `exclude_matches`), and `web_accessible_resources` matches.
+
+The host grammar allows `*`, `*.domain.tld`, or a literal host. Any other wildcard placement in the host is invalid, for example `https://foo.*.com/*`. Ports, query strings, and fragments do not trigger a refusal, and the port may itself be a wildcard.
+
+### The load-blocker catalogue
+
+Each of these was verified to refuse the whole extension on a live Chrome build:
+
+- **`name`**: missing, empty, or not a string. Chrome requires a non-empty string name.
+- **`version`**: missing, or not 1 to 4 dot-separated integers, each 0 to 65535.
+- **MV3 `web_accessible_resources`**: entries must be dictionaries with `resources`, plus one of `matches`, `extension_ids`, or `use_dynamic_url`. The MV2 string-array form refuses on MV3. MV2 keeps it legal.
+- **`content_scripts` grammar**: `matches` is required and must not be empty, `js` and `css` entries must be strings, `run_at` accepts only `document_start`, `document_end`, or `document_idle`, and each entry needs at least one `js` or `css` file.
+- **`minimum_chrome_version`**: an invalid value refuses outright. A valid value above the resolved browser's version refuses too, so the check compares against the binary that the session launches.
+- **`commands`**: Chrome allows at most 4 shortcuts with a `suggested_key`. Firefox has no cap, so ported Firefox extensions routinely trip this.
+- **`key`**: must be a valid base64 public key. Broken padding refuses the extension.
+- **Icons**: a manifest icon (`icons.*` or any `*_action.default_icon`) whose file is missing or 0 bytes refuses the whole extension.
+- **Locales**: a declared `default_locale` whose `_locales/<locale>/messages.json` is missing or not valid JSON refuses. So does a whole-string `__MSG_key__` reference that the catalog does not define (the lookup is case-insensitive, `@@predefined` names are exempt). A populated `_locales` tree with no `default_locale` in the manifest refuses too.
+- **`storage.managed_schema`**: a schema path that does not exist inside the extension directory refuses the whole extension.
+
+Each finding prints as a warn naming the extension path and every blocker, before the spawn, so the wedge is explained up front.
+
+## Automatic repairs at build time
+
+A subset of fatal shapes is unambiguous enough to fix. During the build, Extension.js repairs these in the emitted `manifest.json`:
+
+| Shape                                                     | Repair                                                                     |
+| --------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `name` missing, empty, or not a string                    | Coerce numbers and booleans to strings, else use `"Unnamed Extension"`.    |
+| `version` missing                                         | Inject `"0.0.0"`.                                                           |
+| `version` is a number (`1.0`)                             | Coerce to the string form.                                                  |
+| `version` string outside Chrome's grammar (`"x.y.z"`)     | Salvage the numeric parts (`"1.0-beta"` becomes `"1.0"`), else `"0.0.0"`.  |
+| Empty `default_icon` (`""` or `{}`) on an action          | Drop the key. Empty means no icon.                                          |
+| An icon file that exists but is 0 bytes                   | Drop that icon entry.                                                       |
+| `'unsafe-inline'` in `content_security_policy.extension_pages` script-src | Strip it. MV3 never honors it, so only the refusal changes. |
+| A named command with a missing or empty `description`     | Fall back to the command name (`_execute_*` commands are exempt).          |
+
+Every repair reports a fix line in the CLI output at the moment it happens, and records a `manifest.json` build warning, so nothing is rewritten silently.
+
+<Note>
+  Repairs apply to the emitted `dist` manifest only. Your source
+  `manifest.json` is never modified. Fix the source when you see a fix line, so
+  the repair stops being needed.
+</Note>
+
+## Next steps
+
+- [Debugging overview](/docs/debugging): the full control surface for a running session.
+- [Browsers available](/docs/browsers/browsers-available): choose a target that can load your manifest.
+- [Cross-browser compatibility](/docs/features/cross-browser-compatibility): keep one manifest working per engine.
