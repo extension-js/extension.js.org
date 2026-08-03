@@ -18,6 +18,21 @@ Use `dev` for day-to-day browser extension development with watch mode, browser 
 
 `dev` runs the development pipeline and watches your project files. It applies update strategies based on what changed: hot module replacement (HMR), hard reload, or a full restart when the change requires it.
 
+{/* VIDEO_SPEC id=dev-context-reload grammar=D→E ~14s loop  [SHIPPED: video/scenes/dev-context-reload.scene.mjs]
+  Needs: mock transcript `cmd-dev` (reused); fixture manifest.json + manifest.json.pristine;
+    usesEditor manifest.json line 3 column 11 (the "name" value's opening quote, so
+    shift+end takes `"my-extension",` and the typed string puts all of it back);
+    stage(): dev running, browser open, editor on the file — clip opens mid-workflow
+    real-mode-only (proof): the new name is legible only on the browser's extensions
+    page, so a real take opens on liveUrl chrome://extensions/
+  D editor.replaceToEndOfLine('"My Extension (renamed)",')  mark:edited
+    editor.save()                                           mark:saved
+  E browser.focus(); manifest change = full extension restart, new name visible
+    (mock serves one static page and has no navigate(), so it stands the restart
+     up as hmr({reload}) — the strategy, not the name)      mark:updated → hold read → end
+  post: trim start→end, posterAt updated, ramps [start→edited 1.35x], loop
+  run: node video/record.mjs dev-context-reload --mock */}
+
 ## When to use `dev`
 
 - Building features and validating changes in real time.
@@ -192,7 +207,16 @@ extension dev packages/my-extension
 
 ### Running a local extension
 
-{/* VIDEO_PLACEHOLDER_TODO: Show local extension dev startup with watch mode and live update behavior after editing a UI file. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
+{/* VIDEO_SPEC id=cmd-dev grammar=A→B→C ~14s loop  [SHIPPED: video/scenes/cmd-dev.scene.mjs]
+  Needs: mock transcript `cmd-dev` (real 4.0.19 dev shape: browser-detect line, header
+    card, ready + compiled lines — NOT the hero.json shape, which predates 4.0.19 and
+    needs a re-cut of its own)
+  A terminal.type('extension dev')                  mark:command-submitted
+  B build streams ~4s (ramp 2.0x in post)           mark:build-streaming-done
+  C browser.open() extension visibly running, hold read
+                                                    mark:browser-visible → end
+  post: trim start→end, posterAt browser-visible, loop
+  run: node video/record.mjs cmd-dev --mock  (scenes/hero.scene.mjs is the reference cut) */}
 
 <CodeGroup>
 
@@ -248,8 +272,6 @@ extension dev https://github.com/nicedoc/browserless/tree/main/packages/screenca
 
 ### Running in Firefox
 
-{/* VIDEO_PLACEHOLDER_TODO: Show switching browser target to Firefox and validating extension behavior in that runtime. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
-
 <CodeGroup>
 
 ```bash npm
@@ -275,8 +297,6 @@ extension dev ./my-extension --browser firefox
 </CodeGroup>
 
 ### Running in multiple browsers in sequence
-
-{/* VIDEO_PLACEHOLDER_TODO: Show running dev in Chrome then Firefox with explicit browser targets for cross-browser validation. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <CodeGroup>
 
@@ -387,8 +407,6 @@ extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
 When `--host` is a concrete address already (for example `--host 192.168.1.50`), that value is connectable as-is and is used directly. `--public-host` is only needed when the bind host and the browser-facing host differ.
 
 ### Running in Brave as a custom binary
-
-{/* VIDEO_PLACEHOLDER_TODO: Show running `dev` with a custom Chromium binary and validating that the extension launches in that browser. Intentionally hidden until a real demo video is available so it does not render in docs or appear in llms artifacts. */}
 
 <CodeGroup>
 

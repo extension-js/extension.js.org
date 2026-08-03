@@ -54,8 +54,6 @@ function collectFencedCommands(file: string): FencedCommand[] {
     if (!match) return;
 
     const verb = match[1];
-    if (!(verb in snapshot)) return;
-
     const rest = match[2] || "";
     const flags = [...rest.matchAll(/(?<![\w-])(--[a-z][\w-]*)/g)].map(
       (m) => m[1],
@@ -81,10 +79,22 @@ describe("fenced extension commands only use flags the verb accepts", () => {
     expect(fenced.length).toBeGreaterThan(0);
   });
 
+  it("every fenced command names a verb the CLI ships", () => {
+    const offenders = fenced
+      .filter((command) => !(command.verb in snapshot))
+      .map(
+        (command) =>
+          `${command.file}:${command.line} - "extension ${command.verb}" is not a command\n    ${command.raw}`,
+      );
+
+    expect(offenders.join("\n"), offenders.join("\n")).toBe("");
+  });
+
   it("every fenced command uses flags its verb accepts", () => {
     const offenders: string[] = [];
 
     for (const command of fenced) {
+      if (!(command.verb in snapshot)) continue;
       const accepted = new Set(snapshot[command.verb] || []);
       for (const flag of command.flags) {
         if (!accepted.has(flag)) {
