@@ -31,6 +31,18 @@ A bare name like `sample.page-redder` is **not** a remote fetch; it is only a fo
 
 ## Run Chrome extension samples fast
 
+{/* VIDEO_SPEC id=dev-remote-url grammar=A→B ~14s loop  [SHIPPED: video/scenes/dev-remote-url.scene.mjs]
+  Needs: mock transcript `dev-remote-url` (transcribed from a real 4.0.35 run of the
+    command this section documents: fetch, download, scaffold, compile, card, ready)
+  A terminal.type('npx extension@latest dev https://github.com/GoogleChrome/…/sample.page-redder')
+                                                    mark:command-submitted
+  B the clone streams, then the card and the ready line. Terminal-only on purpose:
+    the sample is Google's, carries no Extension.js page, and its behaviour needs a
+    toolbar click the actor vocabulary does not have  mark:download-done → hold read → end
+  post: trim start→end, posterAt download-done, ramps [start→command-submitted 3.6x,
+    command-submitted→download-done 2.2x], loop
+  run: node video/record.mjs dev-remote-url --mock */}
+
 Use samples from the Chrome Extension Samples repository to validate your setup and learn the workflow quickly.
 
 ### Option A: full GitHub tree URL (recommended)
@@ -91,6 +103,16 @@ Browse more samples in [Chrome Extension Samples](https://github.com/GoogleChrom
 
 ## Run samples in Microsoft Edge
 
+{/* VIDEO_SPEC id=dev-remote-edge grammar=A→B ~14s loop  [SHIPPED: video/scenes/dev-remote-edge.scene.mjs]
+  Needs: mock transcript `dev-remote-edge`; scene carries browserTarget: "edge"
+  A terminal.type('npx extension@latest dev https://github.com/…/magic8ball --browser=edge')
+                                                    mark:command-submitted
+  B same shape as dev-remote-url line for line, because the claim is that one flag is
+    the only difference: the Browser row is the single changed value
+                                                    mark:download-done → hold read → end
+  post: trim start→end, posterAt download-done, same ramps as dev-remote-url, loop
+  run: node video/record.mjs dev-remote-edge --mock */}
+
 Extension.js supports Microsoft Edge with no extra configuration.
 
 ### Full URL with Edge
@@ -132,28 +154,40 @@ This example follows the [magic8ball](https://github.com/GoogleChrome/chrome-ext
 
 ## Run Mozilla extensions in Edge with polyfill
 
+{/* VIDEO_SPEC id=dev-polyfill-edge grammar=A→B ~14s loop  [SHIPPED: video/scenes/dev-polyfill-edge.scene.mjs]
+  Needs: mock transcript `dev-polyfill-edge`; scene carries browserTarget: "edge"
+  A terminal.type('npx extension@latest dev https://github.com/mdn/…/beastify --browser=edge --polyfill=true')
+                                                    mark:command-submitted
+  B the MDN example boots in Edge through the polyfill  mark:download-done → hold read → end
+  NOTE: beastify, not apply-css. apply-css is Manifest V2 and modern Edge refuses to
+    load it, so a take of the previously documented command would have filmed a
+    failure (BUGS_TO_FIX 216, fixed in this page).
+  post: trim start→end, posterAt download-done, ramps [start→command-submitted 3.4x,
+    command-submitted→download-done 2.2x], loop
+  run: node video/record.mjs dev-polyfill-edge --mock */}
+
 You can run MDN WebExtensions examples in Edge. Pass the GitHub tree URL and enable the polyfill (a compatibility layer). The polyfill maps Firefox-style `browser.*` calls to Chrome-style `chrome.*` calls, so your Firefox-oriented extension works in Chromium-based browsers.
 
 <CodeGroup>
 
 ```bash npm
-npx extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/apply-css --browser=edge --polyfill=true
+npx extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/beastify --browser=edge --polyfill=true
 ```
 
 ```bash pnpm
-pnpx extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/apply-css --browser=edge --polyfill=true
+pnpx extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/beastify --browser=edge --polyfill=true
 ```
 
 ```bash yarn
-yarn dlx extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/apply-css --browser=edge --polyfill=true
+yarn dlx extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/beastify --browser=edge --polyfill=true
 ```
 
 ```bash bun
-bunx extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/apply-css --browser=edge --polyfill=true
+bunx extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/beastify --browser=edge --polyfill=true
 ```
 
 ```bash deno
-deno run -A npm:extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/apply-css --browser=edge --polyfill=true
+deno run -A npm:extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/beastify --browser=edge --polyfill=true
 ```
 
 </CodeGroup>
@@ -162,11 +196,11 @@ deno run -A npm:extension@latest dev https://github.com/mdn/webextensions-exampl
 
 ```bash
 git clone https://github.com/mdn/webextensions-examples.git
-cd webextensions-examples/apply-css
+cd webextensions-examples/beastify
 npx extension@latest dev . --browser=edge --polyfill=true
 ```
 
-This follows the [Apply CSS](https://github.com/mdn/webextensions-examples/tree/main/apply-css) example from MDN WebExtensions Examples.
+This follows the [Beastify](https://github.com/mdn/webextensions-examples/tree/main/beastify) example from MDN WebExtensions Examples. It is a Manifest V3 example that calls the Firefox-style `browser.*` APIs, which is what the polyfill translates. Manifest V2 examples (such as Apply CSS) cannot run in Edge at all, because modern Chromium refuses to load MV2: run those with `--browser=firefox` instead.
 
 
 ## Create a minimal extension from scratch
