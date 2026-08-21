@@ -58,7 +58,7 @@ If Xcode is missing, `extension build`/`dev --browser=safari` fail fast, before 
 | --------------------- | ------------------------------------------------------------- |
 | `dist/safari`         | The bundled web extension (manifest, scripts, assets).        |
 | `dist/safari-xcode`   | The generated Xcode project (app + Safari extension targets). |
-| `…/Release/<App>.app` | The compiled, ad-hoc–signed app that hosts your extension.    |
+| `…/Release/<App>.app` | The compiled app that hosts your extension, signed with your team id when `--development-team` is set and ad-hoc otherwise. |
 
 The pipeline runs end to end: **bundle → convert → `xcodebuild`**, plus **open
 the app → guided enable** in `dev` (or with `build --open`). A plain `build`
@@ -85,6 +85,7 @@ Both `dev` and `build` accept identity overrides (Safari targets only):
 | -------------------- | --------------------------------------------------------------------------- |
 | `--bundle-id`        | User-owned reverse-DNS bundle identifier (e.g. `com.example.my-extension`). |
 | `--app-name`         | Override the app name (defaults to the manifest `name`).                    |
+| `--development-team` | Apple Developer team id to sign with (e.g. `A1B2C3D4E5`). Without it the build is ad-hoc signed. |
 | `--macos-only`       | Generate a macOS-only Xcode project (default `true`). Pass `--macos-only false` for a universal macOS + iOS project. |
 | `--force-regenerate` | Regenerate the Xcode project even when it is up to date.                    |
 | `--safari-binary`    | `dev` only: the Safari binary to open after packaging.                      |
@@ -100,6 +101,7 @@ export default {
     safari: {
       appName: "My Extension",
       bundleId: "com.example.my-extension",
+      developmentTeam: "A1B2C3D4E5",
     },
   },
 };
@@ -119,16 +121,43 @@ nothing to run.
 
 ## Enabling the extension in Safari
 
-Local builds are **ad-hoc signed** (no Apple Developer account required), so Safari needs you to opt in once. When the app opens (`dev`, or `build --open`), Extension.js prints these steps and confirms when macOS has registered the extension:
+How you enable the extension depends on how the app was signed. Extension.js
+prints the steps that match your build when the app opens (`dev`, or
+`build --open`), and confirms when macOS has registered the extension.
+
+### Signed builds (recommended)
+
+Pass `--development-team` with your Apple Developer team id and the app is
+signed with your own certificate:
+
+```bash
+extension dev --browser safari --development-team A1B2C3D4E5
+```
+
+Safari then lists the extension like any other, and there is one step:
+
+1. Safari ▸ Settings ▸ Extensions ▸ turn on your extension.
+
+The toggle survives restarts, so this is a one-time step per machine.
+
+To find your team id, run `xcrun security find-identity -v -p codesigning`. The
+ten-character code in the certificate name is your team id, and it is also on
+the Membership page of your Apple Developer account.
+
+### Ad-hoc builds (no Apple Developer account)
+
+Without `--development-team` the build is ad-hoc signed, which Safari treats as
+unsigned. It still runs, with three steps:
 
 1. Safari ▸ Settings ▸ Advanced ▸ check **"Show features for web developers"**.
 2. Safari ▸ Develop ▸ **Allow Unsigned Extensions** (this resets every time Safari restarts).
 3. Safari ▸ Settings ▸ Extensions ▸ turn on your extension.
 
 <Note>
-  "Allow Unsigned Extensions" resets each time you launch Safari. Re-enable it
-  after restarting Safari during development. A signed build (Apple Developer
-  ID) avoids this step and is part of the distribution workflow.
+  "Allow Unsigned Extensions" resets each time you launch Safari, and it cannot
+  be scripted or saved in preferences, so every restart costs you the same three
+  steps. If you have an Apple Developer account, `--development-team` is worth
+  it for day-to-day development, not just for shipping.
 </Note>
 
 ## Developing with `dev`
@@ -175,10 +204,14 @@ one the converter guessed.
 ### What `xcodebuild` runs
 
 The compile step uses the `Release` configuration with derived data written to
-`dist/safari-xcode/.derived`, a folder worth adding to `.gitignore`. Local
-builds pass ad-hoc signing settings (`CODE_SIGN_IDENTITY=-`,
-`CODE_SIGNING_REQUIRED=NO`, `CODE_SIGNING_ALLOWED=YES`) so the embedded
-`.appex` still validates without an Apple Developer account. The scheme name is
+`dist/safari-xcode/.derived`, a folder worth adding to `.gitignore`. Signing
+settings depend on `--development-team`. With a team id the build passes
+`DEVELOPMENT_TEAM=<id>`, `CODE_SIGN_STYLE=Automatic`, and
+`-allowProvisioningUpdates`, so Xcode mints the provisioning profile it needs
+without being opened. Without one it passes ad-hoc settings
+(`CODE_SIGN_IDENTITY=-`, `CODE_SIGNING_REQUIRED=NO`,
+`CODE_SIGNING_ALLOWED=YES`) so the embedded `.appex` still validates without an
+Apple Developer account. The scheme name is
 your app name for a macOS-only project, and `<App> (macOS)` for a universal
 project.
 
@@ -242,13 +275,13 @@ npx extension build --browser=webkit-based
 
 - **Packaging is macOS-only.** The Xcode step needs macOS with the full Xcode app. (`build` on other platforms still produces `dist/safari`; `dev` requires macOS.)
 - **No live reload.** Rebuilds are fast, but you refresh in Safari to apply them.
-- **Manual one-time enable.** Allowing unsigned extensions and toggling the extension on are Safari security controls and cannot be automated.
-- **Local builds are ad-hoc signed.** Distribution signing, notarization, and App Store submission are a separate step beyond this workflow (see below).
+- **Manual one-time enable.** Toggling the extension on is a Safari security control and cannot be automated. On ad-hoc builds, allowing unsigned extensions is a second control with the same rule.
+- **Signing stops at development.** `--development-team` signs the local app with your development certificate. Distribution signing, notarization, and App Store submission are a separate step beyond this workflow (see below).
 - **macOS target only.** iOS app generation is not produced by this workflow today.
 
 ## After dev: shipping to the App Store
 
-The Safari workflow above ends with an ad-hoc–signed local app. Distributing it
+The Safari workflow above ends with a locally signed app, ad-hoc or development. Distributing it
 (to the Mac App Store, or as a notarized direct download) is a separate
 pipeline that Extension.js plans to offer through the
 [extension.dev](https://extension.dev?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam) platform. Until that lands, follow
