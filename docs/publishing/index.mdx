@@ -41,10 +41,8 @@ Shipping an extension to the Chrome Web Store, Firefox Add-ons, and Edge Add-ons
     page, shows what every value looks like, and lists the expiry rules.
   </Step>
   <Step title="Enter the credentials">
-    On the platform track, open your project on
-    [extension.dev](https://extension.dev), go to Settings, then Stores, and use
-    the guided setup dialog. On the direct track, set the environment variables
-    in your own CI, or keep them in a `.env.submit` file you write yourself.
+    Set the environment variables in your own CI, or keep them in a
+    `.env.submit` file you write yourself. Keep it out of git.
   </Step>
   <Step title="Author STORE.md">
     Write the [STORE.md metadata file](/docs/workflows/store-metadata) before
@@ -53,17 +51,15 @@ Shipping an extension to the Chrome Web Store, Firefox Add-ons, and Edge Add-ons
     submissions go out noteless.
   </Step>
   <Step title="Submit">
-    Submit from the project's release flow on extension.dev, from your own CI
-    against the
-    [platform API](https://docs.extension.dev/automate/api?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam),
-    or from an AI agent through the [MCP server](/docs/ai-access). Dry-run
-    first: a dry run verifies credentials and zips without uploading anything.
+    Submit from your own CI against each store's API. Dry-run first when your
+    tooling supports it: a dry run verifies credentials and zips without
+    uploading anything.
   </Step>
   <Step title="Track the review">
     A successful submission means the store accepted the upload and queued it
-    for review. Review is a third-party decision. The platform polls review
-    status and reports it in the project dashboard; it never claims a listing is
-    live before the store confirms it.
+    for review. Review is a third-party decision: poll each store's dashboard
+    or API for status, and never claim a listing is live before the store
+    confirms it.
   </Step>
   <Step title="Handle a rejection">
     Read the failure reason the store returned, fix the cause, and record both
@@ -83,36 +79,14 @@ Shipping an extension to the Chrome Web Store, Firefox Add-ons, and Edge Add-ons
 
 ## Where credentials live
 
-Store credentials on the platform track are **per project, not per workspace**.
+You hold the credentials yourself. A `.env.submit` file is the usual
+per-project credential file: one per repository, kept out of git, backed by
+your own secret storage. In CI, store each value as a secret.
 
-Each project gets a managed GitHub mirror repository. When you save store
-credentials in the project's Settings, under Stores, the platform writes them
-as GitHub Actions repository secrets on that project's mirror (names like
-`STORE_CHROME_CLIENT_ID` and `STORE_FIREFOX_API_KEY`). Non-secret identifiers,
-such as the extension ID and the publisher ID, go into the mirror's
-`_extension-dev/settings.json`.
-
-Three consequences follow from that model:
-
-- **Isolation.** One project's credentials can never reach another project's
-  pipeline. See [Agencies and multiple clients](/docs/publishing/agencies) for
-  what this means when you manage several store accounts.
-- **Write-only storage.** Saved secrets cannot be read back, by you or by the
-  platform UI. To re-run a live connection test, re-enter the secret values.
-- **Per-project rotation.** Rotating a credential for one project touches
-  nothing else.
-
-On the direct track, you hold the credentials yourself. A `.env.submit` file is
-the usual per-project credential file for that track. Keep it out of git.
-
-## Platform track and direct track
-
-|                             | Platform track                                                      | Direct track                                 |
-| --------------------------- | ------------------------------------------------------------------- | -------------------------------------------- |
-| Who holds store credentials | The project's managed mirror, entered once in project Settings      | You, in `.env.submit` or your own CI secrets |
-| What CI needs               | One revocable `EXTENSION_DEV_TOKEN`                                 | Every store credential as a secret           |
-| Submission command          | The release flow on extension.dev, or its API                       | Each store's own API, called by you          |
-| Review tracking             | Dashboard status, polled automatically                              | You poll each store yourself                 |
+Keep credentials per project even when two projects share a store account.
+All three stores' API credentials are account-wide, so a separate publisher
+account per product line is the only real isolation boundary on the store
+side. Rotating a credential then touches exactly one project.
 
 ## What a submission needs, per store
 
@@ -127,7 +101,5 @@ the usual per-project credential file for that track. Keep it out of git.
 - Get credentials: [Chrome](/docs/publishing/chrome-credentials),
   [Firefox](/docs/publishing/firefox-credentials),
   [Edge](/docs/publishing/edge-credentials).
-- Managing stores for several clients? Read
-  [Agencies and multiple clients](/docs/publishing/agencies).
 - Write the paperwork once:
   [Store metadata in one STORE.md file](/docs/workflows/store-metadata).
