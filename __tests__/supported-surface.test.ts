@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -81,9 +81,18 @@ describe("supported surface", () => {
       resolve(SITE_ROOT, "index.mdx"),
       resolve(DOCS_DIR, "getting-started", "templates.mdx"),
       resolve(DOCS_DIR, "languages-and-frameworks", "index.mdx"),
-      resolve(DOCS_DIR, "compare", "extension-js-vs-wxt.mdx"),
     ];
     for (const page of pages) {
+      // A page removed from the site leaves this list pointing at nothing, and
+      // readFileSync then fails with a bare ENOENT that says nothing about why
+      // the guard cares. Naming the contract here is the difference between
+      // "update this list" and a stack trace. `docs/compare/*` was deleted and
+      // silently broke this test until it was read.
+      expect(
+        existsSync(page),
+        `${relative(SITE_ROOT, page)} is listed as drift-prone but does not ` +
+          "exist. Remove it from this list, or restore the page.",
+      ).toBe(true);
       const paragraphs = stripCodeBlocks(readFileSync(page, "utf-8")).split(
         /\n\s*\n/,
       );
