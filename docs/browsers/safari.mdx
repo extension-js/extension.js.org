@@ -140,6 +140,22 @@ Safari then lists the extension like any other, and there is one step:
 
 The toggle survives restarts, so this is a one-time step per machine.
 
+Turning the extension **on is not the same as giving it access to pages**.
+Safari asks for website access separately, and until you grant it a content
+script does not run at all: the extension is listed, enabled, and does nothing.
+This holds even when your manifest declares `<all_urls>` in both
+`content_scripts.matches` and `host_permissions`, which is the part that
+surprises people coming from Chrome, where installing grants it.
+
+In the same panel, under **Permissions**, use:
+
+- **Always Allow on Every Website…** for a development extension you are
+  iterating on. It persists, so you grant it once.
+- **Edit Websites…** to allow only the hosts you are testing against.
+
+If your extension loads but nothing happens on the page, this is almost always
+why. Check the permission before you go looking at your code.
+
 To find your team id, run `xcrun security find-identity -v -p codesigning`. The
 ten-character code in the certificate name is your team id, and it is also on
 the Membership page of your Apple Developer account.
@@ -152,6 +168,8 @@ unsigned. It still runs, with three steps:
 1. Safari ▸ Settings ▸ Advanced ▸ check **"Show features for web developers"**.
 2. Safari ▸ Develop ▸ **Allow Unsigned Extensions** (this resets every time Safari restarts).
 3. Safari ▸ Settings ▸ Extensions ▸ turn on your extension.
+4. Grant website access, exactly as described above. Enabling alone does not
+   let a content script run.
 
 <Note>
   "Allow Unsigned Extensions" resets each time you launch Safari, and it cannot
@@ -275,7 +293,7 @@ npx extension build --browser=webkit-based
 
 - **Packaging is macOS-only.** The Xcode step needs macOS with the full Xcode app. (`build` on other platforms still produces `dist/safari`; `dev` requires macOS.)
 - **No live reload.** Rebuilds are fast, but you refresh in Safari to apply them.
-- **Manual one-time enable.** Toggling the extension on is a Safari security control and cannot be automated. On ad-hoc builds, allowing unsigned extensions is a second control with the same rule.
+- **Manual one-time enable.** Toggling the extension on and granting it website access are Safari security controls and cannot be automated. On ad-hoc builds, allowing unsigned extensions is a third control with the same rule.
 - **Signing stops at development.** `--development-team` signs the local app with your development certificate. Distribution signing, notarization, and App Store submission are a separate step beyond this workflow (see below).
 - **macOS target only.** iOS app generation is not produced by this workflow today.
 
