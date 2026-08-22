@@ -1,0 +1,93 @@
+{
+ "batch": "b04",
+ "pages": [
+  {
+   "page": "docs/browsers/browser-profile.mdx",
+   "claimsChecked": 16,
+   "claimsVerifiedByRunning": 4,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Published CLI under test is extension@4.1.3. Every profile mechanic checked out against the shipped resolver: managed base dir dist/extension-js/profiles/<browser>-profile, persistent leaf 'dev', three-word adjective-color-animal ephemeral names via unique-names-generator, .extension-js-managed-profile marker, EXTENSION_TMP_PROFILE_MAX_AGE_HOURS defaulting to 12, EXTENSION_USE_SYSTEM_PROFILE/EXTJS_USE_SYSTEM_PROFILE, --profile=false/true normalization, copyFromProfile seeding only on a fresh target, Firefox startupCache removal, SingletonLock/Socket/Cookie handling, ready.json profile_locked stamping and profilePath field, and the dist/extension-js/.gitignore whose body ends in a bare '*' (observed after a real dev run)."
+  },
+  {
+   "page": "docs/commands/eval.mdx",
+   "claimsChecked": 14,
+   "claimsVerifiedByRunning": 9,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Flag table matches `extension eval --help` exactly (contexts list, --url, --tab, --browser default chromium, --timeout 5000, --output pretty). `extension dev --help` confirms --allow-eval 'implies --allow-control' and the 0600 session token; the token path .extension-js/control-token-<browser> is what controlTokenPath() builds. All named codes (E_EVAL, E_TOKEN_MISSING, E_EVAL_REFUSED, E_SESSION_NOT_FOUND, E_TARGET_NOT_FOUND, E_TIMEOUT) exist in the shipped bundles, and `inspect --list-tabs` is a real flag."
+  },
+  {
+   "page": "docs/concepts/javascript-typescript-browser-extension-files.mdx",
+   "claimsChecked": 8,
+   "claimsVerifiedByRunning": 3,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Mostly conceptual, but the checkable parts hold: extension.config.cjs is a supported config filename in the shipped CLI, .d.ts is not emitted, and a single `extension build --browser=chrome,firefox,edge` produced dist/chrome, dist/firefox and dist/edge with per-target manifests (MV3 for chrome/edge, MV2 for firefox). All five cross-links resolve to existing pages."
+  },
+  {
+   "page": "docs/debugging/index.mdx",
+   "claimsChecked": 15,
+   "claimsVerifiedByRunning": 8,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Gate table matches help output: --allow-control on dev only, --allow-eval implying it, and reload/storage/open/inspect all carrying the same --browser/--timeout 5000/--output trio. `logs --help` confirms --signals-only and states verbatim that no emitter ships yet. A real dev run wrote dist/extension-js/chrome/logs.ndjson (and no actions.ndjson, matching the '--allow-control' caveat). Firefox parity and the MCP tools could not be checked without a browser, so they are left unverified rather than reported."
+  },
+  {
+   "page": "docs/features/reload-and-hmr.mdx",
+   "claimsChecked": 14,
+   "claimsVerifiedByRunning": 6,
+   "findings": 1,
+   "verdict": "minor-issues",
+   "note": "Reload classifier in the shipped bundle matches the documented six-step order, the fan-out label 'service_worker + content_script (file)' is the literal string it builds, manifest.json/_locales force full, and PruneStaleHotUpdates keeps emitted + one previous generation. Dev build really does emit content_scripts/content-0.e455cb80.js while production emits content-0.js. The one issue is where hashContentScripts actually has to live."
+  },
+  {
+   "page": "docs/getting-started/templates/svelte.mdx",
+   "claimsChecked": 4,
+   "claimsVerifiedByRunning": 2,
+   "findings": 1,
+   "verdict": "minor-issues",
+   "note": "`create --help` lists 'svelte' in the catalog and the GitHub source link resolves to a real examples/svelte directory, but the screenshot on the page is another template's."
+  },
+  {
+   "page": "docs/implementation-guide/json.mdx",
+   "claimsChecked": 9,
+   "claimsVerifiedByRunning": 5,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Added a DNR ruleset and a storage.managed_schema to a scaffolded project and built: output landed exactly at declarative_net_request/ruleset_1.json and storage/managed_schema.json, with the built manifest rewritten to those paths. The $EXTENSION_* placeholder pass is real and does run over both .json and .html emitted assets, as documented."
+  },
+  {
+   "page": "docs/implementation-guide/web-accessible-resources.mdx",
+   "claimsChecked": 11,
+   "claimsVerifiedByRunning": 6,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Verified by building with hand-written WAR entries: build-discovered assets are merged in as a separate MV3 object entry, MV2 emits the flat array shape, port and port-wildcard match patterns (http://localhost:3000/*, https://example.com:*/*) survive untouched, globs are preserved rather than expanded, and an MV3 entry with only `matches` and no `resources` is dropped."
+  },
+  {
+   "page": "docs/integrations/tailwindcss.mdx",
+   "claimsChecked": 8,
+   "claimsVerifiedByRunning": 4,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "sidebar-shadcn is a real catalog template and the examples link resolves. Content-script CSS emission was checked directly: a manifest-declared content_scripts css entry emitted content_scripts/content-0.css and was rewritten into the manifest, matching the documented pipeline. Tailwind v3/v4 PostCSS config shapes are upstream config, not Extension.js behavior, so they were not run."
+  },
+  {
+   "page": "docs/languages-and-frameworks/typescript.mdx",
+   "claimsChecked": 12,
+   "claimsVerifiedByRunning": 6,
+   "findings": 2,
+   "verdict": "significant-issues",
+   "note": "The documented baseline tsconfig matches defaultTypeScriptConfig() field for field, jsx really does stay 'preserve' without a JSX framework, extension-env.d.ts content matches, and both templates exist. But the stated failure mode for a .ts project without a tsconfig is the opposite of what the CLI does, and the page ends on an empty section."
+  },
+  {
+   "page": "docs/workflows/global-flags.mdx",
+   "claimsChecked": 17,
+   "claimsVerifiedByRunning": 12,
+   "findings": 1,
+   "verdict": "significant-issues",
+   "note": "Ran every flag claim: --no-reload outside dev and --no-browser outside dev/start/preview both exit 1 with E_FLAG_NOT_SUPPORTED_HERE, --no-runner exits 1 with E_REMOVED_FLAG, the optional-boolean vocabulary (false/0/no/off vs true/1/yes/on) matches parseOptionalBoolean, telemetry common properties match the PostHog client, and commands.<command>.noBrowser is a real config key. The deprecated --output alias claim does not survive contact with the CLI."
+  }
+ ]
+}

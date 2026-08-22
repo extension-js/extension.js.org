@@ -1,0 +1,93 @@
+{
+ "batch": "b02",
+ "pages": [
+  {
+   "page": "docs/browsers/browser-flags.mdx",
+   "claimsChecked": 14,
+   "claimsVerifiedByRunning": 6,
+   "findings": 1,
+   "verdict": "minor-issues",
+   "note": "Audited against published CLI extension@4.1.3 (./node_modules/.bin/extension --version) installed fresh in a sandbox. The 24-entry default Chromium flag table matches DEFAULT_BROWSER_FLAGS in node_modules/extension/dist/browsers.cjs exactly, in the same order; the always-on session block, its immunity to excludeBrowserFlags, the dev-only --remote-debugging trio (devWantsCDP = mode === 'development'), EXTENSION_BROWSER_FLAGS being appended after filtering, EXTENSION_HEADLESS forcing --headless=new, the feature-switch merge, and the six Linux container detection signals all match the shipped code. Template new-browser-flags exists in `extension create --help` and in the examples repo. Only the Chromium-vs-Firefox exclude-matching description is wrong."
+  },
+  {
+   "page": "docs/commands/dev.mdx",
+   "claimsChecked": 38,
+   "claimsVerifiedByRunning": 16,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Every documented flag, alias and default matches `extension dev --help` on 4.1.3. Ran the failure paths: --bundle-id on a chromium target returns E_INVALID_OPTION, --parent-pid abc returns E_INVALID_OPTION, --no-reload on build returns a usage error. Watchdog constants confirmed in cli.cjs (POLL_INTERVAL_MS = 2000, HARD_EXIT_GRACE_MS = 5000). Ran `extension dev --no-browser` for 25s in the scaffold: dist/extension-js/chromium/ready.json and events.ndjson appear at the documented paths and the port walked 8080 to 8081 as the page describes. Content-script reinjection behavior needs a browser and was left unverified."
+  },
+  {
+   "page": "docs/commands/storage.mdx",
+   "claimsChecked": 16,
+   "claimsVerifiedByRunning": 10,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Flag table is an exact match for `extension storage --help` (areas, contexts, browsers, 5000 ms timeout, background/local defaults). Ran the three documented failure paths against a project with no live session: `storage get` gives E_SESSION_NOT_FOUND naming `extension dev --browser=chromium --allow-control`, `storage set --key foo` gives E_ARGS, `storage frobnicate` gives E_ARGS, and all three exit 1 as stated. E_STORAGE and E_TIMEOUT both exist in the shipped CODES table."
+  },
+  {
+   "page": "docs/contracts/ready-json.mdx",
+   "claimsChecked": 22,
+   "claimsVerifiedByRunning": 12,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Produced two real contracts (a `build` run and a `dev --no-browser` run) in the scaffold. All fifteen always-present fields appear with the documented types, schemaVersion is 2 and schema is 1, and the shutdown case stamps status \"stopped\" with code \"shutdown\". controlPath is \"/extjs-control\", logsPath is the documented relative path, and managedExtensions carries {path,id} records. Read the wait loop in cli.cjs: 250 ms poll, command match, pid liveness, start-only stale acceptance gated on READY_CONTRACT_FRESHNESS_MS = 60000, E_READY_TIMEOUT on timeout. Event types compile_start/compile_success/compile_error/shutdown all exist."
+  },
+  {
+   "page": "docs/features/multi-platform-builds.mdx",
+   "claimsChecked": 15,
+   "claimsVerifiedByRunning": 8,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "`extension build --help` confirms --browser, --zip, --zip-source, --zip-filename and the chromium default. Ran `extension build --zip --zip-source`: the distribution zip lands inside dist/chromium and the source archive at dist/<name>-<version>-source.zip, exactly as documented. The AMO data_collection_permissions warning exists in the shipped bundle (missingGeckoDataCollectionPermissions) and the scaffolded manifest ships the firefox:-prefixed declaration. AMO policy dates and Firefox 140/142 parsing are external claims and were not verified."
+  },
+  {
+   "page": "docs/getting-started/templates/preact.mdx",
+   "claimsChecked": 5,
+   "claimsVerifiedByRunning": 3,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Scaffolded the template for real with `extension create my-preact --template=preact` on 4.1.3: the template exists in the catalog, installs preact ^10.19.6, and builds clean. preact/compat aliasing is present in the shipped rspack config (node_modules/extension-develop/dist/0~rspack-config.mjs). The screenshot points at /images/examples/new-preact/screenshot.png, which exists and follows the same convention every other framework template page uses, so it is not reported."
+  },
+  {
+   "page": "docs/implementation-guide/index.mdx",
+   "claimsChecked": 9,
+   "claimsVerifiedByRunning": 0,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Navigation and conceptual framing only. The one checkable class of claim is its cross-references: all nine /docs/... links resolve to existing .mdx files in the repo. No behavioral assertion to test."
+  },
+  {
+   "page": "docs/implementation-guide/storage.mdx",
+   "claimsChecked": 6,
+   "claimsVerifiedByRunning": 3,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Mostly browser-API guidance that Extension.js does not own. Verified the two toolchain claims that are testable: adding storage.managed_schema to the scaffold manifest emits storage/managed_schema.json into dist and rewrites the manifest key to that path, and the shipped bundle carries managed-schema validation messaging (invalidManagedSchemaStructure, isCriticalJsonFeature). The 'path outside the extension directory is flagged as a load blocker' claim is scoped to browser launch, which I could not exercise without a headful browser, so it is left unverified rather than reported."
+  },
+  {
+   "page": "docs/integrations/shadcnui.mdx",
+   "claimsChecked": 8,
+   "claimsVerifiedByRunning": 1,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Checked every concrete claim against the real sidebar-shadcn template in the examples checkout: it exists in the create catalog, ships React + TypeScript, @tailwindcss/postcss, a postcss.config.js identical to the documented snippet, src/components/ui/*.tsx, src/lib/utils.ts, and a components.json whose $schema, style, tsx and tailwind.css values match the page's example. The screenshot asset exists."
+  },
+  {
+   "page": "docs/languages-and-frameworks/sass.mdx",
+   "claimsChecked": 12,
+   "claimsVerifiedByRunning": 7,
+   "findings": 2,
+   "verdict": "significant-issues",
+   "note": "Both templates and both screenshots exist. Exercised the missing-Sass path for real: added a .scss import to the scaffold with no sass package installed, then ran both `extension build` and `extension dev --no-browser`. Neither auto-installs anything and neither asks for a restart, contradicting the page's behavior note. Installing only `sass` then compiles the file correctly, showing sass-loader does not belong in the reader's install command."
+  },
+  {
+   "page": "docs/workflows/dev-update-behavior.mdx",
+   "claimsChecked": 4,
+   "claimsVerifiedByRunning": 0,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Conceptual mapping of change type to update mode, with almost nothing independently checkable without driving a browser. Confirmed the two things that are: E_RESTART_REQUIRED exists in the shipped CODES table, and all four next-step cross-references resolve to real pages."
+  }
+ ]
+}
