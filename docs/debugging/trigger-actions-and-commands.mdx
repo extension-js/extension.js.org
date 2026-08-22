@@ -123,12 +123,18 @@ Consider [running it alongside Extension.js](/docs/integrations/chrome-devtools-
 Boot a session, fire the action, and assert on the side effect, with no browser UI and no Playwright. This is the whole loop in a GitHub Actions job:
 
 ```yaml
-- run: pnpm extension dev --browser=chromium --allow-control --wait --output json
-- run: pnpm extension open action --browser=chromium --output json
 - run: |
+    pnpm extension dev --browser=chromium --allow-control &
+    pnpm extension dev --browser=chromium --wait --output json
+    pnpm extension open action --browser=chromium --output json
     pnpm extension storage get --key lastClickedAt --browser=chromium --output json \
       | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0)).value?.lastClickedAt ? 0 : 1)'
 ```
+
+The first line boots the session in the background. The second is the readiness gate: `--wait`
+waits for that session's [ready contract](/docs/contracts/ready-json) and exits, it never
+launches anything itself. Keep both in one `run:` step so the backgrounded server and the gate
+share a shell.
 
 Because the trigger is deterministic and headless, it's a reliable gate. The same path is exercised by Extension.js's own `smoke:open-action` check, which fires the action _and_ a command, then reads `chrome.storage` back to prove each handler actually executed.
 
