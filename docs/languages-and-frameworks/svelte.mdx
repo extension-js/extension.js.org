@@ -154,7 +154,7 @@ When Extension.js detects Svelte, it:
 - Configures the Svelte loader in the JS framework pipeline, with hot reload enabled in development so edited components update without a full page reload.
 - Applies Svelte client aliases (for example, `svelte`, `svelte/store`, and `svelte/reactivity`).
 
-If your project lacks optional tooling, Extension.js installs what it needs and asks for a restart.
+If your project lacks optional tooling, Extension.js warns with the exact install command instead of installing it for you. Restart.
 
 ## Usage examples
 
@@ -176,18 +176,23 @@ If your project lacks optional tooling, Extension.js installs what it needs and 
 ```
 
 ```ts
+import {mount} from "svelte";
 import App from "./App.svelte";
 
-new App({
+mount(App, {
   target: document.getElementById("app")!,
 });
 ```
+
+Extension.js targets Svelte 5. The Svelte 4 class API (`new App(...)` and `app.$destroy()`)
+throws `component_api_invalid_new` on the version the templates install.
 
 ### In a `content_script` file
 
 For content scripts, create a mount node and return a cleanup function from your default export. This lets Extension.js remount safely in development:
 
 ```ts
+import {mount, unmount} from "svelte";
 import App from "./App.svelte";
 
 export default function main() {
@@ -195,10 +200,10 @@ export default function main() {
   target.id = "extension-root";
   document.body.appendChild(target);
 
-  const app = new App({ target });
+  const app = mount(App, {target});
 
   return () => {
-    app.$destroy();
+    unmount(app);
     target.remove();
   };
 }

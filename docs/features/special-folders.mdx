@@ -95,7 +95,7 @@ Each special folder has a specific role:
 | Folder name   | Description                                                                                                 |
 | ------------- | ----------------------------------------------------------------------------------------------------------- |
 | `pages/`      | Adds HTML pages to compilation as entrypoints, even when the manifest does not list them.                   |
-| `scripts/`    | Adds script files to compilation as entrypoints, even when no manifest or HTML entry references them.       |
+| `scripts/`    | Adds script files to compilation as entrypoints when something in your project references the file path, including runtime-only paths the manifest never lists. |
 | `public/`     | Copies static assets to the output root as-is (`public/**` → `dist/**`) without bundling or transformation. |
 | `extensions/` | Provides a conventional location for load-only companion extensions in dev/preview/start workflows.         |
 
@@ -112,6 +112,16 @@ For a sandboxed iframe example, see the [Chrome Sandbox Sample](https://github.c
 Use `scripts/` for executable scripts that you load dynamically and that do not tie to an HTML page entry.
 
 Extension.js compiles files in `scripts/` as entrypoints using the same extension resolution pipeline as the rest of your project.
+
+### Reference the file path somewhere
+
+A `scripts/` entry is kept only when its project-relative path appears somewhere in your
+source: the manifest, an HTML file, or a JavaScript or TypeScript string such as the argument
+you pass to `chrome.scripting.executeScript`. That is what makes runtime-only injection work,
+since the path never reaches the manifest.
+
+A file nothing mentions is treated as dead code and is dropped from the build without a
+warning, so check `dist/<browser>/scripts/` after your first build with a new entry.
 
 ### Important contract
 

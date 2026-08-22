@@ -14,7 +14,7 @@ keywords:
   ]
 ---
 
-Extension.js targets the browser runtime by default. It does not automatically polyfill Node core modules, which keeps bundles small. If a dependency reaches for `buffer`, `stream`, or `crypto`, you see a resolution error at build time. The sections below explain when to add polyfills and when to choose a browser-native alternative.
+Extension.js targets the browser runtime by default. It does not automatically polyfill Node core modules, which keeps bundles small. If a dependency reaches for `buffer`, `stream`, or `os`, you see a resolution error at build time. The sections below explain when to add polyfills and when to choose a browser-native alternative.
 
 ## When Node polyfills are a good fit
 
@@ -124,9 +124,13 @@ Repository: [extension-js/examples/new-crypto](https://github.com/extension-js/e
 
 - Build target is browser-first (`web`).
 - Resolution prioritizes browser exports (`browser`, `module`, `main`).
-- Extension.js disables Node core fallbacks (for example, `crypto`, `path`, and `fs`) by default.
+- `crypto`, `path`, and `fs` are mapped to `false`, so they resolve to an empty module. The
+  build succeeds and the import fails at runtime instead (for example `path.join` is undefined).
+- Every other Node core module, including `buffer`, `stream`, `os` and `node:`-prefixed
+  specifiers, has no fallback and fails the build with `Module not found: Can't resolve`.
 
-This means importing Node APIs may fail unless you add explicit fallbacks.
+So a missing Node API shows up in one of two places, and which one depends on the module.
+Add explicit fallbacks below to handle either case.
 
 ## Setting up Node polyfills
 

@@ -190,6 +190,32 @@ export function checkTranslationParity(pages) {
   return findings;
 }
 
+// Mintlify silently drops components it does not know, so a typo or a removed
+// component renders as nothing and no build step complains. Everything a page
+// uses must therefore be a documented built-in or a local snippet.
+const KNOWN_COMPONENTS = new Set([
+  "Accordion", "AccordionGroup", "Card", "CardGroup", "CodeGroup", "Columns", "Check",
+  "Expandable", "Frame", "Icon", "Info", "Note", "Panel", "Param", "ParamField",
+  "ResponseField", "Step", "Steps", "Tab", "Tabs", "Tip", "Tooltip", "Update", "Warning",
+  "Button", "Snippet",
+]);
+
+export function checkComponents(pages) {
+  const findings = [];
+  for (const page of pages) {
+    const source = readFileSync(page.abs, "utf-8")
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/`[^`\n]*`/g, "");
+    const used = new Set([...source.matchAll(/<([A-Z][A-Za-z0-9]*)[\s/>]/g)].map((m) => m[1]));
+    for (const name of used) {
+      if (!KNOWN_COMPONENTS.has(name)) {
+        findings.push({ kind: "unknown-component", page: page.id, detail: `<${name}> is not a known component, so it renders as nothing` });
+      }
+    }
+  }
+  return findings;
+}
+
 function loadReviewRecords(lane) {
   const dir = path.join(REVIEW_DIR, lane);
   const records = new Map();
@@ -214,6 +240,7 @@ export function buildLedger({ latest } = {}) {
   const localeFindings = checkLocaleTwins(pages);
   const versionFindings = checkVersionPins(pages, latest);
   const parityFindings = checkTranslationParity(pages);
+  const componentFindings = checkComponents(pages);
 
   const ledgerPages = pages.map((page) => {
     const analysis = analyzePage(readFileSync(page.abs, "utf-8"));
@@ -232,7 +259,7 @@ export function buildLedger({ latest } = {}) {
 
   return {
     pages: ledgerPages,
-    laneAFindings: [...caveatFindings, ...localeFindings, ...versionFindings, ...parityFindings],
+    laneAFindings: [...caveatFindings, ...localeFindings, ...versionFindings, ...parityFindings, ...componentFindings],
     summary: {
       totalPages: ledgerPages.length,
       en: ledgerPages.filter((p) => p.locale === "en").length,
