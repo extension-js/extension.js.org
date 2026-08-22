@@ -1,0 +1,89 @@
+---
+title: "Reload 指令：重新啟動擴充功能情境"
+description: "隨時重新載入執行中 Extension.js dev 工作階段的背景 worker、content script 分頁或某個頁面，可從終端機或指令稿發起。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "reload",
+    "debugging",
+    "automation",
+  ]
+---
+
+隨時重新載入執行中的擴充功能或分頁。
+
+[`dev`](/docs/commands/dev) 工作階段在檔案變更時本來就會自動重新載入。`reload` 針對的是自動重新載入看不到的情況：你手動改動的狀態、卡住的 service worker，或是需要在兩次執行之間取得乾淨情境的測試。
+
+工作階段必須在控制通道解鎖的狀態下執行：用 `extension dev --allow-control` 啟動它。被拒絕時，錯誤訊息會指出缺少的旗標。
+
+## 何時使用 `reload`
+
+- 背景 worker 保留了錯誤的記憶體狀態，你想乾淨地重啟一次。
+- 某個指令稿寫入了 storage 或觸發了一段流程，之後需要一個全新的情境。
+- 你改了監看器視野之外的東西，想強制重新讀取。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension reload [project-path] [options]
+```
+
+```bash pnpm
+extension reload [project-path] [options]
+```
+
+```bash yarn
+extension reload [project-path] [options]
+```
+
+```bash bun
+extension reload [project-path] [options]
+```
+
+```bash deno
+extension reload [project-path] [options]
+```
+
+</CodeGroup>
+
+## 引數與旗標
+
+| 旗標                      | 用途                                                          | 預設值          |
+| ------------------------- | ------------------------------------------------------------- | --------------- |
+| `[project-path]`          | 擴充功能專案根目錄路徑。                                      | `process.cwd()` |
+| `--context <context>`     | 要重新載入什麼：`background`、`content` 或 `page`。            | `background`    |
+| `--tab <id>`              | 用於 `content`/`page`：指定某個分頁。                         | 作用中分頁      |
+| `--browser <browser>`     | 以哪個工作階段為目標（`chrome`、`chromium`、`edge`、`firefox`）。 | `chromium`      |
+| `--timeout <ms>`          | 指令逾時時間，單位毫秒。                                      | `5000`          |
+| `--output <pretty\|json>` | 輸出格式（`json` 會把結果包進 schema-1 信封）。                | `pretty`        |
+
+## 各個 context 分別會重新載入什麼
+
+- `background` 會重新啟動擴充功能本身，連帶重啟 service worker 並重新讀取 manifest。
+- `content` 會重新載入承載目標 content script 的分頁，讓指令稿重新注入。
+- `page` 只是把目標分頁當成一般頁面重新載入。
+
+當作用中分頁不是你要的那一個時，用 [`inspect --list-tabs`](/docs/commands/inspect#the-discovery-loop) 找出數字形式的分頁 id。
+
+## 失敗情境
+
+- 該瀏覽器沒有對應的工作階段：`E_SESSION_NOT_FOUND`，並附上要執行的完整 `extension dev --allow-control` 指令。
+- 工作階段執行時沒有帶 `--allow-control`：連線會被拒絕，錯誤訊息會指出這個旗標。
+- `--tab` 指定的 id 已經不存在：`E_TARGET_NOT_FOUND`。
+- 呼叫的耗時超過 `--timeout`：`E_TIMEOUT`。
+
+成功時結束碼是 `0`，任何失敗都是 `1`。機器消費端應該讀取 `--output json` 輸出的信封（參見 [結果信封](/docs/contracts/result-envelope)）。
+
+## 後續步驟
+
+- 在 [重新載入與 HMR](/docs/features/reload-and-hmr) 了解自動重新載入已經涵蓋了哪些情況。
+- 用 [`logs`](/docs/commands/logs) 或 [`inspect`](/docs/commands/inspect) 確認重新載入後的情境是乾淨的。
+- 用 [`doctor`](/docs/commands/doctor) 診斷拒絕這次呼叫的工作階段。
+- 在 [除錯](/docs/debugging) 中閱讀更完整的除錯流程。

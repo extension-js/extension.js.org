@@ -1,0 +1,86 @@
+---
+title: "Manifest 拒絕：Chromium 為什麼不載入你的擴充功能"
+description: "診斷那些讓 Chromium 在啟動前就拒絕整個擴充功能的 manifest 形態，並了解 Extension.js 會自動修復哪些致命形態。"
+keywords:
+  [
+    "chrome refuses to load extension",
+    "manifest.json invalid",
+    "required value name is missing or invalid",
+    "invalid match pattern",
+    "could not load icon",
+    "default_locale",
+    "manifest v2 not supported",
+    "extension.js",
+    "debugging",
+  ]
+---
+
+有些 manifest 形態會讓 Chromium 拒絕載入整個擴充功能。這個拒絕要嘛以原生對話框出現，要嘛完全沒有任何提示，但絕不會是一則主控台錯誤。沒有外力協助時，開發 session 就這樣卡住：瀏覽器在跑，擴充功能卻不在，除錯通道也永遠連不上。
+
+Extension.js 在兩個位置補上了這個落差：
+
+- **啟動之前**，它會讀取每一個即將載入的擴充功能的建置後 `manifest.json`，並針對每一個能夠證實的拒絕原因發出警告，指名欄位與原因。
+- **建置時**，它會修復一小組毫無歧義的致命形態，並為每一次修復印出一行修復說明。
+
+## 啟動前診斷
+
+這些檢查針對建置後的擴充功能執行，就在瀏覽器啟動之前。
+
+### manifest 版本相關的拒絕
+
+| 形態                                              | Chromium 為什麼拒絕                                                     |
+| ------------------------------------------------- | ----------------------------------------------------------------------- |
+| `manifest_version: 2`                             | 現代 Chromium 直接拒絕 MV2。請改在 Firefox 上執行，或遷移到 MV3。       |
+| MV3 有 `background.scripts` 卻沒有 `service_worker` | 這是 Firefox 風格的 background。Chromium 需要 `background.service_worker`。 |
+| 其他任何值（缺少、`1`、大於 `3`）                 | 會被視為不支援的 manifest 版本而遭拒絕。                                |
+
+### 無效的 match 樣式
+
+只要有一個樣式無效，Chrome 就會拒絕整個擴充功能。Extension.js 會檢查 `host_permissions`、`optional_host_permissions`、`content_scripts`（`matches` 與 `exclude_matches`），以及 `web_accessible_resources` 中的 matches。
+
+host 文法允許 `*`、`*.domain.tld` 或字面的 host。host 中任何其他位置的萬用字元都是無效的，例如 `https://foo.*.com/*`。連接埠、查詢字串與片段不會觸發拒絕，而且連接埠本身也可以是萬用字元。
+
+### 載入阻斷項清單
+
+以下每一項都已在實際的 Chrome 版本上驗證過會拒絕整個擴充功能：
+
+- **`name`**：缺少、為空，或不是字串。Chrome 要求一個非空的字串名稱。
+- **`version`**：缺少，或不是 1 到 4 段以點分隔的整數，且每段的值介於 0 到 65535 之間。
+- **MV3 的 `web_accessible_resources`**：項目必須是字典，包含 `resources`，再加上 `matches`、`extension_ids` 或 `use_dynamic_url` 其中之一。MV2 的字串陣列寫法在 MV3 上會遭拒絕。MV2 下它仍然合法。
+- **`content_scripts` 文法**：`matches` 為必填且不得為空，`js` 與 `css` 的項目必須是字串，`run_at` 只接受 `document_start`、`document_end` 或 `document_idle`，而且每個項目至少需要一個 `js` 或 `css` 檔案。
+- **`minimum_chrome_version`**：無效的值會直接遭拒絕。值合法但高於解析出的瀏覽器版本同樣會遭拒絕，因此這項檢查比對的是該 session 實際啟動的那個執行檔。
+- **`commands`**：Chrome 最多允許 4 個帶 `suggested_key` 的快速鍵。Firefox 沒有上限，所以從 Firefox 移植過來的擴充功能經常在這裡踩雷。
+- **`key`**：必須是合法的 base64 公開金鑰。padding 有問題就會導致擴充功能遭拒絕。
+- **圖示**：只要有一個 manifest 圖示（`icons.*` 或任一 `*_action.default_icon`）對應的檔案缺少或大小為 0 位元組，整個擴充功能就會遭拒絕。
+- **語系**：宣告了 `default_locale`，但對應的 `_locales/<locale>/messages.json` 缺少或不是合法 JSON，會遭拒絕。整串 `__MSG_key__` 參照在目錄中沒有定義時也一樣（查找不分大小寫，`@@predefined` 名稱除外）。`_locales` 目錄樹有內容、manifest 中卻沒有 `default_locale`，同樣會遭拒絕。
+- **`storage.managed_schema`**：schema 路徑在擴充功能目錄內不存在時，整個擴充功能會遭拒絕。
+
+每一項發現都會在啟動之前印成一則警告，指名擴充功能路徑與每一個阻斷項，所以卡住的原因會事先講清楚。
+
+## 建置時的自動修復
+
+其中一部分致命形態夠明確，可以直接修掉。在建置過程中，Extension.js 會在產出的 `manifest.json` 裡修復這些：
+
+| 形態                                                         | 修復方式                                                             |
+| ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `name` 缺少、為空或不是字串                                  | 把數字與布林值轉成字串，否則使用 `"Unnamed Extension"`。             |
+| `version` 缺少                                               | 注入 `"0.0.0"`。                                                     |
+| `version` 是數字（`1.0`）                                    | 轉成字串形式。                                                       |
+| `version` 字串不符合 Chrome 的文法（`"x.y.z"`）              | 搶救出其中的數字部分（`"1.0-beta"` 變成 `"1.0"`），否則用 `"0.0.0"`。 |
+| action 上的 `default_icon` 為空（`""` 或 `{}`）              | 移除該鍵。空就代表沒有圖示。                                         |
+| 圖示檔案存在但大小為 0 位元組                                | 移除該圖示項目。                                                     |
+| `content_security_policy.extension_pages` 的 script-src 中有 `'unsafe-inline'` | 把它移除。MV3 從不採納它，所以改變的只有那個拒絕。 |
+| 具名 command 的 `description` 缺少或為空                     | 退回使用該 command 的名稱（`_execute_*` 指令除外）。                 |
+
+每一次修復都會在發生的當下於 CLI 輸出中報告一行修復說明，並記錄一則 `manifest.json` 建置警告，所以不會有任何東西被悄悄改寫。
+
+<Note>
+  修復只作用於產出的 `dist` manifest。你的原始碼 `manifest.json`
+  永遠不會被修改。看到修復說明時請去修原始碼，讓這次修復不再被需要。
+</Note>
+
+## 後續步驟
+
+- [除錯總覽](/docs/debugging)：執行中 session 的完整控制介面。
+- [可用瀏覽器](/docs/browsers/browsers-available)：挑一個能載入你的 manifest 的目標。
+- [跨瀏覽器相容性](/docs/features/cross-browser-compatibility)：讓同一份 manifest 在每個引擎上都能運作。

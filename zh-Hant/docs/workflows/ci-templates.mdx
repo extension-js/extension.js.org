@@ -78,12 +78,14 @@ steps:
 - 啟動 Playwright 前，把 `dist/extension-js/<browser>/ready.json` 當成就緒合約。
 - 在 CI 自動化腳本中避免解析人類可讀的記錄。
 - 優先使用內建的等待指令：`extension dev --wait --browser=<browser>`（watch/dev）或 `extension start --wait --browser=<browser>`（production/start）。
-- 給腳本或 CI 自動化使用時，優先採用 `--wait-format=json`。
+- 給腳本或 CI 自動化使用時，優先採用 `--output json`。較舊的 `--wait-format` 別名仍可運作，但會在 stderr 發出警告。
+- 在機器輸出模式下，給人看的文字會移到 stderr，因此 stdout 只會帶有一份可解析的 JSON 文件。
+- 收尾時，從 `ready.json` 讀取 `browserPid` 並向該程序送出訊號。那是回收瀏覽器程序時受支援的把手。
 
 ### 範例：就緒閘門
 
 ```bash
-pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-format=json
+pnpm extension start --wait --browser=chromium --wait-timeout=60000 --output json
 ```
 
 ## 不需 UI 的事件處理測試
@@ -91,12 +93,16 @@ pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-forma
 你不一定需要 Playwright。對於事件處理器——工具列 action、鍵盤指令——Extension.js 可以直接對開發階段 session 觸發，再用副作用進行斷言。它是確定性且 headless 的，非常適合做為可靠的閘門。
 
 ```yaml
-- run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
-- run: pnpm extension open action --browser=chromium --output json
 - run: |
+    pnpm extension dev --browser=chromium --allow-control &
+    pnpm extension dev --browser=chromium --wait --output json
+    pnpm extension open action --browser=chromium --output json
     pnpm extension storage get --key lastClickedAt --browser=chromium --output json \
       | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0)).value?.lastClickedAt ? 0 : 1)'
 ```
+
+第一行啟動 session，第二行以它的就緒合約作為閘門。`--wait` 只負責等待，
+它不會啟動 session，所以兩者要放在同一個 `run:` 步驟裡。
 
 同樣的方式也能重播鍵盤指令（`extension open command --name <cmd>`）。回傳的 payload 與唯一注意事項（重播不會帶有使用者操作手勢，所以 `activeTab` 不會授予）請見 [觸發 actions 與指令](/docs/debugging/trigger-actions-and-commands)。
 
@@ -108,7 +114,7 @@ pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-forma
 pnpm extension dev --host 0.0.0.0 --port 0 --no-browser
 ```
 
-對於緩慢或資源受限的容器，可以透過環境變數增加瀏覽器傳輸逾時（見 [瀏覽器傳輸調校變數](/docs/features/environment-variables#browser-transport-tuning-variables)）。
+對於緩慢或資源受限的容器，可以透過環境變數增加瀏覽器傳輸逾時（見 [瀏覽器傳輸調校變數](/docs/features/environment-variables#瀏覽器傳輸調校變數)）。
 
 ## 常見陷阱
 
@@ -117,9 +123,9 @@ pnpm extension dev --host 0.0.0.0 --port 0 --no-browser
 - 失敗的 E2E job 沒有上傳產物
 - 在不同 workflow 中混用未鎖定的 Node／套件管理器版本
 
-你的儲存庫已包含 E2E workflow 範例：
+`create` 不會替你產生 CI workflow。想要一份可以直接照抄的完整範例，可以看看 Extension.js 用在自己身上的那一份：
 
-- `.github/workflows/e2e.yml`
+- [`.github/workflows/e2e.yml`](https://github.com/extension-js/extension.js/blob/main/.github/workflows/e2e.yml)
 
 ## 最佳實務
 

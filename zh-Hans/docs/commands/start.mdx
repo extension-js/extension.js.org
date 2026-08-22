@@ -60,7 +60,7 @@ extension start [path-or-url] [options]
 extension start [path-or-url] [options]
 ```
 
-```bash bun
+```bash deno
 extension start [path-or-url] [options]
 ```
 
@@ -78,16 +78,27 @@ extension start [path-or-url] [options]
 | `--chromium-binary <path>`     | -                  | 自定义的 Chromium 家族二进制路径。                                       | 系统默认           |
 | `--gecko-binary <path>`        | `--firefox-binary` | 自定义的 Gecko 家族二进制路径。                                          | 系统默认           |
 | `--polyfill [boolean]`         | -                  | 为 Chromium 目标启用 `browser.*` API 兼容 polyfill。                     | `true`             |
+| `--no-polyfill`                | -                  | 关闭跨浏览器 polyfill。                                                  | 默认启用 polyfill  |
 | `--starting-url <url>`         | -                  | 启动浏览器时的起始 URL。                                                 | 未设置             |
 | `--no-browser`                 | -                  | 构建但跳过浏览器启动。                                                   | 默认启用浏览器启动 |
 | `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 并退出。                   | 关闭               |
 | `--wait-timeout <ms>`          | -                  | `--wait` 模式的超时时间。                                                | `60000`            |
-| `--wait-format <pretty\|json>` | -                  | 等待结果的输出格式（`json` 适合机器读取）。                              | `pretty`           |
+| `--output <pretty\|json>`      | -                  | 结果格式。`json` 会在 stdout 上打印 schema-1 信封。                      | `pretty`           |
 | `--port <port>`                | -                  | 启用 runner 时使用的 runner / devtools 端口。用 `0` 让 OS 自动分配端口。 | `8080`             |
 | `--host <host>`                | -                  | 绑定 dev 服务器的主机。Docker / dev container 中可用 `0.0.0.0`。         | `127.0.0.1`        |
+| `--public-host <host>`         | -                  | 当浏览器要拨号的主机与绑定用的 `--host` 不同时（远程 / dev container），使用这个可连接的主机。 | 绑定的主机（绑定到 `0.0.0.0` 时为 `127.0.0.1`） |
 | `--extensions <list>`          | -                  | 用逗号分隔的协同扩展或商店 URL。                                         | 未设置             |
-| `--install [boolean]`          | -                  | 缺失依赖时安装项目依赖。                                                 | 按命令默认行为     |
-| `--author`                     | `--author-mode`    | 启用维护者诊断信息。                                                     | 关闭               |
+| `--install [boolean]`          | -                  | 内部 flag。缺失依赖时安装项目依赖。                                      | 按命令默认行为     |
+| `--debug`                      | -                  | 启用维护者诊断信息。                                                     | 关闭               |
+
+有两个已废弃的别名从 `--help` 中隐藏，但仍然可用：
+
+- `--wait-format <pretty|json>` 会映射到 `--output`，并在 stderr 上警告一次。请把脚本迁移到 `--output`。
+- `--author` 与 `--author-mode` 会映射到 `--debug`。
+
+## 浏览器支持
+
+`start` 没有 Safari 路径。传入 `--browser safari`（或 `webkit-based`）会以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 退出。Safari 目标请用 [`dev`](/docs/commands/dev) 或 [`build`](/docs/commands/build)。
 
 ## 自动化元数据
 
@@ -112,9 +123,21 @@ extension start [path-or-url] [options]
 3. 只有在 `status: "ready"` 之后才启动外部浏览器自动化。
 
 `--wait` 在 `error` / 超时时以非零状态退出，并会忽略来自已死进程（`pid` 已不存在）的过期契约。
+因为 `start` 可能很快就结束，所以只要时间戳落在 60 秒的窗口内，已完成运行留下的契约同样算数。
+`--wait` 需要一个本地项目路径。传入远程 URL 会以 `E_ARGS` 退出。
 如果你在同一次调用中同时传入 `--wait` 与 `--no-browser`，`--wait` 优先。命令会以 wait-only 模式运行。
 
+### 用 `--output json` 输出机器可读结果
+
+`--output json` 会在 stdout 上打印 schema-1 信封，每行一个 JSON 对象：
+
+- 普通的 `start` 运行会在构建前打印一个 `status: "started"` 帧。它带有项目路径、浏览器列表、请求的端口和 `pid`。
+- `start --wait` 运行成功时会打印一个 `status: "ready"` 帧。它的 `value.results` 数组按浏览器带出完整的就绪契约。
+- 构建失败时会打印一个 `ok: false` 帧，其中 `status: "build-failed"`、`error.code: "E_COMPILE"`，随后进程以 `1` 退出。
+
 ## 日志 flag
+
+这些 flag 是实验性的，可能在小版本之间发生变化。
 
 | flag                                                 | 作用                                                                                       | 默认值         |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------- |
@@ -152,7 +175,7 @@ extension start
 extension start
 ```
 
-```bash bun
+```bash deno
 extension start
 ```
 
@@ -178,7 +201,7 @@ extension start --browser firefox
 extension start --browser firefox
 ```
 
-```bash bun
+```bash deno
 extension start --browser firefox
 ```
 
@@ -204,7 +227,7 @@ extension start --no-browser
 extension start --no-browser
 ```
 
-```bash bun
+```bash deno
 extension start --no-browser
 ```
 

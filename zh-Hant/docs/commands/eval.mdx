@@ -1,0 +1,99 @@
+---
+title: "用 eval 指令在擴充功能情境中執行程式碼"
+description: "在執行中的 Extension.js 開發工作階段的任一情境裡執行 JavaScript 運算式，從 background worker 到即時頁面，全都直接在終端機完成。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "eval",
+    "debugging",
+    "automation",
+  ]
+---
+
+在執行中的開發工作階段的某個情境裡執行 JavaScript 運算式，並印出結果。
+
+`eval` 是自動化能力最強的動詞，因此它上了雙重鎖。工作階段必須以 `extension dev --allow-eval` 啟動，而且 CLI 必須出示開發伺服器為這個專案與瀏覽器寫下的工作階段權杖。只要你在同一個專案根目錄執行這兩個指令，這兩件事都會自動完成。
+
+## 何時使用 `eval`
+
+- 你想在不開啟 DevTools 的情況下探查擴充功能狀態（`chrome.runtime`、儲存空間、DOM）。
+- agent 需要在頁面內執行一次檢查，並取回一個結構化的值。
+- 你想要一個可腳本化的 REPL，對著 background worker 或某個即時分頁操作。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension eval <expression> [project-path] [options]
+```
+
+```bash pnpm
+extension eval <expression> [project-path] [options]
+```
+
+```bash yarn
+extension eval <expression> [project-path] [options]
+```
+
+```bash bun
+extension eval <expression> [project-path] [options]
+```
+
+```bash deno
+extension eval <expression> [project-path] [options]
+```
+
+</CodeGroup>
+
+例如，從頁面內部讀取目前作用中分頁的標題與 URL：
+
+```bash
+extension eval "({title: document.title, url: location.href})" --context page
+```
+
+## 引數與旗標
+
+| 旗標                      | 用途                                                                                                                       | 預設值          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `<expression>`            | 要求值的 JavaScript 運算式。                                                                                               | 必填            |
+| `[project-path]`          | 擴充功能專案根目錄的路徑。                                                                                                 | `process.cwd()` |
+| `--context <context>`     | 目標情境：`background`、`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`、`content`、`page`。   | `background`    |
+| `--url <glob\|substring>` | 用於 `content`/`page`：要鎖定的文件，會解析到它所屬的分頁。                                                                | 未設            |
+| `--tab <id>`              | 用於 `content`/`page`：某個特定分頁。未指定時以 `--url` 的比對結果為準，否則使用目前作用中的分頁。                         | 作用中分頁      |
+| `--browser <browser>`     | 要鎖定哪一個工作階段（`chrome`、`chromium`、`edge`、`firefox`）。                                                          | `chromium`      |
+| `--timeout <ms>`          | 指令逾時時間，單位為毫秒。                                                                                                 | `5000`          |
+| `--output <pretty\|json>` | 輸出格式（`json` 會把結果包進 schema-1 信封）。                                                                            | `pretty`        |
+
+擴充功能頁面（`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）是透過它們自己的頁內轉送來回應的，因此該介面必須已在瀏覽器中開啟。請先用 `open`（記載於 [觸發 action 與 command](/docs/debugging/trigger-actions-and-commands)）把它開起來。
+
+pretty 輸出印出的是值本身：字串原樣輸出，其餘一律以縮排 JSON 輸出。信封結構只會在 `--output json` 之下出現（參見 [結果信封](/docs/contracts/result-envelope)）。
+
+## 解鎖機制如何運作
+
+1. `extension dev --allow-eval` 會以啟用 eval 的方式啟動工作階段。`--allow-eval` 同時也會解鎖其他控制動詞，所以你不需要同時加上兩個旗標。
+2. 開發伺服器會把一個隨機工作階段權杖寫入 `.extension-js/control-token-<browser>`，權限為 `0600`。權杖以瀏覽器為鍵，因此並行的工作階段不會互相衝突。
+3. `eval` 會從專案根目錄讀取該權杖，並在握手時出示它。
+
+未以 `--allow-eval` 啟動的工作階段會拒絕這次呼叫，而且拒絕訊息會點名 `--allow-eval` 是應該補上的旗標。權杖遺失會以 `E_TOKEN_MISSING` 失敗，權杖不符或 eval 被停用則是 `E_EVAL_REFUSED`。
+
+## 失敗模式
+
+- 運算式在目標中拋出例外：`E_EVAL`，並附上提示指出問題出在運算式本身。這是一個結果，不是傳輸錯誤。
+- 該瀏覽器沒有工作階段：`E_SESSION_NOT_FOUND`，並給出應該執行的完整 `extension dev` 指令。
+- 目標介面未開啟，或 `--tab` id 已失效：`E_TARGET_NOT_FOUND`。請用 [`inspect --list-tabs`](/docs/commands/inspect#the-discovery-loop) 找出仍然存活的 id。
+- 呼叫超過了 `--timeout`：`E_TIMEOUT`。
+
+運算式成功時結束碼為 `0`，否則為 `1`，因此腳本可以直接據此做判斷。當每個動詞都失敗、而你想知道是哪一環斷掉時，請執行 [`doctor`](/docs/commands/doctor)。
+
+## 下一步
+
+- 用 [`inspect`](/docs/commands/inspect) 找出要鎖定的分頁 id 與 DOM 狀態。
+- 用 [`storage`](/docs/commands/storage) 讀寫 `chrome.storage`，不必自己寫運算式。
+- 在 [除錯](/docs/debugging) 中了解更完整的除錯工作流程。
+- 在 [結果信封](/docs/contracts/result-envelope) 中查看機器可讀的輸出格式。

@@ -1,0 +1,89 @@
+---
+title: "讀懂 Extension.js CLI 的輸出"
+description: "看懂 Extension.js CLI 印出的每一行：五個輸出通道、身分卡、警告出現的時機，以及如何在沒有顏色的 CI 記錄中閱讀輸出。"
+keywords:
+  [
+    "extension.js",
+    "cli output",
+    "terminal output",
+    "log channels",
+    "identity card",
+    "debug output",
+    "ci logs",
+    "extension dev output",
+  ]
+---
+
+Extension.js 印出的每一行都遵循同一套語法。一旦掌握它，你就能一眼讀懂任何一次工作階段，而 CI 記錄的解析方式和你終端機裡的完全相同。
+
+## 行的語法
+
+每一行面向使用者的輸出都是一個前綴加上一個句子，一行只講一件事：
+
+```text
+⏵⏵⏵ Extension ready for development. Watching for file changes.
+```
+
+五個通道共用同一欄前綴：
+
+| 通道 | 前綴 | 顏色 | 意義 |
+| --- | --- | --- | --- |
+| info | `⏵⏵⏵` | 灰色 | 進度與狀態 |
+| success | `⏵⏵⏵` | 綠色 | 某件事完成了 |
+| warn | `⏵⏵⏵` | 亮黃色 | 會繼續執行，但你應該知道 |
+| error | `⏵⏵⏵` | 紅色 | 已停止，或結果是錯的 |
+| debug | `···` | 暗灰色 | 維護者視角的內部資訊 |
+
+五個通道佔用的都是同樣的三個字元欄位，所以不論發生什麼，輸出都會保持對齊。承載嚴重程度的是顏色，不是字元。
+
+debug 通道只在 `--debug` 或 `EXTENSION_DEBUG=1` 之下印出。debug 會額外給出可搜尋的 `key=value` 行，而且絕不會改寫你本來就會看到的那些行。
+
+## 身分卡
+
+啟動時，指令會為每一組瀏覽器與 dist 組合印出一張身分卡：
+
+```text
+ 🧩 Extension.js 4.0.20
+    Browser        Chrome for Testing 138.0.7204.49
+    Extension      My Extension 1.0.0
+    Extension ID   pjkghmlbdmhkfellgkkcolmnlhwmubhe
+    Profile        ~/.extension-js/profiles/chrome
+    Run ID         f3a9 · PID 41250
+```
+
+在同一個專案上執行兩個瀏覽器，你就會得到兩張卡，每個工作階段一張。啟動順序是固定的：先是編譯行，接著是身分卡，最後是綠色的 ready 行。
+
+沒有值的列會被略過。這裡沒有 `n/a` 佔位符，所以某一列在不在，直接告訴你這次工作階段究竟知道些什麼。以 `--chromium-binary` 指定的二進位檔會記在 Browser 那一列裡，而不是自成一列；`build` 則會把 Profile 與 Run ID 兩列換成一列 Output。
+
+## 一項事實只出現一次
+
+每一項工作階段事實都只有一個歸屬：
+
+- 工作階段身分（版本、瀏覽器、擴充功能 ID、設定檔、二進位檔）只放在身分卡裡。
+- 事件（已編譯、正在重新編譯、已結束）是流程行。
+- 診斷資訊是 debug 的 `key=value` 行。
+
+流程行絕不會重述身分卡已經呈現過的內容。ready 行不會提到瀏覽器，因為身分卡的 Browser 列已經說過了。如果你要找擴充功能 ID 或設定檔路徑，就去看身分卡，其他地方都沒有。
+
+## 警告在生效的那一刻印出
+
+警告會緊接在它所關心的動作之前印出，而不是等到執行結束才出現。當你看到一行黃色輸出時，CLI 接下來要做的就是那則警告所描述的事情。這樣的順序意味著，你永遠不必往回捲動，到某份總結裡翻找一則警告究竟屬於哪一步。
+
+## Add-on 還是 Extension
+
+產物的稱呼跟著引擎走。在 Gecko 目標（Firefox、Waterfox、LibreWolf）上，CLI 說的是 `Add-on`。在 Chromium 與 Safari 目標上，它說的是 `Extension`。Edge 透過一個名為 Add-ons 的商店散布擴充功能，但產物本身仍然是 Extension。
+
+## 閱讀沒有顏色的 CI 記錄
+
+CI 記錄通常會去掉顏色，而意義從來不會只靠顏色傳達。在沒有顏色的記錄裡：
+
+- 每一行 `⏵⏵⏵` 都是 info、success、warn 或 error。讀那個句子，文案本身就說清楚了結果。
+- 每一行 `···` 都是 debug 輸出，除非你正在診斷問題，否則可以忽略。
+- 錯誤遵循固定的結構：一行標籤、若干大寫的證據列（例如 `PATH` 或 `REASON`），然後是一句祈使語氣的補救建議。
+
+對機器而言，根本不要去解析人類可讀的那條串流。傳入 `--output json` 取得單一的結果信封，並從 `dist/extension-js/<browser>/` 底下的 `ready.json` 與 `events.ndjson` 讀取工作階段狀態。
+
+## 下一步
+
+- 在[工作階段產物](/docs/concepts/session-artifacts)中了解機器可讀的工作階段檔案放在哪裡。
+- 在 [全域旗標](/docs/workflows/global-flags) 檢視會影響輸出的旗標。

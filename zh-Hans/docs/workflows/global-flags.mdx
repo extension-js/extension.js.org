@@ -16,7 +16,7 @@ keywords:
 
 使用全局标志在所有命令中一致地控制 CLI 行为，尤其是遥测和机器可读输出。
 
-Extension.js 的遥测设计上是匿名且对隐私友好的：最多发送两类事件(`command_executed` 与 `command_failed`)，每个事件包含三个属性(`command`、`success`、`version`)。
+Extension.js 的遥测设计上是匿名且对隐私友好的：最多发送两类事件(`command_executed` 与 `command_failed`)。每个事件包含 `command`、`success` 与 `version`，`create` 运行还会加上 `template` 与 `source`。此外还会附带粗粒度的环境信息(`os`、`arch`、`node_major`、`is_ci`、`is_source_build`)。
 
 ## 全局标志能力
 
@@ -30,10 +30,19 @@ Extension.js 的遥测设计上是匿名且对隐私友好的：最多发送两�
 
 | 标志                      | 说明                                                                                  | 默认值     |
 | ------------------------- | ------------------------------------------------------------------------------------- | ---------- |
+| `--version`               | 打印 CLI 版本并退出。                                                                 | n/a        |
 | `--no-telemetry`          | 为单次命令执行禁用匿名遥测。                                                          | 启用遥测   |
 | `--no-browser`            | 跳过浏览器启动。适用于 `dev`、`start`、`preview`。设置 `EXTENSION_CLI_NO_BROWSER=1`。 | 启用浏览器 |
+| `--no-reload`             | 跳过 reload 包装与派发，让已打开的标签页不受打扰。仅 `dev`。                          | 启用 reload |
 | `--ai-help`               | 显示面向 AI 助手的 help 输出。                                                        | 禁用       |
-| `--format <pretty\|json>` | 与 `--ai-help` 搭配使用的输出格式。                                                   | `pretty`   |
+| `--output <pretty\|json>` | 结果格式。与 `--ai-help` 搭配时，用于选择 help 载荷的格式。                           | `pretty`   |
+| `--debug`                 | 在正常输出之外打印维护者诊断信息。适用于 `dev`、`start`、`preview` 与 `build`。       | 禁用       |
+
+`--format` 是 `--output` 的一个已废弃别名。它仍然可用，但 CLI 每次运行会在 stderr 上打印一条废弃警告。更早的 `--wait-format` 别名同理。
+
+标志用错会以稳定的错误码失败：在 `dev` 之外使用 `--no-reload`、在 `dev` / `start` / `preview` 之外使用 `--no-browser`，都会以 `E_FLAG_NOT_SUPPORTED_HERE` 失败。已移除的 `--no-runner` 标志会以 `E_REMOVED_FLAG` 失败，请改用 `--no-browser`。
+
+你也可以在 `extension.config.js` 中用 `commands.<command>.noBrowser: true` 为单个命令设置 no-browser 模式。两者同时存在时，CLI 标志优先。
 
 ## 可选的布尔标志
 
@@ -76,7 +85,7 @@ EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=chrome,firefox
 ### 为工具生成机器可读的 help
 
 ```bash
-extension dev --ai-help --format=json
+extension dev --ai-help --output json
 ```
 
 适用于解析命令 help 输出的 AI 工具、包装器或脚本。
@@ -84,7 +93,7 @@ extension dev --ai-help --format=json
 ### 在本地调试中保留可读 help 输出
 
 ```bash
-extension dev --ai-help --format=pretty
+extension dev --ai-help --output pretty
 ```
 
 当你希望得到对助手友好但终端中也好读的输出时使用 pretty 模式。
@@ -92,11 +101,11 @@ extension dev --ai-help --format=pretty
 ## 行为说明
 
 - CLI 会先解析全局标志，再解析命令特有选项。
-- 遥测行为与隐私细节请参见仓库的 `TELEMETRY.md` 与[遥测与隐私](/docs/features/telemetry-and-privacy)。
+- 遥测行为与隐私细节请参见 Extension.js 仓库中的 `docs/TELEMETRY.md` 与[遥测与隐私](/docs/features/telemetry-and-privacy)。
 - 使用 `extension telemetry status` 检查当前同意状态。
 - 命令文档另外说明每个命令的特有标志。
 - 全局标志可与命令特有选项组合使用。
-- 自动化工具(AI 助手与 CI 脚本) 应该从 `dist/extension-js/<browser>/ready.json` 读取命令就绪状态，而不是解析终端日志。
+- 自动化工具(AI 助手与 CI 脚本) 应该从 `dist/extension-js/<browser>/ready.json` 读取命令就绪状态，而不是解析终端日志。参见 [ready.json](/docs/contracts/ready-json)。
 
 ## 下一步
 

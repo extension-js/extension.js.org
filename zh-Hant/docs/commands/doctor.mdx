@@ -18,6 +18,17 @@ keywords:
 
 `doctor` 依相依順序逐一檢查 dev 工作階段的控制通道環節——從磁碟上的就緒契約一路到對擴充功能內執行器的即時探測——並指出**第一個失敗的環節**與具體修復方式,而不是讓你面對每個指令各自的死巷錯誤。
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/WCqoWEZIDFU?autoplay=1&mute=1&loop=1&playlist=WCqoWEZIDFU&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension doctor"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
 ## 何時使用 `doctor`
 
 - `extension logs` 或某個 act verb 連不上,你想知道是哪個環節斷了。
@@ -57,12 +68,33 @@ extension doctor [project-path] [options]
 | flag                      | 作用                                                        | 預設值          |
 | ------------------------- | ----------------------------------------------------------- | --------------- |
 | `[project-path]`          | 擴充功能專案根目錄路徑。                                    | `process.cwd()` |
-| `--browser <browser>`     | 診斷哪個工作階段(`chrome`、`chromium`、`edge`、`firefox`)。 | `chromium`      |
-| `--output <pretty\|json>` | 輸出格式(`json` 為 agent 輸出原始檢查結果)。                | `pretty`        |
+| `--browser <browser>`     | 診斷哪個工作階段(`chrome`、`chromium`、`edge`、`firefox`)。 | 自動解析(見下) |
+| `--output <pretty\|json>` | 輸出格式(`json` 為 agent 輸出 schema-1 信封)。              | `pretty`        |
+
+### `doctor` 如何挑選工作階段
+
+不帶 `--browser` 時,`doctor` 診斷的是實際存在的工作階段,而不是寫死的預設值。它會列出 `dist/extension-js/` 下的就緒契約,並據此解析:
+
+- 只有一個存活契約時,直接由它勝出。
+- 有多個契約時,存在 `chromium` 就選 `chromium`,否則取字母序第一個。接著會有一個 `session-resolution` warn 檢查,在編號檢查開始前列出所有候選。
+- 完全沒有契約時,`doctor` 回退到 `chromium`。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/HE776f5tLro?autoplay=1&mute=1&loop=1&playlist=HE776f5tLro&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension doctor with several live sessions"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ## 檢查內容
 
 檢查依相依順序執行。某個環節失敗時,依賴它的後續檢查會標成 **skip**,並註明被哪個檢查擋住——skip 不等於通過。
+
+只有存在多個存活工作階段時,才會出現第零個 `session-resolution` 檢查。它會給出 warn,並指明這次執行診斷的是哪個工作階段。
 
 | #   | 檢查              | 驗證內容                                                                                          |
 | --- | ----------------- | ------------------------------------------------------------------------------------------------- |
@@ -72,31 +104,58 @@ extension doctor [project-path] [options]
 | 4   | `control-channel` | 控制伺服器在契約連接埠上接受此 `instanceId` 的連線。                                              |
 | 5   | `eval-token`      | 工作階段以 `--allow-eval` 執行時,工作階段權杖可從專案根目錄讀取。                                 |
 | 6   | `executor`        | 一次即時探測能在擴充功能的 background 情境中往返。                                                |
-| 7   | `browser`         | 已啟動的瀏覽器沒有在 dev 伺服器仍在執行時意外結束。                                               |
+| 7   | `browser`         | 已啟動的瀏覽器沒有在 dev 伺服器仍在執行時意外結束。判定結果還會指出實際執行的二進位檔以及它是如何被挑選的(`managed`、`pinned`、`system` 或 `snapshot`),這是發現工作階段用了與你設想不同瀏覽器的最快方式。 |
 
-pretty 輸出每個檢查印出一行,並附上第一個失敗檢查的修復建議。全部通過時結束碼為 `0`,任一檢查失敗時為 `1`,CI 與指令稿可以直接據此把關。
+有些環節刻意給出較寬鬆的結論:
+
+- 當連接埠檔案尚未存在時,`port-agreement` 通過。這個專案與瀏覽器的第一個工作階段沒有任何可牴觸的對象。
+- 在一次全新編譯後的 10 秒內,`executor` 回報 **warn** 而不是失敗。service worker 可能仍在附加中。請等到 `ready.json` 出現 `runtime: "attached"` 再動作。
+- 當契約沒有寫入 `cdpPort`,也沒有記錄結束時,`browser` 回報 **skip**。沒有結束的證據並不代表瀏覽器還活著。
+
+pretty 輸出每個檢查印出一行,並附上第一個失敗檢查的修復建議。每個狀態都有一個字形:`✓` pass、`✗` fail、`!` warn、`–` skip。全部通過時結束碼為 `0`,任一檢查失敗時為 `1`,CI 與指令稿可以直接據此把關。
 
 ## 機器可讀輸出
 
-`--output json` 會把檢查結果印成 JSON 陣列,每個檢查一個物件:
+`--output json` 會印出一個 schema-1 信封。兩種結論下檢查結果都放在 `value` 裡,因為不健康的報告也依然是報告:
 
 ```json
-[
-  {
-    "check": "ready-contract",
-    "status": "pass",
-    "detail": "status ready — controlPort 43021, instanceId a1b2c3"
+{
+  "schema": 1,
+  "ok": false,
+  "command": "doctor",
+  "status": "unhealthy",
+  "value": [
+    {
+      "check": "ready-contract",
+      "status": "pass",
+      "detail": "status ready, controlPort 43021, instanceId a1b2c3"
+    },
+    {
+      "check": "server-process",
+      "status": "fail",
+      "detail": "dev-server pid 4242 is dead, ready.json is stale",
+      "remediation": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control"
+    }
+  ],
+  "error": {
+    "code": "E_SESSION_NOT_FOUND",
+    "message": "1 of 7 doctor checks failed."
   },
-  {
-    "check": "server-process",
-    "status": "fail",
-    "detail": "dev-server pid 4242 is dead — ready.json is stale",
-    "remediation": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control"
-  }
-]
+  "hint": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control",
+  "warnings": []
+}
 ```
 
-`status` 為 `pass`、`fail` 或 `skip`;有已知修復方式的失敗會帶 `remediation`。
+健康的執行會回答 `ok: true`,並帶有 `status: "healthy"` 與 `error: null`。
+
+每個檢查的 `status` 為 `pass`、`fail`、`warn` 或 `skip`。有已知修復方式的失敗會帶 `remediation`。信封的 `error.code` 由第一個失敗的檢查對應而來:
+
+| 第一個失敗的檢查                                 | `error.code`            |
+| ------------------------------------------------ | ----------------------- |
+| `ready-contract`、`server-process`               | `E_SESSION_NOT_FOUND`   |
+| `port-agreement`、`control-channel`、`executor`  | `E_CONTROL_UNAVAILABLE` |
+| `eval-token`                                     | `E_TOKEN_MISSING`       |
+| `browser`                                        | `E_BROWSER_LAUNCH`      |
 
 ## 典型流程
 
@@ -106,6 +165,6 @@ pretty 輸出每個檢查印出一行,並附上第一個失敗檢查的修復建
 
 ## 後續步驟
 
-- 在 [`dev`](/docs/commands/dev) 了解 `doctor` 的起點——就緒契約。
+- 在 [`dev`](/docs/commands/dev#automation-metadata-recommended-for-scriptsagents) 了解 `doctor` 的起點——就緒契約。
 - 透過 [除錯](/docs/debugging) 從健康的工作階段串流讀取擴充功能記錄。
 - 在 [全域 flag](/docs/workflows/global-flags) 查看共用 flag。

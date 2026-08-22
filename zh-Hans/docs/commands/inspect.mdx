@@ -1,0 +1,119 @@
+---
+title: "用 inspect 命令查看 DOM 与发现标签页"
+description: "用 Extension.js 的 inspect 命令直接在终端里查看页面或 content 的 DOM。可以列出标签页、获取 HTML 摘要，并附带最近的控制台输出。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "inspect",
+    "dom",
+    "debugging",
+  ]
+---
+
+通过 agent 桥接查看页面或 content 的 DOM，不需要 CDP，也不用打开 DevTools。
+
+`inspect` 会向正在运行的开发会话询问某个文档此刻的样子。它可以列出打开的标签页，返回结构化摘要或原始 HTML，并附上同一个目标最近的控制台输出。
+
+会话必须在控制通道解锁的状态下运行：用 `extension dev --allow-control` 启动它。被拒绝时错误信息会点名缺失的 flag，所以一次被拒的调用就能告诉你该如何重启会话。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/YscNuwAawu8?autoplay=1&mute=1&loop=1&playlist=YscNuwAawu8&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension inspect"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 什么时候使用 `inspect`
+
+- 你想确认你的 content script 究竟往页面里渲染了什么。
+- agent 需要标签页 id，以便精确地把 [`eval`](/docs/commands/eval) 或 `inspect` 调用指向某个目标。
+- 你希望在一次机器可读的结果里同时拿到 DOM 状态和对应的控制台输出。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension inspect [project-path] [options]
+```
+
+```bash pnpm
+extension inspect [project-path] [options]
+```
+
+```bash yarn
+extension inspect [project-path] [options]
+```
+
+```bash bun
+extension inspect [project-path] [options]
+```
+
+```bash deno
+extension inspect [project-path] [options]
+```
+
+</CodeGroup>
+
+## 参数与 flag
+
+| flag                      | 作用                                                                                                                | 默认值          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `[project-path]`          | 扩展项目根目录的路径。                                                                                              | `process.cwd()` |
+| `--context <context>`     | 查看什么：`content`、`page`，或某个已打开的界面（`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）。 | `content`       |
+| `--url <glob\|substring>` | 用于 `content`/`page`：要定位的文档，会被解析到对应的标签页。                                                        | 未设置          |
+| `--tab <id>`              | 用于 `content`/`page`：指定某个标签页。不指定时，`--url` 的匹配结果优先，否则用当前活动标签页。                      | 活动标签页      |
+| `--list-tabs`             | 以 `{id, url, title, active, windowId}` 的形式列出打开的标签页，然后退出。                                           | 关闭            |
+| `--include <list>`        | 用逗号分隔的结果组成部分：`html`、`summary`。                                                                        | `summary`       |
+| `--max-bytes <n>`         | 返回的 HTML 字节数上限。                                                                                            | `262144`        |
+| `--with-console [n]`      | 同时包含该目标最近 `n` 行控制台输出。                                                                               | 指定时为 `20`   |
+| `--browser <browser>`     | 目标是哪个会话（`chrome`、`chromium`、`edge`、`firefox`）。                                                         | `chromium`      |
+| `--timeout <ms>`          | 命令超时时间，单位毫秒。                                                                                            | `5000`          |
+| `--output <pretty\|json>` | 输出格式（`json` 会把结果包进 schema-1 信封）。                                                                     | `pretty`        |
+
+没有 `--deep-dom` 这个 flag。深层 DOM 支持是会话内部上报的桥接能力，不是你能逐次调用去开关的东西。
+
+## 发现循环
+
+数字形式的标签页 id 让定位变得确定。设计好的流程是先列出、再查看：
+
+```bash
+extension inspect --list-tabs
+extension inspect --tab 412 --with-console
+```
+
+`--list-tabs` 需要解锁的控制通道，但不需要 eval 令牌，所以它在任何 `--allow-control` 会话中都能用。返回结果是一个由 `{id, url, title, active, windowId}` 对象组成的数组。把其中的 `id` 值直接喂给这里的 `--tab`，或者喂给 `eval`。
+
+## 控制台增强
+
+`--with-console` 会往结果里合并一个 `console` 数组：同一 context 与标签页最近的 `n` 条日志记录，读取自会话的 `logs.ndjson`。这样 agent 一次往返就能同时拿到 DOM 状态和控制台证据。这个增强是尽力而为的，永远不会让命令失败。
+
+两种输出模式都会显示它。pretty 模式会在 DOM 摘要之后，以 `logs` 使用的同一种 `[seq] LEVEL (context) message` 格式打印控制台行；当尾部为空时打印 `(no console lines captured)`。`--output json` 则把原始记录放在信封的 `console` 数组里。
+
+## 截断
+
+超过 `--max-bytes` 的 HTML 返回时会被截断。pretty 模式会在 stderr 上打印一条截断提示，`--output json` 会在信封中设置 `truncated: true`（参见 [结果信封](/docs/contracts/result-envelope)）。
+
+## 失败模式
+
+- 该浏览器没有找到会话：`E_SESSION_NOT_FOUND`，并附上应当运行的完整 `extension dev` 命令。
+- 会话在没有 `--allow-control` 的情况下运行：连接会被拒绝，错误信息会点名这个 flag。
+- 目标界面没有打开，或者 `--tab` 指定的 id 已经不存在：`E_TARGET_NOT_FOUND`。
+- 目标耗时超过了 `--timeout`：`E_TIMEOUT`。
+
+当同一个会话拒绝所有 verb，而你想知道第一个断掉的环节是哪个时，运行 [`doctor`](/docs/commands/doctor)。
+
+## 下一步
+
+- 用 [`eval`](/docs/commands/eval) 在你刚刚查看过的页面里执行一段表达式。
+- 用 [`logs`](/docs/commands/logs) 持续流式查看同一个会话的日志。
+- 在 [调试](/docs/debugging) 中了解更完整的调试工作流。

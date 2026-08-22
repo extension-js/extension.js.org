@@ -48,8 +48,8 @@ yarn dlx extension@latest create my-extension --template=new-typescript
 bunx extension@latest create my-extension --template=new-typescript
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-typescript
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-typescript
 ```
 
 </CodeGroup>
@@ -80,8 +80,8 @@ yarn dlx extension@latest create my-extension --template=content-typescript
 bunx extension@latest create my-extension --template=content-typescript
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-typescript
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-typescript
 ```
 
 </CodeGroup>
@@ -92,7 +92,7 @@ Repository: [extension-js/examples/content-typescript](https://github.com/extens
 
 ![new-crypto template screenshot](/images/examples/new-crypto/screenshot.png)
 
-在 new-tab 擴充功能中示範 Node `crypto` polyfill 的用法。
+看 Web Crypto API（`window.crypto.subtle`）如何在 new-tab 擴充功能中直接使用，不需要任何 polyfill。
 
 <CodeGroup>
 
@@ -112,8 +112,8 @@ yarn dlx extension@latest create my-extension --template=new-crypto
 bunx extension@latest create my-extension --template=new-crypto
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-crypto
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-crypto
 ```
 
 </CodeGroup>
@@ -124,9 +124,13 @@ Repository: [extension-js/examples/new-crypto](https://github.com/extension-js/e
 
 - 建置目標以瀏覽器為主（`web`）。
 - 模組解析優先採用瀏覽器匯出（`browser`、`module`、`main`）。
-- Extension.js 預設停用 Node 核心 fallback（例如 `crypto`、`path`、`fs`）。
+- `crypto`、`path` 與 `fs` 會被對應成 `false`，因此它們會解析到一個空模組。建置會成功，
+  而匯入則改為在執行階段失敗（例如 `path.join` 是 undefined）。
+- 其餘所有 Node 核心模組，包含 `buffer`、`stream`、`os` 以及帶 `node:` 前綴的指定符，
+  都沒有 fallback，會以 `Module not found: Can't resolve` 讓建置失敗。
 
-這代表匯入 Node API 時，若未明確設定 fallback 就可能失敗。
+所以缺少的 Node API 會出現在兩個地方之一，是哪一個取決於該模組。
+用下面的明確 fallback 來處理這兩種情況。
 
 ## 設定 Node polyfill
 
@@ -197,6 +201,3 @@ deno add -D npm:node-polyfill-webpack-plugin npm:crypto-browserify npm:path-brow
 
 - 了解如何自訂 [Rspack 設定](/docs/features/rspack-configuration)。
 - 了解如何管理 [Extension 設定](/docs/features/extension-configuration)。
-
-## 影片導覽
-

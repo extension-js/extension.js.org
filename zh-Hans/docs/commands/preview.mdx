@@ -55,7 +55,7 @@ extension preview [project-path] [options]
 extension preview [project-path] [options]
 ```
 
-```bash bun
+```bash deno
 extension preview [project-path] [options]
 ```
 
@@ -67,8 +67,9 @@ extension preview [project-path] [options]
 
 `preview` 按以下顺序检查：
 
-1. 所选浏览器目标对应的 `dist/<browser>`。
-2. 提供的项目路径或当前工作目录。
+1. 你传入的 `--output-path <dir>`。它的优先级高于其他一切。
+2. 所选浏览器目标对应的 `dist/<browser>`。
+3. 提供的项目路径或当前工作目录。
 
 该文件夹需要包含一个带 `manifest.json` 的未打包扩展。是否在同一条命令里跑过 `build` 并不重要。
 
@@ -84,9 +85,20 @@ extension preview [project-path] [options]
 | `--starting-url <url>`      | -                  | 启动浏览器时的起始 URL。                                                    | 未设置             |
 | `--no-browser`              | -                  | 跳过浏览器启动。                                                            | 默认启用浏览器启动 |
 | `--port <port>`             | -                  | 启用 runner 时使用的 runner / devtools 端口。用 `0` 让 OS 自动分配端口。    | `8080`             |
-| `--host <host>`             | -                  | 绑定 dev 服务器的主机。Docker / dev container 中可用 `0.0.0.0`。            | `127.0.0.1`        |
 | `--extensions <list>`       | -                  | 用逗号分隔的协同扩展或商店 URL。                                            | 未设置             |
-| `--author`                  | `--author-mode`    | 启用维护者诊断信息。                                                        | 关闭               |
+| `--output-path <dir>`       | -                  | 要运行的、已存在的未打包扩展目录。                                          | 可用时为 `dist/<browser>` |
+| `--output <pretty\|json>`   | -                  | 结果格式。`json` 会在 stdout 打印一个 schema-1 信封。                       | `pretty`           |
+| `--debug`                   | -                  | 启用维护者诊断信息。                                                        | 关闭               |
+
+`--author` 与 `--author-mode` 是 `--debug` 的隐藏、已废弃别名。
+
+## 浏览器支持
+
+`preview` 没有 Safari 路径。传入 `--browser safari`（或 `webkit-based`）会以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 退出。Safari 是受支持的浏览器，但这个命令无法启动它。Safari 目标请使用 [`dev`](/docs/commands/dev) 或 [`build`](/docs/commands/build)。
+
+## 远程 URL 与 light 模式
+
+当路径参数是一个远程 `http(s)` URL 时，`preview` 会自动设置 `EXTJS_LIGHT=1`。这会让下载下来的扩展以 light 模式启动。如果你事先自己设置了 `EXTJS_LIGHT`，则会覆盖这一行为。
 
 ## 自动化元数据
 
@@ -103,7 +115,17 @@ extension preview [project-path] [options]
 
 `preview` 不提供 `--wait` 闸门 flag。`preview` 的自动化请直接消费 `ready.json`。
 
+### 用 `--output json` 输出机器可读结果
+
+`--output json` 会在 stdout 打印一个 schema-1 信封：
+
+- 运行成功时打印一个 `status: "ready"` 帧。它的 `value` 携带项目路径以及被预览的浏览器列表。
+- 当没有可预览的内容时，该帧为 `ok: false`，并带有 `status: "not-found"` 与 `error.code: "E_PREVIEW_NO_DIST"`。它的提示会让你先运行 `extension build`。
+- 其他失败会打印 `ok: false` 与 `status: "failed"`，随后进程以 `1` 退出。
+
 ## 日志 flag
+
+这些 flag 是实验性的，可能在小版本之间发生变化。
 
 | flag                                                 | 作用                                                                                       | 默认值         |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------- |
@@ -123,6 +145,17 @@ extension preview [project-path] [options]
 
 ### 预览一个本地扩展
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/OtfhRhd-yQ0?autoplay=1&mute=1&loop=1&playlist=OtfhRhd-yQ0&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension preview"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
 <CodeGroup>
 
 ```bash npm
@@ -141,7 +174,7 @@ extension preview ./my-extension
 extension preview ./my-extension
 ```
 
-```bash bun
+```bash deno
 extension preview ./my-extension
 ```
 
@@ -167,7 +200,7 @@ extension preview ./my-extension --browser=edge,chrome
 extension preview ./my-extension --browser=edge,chrome
 ```
 
-```bash bun
+```bash deno
 extension preview ./my-extension --browser=edge,chrome
 ```
 
@@ -193,7 +226,7 @@ extension preview ./my-extension --no-browser
 extension preview ./my-extension --no-browser
 ```
 
-```bash bun
+```bash deno
 extension preview ./my-extension --no-browser
 ```
 

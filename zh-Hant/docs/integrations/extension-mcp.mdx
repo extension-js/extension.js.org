@@ -1,0 +1,97 @@
+---
+title: "Extension.js MCP server"
+description: "用 @extension.dev/mcp 讓 AI agent 取得感知建置的擴充功能控制能力：開發工作階段、日誌、eval、儲存空間、重新載入與 manifest 驗證，全部以 MCP 工具提供。"
+keywords:
+  [
+    "extension.js",
+    "mcp",
+    "model context protocol",
+    "@extension.dev/mcp",
+    "ai agents",
+    "extension debugging",
+    "docs",
+    "integrations",
+  ]
+---
+
+`@extension.dev/mcp` 是 Extension.js 的 MCP server。它把整套 Extension.js 工作流程揭露為 Model Context Protocol 工具。AI agent 可以建置你的擴充功能、執行它，並在真實瀏覽器中驗證結果。這些工具具備感知建置的能力：它們了解你的專案、你產生的 manifest，以及你的開發工作階段。
+
+每一個工具都位於 `extension_*` 命名空間之下，這個 server 一共提供 30 個。下面這張表涵蓋了你最常用到的那些。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/Pt2p3px1-I4?autoplay=1&mute=1&loop=1&playlist=Pt2p3px1-I4&controls=0&rel=0&playsinline=1"
+    title="Extension.js: an MCP client edits and verifies the extension"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 安裝這個 server
+
+<CodeGroup>
+
+```bash Claude Code
+claude mcp add extension-dev npx @extension.dev/mcp
+```
+
+```json Claude Desktop (claude_desktop_config.json)
+{
+  "mcpServers": {
+    "extension-dev": {
+      "command": "npx",
+      "args": ["@extension.dev/mcp"]
+    }
+  }
+}
+```
+
+```json Cursor (.cursor/mcp.json)
+{
+  "mcpServers": {
+    "extension-dev": {
+      "command": "npx",
+      "args": ["@extension.dev/mcp"]
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+## 核心工具
+
+| 工具                          | 用途                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `extension_dev`               | 在 agent 編輯擴充功能的同時執行它：開發建置、熱重載，以及一個已載入該擴充功能的瀏覽器                            |
+| `extension_build`             | 為正式環境建置到 `dist/<browser>`，並可選擇打包成可上架商店的 zip                                                |
+| `extension_preview_web`       | 在網頁模擬器中預覽進行中的建置，不需要真實瀏覽器，而且可以回傳一個可分享的連結                                   |
+| `extension_logs`              | 讀取或串流所有 context 的日誌（service worker、content script、popup、options、sidebar、頁面）                   |
+| `extension_eval`              | 在執行中的擴充功能情境裡對運算式求值                                                                             |
+| `extension_storage`           | 在執行中的擴充功能裡讀寫 `chrome.storage`                                                                        |
+| `extension_reload`            | 重新載入執行中擴充功能的 background 情境，或某個分頁                                                             |
+| `extension_open`              | 開啟某個介面（popup、options、sidebar、覆寫頁面），或重播 action 與 command 處理函式                             |
+| `extension_inspect`           | 透過除錯協定進行深度檢查：包含 shadow DOM 的完整 HTML、注入狀態、主控台、CSS 探測                                |
+| `extension_list_extensions`   | 列出執行中開發瀏覽器裡的擴充功能，附上 id、名稱、版本，在 Chromium 上還包含即時 context                          |
+| `extension_manifest_validate` | 跨瀏覽器驗證 `manifest.json`，並標示出那些會讓建置拒絕通過的錯誤                                                 |
+
+## 工作階段模型
+
+`extension_dev` 是進入點。它是唯一一個會解鎖本機控制通道的工具，而各個「動作」動詞都是跑在這條通道上的：
+
+- `extension_storage`、`extension_reload` 與 `extension_open` 需要一個以 `allowControl: true` 啟動的工作階段。
+- `extension_eval` 需要一個以 `allowEval: true` 啟動的工作階段，它會寫出一個權限為 `0600` 的工作階段權杖檔案。
+
+讀取一律不需要解鎖。任何會改變狀態的操作，都必須逐個工作階段明確開啟。
+
+## scaffold 專案的引擎版本釘選
+
+透過這個 server 的 create 工具產生的專案，會在專案內部宣告所使用的 Extension.js 引擎版本。專案內的這個釘選優先於 server 環境，因此之後的工作階段都會用 scaffold 宣告的那個版本進行建置。
+
+## 下一步
+
+- 把它與 Google 的 Chrome 除錯 server 一起執行：[Chrome DevTools MCP](/docs/integrations/chrome-devtools-mcp) 有完整的能力對照表。
+- 把文件也接上你的助理：[透過 MCP 與 llms.txt 提供 AI 存取](/docs/ai-access)。
+- 把同樣的檢查接進 CI：[CI 範本](/docs/workflows/ci-templates)。

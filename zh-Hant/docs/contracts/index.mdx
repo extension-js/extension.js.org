@@ -1,0 +1,42 @@
+---
+title: "機器契約總覽"
+description: "為你的工作挑選合適的 Extension.js 機器契約：工作階段就緒狀態、指令結果、錯誤碼、生命週期 frame，或是控制橋。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "contracts",
+    "automation",
+    "agents",
+  ]
+---
+
+從穩定的檔案與 frame 讀取狀態，而不是去解析終端機裡的文字。
+
+Extension.js 為指令稿、CI 工作與 AI agent 發布了一小組機器契約。每個契約都有固定的結構，後續版本只會擴充它，絕不會破壞它。
+
+## 該讀哪個契約
+
+| 你要做的事                                 | 契約                                             |
+| ------------------------------------------ | ------------------------------------------------ |
+| 讓指令稿或 CI 步驟等待執行中的工作階段     | [ready.json](/docs/contracts/ready-json)         |
+| 解析某一條 CLI 指令的結果                  | [結果信封](/docs/contracts/result-envelope)      |
+| 依失敗類別而不是依錯誤訊息文字來分支處理   | [錯誤碼](/docs/contracts/error-codes)            |
+| 追蹤一個 dev 工作階段的編譯、重新編譯與失敗 | [生命週期串流](/docs/contracts/lifecycle-stream) |
+| 打造直接與控制通道對話的測試框架           | [控制橋](/docs/contracts/control-bridge)         |
+
+## 各個契約之間的關係
+
+一個工作階段會寫出 `dist/extension-js/<browser>/ready.json`，並往 `events.ndjson` 與 `logs.ndjson` 追加內容。這三者帶有相同的 `runId`，所以你可以把它們關聯起來。
+
+會結束的指令在 `--output json` 之下，會在 stdout 上回答一個 schema-1 結果信封。長時間執行的指令則把同樣結構的信封，以換行分隔的生命週期 frame 形式串流輸出。
+
+每一次失敗都帶著一個來自同一張共用表的穩定 `E_*` 錯誤碼。控制橋是 `logs --follow` 與各個 act 指令底下的 WebSocket 層。
+
+## 下一步
+
+- 從 [ready.json](/docs/contracts/ready-json) 開始，它是每一條自動化流程最先讀取的契約。
+- 用 [驅動 CLI](/docs/workflows/driving-the-cli) 讓助理跑完整個迴圈。

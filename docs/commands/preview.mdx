@@ -67,8 +67,9 @@ If you omit the path, Extension.js uses the current working folder.
 
 `preview` checks these locations in order:
 
-1. `dist/<browser>` for the selected browser target.
-2. The provided project path or current working folder.
+1. `--output-path <dir>` when you pass it. It wins over everything else.
+2. `dist/<browser>` for the selected browser target.
+3. The provided project path or current working folder.
 
 The folder needs to contain an unpacked extension with a `manifest.json`. It does not matter whether a build ran in the same command.
 
@@ -85,6 +86,7 @@ The folder needs to contain an unpacked extension with a `manifest.json`. It doe
 | `--no-browser`              | -                  | Skip browser launch.                                                                              | browser launch enabled                          |
 | `--port <port>`             | -                  | Runner/devtools port when runner is enabled. Use `0` for OS-assigned port.                        | `8080`                                          |
 | `--extensions <list>`       | -                  | Comma-separated companion extensions or store URLs.                                               | unset                                           |
+| `--output-path <dir>`       | -                  | Existing unpacked extension directory to run.                                                     | `dist/<browser>` when available                 |
 | `--output <pretty\|json>`   | -                  | Result format. `json` prints a schema-1 envelope on stdout.                                       | `pretty`                                        |
 | `--debug`                   | -                  | Enable maintainer diagnostics.                                                                    | disabled                                        |
 
@@ -117,7 +119,7 @@ For `--no-browser` flows, this provides deterministic command state:
 
 `--output json` prints one schema-1 envelope on stdout:
 
-- A successful run prints a `status: "ready"` frame. Its `value` carries the project path and the list of previewed browsers.
+- A successful run prints a `status: "ready"` frame. Its `value` carries the list of previewed browsers, plus `projectPath` when you passed a path argument.
 - When there is nothing to preview, the frame is `ok: false` with `status: "not-found"` and `error.code: "E_PREVIEW_NO_DIST"`. Its hint says to run `extension build` first.
 - Other failures print `ok: false` with `status: "failed"` before the process exits `1`.
 

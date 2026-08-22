@@ -1,0 +1,128 @@
+---
+title: "会话产物：Extension.js 把开发会话状态放在哪里"
+description: "了解 Extension.js 在一次开发会话中写入的两个磁盘根目录：.extension-js 中长期保留的控制文件，以及 dist/extension-js 中按浏览器划分的契约、日志与配置文件。"
+keywords:
+  [
+    "extension.js",
+    "session artifacts",
+    "ready.json",
+    "events.ndjson",
+    "control port",
+    "control token",
+    "browser profile",
+    "dist folder",
+    "multi-browser development",
+    "debug port",
+    "instance id",
+  ]
+---
+
+每一次 `extension dev` 会话都会把状态写到磁盘上：机器可读的契约、日志、一条控制通道，以及一个受管理的浏览器配置文件。知道每个文件放在哪里，你就知道哪些东西能在清空 `dist/` 后幸存、哪些可以安全解析，以及哪些绝对不能进入提交。
+
+## 双根目录契约
+
+会话状态分布在两个生命周期不同的根目录中：
+
+| 根目录 | 生命周期 | 存放内容 |
+| --- | --- | --- |
+| `<project>/.extension-js/` | 清空 `dist/` 后仍然存在 | `control-port-<browser>`、`control-token-<browser>` |
+| `<project>/dist/extension-js/` | 随 `dist/` 一起消失 | `ready.json`、`events.ndjson`、`logs.ndjson`、`actions.ndjson`、`build-summary.json`，以及受管理的配置文件 |
+
+这样拆分是有意为之。浏览器配置文件的寿命可能比 `dist/` 更长，而缓存在其中的扩展会记住它当初拿到的控制坐标。当这些坐标放在 `dist/` 下时，清空该目录就会让配置文件里缓存的 service worker 变成孤儿，一直去拨打一个已经失效的端口。凡是配置文件可能已经写死记住的东西，现在都放在 `.extension-js/` 里，清空 `dist/` 碰不到它们。
+
+控制令牌文件以 `0600` 权限写入。它们会授权诸如 `extension eval` 这类会改变状态的动作，因此只有你自己的用户能读取。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/oCqZ7Bhi6L0?autoplay=1&mute=1&loop=1&playlist=oCqZ7Bhi6L0&controls=0&rel=0&playsinline=1"
+    title="Extension.js: one dev command, two browser sessions"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 按浏览器划分的键
+
+每个产物的名称里都嵌入了浏览器：`control-token-chrome`、`dist/extension-js/firefox/ready.json`。如果每个项目只有一个槽位，那么一旦同一个项目上启动第二个浏览器会话就会出问题：第二个会话会覆盖第一个会话的令牌，而任何一方退出时都会把它删掉，两边都用不了。
+
+正因为每个槽位都带键，你可以在同一个项目上同时运行 `extension dev --browser chrome` 和 `extension dev --browser firefox`。每个会话都保有自己的配置文件、自己的调试端口和自己的控制通道。
+
+在 `dist/extension-js/` 内部，每个浏览器都有自己的产物目录：
+
+```text
+dist/
+  chrome/                        # the compiled extension
+  extension-js/
+    .gitignore                   # auto-written, ignores everything below
+    chrome/
+      ready.json                 # machine contract for the current session
+      events.ndjson              # lifecycle event stream
+      logs.ndjson                # unified extension log stream
+      actions.ndjson             # audit log of control-channel actions
+      build-summary.json         # structured build result
+    profiles/
+      chrome-profile/            # managed browser profile root
+```
+
+## 调试端口的推导
+
+每个会话都会推导出属于自己的 DevTools 调试端口，而不是共用同一个：
+
+1. 从基数开始：你的 `--port` 值加上固定偏移 `100`；若没有有效的基数，则用默认的 `9222`。
+2. 再加上一个按实例区分的偏移，它由实例 id 的前 8 位十六进制字符对 1000 取模得到。
+
+`--port 0` 表示由操作系统分配开发服务器端口，因此 Extension.js 拒绝据此推导调试端口。从零推导会得到一个无法绑定的特权端口，所以此时改用默认值。
+
+## 实例注册表
+
+连接到某个会话的工具，会通过一张按精确实例 id 建键的实例注册表来解析端口。精确 id 优先。对于已知但未注册端口的实例，返回的是调用方自己给的回退值，绝不会是另一个实例的端口。
+
+当既没有给出实例 id、也没有回退值时，查找会抛出 `AmbiguousInstanceError`，而不是去猜。退而取最近启动的浏览器会把不同实例的数据流串在一起，所以注册表拒绝这么做。
+
+## 拆除
+
+会话结束时，Extension.js 会分阶段拆除浏览器：
+
+- 在信号路径上，浏览器子进程先收到 `SIGTERM`，经过 5 秒宽限期后再收到 `SIGKILL`。
+- 在进程退出时，处理器只有一个同步时间片，因此会同步地用 `SIGKILL` 强制结束子进程。
+- 在 Windows 上，两条路径都用 `taskkill /PID <pid> /T /F` 结束整棵进程树。
+
+关闭过程中出现的 `ECONNRESET`、`EPIPE`、`ECONNABORTED` 或 `ENOTCONN` 这几种 socket 错误码会被视为无害。它们来自浏览器正在关闭的 socket，因此优雅关闭仍然是优雅关闭，而不会以退出码 1 结束。
+
+## 自动写入的 gitignore
+
+<Warning>
+  受管理的配置文件里保存着真实的浏览数据：cookie、历史记录，以及你在开发会话期间执行过的任何登录。
+  绝不要提交它，也绝不要分发它。
+</Warning>
+
+Extension.js 会在 `dist/extension-js/` 里写入一个内容为 `*` 的 `.gitignore`，让整个会话根目录都不进入提交。如果你的项目根目录已经有 `.gitignore`，它还会往里追加 `.extension-js`，因为处于活动状态的控制令牌同样绝不能进入提交。这两次写入都只是卫生防护：它们绝不会覆盖已有内容，也绝不会让构建失败。
+
+## build-summary.json
+
+调用 `extension build` 的宿主程序可以拿到一条结构化的结果通道，而不用去刮取 stdout：
+
+| 字段 | 含义 |
+| --- | --- |
+| `browser` | 这次构建的浏览器目标。 |
+| `output_path` | 构建输出所在的 dist 绝对路径（已知时）。 |
+| `total_assets` | 产出的资源数量。 |
+| `total_bytes` | 产出的总字节数。 |
+| `largest_asset_bytes` | 单个最大资源的大小。 |
+| `warnings_count`、`errors_count` | 编译得到的总数。 |
+| `warnings` | 纯文本警告信息，已去除 ANSI，最多 20 条。 |
+| `safari` | 仅在运行了打包器的 Safari 构建中存在。 |
+
+该文件不会在两次运行之间被删除，因此使用方必须自行防范读到过期文件。在信任它之前，请把文件的 mtime 与你启动构建的时间做比较。
+
+## hot/ 的清理
+
+在开发期间，热更新 chunk 是在扩展 origin 内部从磁盘取回的，因此过期的代次会不断堆积在最终交付的内容里。每次编译之后，Extension.js 会把 `hot/` 清理到只剩当前代次加上前一代次。保留前一代次一轮，是为了让正在传输中的请求仍然能取到内容。
+
+## 下一步
+
+- 通过 [ready.json 与事件流](/docs/workflows/playwright-e2e) 解析会话状态，而不是解析终端输出。
+- 在 [浏览器配置文件](/docs/browsers/browser-profile) 中了解受管理配置文件的行为。
+- 在 [读懂 CLI 输出](/docs/concepts/reading-cli-output) 中了解会话在终端一侧的样子。

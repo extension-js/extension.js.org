@@ -1,0 +1,42 @@
+---
+title: "机器契约总览"
+description: "为你的任务挑选合适的 Extension.js 机器契约：会话就绪状态、命令结果、错误码、生命周期帧，或是控制桥。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "contracts",
+    "automation",
+    "agents",
+  ]
+---
+
+从稳定的文件和帧里读取状态，而不是去解析终端里的文字。
+
+Extension.js 为脚本、CI 任务和 AI agent 发布了一小组机器契约。每个契约都有固定的结构，后续版本只会扩展它，绝不会破坏它。
+
+## 该读哪个契约
+
+| 你要做的事                             | 契约                                                 |
+| -------------------------------------- | ---------------------------------------------------- |
+| 让脚本或 CI 步骤等待一个运行中的会话   | [ready.json](/docs/contracts/ready-json)             |
+| 解析某一条 CLI 命令的结果              | [结果信封](/docs/contracts/result-envelope)          |
+| 按失败类别而不是按错误文本来分支处理   | [错误码](/docs/contracts/error-codes)                |
+| 跟踪一个开发会话的编译、重新编译与失败 | [生命周期流](/docs/contracts/lifecycle-stream)       |
+| 编写直接与控制通道对话的测试框架       | [控制桥](/docs/contracts/control-bridge)             |
+
+## 各个契约之间的关系
+
+一个会话会写出 `dist/extension-js/<browser>/ready.json`，并向 `events.ndjson` 和 `logs.ndjson` 追加内容。这三者带有相同的 `runId`，所以你可以把它们关联起来。
+
+会终止的命令在 `--output json` 下会在 stdout 上回答一个 schema-1 结果信封。长时间运行的命令则把同样结构的信封作为以换行分隔的生命周期帧流式输出。
+
+每一次失败都带有一个来自同一张共享表的稳定 `E_*` 错误码。控制桥是 `logs --follow` 与各个 act 命令底层的 WebSocket 层。
+
+## 下一步
+
+- 从 [ready.json](/docs/contracts/ready-json) 开始，它是每条自动化流程最先读取的契约。
+- 用 [驱动 CLI](/docs/workflows/driving-the-cli) 让助手跑完整个循环。

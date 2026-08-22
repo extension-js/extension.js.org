@@ -56,8 +56,8 @@ yarn dlx extension@latest create my-extension --template=content
 bunx extension@latest create my-extension --template=content
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content
 ```
 
 </CodeGroup>
@@ -88,8 +88,8 @@ yarn dlx extension@latest create my-extension --template=content-react
 bunx extension@latest create my-extension --template=content-react
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-react
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-react
 ```
 
 </CodeGroup>
@@ -208,8 +208,8 @@ yarn dlx extension@latest create my-extension --template=content-multi-one-entry
 bunx extension@latest create my-extension --template=content-multi-one-entry
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-multi-one-entry
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-multi-one-entry
 ```
 
 </CodeGroup>
@@ -240,13 +240,24 @@ yarn dlx extension@latest create my-extension --template=content-multi-three-ent
 bunx extension@latest create my-extension --template=content-multi-three-entries
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-multi-three-entries
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-multi-three-entries
 ```
 
 </CodeGroup>
 
 仓库：[extension-js/examples/content-multi-three-entries](https://github.com/extension-js/examples/tree/main/examples/content-multi-three-entries)
+
+## 传统的多文件入口
+
+当一个 `content_scripts.js` 数组列出多个既没有 `import` 也没有 `export` 的普通 JavaScript 文件时，Extension.js 会把它们拼接成一个 bundle。把每个文件当作独立模块打包会破坏它们。浏览器会按顺序把这些经典文件注入到同一个共享作用域中，拼接正是为了保持这一点：
+
+- 跨文件的隐式全局变量仍然有效。第一个文件中的顶层 `var` 或函数对下一个文件依然可见。
+- 每个源文件都会注册为构建依赖，因此保存这一组中的任意文件都会触发重新构建。
+- 输出的 source map 指向你真实的文件与行号，因此错误可以追溯回原始代码。
+- 拼接组中的原始 `.ts` 文件会在拼接之前用内置的 SWC 剥离类型。
+
+使用 `import` 或 `export` 的入口保持常规的模块打包方式。
 
 ## `scripts/` 文件夹的行为
 
@@ -257,6 +268,17 @@ bunx extension@latest create my-extension --template=content-multi-three-entries
 - 当脚本入口文件挂载行为时，仍然应该默认导出一个函数。
 - 在监听模式下，Extension.js 会把 `scripts/` 下受支持文件的新增或删除视为结构性变更。
 - 当入口集合发生变化时，Extension.js 可能要求重启开发服务器。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/HuyLnqez4kc?autoplay=1&mute=1&loop=1&playlist=HuyLnqez4kc&controls=0&rel=0&playsinline=1"
+    title="Extension.js: content script HMR"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ## 输出路径
 
@@ -298,8 +320,8 @@ yarn dlx extension@latest create my-extension --template=content-main-world
 bunx extension@latest create my-extension --template=content-main-world
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-main-world
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-main-world
 ```
 
 </CodeGroup>
@@ -308,9 +330,18 @@ bunx extension@latest create my-extension --template=content-main-world
 
 - **`world: "MAIN"` 仅支持 Chromium。** Firefox 不支持 `world` 字段并会忽略它。在 Firefox 上，你的脚本仍然运行在 isolated world 中。
 - **跨浏览器的 MAIN world 行为：** 使用 `chromium:` manifest 前缀，仅为 Chromium 目标声明它，然后为 Firefox 提供一个 isolated world 回退。
-- 在开发期，MAIN-world 脚本会使用内部桥接机制加载代码 chunk 并解析 public 路径。
 - 在 MAIN world 中 **无法使用** 扩展 API（`chrome.runtime`、`chrome.storage` 等）；你只能访问页面上下文中的全局对象。
 - 把 MAIN world 当作高级路径对待。尽早在每个目标浏览器上验证行为。
+
+### isolated world 桥接
+
+MAIN world 脚本无法调用扩展 API，因此 Extension.js 会为每个 MAIN 组配一个可以调用的辅助脚本。请预期构建后的 manifest 在这里与你的源文件不同：
+
+- dist 中的 manifest 比源文件包含更多的 `content_scripts` 入口。Extension.js 会在每个 MAIN 组之前插入一条 isolated world 桥接入口。
+- 桥接入口的资源索引排在你自己的入口之后。你的 `content_scripts/content-N` 产物保留生成它们的源入口的索引。
+- 桥接通过 `runtime.getURL` 解析扩展 URL，并把 MAIN world 的脚本 chunk 注入页面。
+- 桥接在处理消息前会校验 `event.source` 是否为同一个 window。
+- 它只会注入扩展协议的 URL（`chrome-extension://`、`moz-extension://`）或相对路径，绝不会注入任意的远程 URL。
 
 ### Isolated vs MAIN 快速示例
 

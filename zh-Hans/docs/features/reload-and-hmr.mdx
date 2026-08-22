@@ -19,7 +19,7 @@ keywords:
 需要在每次文件变更后获得快速反馈吗？Extension.js 会自动选择最安全、最快的更新路径：
 
 - **HMR(热模块替换)**：当模块更新是安全的时候使用
-- **硬扩展重载**：当运行时关键资产发生变化时使用
+- **分类重载**(full、service worker、content scripts，或仅通知的 page)：当运行时资产发生变化时使用
 - **需要重启错误/警告**：当入口结构发生变化时
 
 ## 重载前置条件(devtools 设置对话框)
@@ -46,22 +46,57 @@ keywords:
 - 通过 [`userScripts` API](https://developer.chrome.com/docs/extensions/reference/api/userScripts) 注册的脚本
 - 在受支持的 content-script/运行时包装器中的 CSS 更新
 
-### 2) 硬扩展重载
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/25A25_IGmRs?autoplay=1&mute=1&loop=1&playlist=25A25_IGmRs&controls=0&rel=0&playsinline=1"
+    title="Extension.js: edit a line, save, the page updates in place"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
-部分文件变更需要重启扩展运行时本身。
+### 2) 分类重载
 
-典型的硬重载触发条件：
+当一次变更需要的不只是 HMR 时，Extension.js 会把它归入四种重载类型之一：
 
-- `manifest.json`
-- `_locales/**.json`
-- service worker / 后台脚本中影响运行时的关键变更
-- content script 输出变化(Extension.js 浏览器运行器会强制扩展重载以保持一致)
+| 类型              | 会发生什么                                                     |
+| ----------------- | -------------------------------------------------------------- |
+| `full`            | 整个扩展重新加载，manifest 与资产会从磁盘重新读取。            |
+| `service-worker`  | 后台 service worker 重启。                                     |
+| `content-scripts` | 发生变更的 content-script 入口重新注入到它们所在的标签页。     |
+| `page`            | 仅通知。由 livereload 刷新页面本身，不会触发扩展重载。         |
 
-Extension.js 在内部应用浏览器特定的硬重载机制(Chromium 与 Firefox 内部流程不同)，但在 CLI 层级把行为统一起来。
+这个判定来自编译器的 chunk 图，而不是文件名，并遵循固定顺序：
+
+1. **强制 full。** 对 `manifest.json` 或 `_locales/` 下任何内容的修改，总是归类为 `full`，无论还改了什么。
+2. **chunk 归属。** Extension.js 会查出每个变更源文件属于哪些 chunk。位于 `background/` chunk 中的源文件意味着 `service-worker`，位于 `content_scripts/` chunk 中的源文件意味着 `content-scripts`。
+3. **变更的静态资产。** 有些变更文件存在于输出目录里，却不属于任何 chunk：图标、web-accessible 资源、DNR 规则集。它们会强制 `full`，好让浏览器从磁盘重新读取。
+4. **名称启发式。** 仅用于 chunk 图不认识的源文件：路径匹配 `background` 或 `service worker` 模式的归类为 `service-worker`。
+5. **content 兜底。** 如果 manifest 声明了 content script，剩下的未知变更会重新注入每一个 content-script 入口。
+6. **仅通知的 page。** 其余一切都是 `page` 指令：刷新由 livereload 负责，重载通告仍会发出。
+
+同时存在于 service-worker chunk 和 content-script chunk 中的源文件会向两条路径扇出。一次保存会触发 SW 重启，并在同一条分类指令里带上待重新注入的过期 content-script 入口。
+
+每次开发期重载都会由 dev 服务器生成一个统一的上下文标签来通告。格式是 `context (fileA, fileB +2 more)`，例如 `service_worker + content_script (shared/api.ts)`。同一个标签会原样出现在 CLI 的 stdout、页面 devtools 控制台以及 devtools 的小药丸里，因此你可以在这三处之间对应同一次重载，不用靠猜。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/ti7klM0wZoY?autoplay=1&mute=1&loop=1&playlist=ti7klM0wZoY&controls=0&rel=0&playsinline=1"
+    title="Extension.js: one save to a shared module, worker and content script reload"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+如果重载后浏览器仍然提供缓存的过期 service worker，dev 服务器会检测到版本不一致并自动重新同步扩展。你不需要手动移除再重新添加扩展来恢复。
 
 > **为什么开发模式下 content script 的文件名带哈希？**
 >
-> Chrome 会激进缓存 `chrome-extension://` 资源。即便完整地重载扩展后，像 `content-0.js` 这样的稳定文件名仍可能提供过期的代码。Extension.js 在开发期会在文件名后追加一段短的构建哈希(例如 `content-0.abcd1234.js`)。每次重新构建都会产生一个新 URL，从而绕过缓存。生产构建则使用干净的文件名。
+> Chrome 会激进缓存 `chrome-extension://` 资源。即便完整地重载扩展后，像 `content-0.js` 这样的稳定文件名仍可能提供过期的代码。Extension.js 在开发期会在文件名后追加一段短的构建哈希(例如 `content-0.abcd1234.js`)。每次重新构建都会产生一个新 URL，从而绕过缓存。生产构建则使用干净的文件名。在 `extension.config.*` 的 `commands.dev` 下设置 `hashContentScripts: false` 可以关闭它，保留稳定的开发期文件名。同名的顶层键会被忽略。
 
 ### 3) 需要重启(开发服务器)
 
@@ -75,12 +110,31 @@ Extension.js 在内部应用浏览器特定的硬重载机制(Chromium 与 Firef
 
 ## 行为矩阵
 
-| 变更类型                                           | 默认行为                 |
-| -------------------------------------------------- | ------------------------ |
-| 现有入口中的 JS/CSS 模块更新                       | 在受支持的场景下使用 HMR |
-| `manifest.json` / locale / service worker 关键更新 | 硬扩展重载               |
-| 入口结构更新(manifest 列表、HTML 脚本/样式引用)    | 需要重启                 |
-| watch 期间 `pages/` 或 `scripts/` 文件的增删       | 警告/错误，并提示重启    |
+| 变更类型                                          | 分类结果                                  |
+| ------------------------------------------------- | ----------------------------------------- |
+| 现有入口中的 JS/CSS 模块更新                      | 在受支持的场景下使用 HMR                  |
+| `manifest.json` 或 `_locales/**` 修改             | `full`(强制，无论还改了哪些文件)          |
+| 位于 background chunk 中的源文件                  | `service-worker`                          |
+| 位于 content-script chunk 中的源文件              | `content-scripts`(仅受影响的入口)         |
+| 同时位于 background 与 content chunk 中的源文件   | `service-worker` + content 重新注入(扇出) |
+| 变更的产出静态资产(图标、web-accessible 资源)     | `full`                                    |
+| 仅属于页面的源文件(popup、options、sidebar、devtools) | `page`(仅通知，由 livereload 刷新)     |
+| 入口结构更新(manifest 列表、HTML 脚本/样式引用)   | 需要重启                                  |
+| watch 期间 `pages/` 或 `scripts/` 文件的增删      | 警告/错误，并提示重启                     |
+
+## 开发期运行时是如何注入的
+
+重载插件会分五个注入步骤为你的构建加装，然后执行清理：
+
+1. 从无法承载 dev 服务器运行时的 content-script chunk 中剥离该运行时。
+2. 在 background 与 content-script 入口上建立重载策略。
+3. 注入 service-worker 的脚本重放垫片，使 `/scripts/*` 的注入在修改后重新执行。
+4. 注入 bridge producer，让 background 把控制台输出转发到控制通道。
+5. 注入 bridge relay，让 content-script 的控制台输出到达同一个通道。
+
+之后会有一个清理步骤管理 `hot/`。热更新 chunk 是从扩展源上的磁盘获取的，所以过期的世代会在最终交付物里堆积。Extension.js 会保留当前世代以及上一个世代（供进行中的请求使用），并在每次编译后删除其余的。
+
+整条流水线只在开发期生效。在生产构建中，以及当你传入 `--no-reload` 时，它不做任何事。
 
 ## 重载 manifest 之外的脚本与 HTML
 
@@ -115,7 +169,7 @@ scripts/
 ## 最佳实践
 
 - 在活跃开发会话期间保持入口引用稳定，以最大化 HMR 的命中率。
-- 集中编辑 `manifest.json` 与 locale，避免反复触发硬扩展重载。
+- 集中编辑 `manifest.json` 与 locale，避免反复触发完整的扩展重载。
 - 把 `pages/` 与 `scripts/` 用于 manifest 之外的资产，当文件集合或入口接线变化时再重启。
 - 把"需要重启"的诊断当作有意为之的安全检查，而不是临时警告。
 

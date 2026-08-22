@@ -18,6 +18,17 @@ keywords:
 
 `dev` 会运行开发流水线并监听你的项目文件。它会根据变更类型采取不同的更新策略：热模块替换（HMR）、硬重载，或者当变更需要时进行完整重启。
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/z4eLXStkZb0?autoplay=1&mute=1&loop=1&playlist=z4eLXStkZb0&controls=0&rel=0&playsinline=1"
+    title="Extension.js: edit the manifest, dev restarts the extension"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
 ## 什么时候使用 `dev`
 
 - 构建特性并实时验证改动。
@@ -55,7 +66,7 @@ extension dev [path-or-url] [options]
 extension dev [path-or-url] [options]
 ```
 
-```bash bun
+```bash deno
 extension dev [path-or-url] [options]
 ```
 
@@ -65,12 +76,12 @@ extension dev [path-or-url] [options]
 
 ## 最常用的 flag
 
-下面这些覆盖了 80% 的场景。其余的请跳到 [完整参考](#arguments-and-flags)。
+下面这些覆盖了 80% 的场景。其余的请跳到 [完整参考](#参数与-flag)。
 
 | flag                   | 作用                                                              | 默认值     |
 | ---------------------- | ----------------------------------------------------------------- | ---------- |
 | `--browser <target>`   | 目标设为 Chrome、Edge、Firefox 或逗号分隔的列表。                 | `chromium` |
-| `--polyfill`           | 为 Chromium 目标桥接 `browser.*` API，适配 Firefox 风格的源代码。 | `false`    |
+| `--polyfill`           | 为 Chromium 目标桥接 `browser.*` API，适配 Firefox 风格的源代码。 | `true`     |
 | `--port <port>`        | dev 服务器端口。用 `0` 让 OS 自动分配。                           | `8080`     |
 | `--starting-url <url>` | 浏览器启动时打开这个 URL。                                        | 未设置     |
 | `--no-reload`          | 跳过自动重载。需要干净的 dev bundle 时使用。                      | 默认开启   |
@@ -84,20 +95,51 @@ extension dev [path-or-url] [options]
 | `--profile <path\|boolean>`    | -                  | 浏览器 profile 路径或布尔的 profile 模式。                                                                                       | 全新 profile       |
 | `--chromium-binary <path>`     | -                  | [自定义的 Chromium 家族二进制路径](/docs/browsers/running-other-browsers)。                                                      | 系统默认           |
 | `--gecko-binary <path>`        | `--firefox-binary` | [自定义的 Gecko 家族二进制路径](/docs/browsers/running-other-browsers)。                                                         | 系统默认           |
-| `--polyfill [boolean]`         | -                  | 为 Chromium 目标启用 `browser.*` API 兼容 polyfill。                                                                             | `false`            |
+| `--polyfill [boolean]`         | -                  | 为 Chromium 目标启用 `browser.*` API 兼容 polyfill。                                                                             | `true`             |
+| `--no-polyfill`                | -                  | 关闭跨浏览器 polyfill。                                                                                                          | 默认启用 polyfill  |
 | `--starting-url <url>`         | -                  | 启动浏览器时的起始 URL。                                                                                                         | 未设置             |
-| `--port <port>`                | -                  | dev 服务器端口。用 `0` 让 OS 自动分配端口。                                                                                      | `8080`             |
+| `--port <port>`                | -                  | 请求的 dev 服务器端口。用 `0` 让 OS 自动分配端口。见[端口如何确定](#端口如何确定)。                                              | `8080`             |
 | `--host <host>`                | -                  | 绑定 dev 服务器的主机。Docker / dev container 中可用 `0.0.0.0`。                                                                 | `127.0.0.1`        |
+| `--public-host <host>`         | -                  | 当浏览器可连接的主机与绑定用的 `--host` 不同时（远程 / dev container），浏览器为 HMR 与重载桥拨号的主机。                        | 绑定主机（绑定到 `0.0.0.0` 时为 `127.0.0.1`） |
 | `--no-open`                    | -                  | 不自动启动浏览器。                                                                                                               | 默认会启动浏览器   |
 | `--no-browser`                 | -                  | 不启动浏览器。                                                                                                                   | 默认会启动浏览器   |
 | `--no-reload`                  | -                  | 跳过 content script 重载运行时与重建时的重载派发。需要手动重载标签页才能看到改动。                                               | 默认启用重载运行时 |
-| `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 并退出。                                                                           | 关闭               |
+| `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 并退出。需要本地项目路径。                                                         | 关闭               |
 | `--wait-timeout <ms>`          | -                  | `--wait` 模式的超时时间。                                                                                                        | `60000`            |
-| `--wait-format <pretty\|json>` | -                  | 等待结果的输出格式（`json` 适合机器读取）。                                                                                      | `pretty`           |
+| `--output <pretty\|json>`      | -                  | 结果输出格式。`json` 会在 stdout 打印 schema-1 信封。                                                                            | `pretty`           |
 | `--extensions <list>`          | -                  | 用逗号分隔的协同扩展或商店 URL。                                                                                                 | 未设置             |
-| `--install [boolean]`          | -                  | 缺失依赖时安装项目依赖。出于安全考虑默认禁用生命周期脚本；设 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true` 可运行它们。                 | 按命令默认行为     |
-| `--parent-pid <pid>`           | -                  | 给定进程 ID 一旦死亡就立即退出 dev 服务器。供派生 `dev` 的 harness / agent 使用，宿主崩溃不会泄漏服务器。                        | 未设置             |
-| `--author`                     | `--author-mode`    | 启用维护者诊断信息。                                                                                                             | 关闭               |
+| `--install [boolean]`          | -                  | 内部 flag。缺失依赖时安装项目依赖。除非设置 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`，否则生命周期脚本保持禁用。                   | 按命令默认行为     |
+| `--allow-control`              | -                  | 为受限的 act verb（`reload`、`storage`、`open`）启用 agent 桥控制通道。                                                          | 关闭               |
+| `--allow-eval`                 | -                  | 同时启用 `extension eval`。它隐含 `--allow-control`，并写入一个 `0600` 权限的会话令牌。                                          | 关闭               |
+| `--parent-pid <pid>`           | -                  | 给定进程 ID 一旦死亡就立即退出 dev 服务器。见[父进程看门狗](#父进程看门狗)。                                                     | 未设置             |
+| `--debug`                      | -                  | 启用维护者诊断信息。                                                                                                             | 关闭               |
+
+有两个已废弃的别名从 `--help` 中隐藏，但仍然可用：
+
+- `--wait-format <pretty|json>` 映射到 `--output`，并在 stderr 上警告一次。请把脚本迁移到 `--output`。
+- `--author` 与 `--author-mode` 映射到 `--debug`。
+
+### Safari flag
+
+这些 flag 只适用于 `safari` 与 `webkit-based` 目标。和其他目标一起传入其中任何一个都会以 `E_INVALID_OPTION` 退出，所以拼错不会静默地不生效。
+
+| flag                     | 作用                                                                   | 默认值                        |
+| ------------------------ | ---------------------------------------------------------------------- | ----------------------------- |
+| `--safari-binary <path>` | 打包完成后用来打开的 Safari 二进制。                                   | 系统 Safari                   |
+| `--app-name <name>`      | 覆盖 Safari 应用名。                                                   | manifest 里的 `name`          |
+| `--bundle-id <id>`       | 由你自己拥有的反向 DNS 形式 bundle 标识符。值不合法会在任何构建之前失败。 | 自动生成的 `dev.extensionjs.*` id |
+| `--macos-only [boolean]` | 生成仅 macOS 的 Xcode 工程。传 `false` 生成 macOS + iOS 通用工程。     | `true`                        |
+| `--force-regenerate`     | 即使 Safari Xcode 工程已是最新，也重新生成它。                         | 关闭                          |
+
+对于 Safari 目标，`dev` 还会在第一次打包前运行工具链预检。缺少 Xcode 会以 `E_SAFARI_TOOLCHAIN` 快速失败。
+
+### 父进程看门狗
+
+`--parent-pid` 供派生 `dev` 的 harness 与 agent 使用，宿主崩溃不会泄漏服务器。它的值必须是正整数，其他任何值都会以 `E_INVALID_OPTION` 退出。看门狗每 2 秒轮询一次父进程。父进程消失后，dev 服务器会通过 `SIGTERM` 关闭；如果清理卡住，还有 5 秒的硬退出兜底。
+
+### 端口如何确定
+
+`--port` 是一个请求，而不是保证。请求的端口被占用时，dev 服务器会向上寻找最近的空闲端口。`--port 0` 会向 OS 要一个任意空闲端口。请从 `ready.json` 读取实际绑定的端口，而不是你传入的那个 flag。
 
 ## 自动化元数据（推荐用于脚本 / agent）
 
@@ -111,13 +153,20 @@ extension dev [path-or-url] [options]
 把 `ready.json` 当作就绪契约来用：
 
 - 启动期间 `status: "starting"`
-- 运行时就绪时 `status: "ready"`
+- 构建编译完成时 `status: "ready"`
 - 启动 / 编译失败时 `status: "error"`
+- 会话关闭后 `status: "stopped"`，因此一个已经死掉的会话不会再宣称自己 `ready`
+- service worker 连接后为 `runtime: "attached"`（并带上 `executorAttachedAt`）。act verb 应该等待它，而不是等待 `ready`
 - `runId` 唯一标识一次运行时会话
 - `startedAt` 标记运行时会话的起始时间戳
 - `command` 记录产生它的命令（`dev`、`start`、`preview` 或 `build`）
 - `toolchainVersion`、`extensionName` 与 `extensionVersion` 记录是哪个 Extension.js 版本、为哪个扩展产出了这棵目录树——终端滚屏丢失后，这个文件仍是一份构建回执
+- `port` 是实际绑定的 dev 服务器端口，`host` 是客户端可以拨号的可连接主机（见[绑定主机与可连接主机](#绑定主机与可连接主机)）
 - `controlPort` / `instanceId` 定位 `extension logs` 与 act verb 使用的控制桥
+- `cdpPort`（Chromium）与 `rdpPort`（Gecko）暴露浏览器调试端口
+- `profilePath`、`browserPid` 与 `extensionId` 由浏览器启动器在启动后写入
+
+完整的 schema、错误状态与两阶段就绪规则见 [ready.json 契约](/docs/contracts/ready-json)。
 
 `events.ndjson` 只属于当前这次运行：新一次运行开始时文件会重置，且每条记录都盖有本次运行的 `runId`（与 `ready.json` 一致），消费者不会看到上一个会话的事件与当前会话交错。
 
@@ -125,7 +174,14 @@ extension dev [path-or-url] [options]
 
 ### `--no-browser` 与就绪同步
 
-`--no-browser` 只会禁用浏览器启动。它并不会在编译完成之前阻塞外部 runner。
+`--no-browser` 只会禁用浏览器启动，但完整的 dev 循环仍然保留。dev 服务器依旧监听你的文件，并在每次重建后通过控制桥向扩展的 service worker 广播一次重载，因此即使没有被启动的浏览器在驱动，你的改动也会生效：
+
+- **content script** 的改动会就地重新注入到已经打开的匹配标签页（service worker 会用新的构建产物运行 `chrome.scripting.executeScript`），所以保存后页面就会更新，不需要手动刷新。之后新打开的标签页也会拿到新的构建产物，因为 service worker 会动态重新注册 content script（`chrome.scripting.registerContentScripts`）。
+- **service worker / manifest** 的改动会重启扩展。
+
+所以在无头、持续集成（CI）以及远程 / dev container 工作流里，`--no-browser` 的表现和普通的 `dev` 会话一样：把构建好的 `dist/<browser>` 加载进任何你能控制的浏览器，它就会在你保存时持续更新。（如果你想要一个永不重载的静态 dev bundle，请用 `--no-reload`，见下文。）
+
+`--no-browser` 并不会在编译完成之前阻塞外部 runner。
 
 对于 Playwright / CI / AI 工作流：
 
@@ -135,7 +191,16 @@ extension dev [path-or-url] [options]
 
 `--wait` 面向第二个进程（或 CI 步骤），在 `error` / 超时时以非零状态退出。
 当 `--wait` 看到一个来自已死进程的过期 `ready.json`（`pid` 已不存在）时，它会继续等待一个活跃的生产者。
+`--wait` 需要一个本地项目路径。传入远程 URL 会以 `E_ARGS` 退出。
 如果你在同一条命令中同时传入 `--wait` 与 `--no-browser`，`--wait` 优先。命令会以 wait-only 模式运行。
+
+### 用 `--output json` 得到机器输出
+
+`--output json` 会在 stdout 打印 schema-1 信封，每行一个 JSON 对象：
+
+- 普通的 `dev` 运行会在启动时打印一个 `status: "started"` 帧。它带有项目路径、浏览器列表、请求的端口以及 dev 服务器的 `pid`。`dev` 不会自行结束，所以后面不会再有结果帧。实时状态请读 `ready.json`。
+- `dev --wait` 运行成功时会打印一个 `status: "ready"` 帧。它的 `value.results` 数组按浏览器给出完整的就绪契约。
+- 失败时会在进程以 `1` 退出之前打印一个带 `error.code`（例如 `E_READY_TIMEOUT`）的 `ok: false` 帧。
 
 ### `--no-reload`：得到一个干净的 dev bundle
 
@@ -144,6 +209,8 @@ extension dev [path-or-url] [options]
 `--no-reload` 仅在 `extension dev` 上受支持。把它传给 `start`、`preview` 或 `build` 会以错误退出。内部上它会设置 `EXTENSION_NO_RELOAD=true`，方便 develop 进程在 CLI argv 之外读取。
 
 ## 日志 flag
+
+这些 flag 仍是实验性的，可能在小版本之间变化。
 
 | flag                                                 | 作用                                                                                       | 默认值         |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------- |
@@ -183,6 +250,17 @@ extension dev packages/my-extension
 
 ### 运行一个本地扩展
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/Lq36aMo5xOE?autoplay=1&mute=1&loop=1&playlist=Lq36aMo5xOE&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension dev"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
 <CodeGroup>
 
 ```bash npm
@@ -201,7 +279,7 @@ extension dev ./my-extension
 extension dev ./my-extension
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension
 ```
 
@@ -229,7 +307,7 @@ extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/mai
 extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
 ```
 
-```bash bun
+```bash deno
 extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
 ```
 
@@ -255,7 +333,7 @@ extension dev ./my-extension --browser firefox
 extension dev ./my-extension --browser firefox
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --browser firefox
 ```
 
@@ -281,7 +359,7 @@ extension dev ./my-extension --browser=chrome,firefox
 extension dev ./my-extension --browser=chrome,firefox
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --browser=chrome,firefox
 ```
 
@@ -309,7 +387,7 @@ extension dev ./my-extension --host 0.0.0.0
 extension dev ./my-extension --host 0.0.0.0
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --host 0.0.0.0
 ```
 
@@ -335,11 +413,41 @@ extension dev ./my-extension --host 0.0.0.0 --port 0
 extension dev ./my-extension --host 0.0.0.0 --port 0
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --host 0.0.0.0 --port 0
 ```
 
 </CodeGroup>
+
+#### 绑定主机与可连接主机
+
+`--host` 是 dev 服务器**绑定**的地址。浏览器（HMR 客户端与重载桥）需要的是一个它真正能**连接**的地址，两者并不总是同一个值：
+
+- `--host 0.0.0.0` 会绑定所有网络接口，但 `0.0.0.0` 并不是一个可连接的地址。Extension.js 会自动改为向浏览器公布 `127.0.0.1`，这正是常见的端口转发式 Docker / dev container / Codespaces 场景所需要的目标：浏览器跑在宿主机上，端口被转发到容器里。
+- 对于真正的**远程**场景（浏览器与 dev 服务器不在同一台机器上），请用 `--public-host` 传入浏览器能访问到的地址（局域网 IP 或主机名）。它会被传播到 HMR 客户端 URL、`ready.json` 以及烘焙进扩展里的重载桥。
+
+<CodeGroup>
+
+```bash npm
+# Browser on another machine reaches the dev server at devbox.local
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+```bash pnpm
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+```bash yarn
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+```bash bun
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+</CodeGroup>
+
+当 `--host` 本身已经是一个具体地址时（例如 `--host 192.168.1.50`），这个值本来就可连接，会被直接使用。只有在绑定主机与浏览器面向的主机不同的时候，才需要 `--public-host`。
 
 ### 用 Brave 作为自定义二进制运行
 
@@ -361,7 +469,7 @@ extension dev ./my-extension --chromium-binary /path/to/brave
 extension dev ./my-extension --chromium-binary /path/to/brave
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --chromium-binary /path/to/brave
 ```
 
@@ -370,8 +478,8 @@ extension dev ./my-extension --chromium-binary /path/to/brave
 ## 最佳实践
 
 - **浏览器兼容性：** 在不同浏览器中测试你的扩展，确保在每个目标上都能工作。
-- **polyfill：** 如果 Firefox 或 Gecko-based 浏览器也是目标，使用 `--polyfill`。这个 flag 在 Chromium-based 浏览器中启用 `browser.*` API 兼容。
-- **自动化可靠性：** 把 `dev` 当作 watch 模式的伴侣（`--no-browser` + `dev --wait`）；把 `start` 当作生产的伴侣（`--no-browser` + `start --wait`）。脚本与 CI 自动化使用 `--wait-format=json`。
+- **polyfill：** `dev` 中 polyfill 默认开启，所以 `browser.*` 调用在 Chromium-based 浏览器里也能工作。想要未经处理的原始 bundle 时，传 `--no-polyfill`。
+- **自动化可靠性：** 把 `dev` 当作 watch 模式的伴侣（`--no-browser` + `dev --wait`）；把 `start` 当作生产的伴侣（`--no-browser` + `start --wait`）。脚本与 CI 自动化使用 `--output=json`。
 
 ## 下一步
 

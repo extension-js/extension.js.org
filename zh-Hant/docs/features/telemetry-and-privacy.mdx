@@ -32,7 +32,9 @@ Extension.js 會收集極少量的匿名遙測資料，用來了解你執行了�
 | `command_executed` | 20%（可調整，見下）               | `command`、`success: true`、`version`  |
 | `command_failed`   | 100%（Extension.js 一定回報失敗） | `command`、`success: false`、`version` |
 
-附加在每個事件上的共用情境：`os`（`darwin`／`linux`／`win32`）、`arch`、`node_major`、`is_ci`。其他都沒有。
+`create` 指令可能會多帶兩個屬性：`template`（清理過的範本名稱）與 `source`（範本的來源）。`create` 指令也不參與取樣，因此範本使用量的數字能保持準確。
+
+附加在每個事件上的共用情境：`os`（`darwin`／`linux`／`win32`）、`arch`、`node_major`、`is_ci`、`is_source_build`。其他都沒有。`is_source_build` 是單一布林值，只回答「這是一次 registry 安裝，還是一份儲存庫檢出」。它由安裝路徑的形狀推算而來（CLI 之上是否有 `node_modules` 形式的路徑片段）。路徑本身永遠不會被讀進事件、送出，也不會被雜湊。
 
 ## 流量控制
 
@@ -71,17 +73,23 @@ extension telemetry enable
 extension telemetry status    # show current state (default when no argument)
 ```
 
-同意檔位於 `$XDG_CONFIG_HOME/extensionjs/telemetry/consent`（或平台對應位置）。
+同意檔位於 `$XDG_CONFIG_HOME/extensionjs/telemetry/consent`（或平台對應位置）。當該位置不可寫入時，儲存位置會依序後備：平台快取目錄，接著是系統暫存目錄下的資料夾，最後是工作目錄中的 `./.cache/extensionjs`。
 
 ## 預設行為
 
-遙測採 **opt-out**。在首次未套用上述任何覆寫的執行中，Extension.js 會印出一行說明如何停用的通知，並紀錄 `enabled` 同意標記，讓通知不再重複出現。
+在互動式終端機中，遙測採 **opt-out**。在首次未套用上述任何覆寫的執行中，Extension.js 會印出一行說明如何停用的通知，並紀錄 `enabled` 同意標記，讓通知不再重複出現。
 
-持續整合（CI）環境遵循相同規則。在 CI 環境設定 `EXTENSION_TELEMETRY=0`，即可全面停用遙測。
+### CI 預設關閉
+
+在 stdout 沒有接上任何東西的 CI 環境中（有設定 CI 標記且沒有 TTY），遙測**預設是關閉的**，並回報 `source: ci`。已儲存的 `enabled` 同意不會帶進流水線：由真人在鍵盤前記錄的同意，無法涵蓋一條繼承了同一個家目錄的流水線，因此這個已儲存的選擇加入會被降到 CI 閘門之下。已儲存的 `disabled` 是一次拒絕，而拒絕在任何地方都優先，CI 中也一樣。
+
+若要刻意從流水線送出遙測，請設定 `EXTENSION_TELEMETRY=1`。這個明確的機器層級選擇加入位於 CI 閘門之上。
 
 ## 本地稽核紀錄
 
 Extension.js 會把每個它考慮送出的事件（不論是否真的送出）附加到同意檔旁邊的 `events.jsonl`。你可以隨時檢視，也可以放心刪除。
+
+稽核紀錄的大小是有界的。到達 1 MiB 時，它會輪替成單一的 `events.jsonl.1` 備份，取代先前的備份。可用 `EXTENSION_TELEMETRY_AUDIT_MAX_BYTES` 覆寫這個上限。遠超上限（達 10 倍以上）的檔案會直接丟棄，而不是保留。如果稽核寫入本身失敗，Extension.js 會在該次執行中停用後續所有送出：一個無法在本地留下稽核紀錄的事件，不會被送出。
 
 ## 最佳實務
 
@@ -93,4 +101,4 @@ Extension.js 會把每個它考慮送出的事件（不論是否真的送出）�
 
 - 在 [全域旗標](/docs/workflows/global-flags) 檢視 `--no-telemetry` 與環境變數覆寫。
 - 透過 [build](/docs/commands/build) 與 [dev](/docs/commands/dev) 進行發佈與自動化流程。
-- 閱讀儲存庫層級的 [`TELEMETRY.md`](https://github.com/extension-js/extension.js/blob/main/TELEMETRY.md) 合約以取得確切的事件清單。
+- 閱讀儲存庫層級的 [`docs/TELEMETRY.md`](https://github.com/extension-js/extension.js/blob/main/docs/TELEMETRY.md) 合約以取得確切的事件清單。

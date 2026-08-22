@@ -18,6 +18,17 @@ keywords:
 
 `doctor` 按依赖顺序逐一检查 dev 会话的控制通道各环节——从磁盘上的就绪契约一直到对扩展内执行器的实时探测——并指出**第一个失败的环节**和具体修复方法，而不是让你面对每条命令各自的死胡同报错。
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/WCqoWEZIDFU?autoplay=1&mute=1&loop=1&playlist=WCqoWEZIDFU&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension doctor"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
 ## 何时使用 `doctor`
 
 - `extension logs` 或某个 act verb 连不上，你想知道是哪个环节断了。
@@ -57,12 +68,33 @@ extension doctor [project-path] [options]
 | flag                      | 作用                                                      | 默认值          |
 | ------------------------- | --------------------------------------------------------- | --------------- |
 | `[project-path]`          | 扩展项目根目录路径。                                      | `process.cwd()` |
-| `--browser <browser>`     | 诊断哪个会话（`chrome`、`chromium`、`edge`、`firefox`）。 | `chromium`      |
-| `--output <pretty\|json>` | 输出格式（`json` 为 agent 输出原始检查结果）。            | `pretty`        |
+| `--browser <browser>`     | 诊断哪个会话（`chrome`、`chromium`、`edge`、`firefox`）。 | 自动解析（见下） |
+| `--output <pretty\|json>` | 输出格式（`json` 为 agent 输出 schema-1 信封）。          | `pretty`        |
+
+### `doctor` 如何选择会话
+
+不带 `--browser` 时，`doctor` 诊断的是实际存在的会话，而不是某个写死的默认值。它会列出 `dist/extension-js/` 下的就绪契约，并据此解析：
+
+- 只有一个存活契约时，直接选它。
+- 有多个契约时，存在 `chromium` 就选 `chromium`，否则按字母序选第一个。随后会有一个 `session-resolution` warn 检查，在编号检查开始前列出所有候选。
+- 完全没有契约时，`doctor` 回退到 `chromium`。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/HE776f5tLro?autoplay=1&mute=1&loop=1&playlist=HE776f5tLro&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension doctor with several live sessions"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ## 检查内容
 
 检查按依赖顺序运行。当某个环节失败时，依赖它的后续检查会标记为 **skip**，并注明是被哪个检查阻塞的——skip 不等于通过。
+
+只有当存在多个存活会话时，才会出现第零个 `session-resolution` 检查。它会给出 warn，并指明本次运行诊断的是哪个会话。
 
 | #   | 检查              | 验证内容                                                                                          |
 | --- | ----------------- | ------------------------------------------------------------------------------------------------- |
@@ -72,31 +104,58 @@ extension doctor [project-path] [options]
 | 4   | `control-channel` | 控制服务器在契约端口上接受此 `instanceId` 的连接。                                                |
 | 5   | `eval-token`      | 会话以 `--allow-eval` 运行时，会话令牌可从项目根目录读取。                                        |
 | 6   | `executor`        | 一次实时探测能在扩展的 background 上下文中往返。                                                  |
-| 7   | `browser`         | 已启动的浏览器没有在 dev 服务器仍在运行时意外退出。                                               |
+| 7   | `browser`         | 已启动的浏览器没有在 dev 服务器仍在运行时意外退出。判定结果还会指出实际运行的二进制文件以及它是怎么被选中的（`managed`、`pinned`、`system` 或 `snapshot`），这是发现会话用了与你设想不同的浏览器的最快方式。 |
 
-pretty 输出每个检查打印一行，并附上第一个失败检查的修复建议。全部通过时退出码为 `0`，任一检查失败时为 `1`，CI 和脚本可以直接据此把关。
+有些环节故意给出较宽松的结论：
+
+- 当端口文件还不存在时，`port-agreement` 通过。这个项目和浏览器的第一个会话没有任何可冲突的对象。
+- 在一次新编译后的 10 秒内，`executor` 报告 **warn** 而不是失败。service worker 可能还在附加中。请等到 `ready.json` 里出现 `runtime: "attached"` 再动作。
+- 当契约没有写入 `cdpPort`，也没有记录退出时，`browser` 报告 **skip**。没有退出证据并不等于浏览器还活着。
+
+pretty 输出每个检查打印一行，并附上第一个失败检查的修复建议。每种状态都有一个字形：`✓` pass、`✗` fail、`!` warn、`–` skip。全部通过时退出码为 `0`，任一检查失败时为 `1`，CI 和脚本可以直接据此把关。
 
 ## 机器可读输出
 
-`--output json` 把检查结果打印为一个 JSON 数组，每个检查一个对象：
+`--output json` 打印一个 schema-1 信封。两种结论下检查结果都放在 `value` 里，因为不健康的报告也依然是报告：
 
 ```json
-[
-  {
-    "check": "ready-contract",
-    "status": "pass",
-    "detail": "status ready — controlPort 43021, instanceId a1b2c3"
+{
+  "schema": 1,
+  "ok": false,
+  "command": "doctor",
+  "status": "unhealthy",
+  "value": [
+    {
+      "check": "ready-contract",
+      "status": "pass",
+      "detail": "status ready, controlPort 43021, instanceId a1b2c3"
+    },
+    {
+      "check": "server-process",
+      "status": "fail",
+      "detail": "dev-server pid 4242 is dead, ready.json is stale",
+      "remediation": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control"
+    }
+  ],
+  "error": {
+    "code": "E_SESSION_NOT_FOUND",
+    "message": "1 of 7 doctor checks failed."
   },
-  {
-    "check": "server-process",
-    "status": "fail",
-    "detail": "dev-server pid 4242 is dead — ready.json is stale",
-    "remediation": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control"
-  }
-]
+  "hint": "A previous dev session died uncleanly; restart it: extension dev --browser=chromium --allow-control",
+  "warnings": []
+}
 ```
 
-`status` 为 `pass`、`fail` 或 `skip`；有已知修复方法的失败会带 `remediation`。
+健康的运行会返回 `ok: true`，并带上 `status: "healthy"` 和 `error: null`。
+
+每个检查的 `status` 为 `pass`、`fail`、`warn` 或 `skip`。有已知修复方法的失败会带 `remediation`。信封的 `error.code` 由第一个失败的检查决定：
+
+| 第一个失败的检查                                 | `error.code`            |
+| ------------------------------------------------ | ----------------------- |
+| `ready-contract`、`server-process`               | `E_SESSION_NOT_FOUND`   |
+| `port-agreement`、`control-channel`、`executor`  | `E_CONTROL_UNAVAILABLE` |
+| `eval-token`                                     | `E_TOKEN_MISSING`       |
+| `browser`                                        | `E_BROWSER_LAUNCH`      |
 
 ## 典型流程
 
@@ -106,6 +165,6 @@ pretty 输出每个检查打印一行，并附上第一个失败检查的修复�
 
 ## 下一步
 
-- 在 [`dev`](/docs/commands/dev) 中了解 `doctor` 的起点——就绪契约。
+- 在 [`dev`](/docs/commands/dev#automation-metadata-recommended-for-scriptsagents) 中了解 `doctor` 的起点——就绪契约。
 - 通过 [调试](/docs/debugging) 从健康的会话中流式读取扩展日志。
 - 在 [全局 flag](/docs/workflows/global-flags) 中查看共享 flag。

@@ -14,7 +14,6 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["chromium", "firefox"]} />
 不必为每个浏览器维护单独的 manifest 文件。
 
 Extension.js 允许你用前缀在同一份文件里声明浏览器特定的值，然后在编译时只输出与当前目标匹配的字段。
@@ -25,9 +24,9 @@ Extension.js 允许你用前缀在同一份文件里声明浏览器特定的值�
 
 ## 工作原理
 
-Extension.js 扫描 manifest 的键，并按所选浏览器解析带前缀的条目：
+Extension.js 扫描 manifest 的键，并按所选浏览器解析带前缀的条目。解析以引擎家族为单位，而不是按厂商：
 
-- Chromium 系目标(`chrome`、`edge`、`chromium-based`，以及分支 `brave`、`opera`、`vivaldi`、`yandex`)解析：`chromium:`、`chrome:`、`edge:`
+- Chromium 系目标(`chromium`、`chrome`、`edge`、`chromium-based`，分支 `brave`、`opera`、`vivaldi`、`yandex`，以及 Safari 产物)解析：`chromium:`、`chrome:`、`edge:`
 - Gecko 系目标(`firefox`、`gecko-based`，以及分支 `waterfox`、`librewolf`)解析：`firefox:`、`gecko:`
 
 当某个带前缀的键匹配当前目标时，Extension.js 会在输出的 manifest 中把它重写为不带前缀的键。分支目标会继承其引擎家族的前缀，因此当你面向 `brave` 或 `waterfox` 这样的分支时，一份只带 `chromium:`/`firefox:` 键的 manifest 仍能被正确解析。精确的浏览器名称前缀也会匹配它自己的目标(例如运行 `--browser=brave` 时的 `brave:`)。
@@ -52,34 +51,66 @@ Extension.js 扫描 manifest 的键，并按所选浏览器解析带前缀的条
 }
 ```
 
-你还可以在同一个浏览器家族内针对特定厂商版本：
-
-```json
-{
-  "chrome:action": {
-    "default_title": "Chrome variant"
-  },
-  "edge:action": {
-    "default_title": "Edge variant"
-  }
-}
-```
-
 这样，`service_worker` 只会出现在 Chromium 系产物里，而 Firefox 产物里则保留 `background.scripts`。
 
 支持的前缀映射：
 
-| 前缀        | 包含的目标浏览器                                                          |
-| ----------- | ------------------------------------------------------------------------- |
-| `chromium:` | `chrome`、`edge`、`chromium-based`、`brave`、`opera`、`vivaldi`、`yandex` |
-| `chrome:`   | `chrome`、`edge`、`chromium-based`、`brave`、`opera`、`vivaldi`、`yandex` |
-| `edge:`     | `edge`、`chromium-based`，以及其他 Chromium 系目标                        |
-| `firefox:`  | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`        |
-| `gecko:`    | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`        |
+| 前缀        | 包含的目标浏览器                                                                     |
+| ----------- | ------------------------------------------------------------------------------------ |
+| `chromium:` | 所有 Chromium 系目标：`chromium`、`chrome`、`edge`、`chromium-based`、分支、Safari 产物 |
+| `chrome:`   | 所有 Chromium 系目标(与 `chromium:` 的清单相同)                                      |
+| `edge:`     | 所有 Chromium 系目标(与 `chromium:` 的清单相同)                                      |
+| `firefox:`  | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`                   |
+| `gecko:`    | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`                   |
+| `safari:`   | `safari` 与 `webkit-based`；在这些目标上优先于 Chromium 系的键                        |
+| `webkit:`   | `safari` 与 `webkit-based`(行为与 `safari:` 相同)                                    |
 
-精确的浏览器名称前缀(例如 `brave:`、`vivaldi:` 或 `waterfox:`)只有在你面向同一个浏览器时才会解析。
+精确的浏览器名称前缀(例如 `brave:`、`vivaldi:` 或 `waterfox:`)只有在你面向同一个浏览器时才会额外解析，并且胜过它所属的家族前缀(面向 `chrome` 时 `chrome:` 胜过 `chromium:`)。
+
+Safari 产物继承 Chromium 家族(转换器消费的是 Chrome 形态的 manifest)，因此 `chromium:`/`chrome:`/`edge:` 键同样适用于 Safari；只想覆盖 Safari 时请使用 `safari:`(或 `webkit:`)，它们优先于家族键。
 
 它适用于 manifest 中任意层级的任何字段，包括 `permissions`、`content_scripts` 和 `background`。
+
+### 家族级解析，而不是按厂商
+
+`chromium:`、`chrome:` 和 `edge:` 都是 Chromium 家族内部的家族前缀：它们各自都适用于每一个 Chromium 系目标。如果你只想为某一个厂商设置字段，请使用它精确的浏览器名称前缀(例如 `brave:`)，它只会为那个目标解析。
+
+### 优先级：三层结构
+
+当多个键设置同一个字段时，胜出者由层级决定，而不是由它在文件中的位置决定：
+
+1. 不带前缀的普通键是基础。
+2. 家族前缀(Chromium 目标上的 `chromium:`、`chrome:`、`edge:`，Gecko 目标上的 `firefox:`、`gecko:`)覆盖普通键。
+3. 精确前缀覆盖前两者。精确指的是该前缀点名了确切的目标，比如为 `chrome` 构建时的 `chrome:`，或为 `brave` 构建时的 `brave:`。在 Safari 和 webkit 系目标上，`safari:` 和 `webkit:` 都属于精确前缀。
+
+源码顺序只在同一层级内部用来打破平局。看这个例子：
+
+```json
+{
+  "chrome:action": {
+    "default_title": "First"
+  },
+  "edge:action": {
+    "default_title": "Second"
+  }
+}
+```
+
+为 `chrome` 构建会输出 `"First"`：`chrome:` 点名了确切的目标，因此位于精确层，胜过在这里只是家族匹配的 `edge:`。为 `edge` 构建会因为镜像的原因输出 `"Second"`。为 `chromium` 或 `brave` 构建则输出 `"Second"`，因为两个前缀都只是家族匹配，源码顺序靠后的那个赢下平局。
+
+只要带前缀的键匹配，它总是覆盖同名的普通键，无论两者在文件中的先后位置。
+
+### 前缀在任意层级都会解析
+
+解析器会遍历整棵 manifest 树，包括数组。`content_scripts` 条目内部或任意嵌套对象内部的带前缀键，都按与顶层键相同的三层规则解析。
+
+### 同一个解析器也驱动入口发现
+
+前缀解析不只作用于输出的 JSON。同一个解析器会在 script 和 HTML 入口发现之前运行，因此 `firefox:background` 脚本或带前缀的页面只有在匹配的目标上才会成为被编译的入口。
+
+### 分支与 `*-based` 别名
+
+家族分类先匹配一份已知分支清单，再退回到子串检查。`chrome`、`edge`、`brave`、`opera`、`vivaldi` 和 `yandex` 按名字归类为 Chromium 系，任何其他包含 `chromium` 的名字也一样。`firefox`、`waterfox` 和 `librewolf` 按名字归类为 Gecko 系，任何其他包含 `gecko` 或 `firefox` 的名字也一样。这就是 `chromium-based` 和 `gecko-based` 别名，以及基于它们构造的任意 `*-based` 名字，都能继承所属家族带前缀键的原因。
 
 ## 最佳实践
 

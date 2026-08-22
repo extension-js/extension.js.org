@@ -1,0 +1,80 @@
+---
+title: "用 Extension.js 开发 Deno 项目"
+description: "在以 Deno 为先的项目中脚手架化并构建浏览器扩展。Extension.js 会把 deno.jsonc 作为项目清单读取，并解析 npm: 导入。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "browser",
+    "deno",
+    "deno.jsonc",
+    "npm specifiers",
+    "typescript",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Extension.js 把 Deno 当作一等公民的运行时。用 Deno 生成脚手架，项目拿到的是 `deno.jsonc` 而不是 `package.json`。在混合项目里，`deno.jsonc` 会与 `package.json` 并存，承载 Deno 原生的配置。无论哪种方式，`extension dev` 和 `extension build` 的行为都是一样的。
+
+## 用 Deno 创建项目
+
+```bash
+deno run -A npm:extension@latest create my-extension --template=react
+```
+
+然后运行 dev 任务：
+
+```bash
+cd my-extension
+deno task dev
+```
+
+## 主模式：deno.jsonc 就是项目清单
+
+当你在 Deno 运行时下生成脚手架时，`deno.jsonc` 会成为项目唯一的清单文件，`package.json` 会被移除。
+
+- 模板的依赖会以 `npm:` 说明符的形式进入 `imports`，由 `deno install` 负责解析。
+- `extension` 引擎本身也声明在那里，形式为 `npm:extension@<version>`。
+- `nodeModulesDir` 被设为 `"auto"`，因此 `npm:` 依赖会落到一个真实的 `node_modules` 目录里。打包器在 dev 和 build 时都从那里解析项目依赖。
+- `deno task <name>` 也会在 `node_modules/.bin` 中查找可执行文件，所以生成的任务运行的是本地安装的 Extension.js CLI。
+
+一个精简的例子：
+
+```jsonc
+{
+  "imports": {
+    "react": "npm:react@^19.0.0",
+    "react-dom": "npm:react-dom@^19.0.0",
+    "extension": "npm:extension@^4.0.0"
+  },
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "dev": "extension dev",
+    "build": "extension build"
+  }
+}
+```
+
+当模板自带 Deno 配置文件时，Extension.js 会合并进那个文件，而不是再创建第二个。Deno 自己的发现逻辑优先选择 `deno.json` 而不是 `deno.jsonc`，所以合并的目标就是 Deno 实际会读取的那个文件。
+
+## 伴随模式：deno.jsonc 与 package.json 并存
+
+monorepo 模板，以及那些已经有 `package.json` 的项目，会保留它。依赖仍然声明在 `package.json` 中，由 `deno install` 从那里解析。作为伴随文件的 `deno.jsonc` 只承载 Deno 原生的配置，以及用来运行 CLI 的 `tasks`。
+
+## 工具链如何检测 Deno
+
+检测依据的是文件，而不是你用什么方式调用 CLI：
+
+- Extension.js 在扫描项目依赖时会读取 `deno.jsonc` 或 `deno.json`。框架、CSS 和 TypeScript 的检测都能看到 `imports` 通过 `npm:` 说明符声明的包。
+- 当两份清单声明了同一个包时，以 `package.json` 中的条目为准。
+- 一个项目被视为由 Deno 管理，需要它有 `deno.lock`，或者有一份 Deno 配置且旁边没有 `package.json`。对混合项目来说，npm 家族的锁文件优先；而且只有当 `deno` 可执行文件在你的 PATH 上时，才会认定为 Deno。
+
+## Deno 项目中的 TypeScript
+
+TypeScript 的检测规则与别处完全相同。参见 [TypeScript](/docs/languages-and-frameworks/typescript)：由 SWC 编译源码，`typescript` 包只在做 `tsc --noEmit` 时才需要。
+
+## 下一步
+
+- 了解 Extension.js 如何处理 [Node API](/docs/languages-and-frameworks/node)。
+- 了解如何管理 [扩展配置](/docs/features/extension-configuration)。

@@ -16,7 +16,7 @@ keywords:
 
 在維持類 React 開發體驗與本機快速迭代的同時，推出更小的擴充功能 UI bundle。
 
-Extension.js 會從相依套件偵測 Preact，並自動設定 JSX/TSX 轉換、React 相容別名與 fast-refresh 支援。你的 React 匯入會透過這些別名對應到 Preact。
+Extension.js 會從相依套件偵測 Preact，並自動設定 JSX/TSX 轉換與 React 相容別名。你的 React 匯入會透過這些別名對應到 Preact。在開發階段，編輯會透過 live reload 生效：受影響的介面會重新載入，而不是就地熱抽換元件。
 
 ## 什麼情況下適合使用 Preact
 
@@ -50,8 +50,8 @@ yarn dlx extension@latest create my-extension --template=new-preact
 bunx extension@latest create my-extension --template=new-preact
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-preact
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-preact
 ```
 
 </CodeGroup>
@@ -82,8 +82,8 @@ yarn dlx extension@latest create my-extension --template=content-preact
 bunx extension@latest create my-extension --template=content-preact
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-preact
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-preact
 ```
 
 </CodeGroup>
@@ -124,6 +124,8 @@ deno add npm:preact
 
 Preact 內建自己的 TypeScript 型別，因此你不需要另外安裝 `@types/preact`。
 
+你只需要加入 `preact` 這一個套件。Extension.js 會從你的專案解析 `preact/compat`、`preact/test-utils` 與 JSX runtime，並依找到的內容建立別名對應表，因此不需要再安裝其他套件。
+
 ### 設定
 
 Extension.js 會期待 Preact 檔案採用下列副檔名：
@@ -137,14 +139,17 @@ Extension.js 會期待 Preact 檔案採用下列副檔名：
 
 - 相容別名（例如 `react` → `preact/compat`）。
 - 為 Preact 調整過的 JSX 處理方式。
-- 開發階段透過 `@rspack/plugin-preact-refresh` 整合 refresh。
+- 開發階段的 live reload：檔案變更時，受影響的介面會重新載入並重新掛載。
 
-若專案缺少選用的 refresh 相依套件，Extension.js 會自動安裝並提示重新啟動。
+與 React 不同，Preact 目前還沒有 fast refresh（保留狀態的熱更新）。上游的
+`@rspack/plugin-preact-refresh` 執行期與 Extension.js 內建的 Rspack 版本不相容，
+因此 Extension.js 選擇停用它，而不是讓 dev 模式壞掉。你的應用程式在每次編輯後
+仍會更新，只是元件狀態不會在編輯之間保留。等上游外掛修好之後，fast refresh
+就會回來。
 
 ### 疑難排解
 
-- **缺少 refresh 相依套件的警告：** 安裝 `@rspack/plugin-preact-refresh`（如果提示，請一併安裝相關套件）。
-- **安裝後要求重新啟動：** 停止並重新執行 `extension dev`，讓 dev server 可以乾淨地重新載入 refresh 設定。
+- **編輯後元件狀態被重設：** 這是目前的預期行為，因為 Preact 使用的是 live reload，而不是 fast refresh（見上文）。
 - **未偵測到 Preact 整合：** 確認 `preact` 已出現在 `dependencies` 或 `devDependencies` 中。
 
 ## 使用範例
@@ -207,3 +212,13 @@ render(<App />, rootDiv);
 
 ## 影片導覽
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/XwkP-M1gajg?autoplay=1&mute=1&loop=1&playlist=XwkP-M1gajg&controls=0&rel=0&playsinline=1"
+    title="Extension.js: Preact HMR"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>

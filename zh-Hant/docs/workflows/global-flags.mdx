@@ -16,7 +16,7 @@ keywords:
 
 用全域旗標跨指令一致地控制 CLI 行為，特別是針對遙測與機器可讀輸出。
 
-Extension.js 的遙測刻意設計為匿名且重視隱私。它最多送出兩種事件（`command_executed` 與 `command_failed`），每種事件含三個屬性（`command`、`success`、`version`）。
+Extension.js 的遙測刻意設計為匿名且重視隱私。它最多送出兩種事件（`command_executed` 與 `command_failed`）。每個事件會帶有 `command`、`success` 與 `version`，`create` 執行還會加上 `template` 與 `source`。另外也會夾帶粗略的環境資訊（`os`、`arch`、`node_major`、`is_ci`、`is_source_build`）。
 
 ## 全域旗標能力
 
@@ -30,10 +30,19 @@ Extension.js 的遙測刻意設計為匿名且重視隱私。它最多送出兩�
 
 | 旗標                      | 說明                                                                                      | 預設值     |
 | ------------------------- | ----------------------------------------------------------------------------------------- | ---------- |
+| `--version`               | 印出 CLI 版本後結束。                                                                     | n/a        |
 | `--no-telemetry`          | 停用單次指令執行的匿名遙測。                                                              | 啟用遙測   |
 | `--no-browser`            | 跳過瀏覽器啟動。適用於 `dev`、`start` 與 `preview`。會設定 `EXTENSION_CLI_NO_BROWSER=1`。 | 啟用瀏覽器 |
+| `--no-reload`             | 跳過 reload 包裝與派送，讓已開啟的分頁不受打擾。僅限 `dev`。                              | 啟用 reload |
 | `--ai-help`               | 顯示為 AI 助理設計的說明輸出。                                                            | 停用       |
-| `--format <pretty\|json>` | 與 `--ai-help` 搭配使用的輸出格式。                                                       | `pretty`   |
+| `--output <pretty\|json>` | 結果格式。與 `--ai-help` 搭配時，用來選擇說明酬載的格式。                                 | `pretty`   |
+| `--debug`                 | 在一般輸出之外印出維護者診斷資訊。適用於 `dev`、`start`、`preview` 與 `build`。           | 停用       |
+
+`--format` 是 `--output` 的已棄用別名。它仍然可用，但 CLI 每次執行會在 stderr 印出一則棄用警告。較舊的 `--wait-format` 別名亦同。
+
+旗標用錯會以穩定的錯誤碼失敗：在 `dev` 之外使用 `--no-reload`、在 `dev`／`start`／`preview` 之外使用 `--no-browser`，都會以 `E_FLAG_NOT_SUPPORTED_HERE` 失敗。已移除的 `--no-runner` 旗標會以 `E_REMOVED_FLAG` 失敗，請改用 `--no-browser`。
+
+你也可以在 `extension.config.js` 中用 `commands.<command>.noBrowser: true` 為個別指令設定 no-browser 模式。兩者同時存在時，CLI 旗標優先。
 
 ## 選用的布林旗標
 
@@ -76,7 +85,7 @@ EXTENSION_TELEMETRY_DISABLED=1 extension build --browser=chrome,firefox
 ### 為工具產生機器可讀說明
 
 ```bash
-extension dev --ai-help --format=json
+extension dev --ai-help --output json
 ```
 
 適用於需要解析指令說明輸出的 AI 工具、包裝程式或腳本。
@@ -84,7 +93,7 @@ extension dev --ai-help --format=json
 ### 為本機除錯保留可讀說明
 
 ```bash
-extension dev --ai-help --format=pretty
+extension dev --ai-help --output pretty
 ```
 
 當你希望輸出對助理友善、又能在終端機中閱讀順暢時使用 pretty 模式。
@@ -92,11 +101,11 @@ extension dev --ai-help --format=pretty
 ## 行為注意事項
 
 - CLI 會在指令專屬選項之前解析全域旗標。
-- 遙測行為與隱私細節請見儲存庫的 `TELEMETRY.md` 與 [遙測與隱私](/docs/features/telemetry-and-privacy)。
+- 遙測行為與隱私細節請見 Extension.js 儲存庫中的 `docs/TELEMETRY.md` 與 [遙測與隱私](/docs/features/telemetry-and-privacy)。
 - 用 `extension telemetry status` 檢查目前的同意狀態。
 - 各指令頁面會分別說明指令專屬的旗標。
 - 你可以把全域旗標和指令專屬選項合併使用。
-- 自動化工具（AI 助理與 CI 腳本）應從 `dist/extension-js/<browser>/ready.json` 讀取指令就緒狀態，而非解析終端記錄。
+- 自動化工具（AI 助理與 CI 腳本）應從 `dist/extension-js/<browser>/ready.json` 讀取指令就緒狀態，而非解析終端記錄。請見 [ready.json](/docs/contracts/ready-json)。
 
 ## 下一步
 

@@ -14,7 +14,7 @@ keywords:
   ]
 ---
 
-Extension.js 會在你的 manifest 旁邊探索 locale 檔案，並驗證每個被宣告的 locale 都有 `messages.json`。它會把 locale JSON 資產輸出到對應瀏覽器的 build。在開發期間，它能在不重新啟動的情況下捕捉任何 locale 檔案的編輯。
+Extension.js 會讀取你專案根目錄的 `_locales` 資料夾，並驗證每個被宣告的 locale 都有 `messages.json`。它會把 locale JSON 資產輸出到對應瀏覽器的 build。在開發期間，它能在不重新啟動的情況下捕捉任何 locale 檔案的編輯。
 
 ## 範本範例
 
@@ -42,8 +42,8 @@ yarn dlx extension@latest create my-extension --template=action-locales
 bunx extension@latest create my-extension --template=action-locales
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=action-locales
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=action-locales
 ```
 
 </CodeGroup>
@@ -54,7 +54,7 @@ bunx extension@latest create my-extension --template=action-locales
 
 | 能力              | 你會獲得的成果                                         |
 | ----------------- | ------------------------------------------------------ |
-| Locale 探索       | 從 manifest 位置偵測 `_locales/<locale>/messages.json` |
+| Locale 探索       | 在專案根目錄偵測 `_locales/<locale>/messages.json`     |
 | 驗證              | 捕捉缺少的預設 locale 檔案與無法解析的 `__MSG_*__` 鍵  |
 | Build 輸出對應    | 以預期的擴充功能輸出結構輸出 locale 檔案               |
 | 開發期 watch 支援 | 在 locale 檔案變更時於開發期重新載入                   |
@@ -71,6 +71,10 @@ _locales/
 ```
 
 `manifest.json` 中的 `default_locale` 應對應到一個既存的 `_locales/<default>/messages.json`。
+
+### 舊版配置：`_locales` 放在 manifest 旁邊
+
+即使你的 manifest 位於 `src/` 之類的子資料夾，專案根目錄仍是 `_locales` 的正規位置。放在巢狀 manifest 旁邊的 `_locales` 資料夾依然可以建置。編譯器會發出 `LocalesLayoutWarning`，要求你把它移到根目錄。瀏覽器是從擴充功能根目錄讀取 locale，所以放在根目錄才與實際出貨的內容一致。
 
 ## 在 `manifest.json` 中宣告 locale 的範例
 
@@ -127,10 +131,15 @@ _locales/<locale>/messages.json
 
 Extension.js 會驗證：
 
-- 當專案使用 `_locales` 時，`default_locale` 是否存在
-- `_locales/<default>/messages.json` 是否存在
-- Locale 檔案的 JSON 是否有效
+- 有 `_locales` 資料夾但 manifest 中沒有 `default_locale` 會讓建置失敗，因為瀏覽器會拒絕這種組合
+- `_locales/<default>` 及其 `messages.json` 是否存在
+- 每個 locale 的 `messages.json` 的 JSON 是否有效
 - Manifest 中的 `__MSG_*__` 參考是否對應到預設 locale 的鍵
+
+`__MSG_*__` 掃描有兩個細節：
+
+- 預先定義的 `@@` 訊息，例如 `__MSG_@@ui_locale__`，會被豁免，因為它們由瀏覽器提供。
+- 訊息鍵內部允許出現 `@` 字元，這與 Chrome 對訊息名稱的語法一致。
 
 ### 排除缺少的 locale 鍵
 
@@ -146,12 +155,18 @@ Extension.js 會驗證：
 
 如果預設 locale 沒有定義該鍵，Extension.js 會顯示診斷訊息說明這個不一致。
 
+## 打包行為
+
+當你用 `--zip` 或 `--zip-source` 建置時，Extension.js 會在打包時再次檢查預設 locale。宣告了 `default_locale` 卻沒有對應 `messages.json` 的 manifest 會產生警告，因為商店會拒絕缺少預設 locale 的套件。
+
+zip 檔名來自 manifest 的 name。`__MSG_*__` 形式的 name 會依預設 locale 的 `messages.json` 解析，所以封存檔帶的是翻譯後的名稱，而不是佔位符。
+
 ## 最佳實務
 
 - 跨 locale 維持 `messages.json` 的鍵一致。
 - 先更新預設 locale，再把鍵傳播到其他 locale。
 - 在持續整合（CI）中驗證 locale JSON，以在打包前抓出格式錯誤的檔案。
-- 把 locale 檔案放在 manifest 附近（`manifestDir/_locales`），以維持可預期的解析。
+- 把 `_locales` 放在專案根目錄，那也是瀏覽器與打包步驟讀取的位置。
 
 ## 後續步驟
 

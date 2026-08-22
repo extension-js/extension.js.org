@@ -1,0 +1,154 @@
+---
+title: "ready.json 会话契约"
+description: "ready.json 的 schema v2 完整字段参考。它是 Extension.js 的就绪契约，脚本与 agent 轮询它，而不是去解析终端输出。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "ready.json",
+    "contracts",
+    "automation",
+  ]
+---
+
+只要轮询一个 JSON 文件，就能知道一个会话是就绪、出错，还是已经没了。
+
+每一次 `dev`、`start`、`preview` 和 `build` 运行，都会在每次编译时原子地写入 `dist/extension-js/<browser>/ready.json`。当前契约是 `schemaVersion: 2`。
+
+## 状态
+
+| 状态       | 含义                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------- |
+| `starting` | 这次运行开始了。文件被重置，`events.ndjson` 也为本次运行清空。                          |
+| `ready`    | 最近一次编译成功，输出已经在磁盘上。                                                    |
+| `error`    | 编译失败，或者浏览器拒绝了、丢掉了这个扩展。                                            |
+| `stopped`  | 监听已关闭。会盖上 `code: "shutdown"`，这样一个已经死掉的会话永远不会宣称自己 `ready`。 |
+
+## 两阶段就绪
+
+`status: "ready"` 只意味着编译完成，仅此而已。浏览器可能还在启动，service worker 也可能还没有连上。
+
+act 类工具（`eval`、`storage`、`reload`、`open`、`inspect`）需要第二个阶段。要等到契约里带上 `runtime: "attached"` 和一个 `executorAttachedAt` 时间戳之后，再去驱动扩展。
+
+attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也会清除之前的 `extension_load_refused` 状态，因为执行器就跑在被托管的浏览器里面。
+
+## 字段参考（schema v2）
+
+始终存在的字段：
+
+| 字段               | 类型           | 含义                                                                         |
+| ------------------ | -------------- | ---------------------------------------------------------------------------- |
+| `schemaVersion`    | `2`            | 就绪契约自身的版本。                                                         |
+| `schema`           | `1`            | 表明这个引擎讲的是 schema-1 的[结果信封](/docs/contracts/result-envelope)。  |
+| `status`           | string         | `starting`、`ready`、`error` 或 `stopped`。                                  |
+| `command`          | string         | `dev`、`start`、`preview` 或 `build`。                                       |
+| `browser`          | string         | 这个会话服务的浏览器目标。                                                   |
+| `runId`            | string         | 会话身份。在 `ready.json`、`events.ndjson` 和 `logs.ndjson` 之间做连接的键。 |
+| `startedAt`        | ISO string     | 这次运行开始的时间。                                                         |
+| `distPath`         | string         | 编译后扩展的绝对路径。                                                       |
+| `manifestPath`     | string         | 源 manifest 的绝对路径。                                                     |
+| `port`             | number 或 null | dev 服务器实际绑定的端口。                                                   |
+| `pid`              | number         | dev 服务器进程 id。在信任这份契约之前，先确认它还活着。                      |
+| `ts`               | ISO string     | 这份文档最后一次被写入的时间。                                               |
+| `compiledAt`       | string 或 null | 最近一次成功编译完成的时间。                                                 |
+| `errors`           | string[]       | 去掉 ANSI 转义的编译错误，最多 10 条。                                       |
+| `toolchainVersion` | string         | 产出这棵目录树的 Extension.js 版本。                                         |
+
+在已知时才出现的字段：
+
+| 字段                 | 类型           | 含义                                                                                                                                                               |
+| -------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `host`               | string         | dev 服务器主机。                                                                                                                                                   |
+| `code`               | string         | 错误状态的机器名，见下文。                                                                                                                                         |
+| `message`            | string         | 与 `code` 并列的人话句子。                                                                                                                                         |
+| `instanceId`         | string         | 多实例场景下的 dev 实例身份。                                                                                                                                      |
+| `instanceExplicit`   | boolean        | 实例 id 是否由用户指定。                                                                                                                                           |
+| `controlPort`        | number 或 null | 控制桥的 WebSocket 端口。                                                                                                                                          |
+| `controlPath`        | string         | 控制桥的 WebSocket 路径（`/extjs-control`）。                                                                                                                      |
+| `logsPath`           | string         | 指向 `logs.ndjson` 的相对路径。                                                                                                                                    |
+| `cdpPort`            | number         | Chromium 启动时：CDP 端口，在启动之后盖章。                                                                                                                        |
+| `rdpPort`            | number         | Gecko 启动时：RDP debugger-server 端口，在启动之后盖章。                                                                                                           |
+| `profilePath`        | string         | 解析出来的配置文件目录。临时配置文件的名字是生成的，所以要从这里读。                                                                                               |
+| `binary`             | string         | 这个会话实际启动的浏览器二进制文件的绝对路径。每次运行都会盖章，包括那些没有指定二进制文件的运行：恰恰是在那些运行里，解析器替你做了选择，而这个路径在别处看不到。 |
+| `binaryProvenance`   | string         | 这个二进制是怎么选出来的：`managed`（Extension.js 的缓存）、`pinned`（`--chromium-binary`）、`system`（已安装的浏览器）或 `snapshot`（缓存的 dev 频道构建）。      |
+| `browserPid`         | number         | 浏览器进程 id。这是拆掉浏览器时受支持的句柄。                                                                                                                      |
+| `extensionId`        | string         | 浏览器用来提供这份 dist 的 id。能拿到时由浏览器确认，否则是推导出来的。                                                                                            |
+| `extensionName`      | string         | 扩展的名字，作为构建溯源信息。                                                                                                                                     |
+| `extensionVersion`   | string         | 扩展的版本，作为构建溯源信息。                                                                                                                                     |
+| `browserExitedAt`    | ISO string     | 浏览器在会话中途、没被要求就退出时盖上。跨重新编译保留。                                                                                                           |
+| `browserExitCode`    | number 或 null | 与 `browserExitedAt` 并列的退出码。                                                                                                                                |
+| `runtime`            | `"attached"`   | 一旦 service worker 连上并且可以被驱动，就会出现。                                                                                                                 |
+| `executorAttachedAt` | ISO string     | service worker 第一次连上的时间。                                                                                                                                  |
+| `managedExtensions`  | array          | 除了你的扩展之外、引擎还加载的每一个扩展，形式是 `{path, id?}` 记录。做统计时按 id 把它们减掉。                                                                    |
+
+## 错误状态
+
+`code` 字段给失败类别命名。对自动化来说有三个代码要紧：
+
+| `code`                   | 发生了什么                                                                                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extension_load_refused` | 会话在跑，但浏览器把扩展扔了出去。其他每一个界面看起来都正常，只有契约会告诉你。带 `extensionLoadRefusedAt` 与 `extensionLoadRefusedReason`。 |
+| `profile_locked`         | 另一个活着的会话占着这个配置文件，所以浏览器根本没有启动。带 `profileLockedAt` 和一个含 `host` 与 `pid` 的 `profileLockOwner`。               |
+| `browser_exited`         | 浏览器进程死了。`start` 和 `preview` 会翻成 `error`。`dev` 保持它的编译状态，只盖上 `browserExitedAt`。                                       |
+
+一次加载被拒会活过下一次成功编译。只有一次新的运行（`starting`）或者一次真正的执行器 attach 才能把它清掉。
+
+## 用 --wait 等待
+
+`extension dev --wait` 和 `extension start --wait` 每 250 毫秒轮询一次契约，并在它报告 `ready` 时退出。配合 `--output json` 可以拿到机器可读的结果。
+
+等待循环拒绝相信过期文件。每次读取都会跑三项检查：
+
+1. `command` 字段必须与正在等待的命令一致。
+2. `pid` 必须还活着。对 `dev` 来说，生产者已死就一定意味着文件过期，所以轮询会继续。
+3. 对 `start` 来说，只有当契约足够新鲜时，才接受一个已死的 pid。新鲜的意思是 `ts`、`compiledAt` 或 `startedAt` 在最近 60 秒之内。
+
+超时会以 `E_READY_TIMEOUT` 退出。处于 `error` 状态的契约会带着它的 message 让等待失败。
+
+## 把会话文件连起来
+
+同一个目录里还放着 `events.ndjson`（编译时间线）和 `logs.ndjson`（扩展的控制台输出）。这两个文件里的每一行都带着来自 `ready.json` 的 `runId`。
+
+`events.ndjson` 在每次运行开始时被清空，所以它永远只描述当前这次运行。事件类型有 `compile_start`、`compile_success`、`compile_error` 和 `shutdown`。
+
+## 示例
+
+```json
+{
+  "schemaVersion": 2,
+  "schema": 1,
+  "status": "ready",
+  "command": "dev",
+  "browser": "chromium",
+  "runId": "mdyq3k2p-a1b2c3d4",
+  "startedAt": "2026-08-03T14:05:12.000Z",
+  "distPath": "/home/dev/my-extension/dist/chromium",
+  "manifestPath": "/home/dev/my-extension/manifest.json",
+  "port": 8080,
+  "host": "127.0.0.1",
+  "pid": 51234,
+  "ts": "2026-08-03T14:05:19.412Z",
+  "compiledAt": "2026-08-03T14:05:19.401Z",
+  "errors": [],
+  "instanceId": "i-4b9a77",
+  "controlPort": 8081,
+  "controlPath": "/extjs-control",
+  "logsPath": "dist/extension-js/chromium/logs.ndjson",
+  "cdpPort": 9222,
+  "profilePath": "/tmp/extension-js/profiles/brisk-amber-fox",
+  "browserPid": 51302,
+  "extensionId": "abcdefghijklmnopabcdefghijklmnop",
+  "toolchainVersion": "4.0.22",
+  "runtime": "attached",
+  "executorAttachedAt": "2026-08-03T14:05:21.007Z"
+}
+```
+
+## 下一步
+
+- 用[结果信封](/docs/contracts/result-envelope)读取命令结果。
+- 用[生命周期流](/docs/contracts/lifecycle-stream)把同一个会话作为帧来流式读取。
+- 用 [Playwright E2E](/docs/workflows/playwright-e2e) 把整套流程接进测试。

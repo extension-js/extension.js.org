@@ -1,0 +1,68 @@
+---
+title: "相容性對照表"
+description: "用一頁對照 Extension.js 支援的範圍：依作業系統劃分的瀏覽器、依開發期更新模型劃分的框架，以及哪些 CSS 工具會自動安裝。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "browser",
+    "compatibility",
+    "support matrix",
+    "hmr",
+    "react",
+    "preact",
+    "vue",
+    "svelte",
+    "sass",
+    "less",
+    "tailwind",
+  ]
+---
+
+本頁把原本分散在各頁的支援說明湊在一起：哪些瀏覽器能在哪些作業系統上執行、每種框架下的「重新載入」究竟代表什麼，以及哪些 CSS 工具需要安裝相依套件。每張表格都連到深入說明設定的頁面。
+
+## 瀏覽器 × 作業系統
+
+所有以 Chromium 為基礎與以 Gecko 為基礎的目標，都能在 Windows、macOS 與 Linux 上運作。Safari 是例外：執行它需要 macOS 加上完整的 Xcode。`extension build --browser=safari` 在 Windows 與 Linux 上仍會產出完整的 `dist/safari` 套件，只是會略過 Xcode 封裝步驟並發出警告。
+
+| 目標                                             | Windows | macOS | Linux | 狀態                                              |
+| :----------------------------------------------- | :-----: | :---: | :---: | :------------------------------------------------ |
+| Google Chrome                                    |   ✅    |  ✅   |  ✅   | 支援                                              |
+| Microsoft Edge                                   |   ✅    |  ✅   |  ✅   | 支援                                              |
+| Mozilla Firefox                                  |   ✅    |  ✅   |  ✅   | 支援                                              |
+| Chromium 分支（Brave、Opera、Vivaldi、Yandex）   |   ✅    |  ✅   |  ✅   | 支援                                              |
+| Gecko 分支（Waterfox、LibreWolf）                |   ✅    |  ✅   |  ✅   | 支援                                              |
+| `chromium-based` / `gecko-based`（自訂二進位檔） |   ✅    |  ✅   |  ✅   | 支援                                              |
+| Apple Safari                                     |   ⚠️    |  ✅   |  ⚠️   | macOS：僅 `build`/`dev`，需要 Xcode，沒有重新載入。Windows/Linux：`build` 會產出 `dist/safari`，略過 Xcode 封裝 |
+
+目標名稱與旗標請見[可用的瀏覽器](/docs/browsers/browsers-available)，Safari 的工作流程與限制請見[建置 Safari 擴充功能](/docs/browsers/safari)。
+
+## 框架 × 開發期更新模型
+
+每種框架都能被自動偵測、打包，並在開發期取得自動更新。差別在於更新模型：一次編輯是就地熱抽換程式碼，還是重新載入整個介面。底層的分級機制請見[頁面重新載入與 hot module replacement（HMR）](/docs/features/reload-and-hmr)。
+
+| 框架                                                                  | 開發期更新模型 | 編輯後的元件狀態 | 備註                                                                                        |
+| :-------------------------------------------------------------------- | :------------- | :--------------- | :------------------------------------------------------------------------------------------ |
+| [React](/docs/languages-and-frameworks/react)                        | 快速重新整理   | 保留             | 偵測到後會自動安裝 `react-refresh` 工具鏈。                                                 |
+| [Preact](/docs/languages-and-frameworks/preact)                      | 即時重新載入   | 重置             | 快速重新整理暫時停用（上游外掛不相容），`react` 會別名到 `preact/compat`。                   |
+| [Vue](/docs/languages-and-frameworks/vue)                            | 元件重新掛載   | 重置             | 單一檔案元件會在變更時重新建置並重新掛載。                                                  |
+| [Svelte](/docs/languages-and-frameworks/svelte)                      | 元件熱更新     | 重置             | 使用 `svelte-loader` 的熱重新載入，被編輯的元件不必整頁重新載入即可更新。                   |
+| [TypeScript](/docs/languages-and-frameworks/typescript) / 原生 JS    | 依介面重新載入 | 不適用           | 背景腳本、內容腳本與頁面腳本遵循標準的重新載入分級。                                        |
+| [WebAssembly](/docs/languages-and-frameworks/webassembly)            | 依介面重新載入 | 不適用           | `.wasm` 資源會隨著套件一起重新建置。                                                        |
+
+## CSS 工具 × 哪些會自動安裝
+
+純 CSS 與 CSS Modules 是內建的。前處理器需要在你的專案裡裝好各自的工具鏈：缺少時，Extension.js 會發出警告、指出是哪個檔案，並原樣輸出未編譯的原始碼，而不會替你安裝任何東西。Tailwind 走 PostCSS 管線，由你自行安裝。
+
+| CSS 技術                                                                   | 開箱即用 | 偵測到時自動安裝                          |
+| :------------------------------------------------------------------------- | :------: | :---------------------------------------- |
+| CSS                                                                        |    ✅    | 不需要任何東西                            |
+| [CSS Modules](/docs/languages-and-frameworks/css-modules)（`*.module.css`） |    ✅    | 不需要任何東西                            |
+| [Sass/SCSS](/docs/languages-and-frameworks/sass)                           | 偵測到時 | Sass loader 加上 PostCSS 工具鏈           |
+| [Less](/docs/languages-and-frameworks/less)                                | 偵測到時 | `less` 與 `less-loader`                   |
+| [PostCSS](/docs/integrations/postcss)                                      | 有設定檔時 | `postcss` 與 `postcss-loader`           |
+| [Tailwind CSS](/docs/integrations/tailwindcss)                             | 你安裝之後 | 由你加入 `tailwindcss`，透過 PostCSS 接上 |
+
+## 套件管理器
+
+`npm`、`pnpm`、`yarn`、`bun` 與 `deno` 在 `create`、`dev` 與 `build` 中都受支援。Deno 專案會產生 `deno.jsonc` 而不是 `package.json`，工具鏈本身與清單檔案無關。Deno 專屬的注意事項請見[建立你的第一個擴充功能](/docs/getting-started/create-your-first-extension)。

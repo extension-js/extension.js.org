@@ -1,0 +1,154 @@
+---
+title: "ready.json 工作階段契約"
+description: "ready.json 的 schema v2 完整欄位參考。它是 Extension.js 的就緒契約,指令稿與 agent 輪詢它,而不是去解析終端機輸出。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "ready.json",
+    "contracts",
+    "automation",
+  ]
+---
+
+只要輪詢一個 JSON 檔,就能知道一個工作階段是就緒、壞掉,還是已經消失。
+
+每一次 `dev`、`start`、`preview` 與 `build` 執行,都會在每次編譯時原子性地寫入 `dist/extension-js/<browser>/ready.json`。目前的契約是 `schemaVersion: 2`。
+
+## 狀態
+
+| 狀態       | 意義                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------- |
+| `starting` | 這次執行開始了。檔案會重設,`events.ndjson` 也會為本次執行清空。                        |
+| `ready`    | 最近一次編譯成功,輸出已經在磁碟上。                                                    |
+| `error`    | 編譯失敗,或瀏覽器拒絕了、弄丟了這個擴充功能。                                          |
+| `stopped`  | 監看已關閉。會蓋上 `code: "shutdown"`,這樣一個死掉的工作階段永遠不會宣稱自己 `ready`。 |
+
+## 兩階段就緒
+
+`status: "ready"` 只代表編譯完成,不代表更多。瀏覽器可能還在啟動,service worker 也可能還沒連上。
+
+act 類工具(`eval`、`storage`、`reload`、`open`、`inspect`)需要第二個階段。要等到契約帶上 `runtime: "attached"` 與一個 `executorAttachedAt` 時間戳之後,再去驅動擴充功能。
+
+attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也會清掉先前的 `extension_load_refused` 狀態,因為執行器就跑在被控的瀏覽器裡面。
+
+## 欄位參考(schema v2)
+
+一定存在的欄位:
+
+| 欄位               | 型別           | 意義                                                                             |
+| ------------------ | -------------- | -------------------------------------------------------------------------------- |
+| `schemaVersion`    | `2`            | 就緒契約自身的版本。                                                             |
+| `schema`           | `1`            | 表明這個引擎講的是 schema-1 的[結果信封](/docs/contracts/result-envelope)。      |
+| `status`           | string         | `starting`、`ready`、`error` 或 `stopped`。                                      |
+| `command`          | string         | `dev`、`start`、`preview` 或 `build`。                                           |
+| `browser`          | string         | 這個工作階段服務的瀏覽器目標。                                                   |
+| `runId`            | string         | 工作階段身分。在 `ready.json`、`events.ndjson` 與 `logs.ndjson` 之間做關聯的鍵。 |
+| `startedAt`        | ISO string     | 這次執行開始的時間。                                                             |
+| `distPath`         | string         | 編譯後擴充功能的絕對路徑。                                                       |
+| `manifestPath`     | string         | 來源 manifest 的絕對路徑。                                                       |
+| `port`             | number 或 null | 開發伺服器實際綁定的連接埠。                                                     |
+| `pid`              | number         | 開發伺服器的處理程序 ID。在信任這份契約之前,先確認它還活著。                     |
+| `ts`               | ISO string     | 這份文件最後一次被寫入的時間。                                                   |
+| `compiledAt`       | string 或 null | 最近一次成功編譯完成的時間。                                                     |
+| `errors`           | string[]       | 去掉 ANSI 跳脫的編譯錯誤,最多 10 筆。                                            |
+| `toolchainVersion` | string         | 產出這棵目錄樹的 Extension.js 版本。                                             |
+
+已知時才會出現的欄位:
+
+| 欄位                 | 型別           | 意義                                                                                                                                                   |
+| -------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `host`               | string         | 開發伺服器主機。                                                                                                                                       |
+| `code`               | string         | 錯誤狀態的機器名稱,見下文。                                                                                                                            |
+| `message`            | string         | 與 `code` 並列的人話句子。                                                                                                                             |
+| `instanceId`         | string         | 多實例情境下的 dev 實例身分。                                                                                                                          |
+| `instanceExplicit`   | boolean        | 實例 ID 是否由使用者指定。                                                                                                                             |
+| `controlPort`        | number 或 null | 控制橋的 WebSocket 連接埠。                                                                                                                            |
+| `controlPath`        | string         | 控制橋的 WebSocket 路徑(`/extjs-control`)。                                                                                                            |
+| `logsPath`           | string         | 指向 `logs.ndjson` 的相對路徑。                                                                                                                        |
+| `cdpPort`            | number         | Chromium 啟動時:CDP 連接埠,在啟動之後蓋上。                                                                                                            |
+| `rdpPort`            | number         | Gecko 啟動時:RDP debugger-server 連接埠,在啟動之後蓋上。                                                                                               |
+| `profilePath`        | string         | 解析出來的設定檔目錄。暫時設定檔的名稱是產生出來的,所以要從這裡讀。                                                                                    |
+| `binary`             | string         | 這個工作階段實際啟動的瀏覽器執行檔絕對路徑。每次執行都會蓋上,包含那些沒有指定執行檔的執行:正是那些執行裡,解析器替你做了選擇,而這個路徑在別處看不到。   |
+| `binaryProvenance`   | string         | 那個執行檔是怎麼被選出來的:`managed`(Extension.js 的快取)、`pinned`(`--chromium-binary`)、`system`(已安裝的瀏覽器)或 `snapshot`(快取的 dev 頻道建置)。 |
+| `browserPid`         | number         | 瀏覽器的處理程序 ID。這是關掉瀏覽器時受支援的把手。                                                                                                    |
+| `extensionId`        | string         | 瀏覽器用來提供這份 dist 的 ID。拿得到時由瀏覽器確認,否則是推導出來的。                                                                                 |
+| `extensionName`      | string         | 擴充功能的名稱,作為建置來源資訊。                                                                                                                      |
+| `extensionVersion`   | string         | 擴充功能的版本,作為建置來源資訊。                                                                                                                      |
+| `browserExitedAt`    | ISO string     | 瀏覽器在工作階段中途、沒被要求就結束時蓋上。跨重新編譯保留。                                                                                           |
+| `browserExitCode`    | number 或 null | 與 `browserExitedAt` 並列的結束碼。                                                                                                                    |
+| `runtime`            | `"attached"`   | 一旦 service worker 連上且可被驅動,就會出現。                                                                                                          |
+| `executorAttachedAt` | ISO string     | service worker 第一次連上的時間。                                                                                                                      |
+| `managedExtensions`  | array          | 除了你的擴充功能之外,引擎還載入的每一個擴充功能,形式是 `{path, id?}` 記錄。做盤點時依 ID 把它們扣掉。                                                  |
+
+## 錯誤狀態
+
+`code` 欄位為失敗類別命名。對自動化來說有三個代碼要緊:
+
+| `code`                   | 發生了什麼                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extension_load_refused` | 工作階段還在跑,但瀏覽器把擴充功能丟了出去。其他每一個介面看起來都健康,只有契約會告訴你。會帶 `extensionLoadRefusedAt` 與 `extensionLoadRefusedReason`。 |
+| `profile_locked`         | 另一個活著的工作階段占著這個設定檔,所以瀏覽器根本沒有啟動。會帶 `profileLockedAt` 與一個含 `host` 和 `pid` 的 `profileLockOwner`。                      |
+| `browser_exited`         | 瀏覽器處理程序死了。`start` 與 `preview` 會翻成 `error`。`dev` 會保留它的編譯狀態,只蓋上 `browserExitedAt`。                                            |
+
+一次載入被拒會活過下一次成功編譯。只有一次新的執行(`starting`)或一次真正的執行器 attach 才能把它清掉。
+
+## 用 --wait 等待
+
+`extension dev --wait` 與 `extension start --wait` 每 250 毫秒輪詢一次契約,並在它回報 `ready` 時結束。搭配 `--output json` 可以拿到機器可讀的結果。
+
+等待迴圈拒絕相信過期的檔案。每次讀取都會跑三項檢查:
+
+1. `command` 欄位必須與正在等待的指令相符。
+2. `pid` 必須還活著。對 `dev` 而言,產生者已死一定代表檔案過期,所以會繼續輪詢。
+3. 對 `start` 而言,只有契約夠新鮮時才接受一個已死的 pid。新鮮的意思是 `ts`、`compiledAt` 或 `startedAt` 落在最近 60 秒內。
+
+逾時會以 `E_READY_TIMEOUT` 結束。處於 `error` 狀態的契約會帶著它的 message 讓等待失敗。
+
+## 把工作階段檔案串起來
+
+同一個資料夾裡還有 `events.ndjson`(編譯時間軸)與 `logs.ndjson`(擴充功能的主控台輸出)。兩者的每一列都帶著來自 `ready.json` 的 `runId`。
+
+`events.ndjson` 在每次執行開始時被清空,所以它永遠只描述目前這次執行。事件型別有 `compile_start`、`compile_success`、`compile_error` 與 `shutdown`。
+
+## 範例
+
+```json
+{
+  "schemaVersion": 2,
+  "schema": 1,
+  "status": "ready",
+  "command": "dev",
+  "browser": "chromium",
+  "runId": "mdyq3k2p-a1b2c3d4",
+  "startedAt": "2026-08-03T14:05:12.000Z",
+  "distPath": "/home/dev/my-extension/dist/chromium",
+  "manifestPath": "/home/dev/my-extension/manifest.json",
+  "port": 8080,
+  "host": "127.0.0.1",
+  "pid": 51234,
+  "ts": "2026-08-03T14:05:19.412Z",
+  "compiledAt": "2026-08-03T14:05:19.401Z",
+  "errors": [],
+  "instanceId": "i-4b9a77",
+  "controlPort": 8081,
+  "controlPath": "/extjs-control",
+  "logsPath": "dist/extension-js/chromium/logs.ndjson",
+  "cdpPort": 9222,
+  "profilePath": "/tmp/extension-js/profiles/brisk-amber-fox",
+  "browserPid": 51302,
+  "extensionId": "abcdefghijklmnopabcdefghijklmnop",
+  "toolchainVersion": "4.0.22",
+  "runtime": "attached",
+  "executorAttachedAt": "2026-08-03T14:05:21.007Z"
+}
+```
+
+## 後續步驟
+
+- 用[結果信封](/docs/contracts/result-envelope)讀取指令結果。
+- 用[生命週期串流](/docs/contracts/lifecycle-stream)把同一個工作階段當成影格來串流。
+- 用 [Playwright E2E](/docs/workflows/playwright-e2e) 把整套流程接進測試。

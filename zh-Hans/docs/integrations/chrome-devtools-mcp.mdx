@@ -16,9 +16,20 @@ keywords:
   ]
 ---
 
-[chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 让 AI agent 能够直接控制一个真实运行的 Chrome 实例，近期版本还加入了扩展相关的工具（`install`、`list`、`reload`、`trigger`、`uninstall`，以及 service-worker 日志）。Extension.js 的 MCP 服务器（`@extension.dev/mcp`）覆盖同样的扩展能力，但具备构建感知，并支持跨浏览器。
+[chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 让 AI agent 能够直接控制一个真实运行的 Chrome 实例，近期版本还加入了扩展相关的工具（`install`、`list`、`reload`、`trigger`、`uninstall`，以及 service-worker 日志）。Extension.js 的 MCP 服务器（`@extension.dev/mcp`）覆盖同样的扩展能力，但具备构建感知，并支持跨浏览器。它有一个专门的页面：[Extension.js MCP 服务器](/docs/integrations/extension-mcp)。
 
 它们是互补关系，而不是竞争关系。两个一起运行：让 chrome-devtools-mcp 驱动 Chrome 本身，让 Extension.js 接管一切与你项目相关的事——构建、热重载、生成的 manifest、storage、跨上下文的日志，以及在 Firefox、Edge 和 Safari 上的同一套工作流。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/Mz1-oN7rHek?autoplay=1&mute=1&loop=1&playlist=Mz1-oN7rHek&controls=0&rel=0&playsinline=1"
+    title="Extension.js: two MCP servers in one agent config"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ## 何时该用哪一个
 
@@ -46,11 +57,11 @@ Extension.js 的工具都加了 `extension_*` 命名空间前缀，因此永远�
 <CodeGroup>
 
 ```bash Claude Code
-# Extension.js — 构建感知的扩展控制
+# Extension.js — build-aware extension control
 claude mcp add extension-dev npx @extension.dev/mcp
 
-# chrome-devtools-mcp — 原生 Chrome 调试（扩展工具按需启用）
-# `--` 把后面的参数交给服务器；没有它，claude 会把该参数当成自己的选项
+# chrome-devtools-mcp — raw Chrome debugging (extension tools opt-in)
+# `--` hands the flag to the server; without it `claude` parses it as its own
 claude mcp add chrome-devtools -- npx chrome-devtools-mcp@latest --categoryExtensions
 ```
 
@@ -99,7 +110,7 @@ chrome-devtools-mcp 每一个扩展相关动作在 Extension.js 中都有对应�
 
 | chrome-devtools-mcp        | Extension.js                             | 备注                                                                                                                                                         |
 | -------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `install_extension`        | `extension_dev`、`extension_preview`     | 加载与真实构建 + 热重载绑定，不是加载一个静态文件夹                                                                                                          |
+| `install_extension`        | `extension_dev`、`extension_start`       | 加载与真实构建 + 热重载绑定，不是加载一个静态文件夹                                                                                                          |
 | `list_extensions`          | `extension_list_extensions`              | 列出带有实时上下文的扩展；通过 Extensions 域只读                                                                                                             |
 | `reload_extension`         | `extension_reload`                       | 构建感知；重载 background 或某个标签页                                                                                                                       |
 | `trigger_extension_action` | `extension_open`（`surface: "action"`）  | 可移植地重放 `onClicked` 处理器——跨浏览器、**无手势**（见注意事项）。如需真实手势点击（activeTab），请使用 chrome-devtools-mcp 的 `trigger_extension_action` |

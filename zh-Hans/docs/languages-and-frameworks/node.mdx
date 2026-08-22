@@ -48,8 +48,8 @@ yarn dlx extension@latest create my-extension --template=new-typescript
 bunx extension@latest create my-extension --template=new-typescript
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-typescript
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-typescript
 ```
 
 </CodeGroup>
@@ -80,8 +80,8 @@ yarn dlx extension@latest create my-extension --template=content-typescript
 bunx extension@latest create my-extension --template=content-typescript
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-typescript
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-typescript
 ```
 
 </CodeGroup>
@@ -92,7 +92,7 @@ bunx extension@latest create my-extension --template=content-typescript
 
 ![new-crypto template screenshot](/images/examples/new-crypto/screenshot.png)
 
-查看在新标签页扩展中如何使用 Node 的 `crypto` polyfill。
+查看在 new-tab 扩展中直接使用 Web Crypto API（`window.crypto.subtle`），不需要任何 polyfill。
 
 <CodeGroup>
 
@@ -112,8 +112,8 @@ yarn dlx extension@latest create my-extension --template=new-crypto
 bunx extension@latest create my-extension --template=new-crypto
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-crypto
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-crypto
 ```
 
 </CodeGroup>
@@ -124,9 +124,13 @@ bunx extension@latest create my-extension --template=new-crypto
 
 - 构建目标以浏览器优先（`web`）。
 - 模块解析优先选用浏览器导出（`browser`、`module`、`main`）。
-- Extension.js 默认禁用 Node 核心模块回退（例如 `crypto`、`path`、`fs`）。
+- `crypto`、`path` 和 `fs` 被映射为 `false`，因此它们会解析到一个空模块。构建会成功，
+  但导入会在运行时失败（例如 `path.join` 是 undefined）。
+- 其他所有 Node 核心模块，包括 `buffer`、`stream`、`os` 以及带 `node:` 前缀的说明符，
+  都没有回退，会以 `Module not found: Can't resolve` 让构建失败。
 
-这意味着除非你显式加上回退，否则导入 Node API 可能会失败。
+所以缺失的 Node API 会出现在两个地方之一，具体是哪一个取决于模块。
+用下面的显式回退来处理这两种情况。
 
 ## 设置 Node polyfill
 
@@ -197,6 +201,3 @@ deno add -D npm:node-polyfill-webpack-plugin npm:crypto-browserify npm:path-brow
 
 - 学习如何自定义 [Rspack 配置](/docs/features/rspack-configuration)。
 - 了解如何管理[扩展配置](/docs/features/extension-configuration)。
-
-## 视频讲解
-

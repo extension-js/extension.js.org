@@ -55,8 +55,8 @@ yarn dlx extension@latest create my-extension --template=new-env
 bunx extension@latest create my-extension --template=new-env
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-env
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-env
 ```
 
 </CodeGroup>
@@ -87,8 +87,8 @@ yarn dlx extension@latest create my-extension --template=content-env
 bunx extension@latest create my-extension --template=content-env
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-env
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-env
 ```
 
 </CodeGroup>
@@ -188,8 +188,20 @@ Extension.js 在编译时注入内置变量，因此你总能在扩展代码里�
 | `EXTENSION_AUTO_EXIT_MS`          | N 毫秒后自动退出 dev 进程                                                                             | CI 中的强制停止控制                                               |
 | `EXTENSION_FORCE_KILL_MS`         | 强制 kill 超时兜底                                                                                    | CI 清理的健壮性                                                   |
 | `EXTENSION_VERBOSE`               | 在所选流程中输出详细诊断                                                                              | 调试 CLI 行为                                                     |
-| `EXTENSION_AUTHOR_MODE`           | 维护者/作者诊断模式                                                                                   | 内部诊断与工具链                                                  |
+| `EXTENSION_DEBUG`                 | 启用调试输出通道（设为 `1`/`true`），等价于传入 `--debug`                                             | 不改动命令即可诊断 CLI 行为                                       |
+| `EXTENSION_AUTHOR_MODE`           | `EXTENSION_DEBUG` 的旧别名；显式设置的 `EXTENSION_DEBUG` 值优先                                       | 已被取代，请改用 `EXTENSION_DEBUG`                                |
+| `EXTENSION_OUTPUT`                | 强制机器输出（`json` 或 `ndjson`）；人类可读的 stdout 会静音，其他任何值都表示 pretty                 | 对被包装的调用而言，与 `--output` 效果相同                        |
 | `EXTENSION_CLI_NO_BROWSER`        | 在 CLI 中禁用浏览器启动(设为 `1`)                                                                     | 等价于 `--no-browser` 标志                                        |
+| `EXTENSION_DEV_INSTANCE_ID`       | 固定 dev 会话的 instance id，而不是每次生成一个                                                       | 让接入某次运行的 harness 拥有稳定的会话标识                       |
+| `EXTENSION_CONTROL_PORT`          | 由 dev 服务器设置，用于在同一进程中把控制通道端口交给编译器                                           | 内部协调值，读取即可，不要自己设置                                |
+| `EXTENSION_WATCH_POLL`            | 把文件监听切换为轮询（设为 `true`）                                                                   | 网络磁盘与容器中 inotify 事件送不到的场景                         |
+| `EXTENSION_WATCH_POLL_INTERVAL`   | 开启轮询时的轮询间隔（毫秒，默认 `1000`）                                                             | 在重建延迟与 CPU 开销之间做取舍                                   |
+| `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` | 启动时清扫临时托管 profile 的年龄阈值（小时，默认 `12`）                                          | 在 CI 中更快地保留或回收临时 profile                              |
+| `EXTENSION_USE_SYSTEM_PROFILE`    | 用系统浏览器 profile 启动，而不是托管 profile（设为 `true`）；`EXTJS_USE_SYSTEM_PROFILE` 是可接受的别名 | 需要你真实登录状态与扩展的会话                                    |
+| `EXTENSION_HEADLESS`              | 强制使用 headless 后端（设为 `1`/`true`）                                                             | macOS 上自动化会话的抢焦点防护                                    |
+| `EXTENSION_PREFER_CHROMIUM_SNAPSHOT` | 优先使用托管的 Chromium tip-of-tree 快照，而不是系统的稳定版浏览器（设为 `true`）                  | 针对最新的 Chromium 做测试                                        |
+| `EXTENSIONJS_BINARIES_IN_DIST`    | 把托管的浏览器二进制存到项目的 `dist/` 下，而不是共享缓存（设为 `1`）                                 | 完全自包含的项目检出                                              |
+| `EDGE_BINARY`                     | 要启动的 Edge 二进制的绝对路径                                                                        | 非标准的 Edge 安装位置                                            |
 | `EXTENSION_DEV_NO_BROWSER`        | 在开发服务器中禁用浏览器启动                                                                          | Monorepo 中不启动浏览器只监听                                     |
 | `EXTENSION_NO_RELOAD`             | 跳过开发模式下的 content-script 重载运行时                                                            | 等价于 `extension dev --no-reload`                                |
 | `EXTENSION_DEV_DRY_RUN`           | 跳过开发服务器启动(提前返回)                                                                          | 烟雾测试 CLI 接线                                                 |
@@ -209,8 +221,20 @@ Extension.js 在编译时注入内置变量，因此你总能在扩展代码里�
 | `EXTENSION_TELEMETRY_DEBOUNCE_MS` | 相同事件元组的去重窗口(毫秒)         | `60000` |
 | `EXTENSION_TELEMETRY_TIMEOUT_MS`  | 遥测请求的 HTTP 超时(毫秒)           | `300`   |
 | `EXTENSION_TELEMETRY_DEBUG`       | 将遥测载荷打印到 stderr(设为 `1`)    | 未设置  |
+| `EXTENSION_TELEMETRY_AUDIT_MAX_BYTES` | 本地审计日志的轮转上限(字节)     | `1048576` |
 
-完整退出契约请参见[遥测与隐私](/docs/features/telemetry-and-privacy)。
+`EXTENSION_TELEMETRY=1` 同时也是 CI 中的显式开启方式：在 CI 里遥测默认是关闭的。完整退出契约请参见[遥测与隐私](/docs/features/telemetry-and-privacy)。
+
+### 脚手架（`extension create`）变量
+
+| 变量                              | 用途                                                              | 默认值      |
+| --------------------------------- | ----------------------------------------------------------------- | ----------- |
+| `EXTENSION_CREATE_TEMPLATE_REF`   | 模板语料库的 ref：分支、tag 或 commit SHA；`main` 会恢复浮动分支  | 一个固定的 commit |
+| `EXTENSION_CREATE_TEMPLATE_URL`   | 完全覆盖模板归档的 URL                                            | 未设置      |
+| `EXTENSION_CREATE_ENGINE_VERSION` | 固定写入脚手架项目的 `extension` 依赖版本                         | CLI 版本    |
+| `EXTENSION_CREATE_TIMEOUT_MS`     | 模板下载的网络超时(毫秒)                                          | `60000`     |
+
+固定语料库的工作方式请参见[模板](/docs/getting-started/templates)。
 
 ### 浏览器传输调优变量
 
@@ -224,6 +248,7 @@ Extension.js 在编译时注入内置变量，因此你总能在扩展代码里�
 | `EXTENSION_RDP_EVAL_TIMEOUT_MS`       | Firefox RDP 求值超时(毫秒)      | `8000`  |
 | `EXTENSION_RDP_MAX_RETRIES`           | Firefox RDP 连接重试次数        | `150`   |
 | `EXTENSION_RDP_RETRY_INTERVAL_MS`     | Firefox RDP 连接重试间隔(毫秒)  | `1000`  |
+| `EXTENSION_RDP_REQUEST_TIMEOUT_MS`    | Firefox RDP 单次请求超时(毫秒)  | `30000` |
 
 ## 浏览器特定的环境变量
 

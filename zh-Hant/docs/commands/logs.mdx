@@ -1,0 +1,139 @@
+---
+title: "用 logs 指令讀取 dev 工作階段輸出"
+description: "印出或串流一個執行中的 Extension.js dev 工作階段裡每個情境的記錄。可依情境、層級、URL 或分頁過濾，並把 ndjson 導給其他工具。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "logs",
+    "ndjson",
+    "debugging",
+  ]
+---
+
+印出或串流一個執行中的開發工作階段裡每個情境的記錄。
+
+`logs` 會讀取 [`dev`](/docs/commands/dev) 工作階段從你的擴充功能收集到的記錄：background、content script、popup、options 以及其餘情境。一個指令就能依序合併顯示全部內容，不必開啟任何一個 DevTools 視窗。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/WKLqY5Aozog?autoplay=1&mute=1&loop=1&playlist=WKLqY5Aozog&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension logs --follow"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 何時使用 `logs`
+
+- 你想在同一道串流裡同時看到 background worker 與某個 content script 的主控台輸出。
+- agent 或指令稿需要機器可讀的記錄，而不是從終端機文字裡刮取。
+- 你想查看擴充功能稍早記錄了什麼，而不必重新觸發一次那個行為。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension logs [project-path] [options]
+```
+
+```bash pnpm
+extension logs [project-path] [options]
+```
+
+```bash yarn
+extension logs [project-path] [options]
+```
+
+```bash bun
+extension logs [project-path] [options]
+```
+
+```bash deno
+extension logs [project-path] [options]
+```
+
+</CodeGroup>
+
+預設情況下，`logs` 會印出磁碟上已有的記錄然後結束。加上 `--follow` 可以保持連線，即時串流新的記錄。
+
+## 參數與 flag
+
+| flag                              | 作用                                                                                              | 預設值                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `[project-path]`                  | 擴充功能專案根目錄路徑。                                                                          | `process.cwd()`                 |
+| `--browser <browser>`             | 讀取哪一個工作階段（`chrome`、`chromium`、`edge`、`firefox`）。                                   | `chromium`                      |
+| `--follow`                        | 透過控制通道即時串流，而不是印完就結束。                                                          | 關閉                            |
+| `--context <list>`                | 以逗號分隔的情境（`background`、`content`、`popup`、`options`、`sidebar`、`devtools`、`page`）。  | 全部情境                        |
+| `--level <level>`                 | 最低嚴重程度（`off`、`error`、`warn`、`info`、`debug`、`trace`、`all`）。                         | `all`                           |
+| `--signals-only`                  | 實驗性。只顯示結構化的 `dx.signal` 診斷。目前還沒有任何發送端，所以這個 flag 現在不會印出任何東西。 | 關閉                            |
+| `--since <seq>`                   | 只顯示這個序號之後的事件。                                                                        | 未設                            |
+| `--url <glob\|substring>`         | 只顯示 URL 或主機名稱相符的事件（用 `*` 的 glob，或單純的子字串）。                               | 未設                            |
+| `--tab <id>`                      | 只顯示來自這個分頁 id 的事件。                                                                    | 未設                            |
+| `--output <pretty\|json\|ndjson>` | 輸出格式。                                                                                        | TTY 上為 `pretty`，導管時為 `ndjson` |
+
+選擇某個 `--level` 會一併包含該層級以及所有更嚴重的層級。`--level warn` 會顯示 `warn` 與 `error`。一般的 `console.log` 記錄算作 `info`。
+
+## 一次性模式
+
+不加 `--follow` 時，指令會直接讀取 `dist/extension-js/<browser>/logs.ndjson`，不需要任何即時連線。開發工作階段會把每一筆記錄附加到那個檔案，所以即使你已經關掉瀏覽器，一次性讀取仍然有效。
+
+如果該檔案不存在，`logs` 會提示你先啟動 `extension dev`，並以結束碼 `1` 結束。機器可讀格式還會輸出一個錯誤碼為 `E_LOGS_NOT_FOUND` 的失敗信封（參見 [結果信封](/docs/contracts/result-envelope)）。
+
+## 跟隨模式
+
+`--follow` 會查出工作階段的就緒契約，以記錄消費端的身分連上控制通道，並在記錄產生時串流出來。它需要一個執行中的開發工作階段，但不需要任何解鎖 flag：記錄消費永遠是允許的。
+
+```bash
+extension logs --follow --context background,content --level info
+```
+
+如果串流跟不上、工作階段丟棄了記錄，`logs` 會在 stderr 上印出一行提示，說明丟棄的筆數與原因。
+
+當你用 `Ctrl+C` 停止串流時，機器可讀格式會印出一個狀態為 `interrupted` 的終止成功信封，讓消費端能分辨乾淨的停止與當機。結束碼為 `0`。
+
+如果找不到所選瀏覽器對應的工作階段，指令會以 `E_SESSION_NOT_FOUND` 失敗，並指名該執行的 `extension dev` 指令。
+
+## 輸出格式
+
+pretty 模式每筆記錄印出一行：
+
+```plaintext
+[142] INFO (background) message text from the worker
+[143] ERROR (content) E_SOMETHING failed to reach the page
+    ↳ remediation hint, when the record carries one
+```
+
+`ndjson` 每行印出一筆原始 JSON 記錄，很適合 `jq` 與記錄收集器。`json` 則會把每筆記錄格式化成多行。當 stdout 不是 TTY 時，`ndjson` 本來就是預設值，因此導管不需要額外的 flag：
+
+```bash
+extension logs --context content | jq -r '.messageParts | join(" ")'
+```
+
+## 範例
+
+只看某個網站上 content script 的錯誤與警告：
+
+```bash
+extension logs --context content --level warn --url "*.example.com"
+```
+
+從某筆已知記錄之後繼續讀取，適合輪詢的 agent：
+
+```bash
+extension logs --since 142 --output ndjson
+```
+
+## 後續步驟
+
+- 用 [`doctor`](/docs/commands/doctor) 診斷 `logs --follow` 連不上的工作階段。
+- 用 [`inspect`](/docs/commands/inspect) 一次呼叫就同時拿到 DOM 快照與最近的主控台輸出。
+- 在 [除錯](/docs/debugging) 中了解更完整的除錯工作流程。
+- 在 [結果信封](/docs/contracts/result-envelope) 中查看機器可讀的失敗格式。

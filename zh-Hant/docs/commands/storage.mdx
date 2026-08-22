@@ -1,0 +1,98 @@
+---
+title: "用 storage 指令讀寫擴充功能儲存空間"
+description: "從終端機讀寫執行中的 Extension.js dev 工作階段的 chrome.storage 區域，支援 JSON 值與逐區域指定。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "storage",
+    "debugging",
+    "automation",
+  ]
+---
+
+從終端機讀寫擴充功能的 `chrome.storage` 區域。
+
+`storage` 會與執行中的 dev 工作階段溝通，並把 storage 呼叫放在擴充功能內部執行，所以你看到的正是你的程式碼看到的內容。不需要 DevTools，也不需要臨時的 `console.log`。
+
+工作階段必須以解鎖控制通道的方式執行：用 `extension dev --allow-control` 啟動它。被拒絕時，錯誤訊息會指出缺少的那個 flag。
+
+## 何時使用 `storage`
+
+- 你想查看擴充功能保存了什麼，又不想為此特地做一個除錯介面。
+- 測試或 agent 需要在跑過某個流程之前先為 storage 準備初始狀態。
+- 你想在執行中的工作階段翻轉某個已儲存的功能開關，並觀察效果。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension storage <get|set> [project-path] [options]
+```
+
+```bash pnpm
+extension storage <get|set> [project-path] [options]
+```
+
+```bash yarn
+extension storage <get|set> [project-path] [options]
+```
+
+```bash bun
+extension storage <get|set> [project-path] [options]
+```
+
+```bash deno
+extension storage <get|set> [project-path] [options]
+```
+
+</CodeGroup>
+
+先讀取整個 `local` 區域，再讀取單一鍵，然後寫入一個值：
+
+```bash
+extension storage get
+extension storage get --key settings
+extension storage set --key settings --value '{"theme": "dark"}'
+```
+
+## 參數與 flag
+
+| flag                      | 作用                                                                          | 預設值          |
+| ------------------------- | ----------------------------------------------------------------------------- | --------------- |
+| `<action>`                | `get` 或 `set`。                                                              | 必填            |
+| `[project-path]`          | 擴充功能專案根目錄路徑。                                                      | `process.cwd()` |
+| `--area <area>`           | 儲存區域（`local`、`sync`、`session`、`managed`）。                           | `local`         |
+| `--key <key>`             | 要讀取或寫入的鍵。`get` 不帶鍵時會回傳整個區域。                              | 未設定          |
+| `--value <json>`          | `set` 要寫入的值。先以 JSON 解析，解析失敗則保留為原始字串。                  | `set` 必填      |
+| `--context <context>`     | 執行該呼叫的 context（`background`、`popup`、`options`、`sidebar`、`content`）。 | `background`    |
+| `--browser <browser>`     | 要指定哪個工作階段（`chrome`、`chromium`、`edge`、`firefox`）。               | `chromium`      |
+| `--timeout <ms>`          | 指令逾時時間，單位毫秒。                                                      | `5000`          |
+| `--output <pretty\|json>` | 輸出格式（`json` 會把結果包進 schema-1 信封）。                               | `pretty`        |
+
+## 值如何被解析
+
+`--value` 會以 JSON 解析，因此 `'{"theme": "dark"}'`、`'42'` 與 `'true'` 都會帶著型別送達。不是合法 JSON 的輸入會退回為原始字串，所以 `--value hello` 會存下字串 `"hello"`，不需要額外加引號。
+
+`set` 同時需要 `--key` 與 `--value`。少了任何一個，都會在建立任何連線之前以 `E_ARGS` 失敗。除了 `get` 與 `set` 以外的動作也會以相同方式失敗。
+
+## 失敗模式
+
+- 該瀏覽器沒有工作階段：`E_SESSION_NOT_FOUND`，並給出應該執行的完整 `extension dev --allow-control` 指令。
+- 工作階段執行時沒有帶 `--allow-control`：連線會被拒絕，錯誤訊息會指出這個 flag。
+- storage 呼叫在擴充功能內部拋出例外（例如寫入唯讀的 `managed` 區域）：`E_STORAGE`。
+- 呼叫超過了 `--timeout`：`E_TIMEOUT`。
+
+成功時退出碼為 `0`，任何失敗都是 `1`。機器端的使用者應該讀取 `--output json` 輸出的信封（參見 [結果信封](/docs/contracts/result-envelope)）。
+
+## 後續步驟
+
+- 用 [`eval`](/docs/commands/eval) 在同一個工作階段執行任意運算式。
+- 準備好狀態之後，用 [`reload`](/docs/commands/reload) 重新啟動 background worker。
+- 用 [`doctor`](/docs/commands/doctor) 診斷拒絕該呼叫的工作階段。
+- 在 [除錯](/docs/debugging) 了解更完整的除錯工作流程。
