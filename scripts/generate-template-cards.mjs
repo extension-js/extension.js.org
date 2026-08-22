@@ -17,7 +17,7 @@ const STACK_ICONS = [
   ["shadcn", "palette"],
   ["transformers-js", "microchip-ai"],
   ["tailwindcss", "wind"],
-  ["turbopack", "bolt"],
+  ["turborepo", "bolt"],
   ["playwright", "bug-slash"],
   ["crypto", "key"],
   ["monorepo", "diagram-project"],
@@ -38,13 +38,13 @@ const STACK_ICONS = [
   ["sidebar", "bars"],
   ["action", "bullseye"],
   ["content", "file-code"],
-  ["new", "window-maximize"],
+  ["newtab", "window-maximize"],
   ["init", "rocket"],
   ["javascript", "js"],
 ];
 
 const CONTEXT_LABEL = {
-  new: "New tab page",
+  newtab: "New tab page",
   content: "Content script",
   action: "Toolbar popup",
   sidebar: "Side panel",
@@ -66,10 +66,23 @@ function pickIcon(slug) {
   return "puzzle";
 }
 
+// Contexts the slug does not reveal: ai-chatgpt renders a toolbar popup,
+// transformers-js a side panel. Without these a regeneration flattens them to
+// the generic "Example".
+const CONTEXT_OVERRIDES = {
+  "ai-chatgpt": "Toolbar popup",
+  "ai-claude": "Toolbar popup",
+  "ai-gemini": "Toolbar popup",
+  "ai-perplexity": "Toolbar popup",
+  "sidebar-antd": "Side panel",
+  "transformers-js": "Side panel",
+};
+
 function pickContextLabel(slug) {
-  if (slug === "init" || slug === "new") return "Default baseline";
+  if (CONTEXT_OVERRIDES[slug]) return CONTEXT_OVERRIDES[slug];
+  if (slug === "init" || slug === "newtab") return "Default baseline";
   for (const prefix of [
-    "new-",
+    "newtab-",
     "content-",
     "action-",
     "sidebar-",
@@ -80,10 +93,32 @@ function pickContextLabel(slug) {
   return CONTEXT_LABEL[slug] || "Example";
 }
 
+// Titles a person chose, which the slug cannot express. Keep this in sync when
+// adding a template whose display name is not just its capitalised slug.
+const TITLE_OVERRIDES = {
+  "ai-chatgpt": "Action ChatGPT",
+  javascript: "JavaScript",
+  newtab: "New",
+  "sidebar-shadcn": "Sidebar shadcn",
+  "transformers-js": "Sidebar Transformers.js",
+  typescript: "TypeScript",
+};
+
+// Words whose casing is a brand or an acronym, not a capitalised word.
+const WORD_CASING = {
+  css: "CSS",
+  eslint: "ESLint",
+  js: "JS",
+  newtab: "New",
+  typescript: "TypeScript",
+  javascript: "JavaScript",
+};
+
 function formatTitle(slug) {
+  if (TITLE_OVERRIDES[slug]) return TITLE_OVERRIDES[slug];
   return slug
     .split("-")
-    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .map((w) => WORD_CASING[w] || w[0].toUpperCase() + w.slice(1))
     .join(" ");
 }
 
