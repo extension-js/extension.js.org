@@ -1,0 +1,55 @@
+---
+title: "在 WSL 下开发扩展"
+description: "在 Windows Subsystem for Linux 中运行 Extension.js 开发会话。涵盖 Linux 优先的浏览器查找顺序、Windows .exe 回退，以及 Chrome 包装脚本的替换。"
+keywords:
+  [
+    "extension.js",
+    "wsl",
+    "windows subsystem for linux",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "docs",
+    "browsers",
+  ]
+---
+
+在 Windows Subsystem for Linux（WSL）中运行完整的 Extension.js 开发循环，浏览器会自动从边界的任意一侧解析出来。
+
+Extension.js 通过 `WSL_DISTRO_NAME`、`WSL_INTEROP` 或 `WSLENV` 变量，或者 Microsoft 内核签名来检测 WSL。随后它会按一个固定的顺序去解析浏览器二进制。
+
+## 解析顺序
+
+1. **优先使用 Linux 原生浏览器。** 当存在可用的 GUI 显示（已设置 `DISPLAY` 或 `WAYLAND_DISPLAY`）时，Extension.js 会检查已知的 Linux 安装位置。例如 `/opt/google/chrome/chrome`、`/usr/bin/chromium`、`/snap/bin/chromium` 和 `/usr/bin/firefox`。使用 Linux 浏览器可以让整个开发循环都留在 Linux 一侧。
+2. **回退到 `/mnt/c` 下的 Windows `.exe`。** 当不存在 Linux 浏览器时，Extension.js 会去找 Windows 上的安装。它会检查 `/mnt/c/Program Files/Google/Chrome/Application/chrome.exe`，以及对应的 Chromium、Edge 和 Firefox 路径，还有它们的 `Program Files (x86)` 变体。
+3. **启动时重试一次。** 如果选中的二进制启动失败，Extension.js 会用 Windows 二进制再重试一次，然后才放弃。
+
+你也可以通过传入显式路径来完全跳过这套顺序：
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
+```
+
+## Chrome 包装脚本的替换
+
+在 Linux 上，`google-chrome` 及其渠道变体都是 shell 包装脚本，而不是真正的二进制。这个包装脚本在 exec 启动 Chrome 时会关闭额外的文件描述符，从而破坏开发会话所依赖的 `--remote-debugging-pipe` 通道。
+
+在带 GUI 的 WSL 下，Extension.js 会按名称识别包装脚本（`google-chrome`、`google-chrome-stable`、`google-chrome-beta`、`google-chrome-dev`、`google-chrome-unstable`），并在 `/opt/google/chrome/chrome` 存在时把它替换为真正的二进制。出于同样的原因，已知安装位置列表中真正的二进制也排在包装脚本之前。
+
+## shell 别名不是路径
+
+<Warning>
+  Extension.js 使用 `child_process.spawn` 启动浏览器，它永远不会读取你的 shell
+  配置。像 `google-chrome=...` 这样的 shell
+  别名对启动器来说并不存在。请传入真实的文件路径，或者一个磁盘上确实可执行的包装脚本。
+</Warning>
+
+## 什么都找不到时
+
+如果两侧都没有浏览器，CLI 会带上针对 WSL 的指引退出：在 WSL 内安装一个 Linux 浏览器，或者把 `--chromium-binary` 指向 Windows 的 `.exe`。Firefox 通过它自己的顺序以相同方式解析（`/usr/bin/firefox`、`/snap/bin/firefox`、`/opt/firefox/firefox`，然后是 `/mnt/c/Program Files/Mozilla Firefox/firefox.exe`）。
+
+## 下一步
+
+- 在 [可用的浏览器](/docs/browsers/browsers-available) 中选择一个目标。
+- 在 [运行其他浏览器](/docs/browsers/running-other-browsers) 中指向自定义二进制。

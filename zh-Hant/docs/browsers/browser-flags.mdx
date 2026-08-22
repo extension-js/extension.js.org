@@ -18,8 +18,16 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
 控制瀏覽器啟動行為,用於除錯、自動化與執行階段的實驗。
+
+<Note>
+  **在找 `chrome://flags` 或 `edge://flags`?** 直接在網址列輸入即可,那是瀏覽器內建的頁面。**Firefox 沒有
+  `firefox://flags`**,請改用 `about:config`。
+
+如果你切換旗標是為了**測試或建置瀏覽器擴充功能**,Extension.js 會在 Chrome、Edge 與 Firefox
+上以專案為單位自動套用,你不必每次執行都手動傳入旗標。[30 秒建立你的第一個擴充功能 →](/docs/getting-started)
+
+</Note>
 
 在不修改擴充功能原始碼的情況下調整瀏覽器啟動行為。Extension.js 會合併你在 `extension.config.*` 中設定的瀏覽器旗標,並在 `dev`、`preview` 與 `start` 流程中套用。
 
@@ -33,6 +41,19 @@ Firefox 不像 Chromium 系列瀏覽器使用 `chrome://flags` 或 `edge://flags
 - 使用 [Firefox 偏好設定](/docs/browsers/browser-preferences) 來設定原本會放在 `about:config` 中、可重複套用的 Gecko 執行階段行為。
 
 從同一份 Extension.js 專案,這兩種方式都能用於 Chrome、Edge 與 Firefox 的擴充功能開發。
+
+## 其他瀏覽器的旗標
+
+Extension.js 會以同樣的方式啟動並設定任何以 Chromium 為基礎的瀏覽器。
+
+- **`brave://flags`、`opera://flags`、`vivaldi://flags`、`yandex://flags`**:它們都以
+  Chromium 為基礎,行為與 `chrome://flags` 完全相同,Extension.js 會以專案為單位管理它們。
+- **`internet://flags` 與 `browser://flags`**:這些不是真實存在的瀏覽器 scheme。你要找的多半是
+  `chrome://flags`(Chromium)或 `about:config`(Firefox)。
+- **`edge://flags`**:Edge 就是 Chromium,所以在 Extension.js 中的表現和 Chrome 一模一樣。
+
+正在建置的擴充功能需要特定的啟動旗標?在 `extension.config.*` 裡設定一次,Extension.js
+每次執行都會套用。請參閱下方的 [`browserFlags`](/docs/browsers/browser-flags)。
 
 ## 範本範例
 
@@ -60,8 +81,8 @@ yarn dlx extension@latest create my-extension --template=new-browser-flags
 bunx extension@latest create my-extension --template=new-browser-flags
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-browser-flags
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-browser-flags
 ```
 
 </CodeGroup>
@@ -110,12 +131,14 @@ export default {
 
 - **Chromium 系列(`chrome`、`edge`、`chromium`、`chromium-based`)**
   - 從內建的預設旗標集開始,接著附加你的 `browserFlags`。
-  - `excludeBrowserFlags` 會移除符合的預設旗標(完全相符的過濾)。
+  - `excludeBrowserFlags` 會移除符合的預設旗標與使用者旗標。
   - Extension.js 自行管理 `--load-extension=...`,並會從使用者提供的旗標中過濾掉它。
 
 - **Firefox/Gecko 系列(`firefox`、`gecko-based` / `firefox-based`)**
   - 使用使用者提供的 `browserFlags`(沒有 Chromium 那種龐大的預設旗標組)。
-  - `excludeBrowserFlags` 會以前綴比對的方式移除使用者旗標。
+  - `excludeBrowserFlags` 會移除符合的使用者旗標,規則與 Chromium 相同。
+
+兩個系列共用同一條排除規則:當某個旗標與排除值完全相等,或排除值指的那個開關後面接著 `=` 或 `,` 時,該旗標就會被移除。所以 `--disable-features` 也會移除 `--disable-features=Translate`,而 `--dev` 永遠不會移除 `--devtools`。
 
 ### Chromium 的預設旗標
 
@@ -144,12 +167,42 @@ Extension.js 在啟動 Chromium 系列瀏覽器時會自動套用以下旗標。
 | `--no-pings`                                               | 停用超連結稽核 ping                                                   |
 | `--enable-features=SidePanelUpdates`                       | 確保側邊面板可見                                                      |
 | `--disable-features=DisableLoadExtensionCommandLineSwitch` | 允許在命令列使用 `--load-extension`                                   |
+| `--disable-features=ExtensionDisableUnsupportedDeveloper`  | 讓未封裝的擴充功能在 `runtime.reload()` 之後仍存活(Chromium 152 以上) |
 | `--enable-unsafe-extension-debugging`                      | 允許透過 Chrome DevTools Protocol (CDP) 管理擴充功能(Chrome 126 以上) |
 | `--silent-debugger-extension-api`                          | 隱藏「X is debugging this browser」的資訊列                           |
 
+### 一律生效的工作階段旗標
+
+除了上面的預設表格,每一次 Chromium 啟動都會帶上一組固定的工作階段穩定性旗標。它們能避免背景計時器、被遮蔽的視窗與轉譯程序節流扭曲自動化與 AI 驅動的工作階段。`excludeBrowserFlags` 無法移除它們:
+
+```text
+--disable-background-timer-throttling
+--disable-renderer-backgrounding
+--disable-backgrounding-occluded-windows
+--disable-features=TranslateUI
+--disable-hang-monitor
+--disable-prompt-on-repost
+--memory-pressure-off
+--max_old_space_size=4096
+--disable-dev-shm-usage
+```
+
+只有在 `dev` 模式下,Extension.js 才會用三個旗標接上除錯通道:`--remote-debugging-port=<derived port>`、`--remote-debugging-address=127.0.0.1` 與 `--remote-debugging-pipe`。正式模式的啟動(`start`、`preview`)會略過這三個。
+
+### feature 開關的合併
+
+Chromium 只認重複開關中最後出現的那一個。因此 Extension.js 會把每一處 `--enable-features` 與 `--disable-features` 各自合併成一個以逗號連接的開關。預設值、設定與環境變數的值都會一起合併,重複的 feature 名稱會被移除。你可以放心在 `browserFlags` 傳入 `--disable-features=Foo`,而不會抹掉預設值。
+
+### 環境變數開關
+
+- `EXTENSION_BROWSER_FLAGS` 會把以空白分隔的旗標附加到每一次啟動。它在設定旗標之後、也在 `excludeBrowserFlags` 過濾之後才套用,因此 `excludeBrowserFlags` 無法移除來自這個變數的旗標。
+- `EXTENSION_HEADLESS=1`(或 `true`)會強制使用 `--headless=new`,除非設定或環境旗標中已經傳入某種 `--headless` 變體。可以把它當成自動化工作階段的搶焦點防護。
+
 <Note>
   在 Docker、持續整合(CI)或容器化環境中,Extension.js 也會自動套用 `--no-sandbox`
-  與 `--disable-setuid-sandbox`。
+  與 `--disable-setuid-sandbox`。在 Linux 上,它會透過下列任一訊號判斷處於容器中:
+  `CI=true`、存在 `/.dockerenv` 檔案、存在 `/run/.containerenv` 檔案、
+  `REMOTE_CONTAINERS=true`、`CODESPACES=true`,或設定了 `container` 變數。
 </Note>
 
 ## 支援的目標與參考

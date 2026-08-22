@@ -34,7 +34,7 @@ Extension.js 會編譯你的 manifest，過濾帶有瀏覽器前綴的欄位。�
 
 Extension.js 不會使用 `public/manifest.json` 作為來源 manifest。
 
-當專案有 `package.json` 時，Extension.js 會忽略 `public/manifest.json`。這可避免被複製的靜態資產覆蓋 Extension.js 產生的 manifest。
+放在 `public/` 之下的 `manifest.json` 會讓建置以 `manifest.json must not be placed under public/` 失敗。請把它移到 `src/manifest.json` 或專案根目錄，這樣被複製的靜態資產就永遠不會覆蓋 Extension.js 產生的 manifest。
 
 ## Extension.js 對 manifest 做了什麼
 
@@ -128,6 +128,24 @@ Extension.js 也會依 manifest 進入點索引標準化 content script：
 | 更新仍可正確解析的資產路徑值                 | 重新編譯 + hard reload 流程 |
 | 在 manifest 中新增／移除 script 或頁面進入點 | 需要重新啟動                |
 | 引入無效或缺失的被引用檔案                   | 建置錯誤（先修正再重跑）    |
+
+## Extension.js 會替你修復什麼
+
+有些 manifest 形態會讓 Chromium 直接拒絕載入擴充功能，而且幾乎不給任何說明。Extension.js 會在瀏覽器啟動前診斷這些狀況，並自動修復其中致命的那些。每次修復都會印出一則警告，指出欄位與原因。拒絕原因與修復方式的完整清單，請見 [Manifest 拒絕載入](/docs/debugging/manifest-refusals)。
+
+### 舊版路徑警告
+
+當產出的 manifest 仍然包含下列已淘汰的生成路徑時，開發建置與正式建置都會發出警告：
+
+- `devtools_page/devtools_page.html`
+- `options_ui/page.html`
+- `background/page.html`
+- `browser_action/default_popup.html`
+- `page_action/default_popup.html`
+- `side_panel/default_path.html`
+- `sidebar_action/default_panel.html`
+
+每命中一項都會產生一個 `ManifestLegacyWarning`。Extension.js 會在下一個主要版本把這些路徑改寫到標準化的資料夾。
 
 ## 最佳實務
 

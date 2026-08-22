@@ -14,11 +14,10 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["firefox", "gecko"]} />
 在开发期间获得可复现的浏览器行为（例如主页默认值、devtools 设置或通知行为），
 无需修改扩展代码。
 
-Extension.js 会从 `extension.config.*` 中读取 `preferences`，并在启动 Firefox 与 Gecko 浏览器时应用。
+Extension.js 会从 `extension.config.*` 中读取 `preferences`，并在浏览器启动时应用。Firefox 与 Gecko 目标会得到一个 `user.js` 文件。Chromium 目标会得到一个预置的 `Default/Preferences` 文件。
 
 ## 工作原理
 
@@ -65,11 +64,31 @@ export default {
 
 ## Chromium 家族行为
 
-Chromium 家族的启动（`chrome`、`edge`、`chromium`、`chromium-based`）主要使用 **浏览器 flag**。
+Chromium 家族的启动（`chrome`、`edge`、`chromium`、`chromium-based`）同样会预置你的 `preferences`，只不过是通过 profile 而不是 `user.js` 文件。
 
-`preferences` 仍然可以出现在合并后的配置对象中，但 Chromium 的启动行为由 flag 与 profile 选项控制。Chromium 不使用 Firefox 风格的 `user.js` preferences 文件。
+启动时，Extension.js 会把你的 `preferences` 对象深度合并进厂商的 master-preferences 基线，并把结果一次性写入当前生效 profile 里的 `Default/Preferences`。只有当该文件还不存在时才会写入，所以新建的 profile 会被预置，已有的 profile 则保留自己的状态。Chrome 与 Edge 各有自己的基线对象，由你运行的目标决定使用哪一个。
 
-针对 Chromium 的定制，请优先使用：
+```js
+export default {
+  browser: {
+    chrome: {
+      preferences: {
+        download: { prompt_for_download: false },
+      },
+    },
+  },
+};
+```
+
+同名键以你的值为准，嵌套对象会逐键合并。
+
+<Note>
+  由于这次写入每个 profile 只发生一次，持久化的 profile（`persistProfile`
+  或 `keepProfileChanges`）不会拾取后来的 preferences 修改。删除该 profile，或者使用
+  临时 profile 运行，才能重新预置。
+</Note>
+
+对于 Chromium 通过命令行控制的启动行为，请改用 flag：
 
 - `browserFlags`
 - `excludeBrowserFlags`
@@ -125,7 +144,7 @@ export default {
 - **优先使用浏览器作用域的 preferences**：把 Firefox/Gecko 的 preferences 键放在按浏览器目标划分的配置块中。
 - **临时实验放进命令覆盖**：短期使用的 preferences 调整放在 `commands.dev` 里。
 - **保持 profile 隔离**：用不同的 profile 实现可复现的调试。
-- **Chromium 调优请用 flag**：在 Chromium 家族目标上，把 flag 当作主要的配置入口。
+- **Chromium 启动调优请用 flag**：preferences 只在 profile 初次创建时预置一次，所以按次运行会变化的行为应该写成 flag。
 
 ## 下一步
 

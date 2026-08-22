@@ -36,6 +36,7 @@ keywords:
 | `commands`          | 各命令的默认值(`dev`、`start`、`preview`、`build`)。     |
 | `extensions`        | 在各命令中应用的附属扩展(仅加载)。                       |
 | `transpilePackages` | 在打包前需要编译的包(对 monorepo/workspace 设置很有用)。 |
+| `perfBudgets`       | 按类别设置的资源体积预算(字节)，可按命令覆盖。           |
 | `config`            | 用于扩展/覆盖生成的 Rspack 配置的钩子。                  |
 
 ### 类型安全的配置
@@ -99,6 +100,8 @@ export default {
 | --------------------- | ------------------------------------------------------ |
 | `profile`             | 设置启动时使用的浏览器 profile 路径(或 profile 行为)。 |
 | `persistProfile`      | 在多次运行之间复用 profile 数据。                      |
+| `keepProfileChanges`  | 在多次运行之间保留受管 profile 及其更改。              |
+| `copyFromProfile`     | 以一个已有 profile 目录的副本来初始化受管 profile。    |
 | `preferences`         | 应用浏览器偏好覆盖。                                   |
 | `browserFlags`        | 为浏览器进程添加启动标志。                             |
 | `excludeBrowserFlags` | 移除你不想要的默认启动标志。                           |
@@ -162,7 +165,8 @@ export default {
 | `startingUrl`         | `dev`、`start`、`preview`          | 启动浏览器时打开指定 URL。                              |
 | `port`                | `dev`、`start`、`preview`          | 设置 runner/DevTools 端口。                             |
 | `host`                | `dev`、`start`、`preview`          | 设置开发服务器主机。用 `0.0.0.0` 适配 Docker/开发容器。 |
-| `noBrowser`           | `dev`、`start`、`preview`          | 禁用浏览器启动。                                        |
+| `publicHost`          | `start`、`preview`                 | 设置客户端回连时可从外部访问的主机。                    |
+| `noBrowser`           | `dev`、`start`、`preview`          | 禁用浏览器启动(`commands.<cmd>.noBrowser`)。            |
 | `extensions`          | `dev`、`start`、`preview`、`build` | 加载附属扩展(或扩展列表)。                              |
 | `install`             | `dev`、`start`、`build`            | 运行前安装缺失的依赖。                                  |
 | `transpilePackages`   | `dev`、`start`、`preview`、`build` | 编译列出的 workspace/外部包。                           |
@@ -175,22 +179,27 @@ export default {
 | `zipSource`   | 额外生成源码包/归档输出，供审查/合规流程使用。 |
 | `zipFilename` | 设置自定义的 zip 输出文件名。                  |
 | `silent`      | 减少构建日志输出。                             |
+| `perfBudgets` | 为构建覆盖顶层按类别设置的资源预算。           |
 
 #### `dev` 命令能力
 
-| 键       | 作用                               |
-| -------- | ---------------------------------- |
-| `noOpen` | 启动开发服务器但不自动打开浏览器。 |
+| 键                   | 作用                                                                   |
+| -------------------- | ---------------------------------------------------------------------- |
+| `noOpen`             | 启动开发服务器但不自动打开浏览器。                                     |
+| `hashContentScripts` | 设为 `false` 可关闭 dev 中 content script 文件名的内容哈希(默认开启)。 |
+| `perfBudgets`        | 为 dev 覆盖顶层按类别设置的资源预算。                                  |
 
 #### 日志能力
 
-| 键           | 适用命令                  | 作用                                           |
-| ------------ | ------------------------- | ---------------------------------------------- |
-| `logs`       | `dev`、`start`、`preview` | 设置最低日志级别(`off` 到 `all`)。             |
-| `logContext` | `dev`、`start`、`preview` | 按上下文过滤日志(`background`、`content` 等)。 |
-| `logFormat`  | `dev`、`start`、`preview` | 设置输出格式(`pretty`、`json`、`ndjson`)。     |
-| `logUrl`     | `dev`、`start`、`preview` | 按 URL 模式过滤日志。                          |
-| `logTab`     | `dev`、`start`、`preview` | 按 tab ID 过滤日志。                           |
+| 键              | 适用命令                  | 作用                                           |
+| --------------- | ------------------------- | ---------------------------------------------- |
+| `logLevel`      | `dev`、`start`、`preview` | 设置最低日志级别(`off` 到 `all`)。             |
+| `logContexts`   | `dev`、`start`、`preview` | 按上下文过滤日志(`background`、`content` 等)。 |
+| `logFormat`     | `dev`、`start`、`preview` | 设置输出格式(`pretty`、`json`、`ndjson`)。     |
+| `logTimestamps` | `dev`、`start`、`preview` | 切换日志行上的时间戳。                         |
+| `logColor`      | `dev`、`start`、`preview` | 切换日志输出中的颜色。                         |
+| `logUrl`        | `dev`、`start`、`preview` | 按 URL 模式过滤日志。                          |
+| `logTab`        | `dev`、`start`、`preview` | 按 tab ID 过滤日志。                           |
 
 ### Rspack 配置
 

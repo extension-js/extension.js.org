@@ -18,8 +18,16 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
 为调试、自动化与运行时实验控制浏览器的启动行为。
+
+<Note>
+  **在找 `chrome://flags` 或 `edge://flags`？** 把它输入地址栏即可，这是浏览器自带的页面。**Firefox 没有
+  `firefox://flags`**，请改用 `about:config`。
+
+如果你切换 flag 是为了**测试或构建浏览器扩展**，Extension.js 会在 Chrome、Edge 与 Firefox
+上按项目自动应用它们，你不需要每次运行都手动传入 flag。[30 秒创建你的第一个扩展 →](/docs/getting-started)
+
+</Note>
 
 无需修改扩展源代码，即可调整浏览器的启动行为。Extension.js 会合并你在 `extension.config.*` 中配置的浏览器 flag，并在 `dev`、`preview` 与 `start` 流程中应用它们。
 
@@ -33,6 +41,19 @@ Firefox 并不像 Chromium 系浏览器使用 `chrome://flags` 或 `edge://flags
 - 用 [Firefox preferences](/docs/browsers/browser-preferences) 配置原本会写在 `about:config` 中的、可复现的 Gecko 运行时行为。
 
 这两种方式在同一个 Extension.js 项目里都同时适用于 Chrome、Edge 与 Firefox 的扩展开发。
+
+## 其他浏览器中的 flag
+
+Extension.js 对任何基于 Chromium 的浏览器都以相同方式启动与配置。
+
+- **`brave://flags`、`opera://flags`、`vivaldi://flags`、`yandex://flags`**：它们都基于
+  Chromium，因此行为与 `chrome://flags` 完全一致，Extension.js 会按项目管理它们。
+- **`internet://flags` 与 `browser://flags`**：这些不是真实存在的浏览器 scheme。你多半是在找
+  `chrome://flags`（Chromium）或 `about:config`（Firefox）。
+- **`edge://flags`**：Edge 就是 Chromium，因此在 Extension.js 中它的表现与 Chrome 完全一样。
+
+在构建的扩展需要特定的启动 flag？在 `extension.config.*` 里设置一次，Extension.js
+每次运行都会应用。参见下文的 [`browserFlags`](/docs/browsers/browser-flags)。
 
 ## 模板示例
 
@@ -60,8 +81,8 @@ yarn dlx extension@latest create my-extension --template=new-browser-flags
 bunx extension@latest create my-extension --template=new-browser-flags
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-browser-flags
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-browser-flags
 ```
 
 </CodeGroup>
@@ -110,12 +131,14 @@ export default {
 
 - **Chromium 家族（`chrome`、`edge`、`chromium`、`chromium-based`）**
   - 从一组内部默认 flag 出发，然后追加你的 `browserFlags`。
-  - `excludeBrowserFlags` 会移除匹配的默认 flag（按精确匹配过滤）。
+  - `excludeBrowserFlags` 会移除匹配的默认 flag 与用户 flag。
   - Extension.js 自己管理 `--load-extension=...`，并会从用户传入的 flag 中将其过滤掉。
 
 - **Firefox/Gecko 家族（`firefox`、`gecko-based` / `firefox-based`）**
   - 使用用户传入的 `browserFlags`（没有像 Chromium 那样的大量默认 flag）。
-  - `excludeBrowserFlags` 按前缀匹配移除用户 flag。
+  - `excludeBrowserFlags` 会移除匹配的用户 flag，规则与 Chromium 相同。
+
+两个家族共用同一条排除规则：当某个 flag 与排除值完全相等，或者排除值指向的开关后面接着 `=` 或 `,` 时，该 flag 会被移除。所以 `--disable-features` 也会移除 `--disable-features=Translate`，而 `--dev` 永远不会移除 `--devtools`。
 
 ### Chromium 默认 flag
 
@@ -144,12 +167,42 @@ export default {
 | `--no-pings`                                               | 关闭超链接审计 ping                                         |
 | `--enable-features=SidePanelUpdates`                       | 确保侧边栏可见                                              |
 | `--disable-features=DisableLoadExtensionCommandLineSwitch` | 允许命令行使用 `--load-extension`                           |
+| `--disable-features=ExtensionDisableUnsupportedDeveloper`  | 让未打包扩展在 `runtime.reload()` 之后继续存活（Chromium 152+） |
 | `--enable-unsafe-extension-debugging`                      | 允许 Chrome DevTools Protocol (CDP) 管理扩展（Chrome 126+） |
 | `--silent-debugger-extension-api`                          | 抑制 "X is debugging this browser" 信息条                   |
 
+### 始终生效的会话 flag
+
+除了上面的默认表，每次 Chromium 启动还会带上一组固定的会话稳定性 flag。它们可以避免后台计时器、被遮挡的窗口以及渲染进程节流干扰自动化与 AI 驱动的会话。`excludeBrowserFlags` 无法移除它们：
+
+```text
+--disable-background-timer-throttling
+--disable-renderer-backgrounding
+--disable-backgrounding-occluded-windows
+--disable-features=TranslateUI
+--disable-hang-monitor
+--disable-prompt-on-repost
+--memory-pressure-off
+--max_old_space_size=4096
+--disable-dev-shm-usage
+```
+
+只有在 `dev` 模式下，Extension.js 才会用三个 flag 接上调试通道：`--remote-debugging-port=<derived port>`、`--remote-debugging-address=127.0.0.1` 与 `--remote-debugging-pipe`。生产模式的启动（`start`、`preview`）会跳过这三个。
+
+### feature 开关的合并
+
+Chromium 只认重复开关中最后一次出现的那个。因此 Extension.js 会把每一处 `--enable-features` 与 `--disable-features` 各自合并成一个用逗号连接的开关。默认值、配置与环境变量的值都会参与合并，重复的 feature 名会被去掉。你可以放心地在 `browserFlags` 里传入 `--disable-features=Foo`，而不会抹掉默认值。
+
+### 环境变量开关
+
+- `EXTENSION_BROWSER_FLAGS` 会把以空白分隔的 flag 追加到每一次启动。它在配置 flag 之后、也在 `excludeBrowserFlags` 过滤之后才应用，因此 `excludeBrowserFlags` 无法移除来自这个变量的 flag。
+- `EXTENSION_HEADLESS=1`（或 `true`）会强制使用 `--headless=new`，除非配置或环境 flag 中已经传入了某种 `--headless` 变体。可以把它当作自动化会话的抢焦点防护。
+
 <Note>
   在 Docker、持续集成（CI）或容器化环境中，Extension.js 还会自动应用
-  `--no-sandbox` 与 `--disable-setuid-sandbox`。
+  `--no-sandbox` 与 `--disable-setuid-sandbox`。在 Linux 上，它通过以下任一信号判断处于容器中：
+  `CI=true`、存在 `/.dockerenv` 文件、存在 `/run/.containerenv` 文件、
+  `REMOTE_CONTAINERS=true`、`CODESPACES=true`，或设置了 `container` 变量。
 </Note>
 
 ## 支持的目标与参考资料

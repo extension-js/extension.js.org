@@ -32,7 +32,9 @@ Extension.js 会收集极少量的匿名遥测，用于了解你运行了哪些�
 | `command_executed` | 20%(可配置，见下文)             | `command`、`success: true`、`version`  |
 | `command_failed`   | 100%(Extension.js 总是上报失败) | `command`、`success: false`、`version` |
 
-附加到每个事件的公共上下文：`os`(`darwin`/`linux`/`win32`)、`arch`、`node_major`、`is_ci`。仅此而已。
+`create` 命令可能会多带两个属性：`template`(经过清洗的模板名) 与 `source`(模板来自哪里)。`create` 命令还不参与采样，因此模板使用量的统计保持准确。
+
+附加到每个事件的公共上下文：`os`(`darwin`/`linux`/`win32`)、`arch`、`node_major`、`is_ci`、`is_source_build`。仅此而已。`is_source_build` 是一个布尔值，只回答"这是一次 registry 安装，还是一份仓库检出"。它由安装路径的形态推算而来(CLI 之上是否存在 `node_modules` 形式的路径段)。路径本身从不会被读进事件、发送出去，也不会被哈希。
 
 ## 流量控制
 
@@ -71,17 +73,23 @@ extension telemetry enable
 extension telemetry status    # show current state (default when no argument)
 ```
 
-同意文件保存在 `$XDG_CONFIG_HOME/extensionjs/telemetry/consent`(或对应平台的等价位置)。
+同意文件保存在 `$XDG_CONFIG_HOME/extensionjs/telemetry/consent`(或对应平台的等价位置)。当该位置不可写时，存储位置会按顺序回退：平台缓存目录，然后是系统临时目录下的一个文件夹，最后是当前工作目录中的 `./.cache/extensionjs`。
 
 ## 默认行为
 
-遥测是**默认开启、可退出**的。在第一次没有任何上述覆盖项生效的运行中，Extension.js 会打印一行说明退出方式的提示，并写入一个 `enabled` 同意标记，以避免重复提示。
+在交互式终端中，遥测是**默认开启、可退出**的。在第一次没有任何上述覆盖项生效的运行中，Extension.js 会打印一行说明退出方式的提示，并写入一个 `enabled` 同意标记，以避免重复提示。
 
-持续集成 (CI) 环境遵循同样的规则。在 CI 环境中设置 `EXTENSION_TELEMETRY=0`，可以一次性禁用所有遥测。
+### CI 中默认关闭
+
+在 stdout 没有连接任何东西的 CI 环境里(设置了 CI 标记且没有 TTY)，遥测**默认是关闭的**，并报告 `source: ci`。已存储的 `enabled` 同意不会带进流水线：由真人在键盘前记录的同意，不能覆盖一条继承了同一个 home 目录的流水线，所以这个已存储的选择加入会被降到 CI 闸门之下。已存储的 `disabled` 是一次拒绝，而拒绝在任何地方都优先，CI 中同样如此。
+
+如果你确实想从流水线发送遥测，请设置 `EXTENSION_TELEMETRY=1`。这个显式的机器级选择加入位于 CI 闸门之上。
 
 ## 本地审计日志
 
 Extension.js 会把它"考虑发送"的每个事件(无论是否真的发出) 追加到同意文件旁的 `events.jsonl`。你可以随时查看，也可以随意删除它。
+
+审计日志的大小是有界的。达到 1 MiB 时，它会滚动成一个 `events.jsonl.1` 备份，覆盖此前的备份。可通过 `EXTENSION_TELEMETRY_AUDIT_MAX_BYTES` 覆盖这个上限。远超上限(达到 10 倍或以上) 的文件会被直接丢弃，而不是保留。如果审计写入本身失败，Extension.js 会在本次运行中禁用后续所有发送：一个无法在本地留下审计记录的事件，不会被发送出去。
 
 ## 最佳实践
 
@@ -93,4 +101,4 @@ Extension.js 会把它"考虑发送"的每个事件(无论是否真的发出) �
 
 - 在[全局标志](/docs/workflows/global-flags) 中查看 `--no-telemetry` 与环境变量覆盖项。
 - 在[build](/docs/commands/build) 与[dev](/docs/commands/dev) 中应用于发布与自动化工作流。
-- 阅读仓库级的 [`TELEMETRY.md`](https://github.com/extension-js/extension.js/blob/main/TELEMETRY.md) 契约，了解精确的事件清单。
+- 阅读仓库级的 [`docs/TELEMETRY.md`](https://github.com/extension-js/extension.js/blob/main/docs/TELEMETRY.md) 契约，了解精确的事件清单。

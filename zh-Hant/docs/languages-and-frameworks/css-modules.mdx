@@ -51,8 +51,8 @@ yarn dlx extension@latest create my-extension --template=content-css-modules
 bunx extension@latest create my-extension --template=content-css-modules
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-css-modules
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-css-modules
 ```
 
 </CodeGroup>
@@ -100,9 +100,16 @@ Extension.js 會啟用 Rspack 的 CSS 支援，並透過 CSS module pipeline 處
 
 ## Content script 注意事項
 
-在 content script 中，Extension.js 會把 CSS 以樣式表內容的形式輸出，不會附帶 JavaScript 的 class 名稱對應。
+Content script 與擴充功能頁面的處理方式相同。Rspack 會產生具區域作用域的 class 名稱，將它們匯出到你的 JavaScript，Extension.js 則把產生的樣式表註冊到 manifest 的 `content_scripts[].css` 項目，並一併註冊到 `web_accessible_resources`，讓它也可以被注入到 shadow root 中。匯入你需要的 class 名稱並直接套用：
 
-請在 content script 中採用元件層級的區域 class 命名，不要假設 CSS module 的 class 匯入在那裡可用，除非你已經明確測試過。
+```ts
+import {primary} from "./styles/myComponent.module.css";
+
+const button = document.createElement("button");
+button.className = primary;
+```
+
+可參考上方 `content-css-modules` 範本中的可執行範例。
 
 ## React／Preact 使用範例
 
@@ -152,6 +159,3 @@ export default function NewTabPage() {
 
 - 進一步了解 [Sass 與 Sass modules](/docs/languages-and-frameworks/sass)。
 - 進一步了解 [Less 與 Less modules](/docs/languages-and-frameworks/less)。
-
-## 影片導覽
-

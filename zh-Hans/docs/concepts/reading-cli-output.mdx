@@ -1,0 +1,89 @@
+---
+title: "读懂 Extension.js CLI 的输出"
+description: "看懂 Extension.js CLI 打印的每一行：五个输出通道、身份卡、警告出现的时机，以及如何在没有颜色的 CI 日志里读输出。"
+keywords:
+  [
+    "extension.js",
+    "cli output",
+    "terminal output",
+    "log channels",
+    "identity card",
+    "debug output",
+    "ci logs",
+    "extension dev output",
+  ]
+---
+
+Extension.js 打印的每一行都遵循同一套语法。掌握它之后，你一眼就能读懂任何一次会话，而 CI 日志的解析方式和你终端里的完全一样。
+
+## 行的语法
+
+每一行面向用户的输出都是一个前缀加上一个句子，一行只讲一件事：
+
+```text
+⏵⏵⏵ Extension ready for development. Watching for file changes.
+```
+
+五个通道共用同一列前缀：
+
+| 通道 | 前缀 | 颜色 | 含义 |
+| --- | --- | --- | --- |
+| info | `⏵⏵⏵` | 灰色 | 进度与状态 |
+| success | `⏵⏵⏵` | 绿色 | 某件事完成了 |
+| warn | `⏵⏵⏵` | 亮黄色 | 会继续执行，但你应该知道 |
+| error | `⏵⏵⏵` | 红色 | 已停止，或者结果不对 |
+| debug | `···` | 暗灰色 | 维护者视角的内部信息 |
+
+五个通道占用的都是同样的三个字形列，所以无论发生什么，输出始终保持对齐。承载严重程度的是颜色，不是字形。
+
+debug 通道只在 `--debug` 或 `EXTENSION_DEBUG=1` 下打印。debug 会额外给出可搜索的 `key=value` 行，并且从不改写你本来就会看到的那些行。
+
+## 身份卡
+
+启动时，命令会为每一组浏览器与 dist 组合打印一张身份卡：
+
+```text
+ 🧩 Extension.js 4.0.20
+    Browser        Chrome for Testing 138.0.7204.49
+    Extension      My Extension 1.0.0
+    Extension ID   pjkghmlbdmhkfellgkkcolmnlhwmubhe
+    Profile        ~/.extension-js/profiles/chrome
+    Run ID         f3a9 · PID 41250
+```
+
+在同一个项目上运行两个浏览器，你就会得到两张卡，每个会话一张。启动顺序是固定的：先是编译行，然后是身份卡，最后是绿色的 ready 行。
+
+没有值的行会被省略。这里没有 `n/a` 占位符，所以某一行在不在，就直接告诉你这次会话到底知道些什么。用 `--chromium-binary` 固定的二进制文件会记在 Browser 那一行里，而不是单独占一行；`build` 则会把 Profile 和 Run ID 两行换成一行 Output。
+
+## 一个事实只出现一次
+
+每一项会话事实都只有一个归宿：
+
+- 会话身份（版本、浏览器、扩展 ID、配置文件、二进制文件）只出现在身份卡里。
+- 事件（已编译、正在重新编译、已退出）是流程行。
+- 诊断信息是 debug 的 `key=value` 行。
+
+流程行绝不会重复身份卡已经展示过的内容。ready 行不会提到浏览器，因为身份卡的 Browser 行已经说过了。如果你要找扩展 ID 或配置文件路径，就去看身份卡，别处都没有。
+
+## 警告在生效的那一刻打印
+
+警告会紧挨在它所关心的动作之前打印，而不是等到运行结束时才出现。当你看到一行黄色输出时，CLI 接下来要做的就是那条警告所描述的事情。这样的顺序意味着，你永远不需要回滚屏幕去某个总结里翻找一条警告到底属于哪一步。
+
+## Add-on 还是 Extension
+
+产物的称呼跟着引擎走。在 Gecko 目标（Firefox、Waterfox、LibreWolf）上，CLI 说的是 `Add-on`。在 Chromium 与 Safari 目标上，它说的是 `Extension`。Edge 通过一个叫 Add-ons 的商店分发扩展，但产物本身仍然是 Extension。
+
+## 读没有颜色的 CI 日志
+
+CI 日志通常会剥掉颜色，而含义从不只靠颜色来传达。在没有颜色的日志里：
+
+- 每一行 `⏵⏵⏵` 都是 info、success、warn 或 error。读那句话，文案本身就说清了结果。
+- 每一行 `···` 都是 debug 输出，除非你正在排查问题，否则可以忽略。
+- 错误遵循固定的结构：一行标签，若干大写的证据行（例如 `PATH` 或 `REASON`），然后是一条祈使句形式的补救建议。
+
+对机器来说，根本不要去解析人类可读的那条流。传 `--output json` 拿到单一的结果信封，并从 `dist/extension-js/<browser>/` 下的 `ready.json` 与 `events.ndjson` 读取会话状态。
+
+## 下一步
+
+- 在[会话产物](/docs/concepts/session-artifacts)中了解机器可读的会话文件放在哪里。
+- 在[全局标志](/docs/workflows/global-flags) 中查看会影响输出的标志。

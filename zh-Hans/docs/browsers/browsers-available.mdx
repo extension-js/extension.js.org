@@ -14,7 +14,6 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
 用同一套 CLI 工作流，在主流浏览器上运行并测试你的扩展。
 
 通过一套 CLI 在 Chrome、Edge、Firefox 与自定义浏览器二进制上对同一个扩展进行验证。
@@ -41,7 +40,71 @@ keywords:
 
 如果不指定浏览器，CLI 默认使用 `chromium`。
 
+`--browser` 只接受下面这些值，可以单独使用，也可以用逗号分隔：
+
+```text
+chrome | chromium | edge | firefox | brave | opera | vivaldi | yandex |
+waterfox | librewolf | chromium-based | gecko-based | firefox-based |
+safari | webkit-based
+```
+
+`--browser=all` 也被接受，它会展开为 `chrome, edge, firefox`。
+
+<Warning>
+  开发时请优先使用 `chromium`（或通过 `npx extension install chrome`
+  安装的 Chrome for Testing），而不是品牌版 Chrome。较新的品牌版 Chrome
+  构建（150+）会丢弃 `--load-extension` 开关，除非有策略禁用该行为。被丢弃的开关
+  看起来和一次正常启动完全一样。当 Extension.js 无法确认加载成功时，它会发出警告，
+  并指引你去 `chrome://extensions`。
+</Warning>
+
 `safari`（以及它的别名 `webkit-based`）是个例外：它是**仅在 macOS 可用**的构建目标，仅 `build` 与 `dev` 支持——不支持 `preview` 或 `start`。详见 [构建 Safari 扩展](/docs/browsers/safari)。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/_vyLR3YBEIo?autoplay=1&mute=1&loop=1&playlist=_vyLR3YBEIo&controls=0&rel=0&playsinline=1"
+    title="Extension.js: Chromium, Edge and Firefox from one dev command"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 请求的目标 vs. 启动的二进制
+
+你请求的浏览器决定产物。二进制只是运行时。
+
+当你运行 `extension dev --browser=chromium` 时，Extension.js 始终会：
+
+- 把输出写到 `dist/chromium`（目录以请求的目标命名，绝不会以启动它的二进制命名）。
+- 为请求的目标解析[浏览器特定的 manifest 字段](/docs/features/browser-specific-fields)。
+
+如果请求的浏览器没有安装，Extension.js 不会改变目标。对于 `chrome` 与 `chromium`，它会寻找另一个受管理的 Chromium 家族二进制（此前由 `npx extension install` 下载的），并改用它作为运行时：
+
+- 请求 `chromium` 但缺失：回退到受管理的 Chrome，再回退到受管理的 Edge。
+- 请求 `chrome` 但缺失：回退到受管理的 Chromium，再回退到受管理的 Edge。
+
+发生这种情况时，CLI 会打印一条警告，说明缺失的浏览器以及修复方式，例如 `npx extension install chromium`。这条警告刻意不写出替代二进制的路径。会话的身份卡片里已经有一行 Binary 指明正在使用的确切二进制，所以这个事实只打印一次。输出目录与产出的 manifest 与没有回退时完全一致。
+
+### 二进制来源标签
+
+身份卡片会标注本次会话的二进制来自哪里：
+
+| 标签       | 含义                                                       |
+| ---------- | ---------------------------------------------------------- |
+| `managed`  | 来自受管理缓存的二进制（`npx extension install <browser>`）。 |
+| `pinned`   | 你用 `--chromium-binary` 或 `--gecko-binary` 指定的二进制。 |
+| `system`   | 在你系统上找到的浏览器。                                   |
+| `snapshot` | 受管理的 Chromium 主干快照。                               |
+
+### Chromium 快照 vs 稳定版
+
+受管理的 `chromium` 安装是主干（tip-of-tree）快照，而不是稳定版发布。当系统上存在稳定版 Chromium 时，Extension.js 会自动切换过去，并打印一条带有退出方式的警告。设置 `EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true` 可以继续使用缓存的快照。
+
+在 Chromium 家族内部，这种替换是安全的：`dist/chrome` 与 `dist/chromium` 逐字节相同，因为 manifest 前缀是按引擎家族解析的，而不是按厂商。前缀规则见[浏览器特定的 manifest 字段](/docs/features/browser-specific-fields)。
+
+如果想预先安装受管理的二进制以获得可复现的运行结果，使用 `npx extension install <browser>` 或 `npx extension install all`（后者也涵盖 `chromium`）。
 
 ## 支持的浏览器
 

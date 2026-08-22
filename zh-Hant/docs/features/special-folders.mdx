@@ -44,8 +44,8 @@ yarn dlx extension@latest create my-extension --template=special-folders-pages
 bunx extension@latest create my-extension --template=special-folders-pages
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=special-folders-pages
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=special-folders-pages
 ```
 
 </CodeGroup>
@@ -76,8 +76,8 @@ yarn dlx extension@latest create my-extension --template=special-folders-scripts
 bunx extension@latest create my-extension --template=special-folders-scripts
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=special-folders-scripts
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=special-folders-scripts
 ```
 
 </CodeGroup>
@@ -95,7 +95,7 @@ manifest 並未直接宣告許多擴充功能檔案，包括 iframe 頁面、你
 | 資料夾名稱    | 說明                                                                            |
 | ------------- | ------------------------------------------------------------------------------- |
 | `pages/`      | 即使 manifest 未列出，也會把 HTML 頁面加入編譯作為 entrypoint。                 |
-| `scripts/`    | 即使 manifest 或 HTML 都未引用，也會把腳本檔案加入編譯作為 entrypoint。         |
+| `scripts/`    | 當專案中有地方引用了該檔案路徑時，把腳本檔案加入編譯作為 entrypoint，包含 manifest 從未列出的、僅在執行階段使用的路徑。 |
 | `public/`     | 把靜態資產原封不動複製到輸出根目錄（`public/**` → `dist/**`），不做打包或轉換。 |
 | `extensions/` | 提供慣例位置，用於 dev／preview／start 流程中載入（不建置）附屬擴充功能。       |
 
@@ -112,6 +112,16 @@ Extension.js 會把 `pages/` 中的每個 `.html` 視為 entrypoint，並像 man
 `scripts/` 用來放置動態載入、不綁定特定 HTML 頁面 entry 的可執行腳本。
 
 Extension.js 會把 `scripts/` 中的檔案編譯為 entrypoint，並使用與專案其他部分相同的副檔名解析流程。
+
+### 要在某處引用該檔案路徑
+
+只有當 `scripts/` entry 相對於專案的路徑出現在你的原始碼某處時，它才會被保留：manifest、
+某個 HTML 檔案，或是 JavaScript 或 TypeScript 字串，例如你傳給
+`chrome.scripting.executeScript` 的引數。這正是讓僅在執行階段注入得以運作的原因，
+因為該路徑從來不會進到 manifest。
+
+沒有任何地方提到的檔案會被視為無用程式碼，並在不發出警告的情況下從建置中移除，
+所以在為新的 entry 做第一次建置之後，請檢查 `dist/<browser>/scripts/`。
 
 ### 重要合約
 
@@ -147,6 +157,17 @@ Extension.js 會偵測兩種 Node.js 指標，並在建置時拋出錯誤：
 當你需要穩定的檔案路徑且不需打包／轉換時，使用 `public/`。
 
 Extension.js 會把 `public/` 下的所有內容 1:1 複製到輸出根目錄。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/lPvLlt6cp2g?autoplay=1&mute=1&loop=1&playlist=lPvLlt6cp2g&controls=0&rel=0&playsinline=1"
+    title="Extension.js: the public folder"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ### 重要的 `public/` 防護
 

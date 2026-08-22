@@ -14,11 +14,10 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["firefox", "gecko"]} />
 在開發期間取得可重複的瀏覽器行為(例如首頁預設值、開發者工具設定或通知行為),
 不需修改擴充功能程式碼。
 
-Extension.js 會從 `extension.config.*` 讀取 `preferences`,並在啟動 Firefox 與 Gecko 瀏覽器時套用。
+Extension.js 會從 `extension.config.*` 讀取 `preferences`,並在瀏覽器啟動時套用。Firefox 與 Gecko 目標會取得一個 `user.js` 檔案。Chromium 目標則會取得一個預先寫入的 `Default/Preferences` 檔案。
 
 ## 運作方式
 
@@ -65,11 +64,31 @@ export default {
 
 ## Chromium 系列的行為
 
-Chromium 系列的啟動(`chrome`、`edge`、`chromium`、`chromium-based`)主要使用**瀏覽器旗標**。
+Chromium 系列的啟動(`chrome`、`edge`、`chromium`、`chromium-based`)同樣會預先寫入你的 `preferences`,只是透過設定檔而不是 `user.js` 檔案。
 
-`preferences` 仍可存在於合併後的設定物件中,但實際控制 Chromium 啟動行為的是旗標與設定檔選項。Chromium 並不使用 Firefox 風格的 `user.js` 偏好檔案。
+啟動時,Extension.js 會把你的 `preferences` 物件深度合併進廠商的 master-preferences 基準,並將結果一次性寫入目前設定檔中的 `Default/Preferences`。只有在該檔案尚不存在時才會寫入,因此全新的設定檔會被預先寫入,既有的設定檔則保留自己的狀態。Chrome 與 Edge 各自有專屬的基準物件,由你執行的目標決定採用哪一個。
 
-針對 Chromium 客製,建議優先使用:
+```js
+export default {
+  browser: {
+    chrome: {
+      preferences: {
+        download: { prompt_for_download: false },
+      },
+    },
+  },
+};
+```
+
+發生鍵衝突時以你的值為準,巢狀物件則逐鍵合併。
+
+<Note>
+  由於寫入每個設定檔只發生一次,持久化的設定檔(`persistProfile`
+  或 `keepProfileChanges`)不會採用後續的偏好修改。請刪除該設定檔,或改用
+  暫時性設定檔執行,才能重新寫入。
+</Note>
+
+至於 Chromium 透過命令列控制的啟動行為,請改用旗標:
 
 - `browserFlags`
 - `excludeBrowserFlags`
@@ -125,7 +144,7 @@ export default {
 - **優先採用瀏覽器層級的偏好**:把 Firefox/Gecko 的偏好鍵集中在以瀏覽器為目標的設定區塊中。
 - **以指令層級覆寫做臨時實驗**:短期的偏好調整放進 `commands.dev`。
 - **保持設定檔彼此隔離**:使用不同的設定檔讓除錯結果可重現。
-- **以旗標來調整 Chromium**:在 Chromium 系列目標上,將旗標視為主要的設定面。
+- **以旗標調整 Chromium 啟動行為**:偏好只會在設定檔建立時寫入一次,因此每次執行都可能改變的行為應該交給旗標。
 
 ## 後續步驟
 

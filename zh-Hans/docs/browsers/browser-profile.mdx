@@ -22,33 +22,51 @@ keywords:
 
 Extension.js 按以下顺序选择 profile 模式：
 
-1. 显式的 `profile` 路径（如果提供）
-2. 受管理的 profile 模式（默认）
+1. 当 `profile: false` 或 `EXTENSION_USE_SYSTEM_PROFILE=true` 时，使用系统 profile 模式
+2. 显式的 `profile` 路径（如果提供）
+3. 受管理的 profile 模式（默认）
    - 默认是临时（ephemeral）
-   - 当 `persistProfile: true` 时则保持持久
-3. 当 `EXTENSION_USE_SYSTEM_PROFILE=true` 时，使用系统 profile 模式
+   - 当 `persistProfile: true` 或 `keepProfileChanges: true` 时则保持持久
+
+### `--profile` 的取值如何被读取
+
+CLI 以字符串形式传递 flag 的值，因此 Extension.js 会先做归一化：
+
+- `--profile=false`（或配置中的 `profile: false`）表示使用浏览器自己的默认 profile。
+- `--profile=true` 表示受管理的默认值，等同于不设置这个选项。
+- 其他任何字符串都会被当作显式的 profile 路径。
+
+相对的 `--profile` 路径是相对于项目（编译上下文）解析的，而不是相对于你 shell 的工作目录。这样一来，依次运行不同项目时就不会都塌缩到同一个共享 profile 上。
 
 ## profile 能力
 
-| 配置 / 选项                         | 作用                                                        |
-| ----------------------------------- | ----------------------------------------------------------- |
-| `browser.<target>.profile`          | 为该浏览器目标使用显式的 profile 文件夹。                   |
-| `commands.dev.profile`              | 仅在 `dev` 中使用显式的 profile。                           |
-| `commands.start.profile`            | 仅在 `start` 中使用显式的 profile。                         |
-| `commands.preview.profile`          | 仅在 `preview` 中使用显式的 profile。                       |
-| `browser.<target>.persistProfile`   | 为该目标在多次运行之间复用受管理的 profile 状态。           |
-| `commands.<name>.persistProfile`    | 在特定命令上下文中复用受管理的 profile 状态。               |
-| `--profile=/abs/path`               | 显式 profile 路径的 CLI 覆盖。                              |
-| `EXTENSION_USE_SYSTEM_PROFILE=true` | 使用操作系统 / 浏览器系统 profile，而不是受管理的 profile。 |
+| 配置 / 选项                         | 作用                                                                |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| `browser.<target>.profile`          | 为该浏览器目标使用显式的 profile 文件夹。                           |
+| `commands.dev.profile`              | 仅在 `dev` 中使用显式的 profile。                                   |
+| `commands.start.profile`            | 仅在 `start` 中使用显式的 profile。                                 |
+| `commands.preview.profile`          | 仅在 `preview` 中使用显式的 profile。                               |
+| `browser.<target>.persistProfile`   | 为该目标在多次运行之间复用受管理的 profile 状态。                   |
+| `commands.<name>.persistProfile`    | 在特定命令上下文中复用受管理的 profile 状态。                       |
+| `keepProfileChanges`                | 在多次运行之间保留受管理的 profile 及其改动（效果与 `persistProfile` 相同）。 |
+| `copyFromProfile`                   | 以一个已有 profile 目录的副本为受管理 profile 播种。                |
+| `--profile=/abs/path`               | 显式 profile 路径的 CLI 覆盖。                                      |
+| `--profile=false`                   | 启动浏览器自己的默认 profile（系统模式）。                          |
+| `EXTENSION_USE_SYSTEM_PROFILE=true` | 使用操作系统 / 浏览器系统 profile，而不是受管理的 profile。         |
+| `EXTJS_USE_SYSTEM_PROFILE=true`     | `EXTENSION_USE_SYSTEM_PROFILE` 的别名。                             |
+
+### 用 `copyFromProfile` 播种
+
+`copyFromProfile` 会在启动前把源目录复制进受管理的 profile。只有当目标是全新的（也就是不存在或为空）时才会复制。因此持久化的 profile 只会被播种一次，你之后的改动能在每次运行之间存活下来。
 
 ## profile 模式
 
-| 模式               | 启用方式                                        | 典型用途                           |
-| ------------------ | ----------------------------------------------- | ---------------------------------- |
-| 受管理临时模式     | 默认                                            | 状态隔离的干净运行                 |
-| 受管理持久模式     | `persistProfile: true`                          | 在稳定的浏览器状态下迭代调试       |
-| 显式自定义 profile | `profile: "/abs/path"` 或 `--profile=/abs/path` | 复用已有的 profile                 |
-| 系统 profile       | `EXTENSION_USE_SYSTEM_PROFILE=true`             | 使用系统 / 浏览器默认 profile 启动 |
+| 模式               | 启用方式                                                 | 典型用途                           |
+| ------------------ | -------------------------------------------------------- | ---------------------------------- |
+| 受管理临时模式     | 默认                                                     | 状态隔离的干净运行                 |
+| 受管理持久模式     | `persistProfile: true` 或 `keepProfileChanges: true`     | 在稳定的浏览器状态下迭代调试       |
+| 显式自定义 profile | `profile: "/abs/path"` 或 `--profile=/abs/path`          | 复用已有的 profile                 |
+| 系统 profile       | `--profile=false` 或 `EXTENSION_USE_SYSTEM_PROFILE=true` | 使用系统 / 浏览器默认 profile 启动 |
 
 Extension.js 会在以下位置创建受管理的 profile：
 
@@ -57,6 +75,19 @@ Extension.js 会在以下位置创建受管理的 profile：
 持久模式使用：
 
 - `dist/extension-js/profiles/<browser>-profile/dev`
+
+每次临时运行都会得到一个生成的三词叶子目录名，形式是“形容词-颜色-动物”，例如 `brave-magenta-heron`。这个名字每次运行都是随机的，所以不要把它硬编码。要知道某次运行用的是哪个 profile，请读取该会话 `ready.json` 中的 `profilePath` 字段。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/Z2TDaJnOyZU?autoplay=1&mute=1&loop=1&playlist=Z2TDaJnOyZU&controls=0&rel=0&playsinline=1"
+    title="Extension.js: persistent browser profile"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ## 在 `extension.config.*` 中配置
 
@@ -70,6 +101,11 @@ export default {
     firefox: {
       // Keep a stable managed profile for repeated sessions:
       persistProfile: true,
+    },
+    edge: {
+      // Keep changes across runs and seed once from an existing profile:
+      keepProfileChanges: true,
+      copyFromProfile: "/path/to/existing/profile",
     },
   },
 };
@@ -101,7 +137,22 @@ extension dev --browser=chrome --profile=/path/to/custom/profile
 
 - Extension.js 为每次运行创建一个临时的受管理 profile。
 - Extension.js 在多次运行之间复用持久的受管理 profile（`dev`）。
-- Extension.js 会自动清理旧的受管理 profile 文件夹。可通过 `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` 控制最大保留时长。
+- 每个临时 profile 都带有一个 `.extension-js-managed-profile` 标记文件。浏览器退出时，Extension.js 只删除带有该标记的目录，因此被保留的 profile 和显式指定的 profile 永远不会被回收。
+- Extension.js 还会在下一次启动时清扫陈旧的带标记 profile。可通过 `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` 控制最大保留时长（默认 12 小时）。
+- 每次启动 Firefox 时，Extension.js 都会删除该 profile 的 `startupCache` 目录。否则被固定或持久化的 profile 可能在整次 dev 重启之后仍然提供陈旧的扩展代码。
+
+## 被锁定的 Chromium profile
+
+<Warning>
+  如果同一台机器上另一个存活的浏览器进程正持有该 profile，Extension.js
+  会拒绝启动，而不是把它弄坏。请先关闭那个浏览器，或者换一个 profile。
+</Warning>
+
+在 Chromium 启动之前，Extension.js 会读取该 profile 的 `SingletonLock` 产物。如果锁指向一个已经死亡的进程或另一台主机，它就是陈旧的。Extension.js 会删除陈旧的 `SingletonLock`、`SingletonSocket` 和 `SingletonCookie` 文件，然后正常启动。如果持有它的进程在本机仍然存活，启动则会中止。会话的 `ready.json` 会被打上 `profile_locked` 错误码，因此机器消费方永远不需要解析错误语句。
+
+## 隐私
+
+受管理的 profile 是一份完整的浏览器 profile。它保存着你在那个浏览器会话里所做的一切留下的 cookie、历史记录和登录数据。Extension.js 会在 `dist/extension-js` 中写入一次带 `*` 规则的 `.gitignore`，因此 profile 和会话状态永远不会进入 git。不要提交或分发这个目录。
 
 ## 最佳实践
 

@@ -44,8 +44,8 @@ yarn dlx extension@latest create my-extension --template=action
 bunx extension@latest create my-extension --template=action
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=action
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=action
 ```
 
 </CodeGroup>
@@ -76,8 +76,8 @@ yarn dlx extension@latest create my-extension --template=ai-chatgpt
 bunx extension@latest create my-extension --template=ai-chatgpt
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=ai-chatgpt
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=ai-chatgpt
 ```
 
 </CodeGroup>
@@ -130,6 +130,12 @@ bunx extension@latest create my-extension --template=ai-chatgpt
 
 Firefox 不會執行 MV3 的 `background.service_worker`（載入此類擴充功能時會顯示 _"background.service_worker is currently disabled. Add background.scripts."_）。你不需要特別處理：在 Firefox build 中，Extension.js 會自動把 `background.service_worker` 進入點翻譯成 `background.scripts` 的 event page，並指向同一個編譯後的 bundle。撰寫一個 `background.service_worker`，就能同時在 Chromium 與 Firefox 上載入。
 
+## Chromium：scripts 轉譯為 service worker
+
+這個轉譯在另一個方向同樣成立。在 Chromium MV3 建置中，`background.scripts` 陣列會變成指向編譯產物的 `background.service_worker`。
+
+只要出現 `background.scripts`，Chromium MV3 就會拒絕整個擴充功能，即使旁邊還有一個有效的 `service_worker` 也一樣。因此 Extension.js 一律會從輸出的 Chromium MV3 manifest 中移除 `scripts` 鍵。當來源同時宣告這兩個欄位時，既有的 `service_worker` 條目勝出。
+
 ## MV3 service worker 生命週期
 
 `background.service_worker` 依瀏覽器的 service worker 生命週期執行，不是長期執行的常駐程序。
@@ -157,6 +163,15 @@ Firefox 不會執行 MV3 的 `background.service_worker`（載入此類擴充功
 - `background.type: "module"` 採用 module worker 語義。
 - Classic service worker 模式採用基於 `importScripts` 的 chunk 載入行為。
 - 避免在 background 程式碼中使用動態 import，尤其是必須在啟動時立即載入的部分。
+
+## 執行階段載入的檔案
+
+有些檔案從不以 import 陳述式出現，卻仍必須隨擴充功能一起發布。Extension.js 會把它們追蹤進輸出，讓建置後的擴充功能表現得和在瀏覽器中以未封裝方式載入原始碼一樣：
+
+- **classic service worker 的 `importScripts(...)` 相依項目。** 字串字面值參數會相對於輸出的 worker 位置遞迴解析（相依項目本身也可以呼叫 `importScripts`），因此即使 worker 移動到 `background/service_worker.js`，相對於 worker 的 URL 仍然可用。由 wasm-bindgen 膠水程式碼載入的 WebAssembly 同層檔案（`*_bg.wasm`）會與它的載入器一起發布。
+- **`chrome.scripting.executeScript({files: [...]})` 與 `insertCSS({files: [...]})` 的內容。** 只在 `files:` 陣列中被參照、而未在 manifest 的 `content_scripts` 中宣告的檔案，會依其擴充功能根目錄下的路徑原樣複製。
+
+被參照的檔案若不存在於你的專案中，建置會產生一則指明缺少路徑的警告，而不是在執行階段靜默失敗。
 
 ## 建議的架構
 

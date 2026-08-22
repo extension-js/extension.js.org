@@ -44,8 +44,8 @@ yarn dlx extension@latest create my-extension --template=new
 bunx extension@latest create my-extension --template=new
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new
 ```
 
 </CodeGroup>
@@ -76,8 +76,8 @@ yarn dlx extension@latest create my-extension --template=sidebar
 bunx extension@latest create my-extension --template=sidebar
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=sidebar
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=sidebar
 ```
 
 </CodeGroup>
@@ -139,6 +139,12 @@ bunx extension@latest create my-extension --template=sidebar
 4. 修補 HTML，注入編譯後的 bundle 參考。
 5. 保留 public 根目錄的參考（例如 `/icon.png`）為 public 資產。
 
+從 HTML 引用的靜態資產會以相對於原始碼的路徑輸出，因此執行期的參考（例如你同時也會在 JavaScript 中讀取的 `<img>` `src`）在建置後的擴充功能中，會和瀏覽器從原始碼提供它們時以相同方式解析。
+
+### 同一頁面上的多個傳統 script
+
+當一個頁面列出多個 `<script>` 標籤，而且都沒有使用 `type="module"` 時，這些 script 在瀏覽器中共用同一個 sloppy 模式的全域範圍：某個檔案的 `var` 宣告與隱含全域變數，下一個檔案看得到。Extension.js 會把全部都是傳統 script 的清單依標籤順序串接進同一個共用範圍來保留這個行為，讓跨 script 的全域變數在建置後仍然有效。只要頁面中有至少一個 `type="module"` 的 script，就維持標準的逐一 script 打包。
+
 ## 開發行為
 
 - Extension.js 會把 HTML 與被引用資產加入檔案相依，編輯後會觸發重新編譯。
@@ -183,6 +189,19 @@ pages/
 - 小型表單或開關。
 
 讓 popup 保持小巧而具韌性。Popup 會頻繁開關，所以不要假設 UI 狀態會長期保留在記憶體中。
+
+#### Popup 的尺寸與寬度
+
+manifest 沒有控制 popup 尺寸的欄位。瀏覽器會依你算繪出的 HTML 決定 popup 大小，並受最小 25x25、最大 800x600 CSS 像素的硬性限制。要控制寬度，請設定在標記的根元素上：
+
+```css
+body {
+  width: 360px;
+  margin: 0;
+}
+```
+
+不要在根元素上使用 `width: 100vw` 或百分比寬度：popup 的視區是由你的內容推導出來的，這種循環的尺寸計算會讓 popup 塌陷或抖動。如果 UI 需要超過 800x600，代表它已經超出 popup 這個介面的適用範圍，請改用 side panel 或 new tab 頁面。
 
 ### Options 頁面
 

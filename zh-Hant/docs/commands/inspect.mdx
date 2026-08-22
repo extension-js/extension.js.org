@@ -1,0 +1,119 @@
+---
+title: "用 inspect 指令檢視 DOM 與探索分頁"
+description: "用 Extension.js 的 inspect 指令直接在終端機檢視頁面或 content 的 DOM。可以列出分頁、取得 HTML 摘要，並附上最近的主控台輸出。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "inspect",
+    "dom",
+    "debugging",
+  ]
+---
+
+透過 agent 橋接檢視頁面或 content 的 DOM，不需要 CDP，也不用打開 DevTools。
+
+`inspect` 會向執行中的 dev 工作階段詢問某份文件此刻的樣子。它可以列出打開的分頁、回傳結構化摘要或原始 HTML，並附上同一個目標最近的主控台輸出。
+
+工作階段必須在控制通道解鎖的狀態下執行：用 `extension dev --allow-control` 啟動它。被拒絕時，錯誤訊息會指名缺少的 flag，所以一次被拒的呼叫就足以告訴你該怎麼重啟工作階段。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/YscNuwAawu8?autoplay=1&mute=1&loop=1&playlist=YscNuwAawu8&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension inspect"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 何時使用 `inspect`
+
+- 你想確認你的 content script 究竟往頁面裡渲染了什麼。
+- agent 需要分頁 id，才能精準地把 [`eval`](/docs/commands/eval) 或 `inspect` 呼叫指向某個目標。
+- 你希望在一份機器可讀的結果裡同時拿到 DOM 狀態與對應的主控台輸出。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension inspect [project-path] [options]
+```
+
+```bash pnpm
+extension inspect [project-path] [options]
+```
+
+```bash yarn
+extension inspect [project-path] [options]
+```
+
+```bash bun
+extension inspect [project-path] [options]
+```
+
+```bash deno
+extension inspect [project-path] [options]
+```
+
+</CodeGroup>
+
+## 參數與 flag
+
+| flag                      | 作用                                                                                                                | 預設值          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `[project-path]`          | 擴充功能專案根目錄的路徑。                                                                                          | `process.cwd()` |
+| `--context <context>`     | 要檢視什麼：`content`、`page`，或某個已開啟的介面（`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）。 | `content`       |
+| `--url <glob\|substring>` | 用於 `content`/`page`：要鎖定的文件，會被解析到對應的分頁。                                                          | 未設定          |
+| `--tab <id>`              | 用於 `content`/`page`：指定某個分頁。不指定時，`--url` 的比對結果優先，否則使用目前作用中的分頁。                    | 作用中的分頁    |
+| `--list-tabs`             | 以 `{id, url, title, active, windowId}` 的形式列出開啟的分頁，然後結束。                                             | 關閉            |
+| `--include <list>`        | 以逗號分隔的結果組成部分：`html`、`summary`。                                                                        | `summary`       |
+| `--max-bytes <n>`         | 回傳 HTML 的位元組數上限。                                                                                          | `262144`        |
+| `--with-console [n]`      | 同時附上該目標最近 `n` 行主控台輸出。                                                                               | 指定時為 `20`   |
+| `--browser <browser>`     | 目標是哪個工作階段（`chrome`、`chromium`、`edge`、`firefox`）。                                                     | `chromium`      |
+| `--timeout <ms>`          | 指令逾時時間，單位為毫秒。                                                                                          | `5000`          |
+| `--output <pretty\|json>` | 輸出格式（`json` 會把結果包進 schema-1 信封）。                                                                     | `pretty`        |
+
+沒有 `--deep-dom` 這個 flag。深層 DOM 支援是工作階段內部回報的橋接能力，不是你能逐次呼叫去開關的東西。
+
+## 探索迴圈
+
+數字形式的分頁 id 讓鎖定目標變得確定。設計好的流程是先列出、再檢視：
+
+```bash
+extension inspect --list-tabs
+extension inspect --tab 412 --with-console
+```
+
+`--list-tabs` 需要解鎖的控制通道，但不需要 eval 權杖，所以它在任何 `--allow-control` 工作階段裡都能用。回傳結果是一個由 `{id, url, title, active, windowId}` 物件組成的陣列。把其中的 `id` 值直接餵給這裡的 `--tab`，或是餵給 `eval`。
+
+## 主控台增強
+
+`--with-console` 會把一個 `console` 陣列合併進結果：同一個 context 與分頁最近的 `n` 筆記錄，讀自工作階段的 `logs.ndjson`。這樣 agent 一次往返就能同時拿到 DOM 狀態與主控台證據。這個增強是盡力而為的，永遠不會讓指令失敗。
+
+兩種輸出模式都會顯示它。pretty 模式會在 DOM 摘要之後，以 `logs` 使用的同一種 `[seq] LEVEL (context) message` 格式印出主控台行；當尾端為空時則印出 `(no console lines captured)`。`--output json` 則把原始記錄放在信封的 `console` 陣列裡。
+
+## 截斷
+
+超過 `--max-bytes` 的 HTML 回傳時會被截斷。pretty 模式會在 stderr 上印出一則截斷提示，`--output json` 則會在信封中設定 `truncated: true`（參見 [結果信封](/docs/contracts/result-envelope)）。
+
+## 失敗模式
+
+- 該瀏覽器找不到工作階段：`E_SESSION_NOT_FOUND`，並附上應該執行的完整 `extension dev` 指令。
+- 工作階段在沒有 `--allow-control` 的情況下執行：連線會被拒絕，而錯誤訊息會指名這個 flag。
+- 目標介面沒有開啟，或是 `--tab` 指定的 id 已經不存在：`E_TARGET_NOT_FOUND`。
+- 目標花費的時間超過 `--timeout`：`E_TIMEOUT`。
+
+當同一個工作階段拒絕每一個 verb，而你想知道第一個斷掉的環節是哪個時，請執行 [`doctor`](/docs/commands/doctor)。
+
+## 下一步
+
+- 用 [`eval`](/docs/commands/eval) 在你剛剛檢視過的頁面裡執行一段運算式。
+- 用 [`logs`](/docs/commands/logs) 持續串流檢視同一個工作階段的日誌。
+- 在 [除錯](/docs/debugging) 中了解更完整的除錯工作流程。

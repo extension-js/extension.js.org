@@ -18,6 +18,17 @@ keywords:
 
 `dev` 會執行開發管線並監看你的專案檔案。它會依變更內容套用不同的更新策略:Hot Module Replacement (HMR)、硬重新載入,或必要時的完整重啟。
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/z4eLXStkZb0?autoplay=1&mute=1&loop=1&playlist=z4eLXStkZb0&controls=0&rel=0&playsinline=1"
+    title="Extension.js: edit the manifest, dev restarts the extension"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
 ## 何時使用 `dev`
 
 - 開發功能並即時驗證變更。
@@ -55,7 +66,7 @@ extension dev [path-or-url] [options]
 extension dev [path-or-url] [options]
 ```
 
-```bash bun
+```bash deno
 extension dev [path-or-url] [options]
 ```
 
@@ -70,7 +81,7 @@ extension dev [path-or-url] [options]
 | 旗標                   | 用途                                                               | 預設值     |
 | ---------------------- | ------------------------------------------------------------------ | ---------- |
 | `--browser <target>`   | 以 Chrome、Edge、Firefox 為目標,或以逗號分隔列出。                 | `chromium` |
-| `--polyfill`           | 為 Chromium 目標銜接 `browser.*` API,以執行 Firefox 風格的原始碼。 | `false`    |
+| `--polyfill`           | 為 Chromium 目標銜接 `browser.*` API,以執行 Firefox 風格的原始碼。 | `true`     |
 | `--port <port>`        | 開發伺服器埠號。設 `0` 讓作業系統指定。                            | `8080`     |
 | `--starting-url <url>` | 瀏覽器啟動時開啟此 URL。                                           | 未設       |
 | `--no-reload`          | 略過自動重新載入。當你想得到乾淨的開發包時使用。                   | 啟用       |
@@ -84,20 +95,51 @@ extension dev [path-or-url] [options]
 | `--profile <path\|boolean>`    | -                  | 瀏覽器設定檔路徑,或布林模式。                                                                                      | 全新設定檔              |
 | `--chromium-binary <path>`     | -                  | [自訂 Chromium 系列執行檔路徑](/docs/browsers/running-other-browsers)。                                            | 系統預設                |
 | `--gecko-binary <path>`        | `--firefox-binary` | [自訂 Gecko 系列執行檔路徑](/docs/browsers/running-other-browsers)。                                               | 系統預設                |
-| `--polyfill [boolean]`         | -                  | 為 Chromium 目標啟用 `browser.*` API 相容性 polyfill。                                                             | `false`                 |
+| `--polyfill [boolean]`         | -                  | 為 Chromium 目標啟用 `browser.*` API 相容性 polyfill。                                                             | `true`                  |
+| `--no-polyfill`                | -                  | 停用跨瀏覽器 polyfill。                                                                                            | 預設啟用 polyfill       |
 | `--starting-url <url>`         | -                  | 啟動瀏覽器後開啟的 URL。                                                                                           | 未設                    |
-| `--port <port>`                | -                  | 開發伺服器埠號。設 `0` 讓作業系統指定。                                                                            | `8080`                  |
+| `--port <port>`                | -                  | 請求的開發伺服器埠號。設 `0` 讓作業系統指定。參見[埠號如何決定](#埠號如何決定)。                                   | `8080`                  |
 | `--host <host>`                | -                  | 開發伺服器要綁定的主機。Docker/dev container 請用 `0.0.0.0`。                                                      | `127.0.0.1`             |
+| `--public-host <host>`         | -                  | 當可連線的主機與綁定用的 `--host` 不同時(遠端/dev container),瀏覽器為 HMR 與重新載入橋接所撥號的主機。            | 綁定主機(綁到 `0.0.0.0` 時為 `127.0.0.1`) |
 | `--no-open`                    | -                  | 不要自動啟動瀏覽器。                                                                                               | 預設會啟動瀏覽器        |
 | `--no-browser`                 | -                  | 不啟動瀏覽器。                                                                                                     | 預設啟動瀏覽器          |
 | `--no-reload`                  | -                  | 略過 content script 的重新載入執行階段與重建時的 reload dispatch。需手動重新整理分頁才能看到變更。                 | 預設啟用 reload runtime |
-| `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 後結束。                                                             | 停用                    |
+| `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 後結束。需要本地專案路徑。                                           | 停用                    |
 | `--wait-timeout <ms>`          | -                  | `--wait` 模式的逾時時間。                                                                                          | `60000`                 |
-| `--wait-format <pretty\|json>` | -                  | 等待結果的輸出格式(`json` 為機器可讀)。                                                                            | `pretty`                |
+| `--output <pretty\|json>`      | -                  | 結果輸出格式。`json` 會在 stdout 印出 schema-1 信封。                                                              | `pretty`                |
 | `--extensions <list>`          | -                  | 以逗號分隔的搭配擴充功能或 store URL。                                                                             | 未設                    |
-| `--install [boolean]`          | -                  | 當缺少時安裝專案相依套件。基於安全預設停用生命週期指令稿;設 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true` 可執行它們。    | 依指令行為而定          |
-| `--parent-pid <pid>`           | -                  | 指定的處理程序 ID 一旦死亡就立即結束 dev 伺服器。供衍生 `dev` 的 harness / agent 使用,宿主當掉不會外洩伺服器。     | 未設                    |
-| `--author`                     | `--author-mode`    | 啟用維護者診斷。                                                                                                   | 停用                    |
+| `--install [boolean]`          | -                  | 內部旗標。當缺少時安裝專案相依套件。除非設定 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`,否則生命週期指令稿維持停用。   | 依指令行為而定          |
+| `--allow-control`              | -                  | 為受限的 act verb(`reload`、`storage`、`open`)啟用 agent 橋接控制通道。                                           | 停用                    |
+| `--allow-eval`                 | -                  | 一併啟用 `extension eval`。它隱含 `--allow-control`,並寫入一個 `0600` 權限的工作階段權杖。                        | 停用                    |
+| `--parent-pid <pid>`           | -                  | 指定的處理程序 ID 一旦死亡就立即結束 dev 伺服器。參見[父程序看門狗](#父程序看門狗)。                               | 未設                    |
+| `--debug`                      | -                  | 啟用維護者診斷。                                                                                                   | 停用                    |
+
+有兩個已淘汰的別名雖然從 `--help` 中隱藏,但仍可運作:
+
+- `--wait-format <pretty|json>` 會對應到 `--output`,並在 stderr 警告一次。請把腳本遷移到 `--output`。
+- `--author` 與 `--author-mode` 會對應到 `--debug`。
+
+### Safari 旗標
+
+這些旗標只適用於 `safari` 與 `webkit-based` 目標。與其他目標一起傳入其中任何一個都會以 `E_INVALID_OPTION` 結束,所以打錯字不會靜默地失效。
+
+| 旗標                     | 用途                                                             | 預設值                            |
+| ------------------------ | ---------------------------------------------------------------- | --------------------------------- |
+| `--safari-binary <path>` | 打包後用來開啟的 Safari 執行檔。                                 | 系統 Safari                       |
+| `--app-name <name>`      | 覆寫 Safari 應用程式名稱。                                       | manifest 的 `name`                |
+| `--bundle-id <id>`       | 由你自己擁有、反向 DNS 形式的 bundle 識別碼。格式錯誤會在任何建置前失敗。 | 自動產生的 `dev.extensionjs.*` id |
+| `--macos-only [boolean]` | 產生僅限 macOS 的 Xcode 專案。傳入 `false` 可產生 macOS + iOS 通用專案。 | `true`                            |
+| `--force-regenerate`     | 即使 Safari Xcode 專案已是最新,仍重新產生。                      | 停用                              |
+
+對 Safari 目標,`dev` 還會在第一次打包前執行工具鏈預檢。缺少 Xcode 會以 `E_SAFARI_TOOLCHAIN` 快速失敗。
+
+### 父程序看門狗
+
+`--parent-pid` 是給衍生 `dev` 的 harness 與代理使用的,宿主當掉不會外洩伺服器。它的值必須是正整數,其他任何值都會以 `E_INVALID_OPTION` 結束。看門狗每 2 秒輪詢一次父程序。父程序消失後,dev 伺服器會透過 `SIGTERM` 關閉;如果清理卡住,還有 5 秒的強制結束後備。
+
+### 埠號如何決定
+
+`--port` 是一個請求,不是保證。當請求的埠號被占用時,開發伺服器會往上找最近的空閒埠號。`--port 0` 會向作業系統要一個任意空閒埠號。請從 `ready.json` 讀取實際綁定的埠號,而不是你傳入的那個旗標。
 
 ## 自動化中介資料(建議用於腳本/代理)
 
@@ -111,13 +153,20 @@ extension dev [path-or-url] [options]
 把 `ready.json` 視為就緒契約:
 
 - 啟動中:`status: "starting"`
-- 執行階段就緒:`status: "ready"`
+- 建置編譯完成:`status: "ready"`
 - 啟動/編譯失敗:`status: "error"`
+- 工作階段關閉後:`status: "stopped"`,因此已經死掉的工作階段不會再宣稱自己 `ready`
+- service worker 連上之後為 `runtime: "attached"`(並附上 `executorAttachedAt`)。act verb 應該等待它,而不是等待 `ready`
 - `runId` 唯一識別一次執行階段工作階段
 - `startedAt` 標示執行階段開始時間
 - `command` 記錄產生它的指令(`dev`、`start`、`preview` 或 `build`)
 - `toolchainVersion`、`extensionName` 與 `extensionVersion` 記錄是哪個 Extension.js 版本、為哪個擴充功能產出了這棵目錄樹——終端機捲動紀錄消失後,這個檔案仍是一份建置回執
+- `port` 是實際綁定的開發伺服器埠號,`host` 則是用戶端可以撥號的可連線主機(參見[綁定主機與可連線主機](#綁定主機與可連線主機))
 - `controlPort` / `instanceId` 定位 `extension logs` 與 act verb 使用的控制橋
+- `cdpPort`(Chromium)與 `rdpPort`(Gecko)公開瀏覽器的除錯埠號
+- `profilePath`、`browserPid` 與 `extensionId` 由瀏覽器啟動器在啟動後寫入
+
+完整的 schema、錯誤狀態與兩階段就緒規則,請見 [ready.json 契約](/docs/contracts/ready-json)。
 
 `events.ndjson` 只屬於目前這次執行:新一次執行開始時檔案會重設,且每筆記錄都蓋上本次執行的 `runId`(與 `ready.json` 一致),消費端不會看到上一個工作階段的事件與目前的交錯。
 
@@ -125,7 +174,14 @@ extension dev [path-or-url] [options]
 
 ### `--no-browser` 與就緒同步
 
-`--no-browser` 只會關閉瀏覽器啟動。它不會在編譯完成前阻擋外部 runner。
+`--no-browser` 只會關閉瀏覽器啟動,但完整的開發迴圈仍然保留。開發伺服器依然監看你的檔案,並在每次重建後透過控制橋向擴充功能的 service worker 廣播一次重新載入,因此即使沒有被啟動的瀏覽器在驅動,你的變更也會生效:
+
+- **content script** 的變更會就地重新注入到已開啟的相符分頁(service worker 會用最新建置執行 `chrome.scripting.executeScript`),所以存檔後頁面就會更新,不需手動重新整理。之後才開啟的分頁也會拿到新的建置,因為 service worker 會動態重新註冊 content script(`chrome.scripting.registerContentScripts`)。
+- **service worker / manifest** 的變更會重啟擴充功能。
+
+因此在無頭、持續整合 (CI) 以及遠端/dev container 工作流程中,`--no-browser` 的表現就像一般的 `dev` 工作階段:把建置好的 `dist/<browser>` 載入任何你能控制的瀏覽器,它就會在你存檔時持續更新。(如果你想要永不重新載入的靜態開發包,請用 `--no-reload`,見下文。)
+
+`--no-browser` 不會在編譯完成前阻擋外部 runner。
 
 對 Playwright/CI/AI 工作流程:
 
@@ -135,7 +191,16 @@ extension dev [path-or-url] [options]
 
 `--wait` 是為第二個程序(或 CI 步驟)而設,並在 `error`/逾時時以非零碼結束。
 當 `--wait` 看到死掉程序(`pid` 已不存在)留下的過期 `ready.json` 時,它會持續等待一個仍在運作的產生者。
+`--wait` 需要本地專案路徑。傳入遠端 URL 會以 `E_ARGS` 結束。
 如果你在同一次指令中同時傳入 `--wait` 與 `--no-browser`,`--wait` 優先,指令會以「僅等待」模式執行。
+
+### 用 `--output json` 取得機器輸出
+
+`--output json` 會在 stdout 印出 schema-1 信封,每行一個 JSON 物件:
+
+- 一般的 `dev` 執行會在啟動時印出一個 `status: "started"` 訊框。它帶有專案路徑、瀏覽器清單、請求的埠號,以及開發伺服器的 `pid`。`dev` 不會自行結束,所以後面不會再有結果訊框。即時狀態請讀 `ready.json`。
+- `dev --wait` 成功時會印出一個 `status: "ready"` 訊框。它的 `value.results` 陣列會逐一瀏覽器帶出完整的就緒契約。
+- 失敗時會在程序以 `1` 結束前,印出一個帶有 `error.code`(例如 `E_READY_TIMEOUT`)的 `ok: false` 訊框。
 
 ### 用 `--no-reload` 取得乾淨的開發包
 
@@ -144,6 +209,8 @@ extension dev [path-or-url] [options]
 `--no-reload` 只在 `extension dev` 支援。把它傳給 `start`、`preview` 或 `build` 會以錯誤結束。它在內部會設定 `EXTENSION_NO_RELOAD=true`,讓 develop 程序能從 CLI argv 之外讀取它。
 
 ## 記錄旗標
+
+這些旗標仍是實驗性的,可能在小版本之間變動。
 
 | 旗標                                                 | 用途                                                                                   | 預設值         |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------- |
@@ -183,6 +250,17 @@ extension dev packages/my-extension
 
 ### 執行本地擴充功能
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/Lq36aMo5xOE?autoplay=1&mute=1&loop=1&playlist=Lq36aMo5xOE&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension dev"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
 <CodeGroup>
 
 ```bash npm
@@ -201,7 +279,7 @@ extension dev ./my-extension
 extension dev ./my-extension
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension
 ```
 
@@ -229,7 +307,7 @@ extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/mai
 extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
 ```
 
-```bash bun
+```bash deno
 extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
 ```
 
@@ -255,7 +333,7 @@ extension dev ./my-extension --browser firefox
 extension dev ./my-extension --browser firefox
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --browser firefox
 ```
 
@@ -281,7 +359,7 @@ extension dev ./my-extension --browser=chrome,firefox
 extension dev ./my-extension --browser=chrome,firefox
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --browser=chrome,firefox
 ```
 
@@ -309,7 +387,7 @@ extension dev ./my-extension --host 0.0.0.0
 extension dev ./my-extension --host 0.0.0.0
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --host 0.0.0.0
 ```
 
@@ -335,11 +413,41 @@ extension dev ./my-extension --host 0.0.0.0 --port 0
 extension dev ./my-extension --host 0.0.0.0 --port 0
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --host 0.0.0.0 --port 0
 ```
 
 </CodeGroup>
+
+#### 綁定主機與可連線主機
+
+`--host` 是開發伺服器**綁定**的位址。瀏覽器(HMR 用戶端與重新載入橋接)需要的是一個它真的能**連線**的位址,兩者未必是同一個值:
+
+- `--host 0.0.0.0` 會綁定所有網路介面,但 `0.0.0.0` 並不是可連線的位址。Extension.js 會自動改為向瀏覽器公告 `127.0.0.1`,這正是常見的埠號轉發式 Docker/dev container/Codespaces 設定所需要的目標:瀏覽器跑在主機上,埠號被轉發進容器。
+- 對於真正的**遠端**設定(瀏覽器與開發伺服器不在同一台機器上),請用 `--public-host` 傳入瀏覽器連得到的位址(區網 IP 或主機名稱)。它會被傳播到 HMR 用戶端 URL、`ready.json`,以及烘焙進擴充功能裡的重新載入橋接。
+
+<CodeGroup>
+
+```bash npm
+# Browser on another machine reaches the dev server at devbox.local
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+```bash pnpm
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+```bash yarn
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+```bash bun
+extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
+```
+
+</CodeGroup>
+
+當 `--host` 本身已經是具體位址時(例如 `--host 192.168.1.50`),那個值本來就可連線,會被直接使用。只有在綁定主機與瀏覽器面對的主機不同時,才需要 `--public-host`。
 
 ### 將 Brave 作為自訂執行檔執行
 
@@ -361,7 +469,7 @@ extension dev ./my-extension --chromium-binary /path/to/brave
 extension dev ./my-extension --chromium-binary /path/to/brave
 ```
 
-```bash bun
+```bash deno
 extension dev ./my-extension --chromium-binary /path/to/brave
 ```
 
@@ -370,8 +478,8 @@ extension dev ./my-extension --chromium-binary /path/to/brave
 ## 最佳實務
 
 - **瀏覽器相容性:** 在不同瀏覽器中測試,確認每個目標都能正常運作。
-- **使用 polyfill:** 如果 Firefox 或 Gecko 系列瀏覽器也是目標,使用 `--polyfill`。此旗標會在 Chromium 系列瀏覽器中啟用 `browser.*` API 相容性。
-- **自動化可靠性:** 把 `dev` 視為監看模式的搭配(`--no-browser` + `dev --wait`)。把 `start` 視為正式版的搭配(`--no-browser` + `start --wait`)。對腳本與 CI 自動化,使用 `--wait-format=json`。
+- **使用 polyfill:** `dev` 中 polyfill 預設開啟,所以 `browser.*` 呼叫在 Chromium 系列瀏覽器中也能運作。想要未經處理的原始打包時,請傳入 `--no-polyfill`。
+- **自動化可靠性:** 把 `dev` 視為監看模式的搭配(`--no-browser` + `dev --wait`)。把 `start` 視為正式版的搭配(`--no-browser` + `start --wait`)。對腳本與 CI 自動化,使用 `--output=json`。
 
 ## 後續步驟
 

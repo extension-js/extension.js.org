@@ -1,0 +1,131 @@
+---
+title: "控制橋接線路契約"
+description: "Extension.js 的 logs 與動作類指令背後的 WebSocket 訊框：LogEvent v1、ready capabilities、gap 訊框、指令 op、拒絕碼與關閉碼。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "websocket",
+    "control bridge",
+    "contracts",
+  ]
+---
+
+直接透過 WebSocket 通道與一個 dev 工作階段對話。
+
+控制橋接是 `extension logs --follow` 與動作類指令底下的那一層。只有當你要針對這個 socket 打造自己的 harness 時，才需要這個頁面。其餘情況一律以 CLI 指令為受支援的介面。
+
+dev 伺服器把這個通道掛在 [ready.json](/docs/contracts/ready-json) 所公布的 `controlPort` 上的 `/extjs-control` 路徑。用戶端以信封版本 1 加上一個角色打招呼，角色為 `producer`、`consumer` 或 `controller`。
+
+`extension-develop` 套件會從它的 `bridge-entry` 模組匯出本頁提到的每一個型別與常數，因此 harness 永遠不必把這些線路字串抄進自己的原始碼。
+
+## LogEvent（版本 1）
+
+每個訊框一筆記錄，帶有 `v: 1`。broker 在接收時指派 `seq`，並把 `runId` 正規化為該工作階段 `ready.json` 中的值，讓這些列能與契約對上。
+
+| 欄位           | 型別      | 意義                                                                    |
+| -------------- | --------- | ----------------------------------------------------------------------- |
+| `v`            | `1`       | LogEvent 版本。                                                         |
+| `id`           | string    | 記錄 id。                                                               |
+| `seq`          | number    | broker 指派的序號。續讀時從它之後開始。                                 |
+| `timestamp`    | number    | Epoch 毫秒。                                                            |
+| `level`        | string    | `log`、`info`、`warn`、`error`、`debug` 或 `trace`。                    |
+| `context`      | string    | `background`、`content`、`page`、`sidebar`、`popup`、`options` 或 `devtools`。 |
+| `messageParts` | array     | console 的引數，以結構化值呈現。                                        |
+| `eventType`    | string    | `log`（預設）或 `dx.signal`，見下文。                                   |
+| `code`         | string    | 僅 `dx.signal`：該訊號的機器名稱。                                      |
+| `status`       | string    | 僅 `dx.signal`：`ok`、`warn` 或 `fail`。                                |
+| `remediation`  | string    | 僅 `dx.signal`：下一步該怎麼做的提示。                                  |
+| `runId`        | string    | 工作階段身分，等於 `ready.json` 的 `runId`。                            |
+| `repeat`       | number    | 對重複的相同記錄所做的折疊計數。                                        |
+
+已知時，可選的定位欄位會一併附上：`url`、`hostname`、`tabId`、`frameId`、`windowId`、`title`、`stack`、`errorName`、`sourceExtensionId`、`incognito`，以及一個自由格式的 `data` 物件。
+
+`dx.signal` 事件是執行期針對 dev 迴圈本身提出的結構化診斷。請依它的 `code` 與 `status` 分支處理，並把 `remediation` 呈現給使用者。這個結構是先於它的產生者預留下來的：目前還沒有任何發送端推出，所以今天串流裡的每個事件帶的都是 `log`。
+
+## ReadyFrame 與 capabilities
+
+交握成功後，伺服器會回覆一個 ready 訊框：
+
+```json
+{
+  "type": "ready",
+  "runId": "mdyq3k2p-a1b2c3d4",
+  "bufferedFrom": 120,
+  "engine": "chromium",
+  "capabilities": {
+    "eval": true,
+    "storage": true,
+    "reload": true,
+    "open": ["popup", "options", "action"],
+    "deepDom": true
+  }
+}
+```
+
+`capabilities` 告訴 controller 這個工作階段會接受什麼：`eval`、`storage`、`reload`、可開啟的介面，以及用於深層 DOM 檢查的 `deepDom`。`deepDom` 是一個橋接 capability 欄位，不是 CLI 旗標。`bufferedFrom` 是仍可重播的最舊緩衝 `seq`。
+
+## GapFrame
+
+broker 寧可丟掉記錄也不會卡住，而且它會明說。gap 訊框會回報你少了多少筆記錄，以及原因：
+
+```json
+{"type": "gap", "dropped": 42, "reason": "slow_consumer", "sinceSeq": 118}
+```
+
+`reason` 是 `ring_overflow`、`rate_limit`、`disk_slow` 或 `slow_consumer` 其中之一。
+
+## CommandFrame 與結果
+
+controller 發出指令時要帶上 `cmdId`、一個 op，以及一個目標情境：
+
+| Op            | 用途                          |
+| ------------- | ----------------------------- |
+| `eval`        | 在某個情境中求值運算式。      |
+| `storage.get` | 讀取 `chrome.storage`。       |
+| `storage.set` | 寫入 `chrome.storage`。       |
+| `reload`      | 重新載入擴充功能或某個情境。  |
+| `open`        | 開啟某個擴充功能介面。        |
+| `tabs.query`  | 列出分頁。不需要 token。      |
+| `inspect`     | 檢查某個情境中的 DOM。        |
+
+回應是一個結果訊框，帶有相同的 `cmdId`、`ok`、可選的 `value`，以及在相關時出現的 `truncated` 與 `durationMs`。指令訊框要求工作階段是以 `--allow-control` 啟動的，而 `eval` 另外還要求 `--allow-eval`。
+
+## 拒絕碼
+
+當 guest 端拒絕一道指令時，結果訊框的 `error.code` 會在瀏覽器自己那句話旁邊帶上一個機器名稱。請依代碼分支，絕對不要依文字敘述分支：
+
+| 代碼                  | 意義                                     |
+| --------------------- | ---------------------------------------- |
+| `needs_headed_window` | 該介面需要一個有頭的瀏覽器視窗。         |
+| `needs_user_gesture`  | 該介面需要一次真實的使用者手勢。         |
+| `surface_not_open`    | 目標介面並未開啟。                       |
+| `api_unavailable`     | 這個 op 背後的瀏覽器 API 在此不可用。    |
+
+匯出的常數為 `REFUSAL_NEEDS_HEADED_WINDOW`、`REFUSAL_NEEDS_USER_GESTURE`、`REFUSAL_SURFACE_NOT_OPEN` 與 `REFUSAL_API_UNAVAILABLE`。
+
+## WebSocket 關閉碼
+
+4000 區段的關閉碼都是刻意的拒絕，絕不是傳輸失敗：
+
+| 代碼   | 常數                        | 伺服器為何掛斷                                            |
+| ------ | --------------------------- | --------------------------------------------------------- |
+| `4001` | `CLOSE_BAD_INSTANCE`        | 交握中指定的 `instanceId` 屬於上一個 dev 工作階段。       |
+| `4002` | `CLOSE_BAD_HELLO`           | 交握格式錯誤：信封版本不對，或角色未知。                  |
+| `4003` | `CLOSE_CONTROL_UNAVAILABLE` | controller 連上了一個未以 `--allow-control` 啟動的工作階段。 |
+| `4008` | `CLOSE_SLOW_CONSUMER`       | 這個 socket 落後太多，broker 把它丟棄了。                 |
+
+## 伺服器的其他訊框
+
+伺服器也會廣播一些 dev 迴圈的訊框，harness 應該要能容忍它們，也可以加以利用：
+
+- `reload`：送給 service worker producer 的一次性重新載入訊號，帶有 `reloadType`，值為 `full`、`service-worker`、`content-scripts` 或 `page`。其中 `page` 這一種只做通知。
+- `ping`：一個保持連線的訊框，用來重置 MV3 service worker 的閒置計時器。忽略它即可。
+
+## 後續步驟
+
+- 只要 CLI 指令足夠就優先使用它們，從 [ready.json](/docs/contracts/ready-json) 開始。
+- 用 [錯誤碼](/docs/contracts/error-codes) 把橋接失敗對應到信封中的錯誤碼。

@@ -1,0 +1,97 @@
+---
+title: "Extension.js MCP 服务器"
+description: "用 @extension.dev/mcp 让 AI agent 获得构建感知的扩展控制能力：开发会话、日志、eval、storage、重载与 manifest 校验，全部作为 MCP 工具提供。"
+keywords:
+  [
+    "extension.js",
+    "mcp",
+    "model context protocol",
+    "@extension.dev/mcp",
+    "ai agents",
+    "extension debugging",
+    "docs",
+    "integrations",
+  ]
+---
+
+`@extension.dev/mcp` 是 Extension.js 的 MCP 服务器。它把整套 Extension.js 工作流暴露为 Model Context Protocol 工具。AI agent 可以构建你的扩展、运行它，并在一个真实浏览器中验证结果。这些工具具备构建感知能力：它们了解你的项目、你生成的 manifest，以及你的开发会话。
+
+每一个工具都位于 `extension_*` 命名空间下，服务器一共提供 30 个。下面这张表覆盖了你最常用到的那些。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/Pt2p3px1-I4?autoplay=1&mute=1&loop=1&playlist=Pt2p3px1-I4&controls=0&rel=0&playsinline=1"
+    title="Extension.js: an MCP client edits and verifies the extension"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 安装这个服务器
+
+<CodeGroup>
+
+```bash Claude Code
+claude mcp add extension-dev npx @extension.dev/mcp
+```
+
+```json Claude Desktop (claude_desktop_config.json)
+{
+  "mcpServers": {
+    "extension-dev": {
+      "command": "npx",
+      "args": ["@extension.dev/mcp"]
+    }
+  }
+}
+```
+
+```json Cursor (.cursor/mcp.json)
+{
+  "mcpServers": {
+    "extension-dev": {
+      "command": "npx",
+      "args": ["@extension.dev/mcp"]
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+## 核心工具
+
+| 工具                          | 作用                                                                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `extension_dev`               | 在 agent 编辑扩展的同时运行它：开发构建、热重载，以及一个已加载该扩展的浏览器                                   |
+| `extension_build`             | 为生产环境构建到 `dist/<browser>`，可选地打出可提交商店的 zip 包                                                |
+| `extension_preview_web`       | 在 Web 模拟器中预览进行中的构建，不需要真实浏览器，并且可以返回一个可分享的链接                                 |
+| `extension_logs`              | 读取或流式获取所有上下文的日志（service worker、content script、popup、options、sidebar、页面）                 |
+| `extension_eval`              | 在一个正在运行的扩展上下文中对表达式求值                                                                        |
+| `extension_storage`           | 在一个正在运行的扩展中读写 `chrome.storage`                                                                     |
+| `extension_reload`            | 重载一个正在运行的扩展的 background 上下文，或者某个标签页                                                      |
+| `extension_open`              | 打开某个界面（popup、options、sidebar、覆盖页），或重放 action 与 command 处理器                                |
+| `extension_inspect`           | 通过调试协议做深度检查：包含 shadow DOM 的完整 HTML、注入状态、控制台、CSS 探针                                 |
+| `extension_list_extensions`   | 列出正在运行的开发浏览器中的扩展，附带 id、名称、版本，在 Chromium 上还包括实时上下文                           |
+| `extension_manifest_validate` | 跨浏览器校验 `manifest.json`，并标出那些会让构建拒绝通过的错误                                                  |
+
+## 会话模型
+
+`extension_dev` 是入口点。它是唯一一个能解锁本地控制通道的工具，而各个「动作类」动词都跑在这条通道上：
+
+- `extension_storage`、`extension_reload` 与 `extension_open` 需要一个以 `allowControl: true` 启动的会话。
+- `extension_eval` 需要一个以 `allowEval: true` 启动的会话，它会写出一个权限为 `0600` 的会话令牌文件。
+
+读取始终不需要解锁。任何会改变状态的操作，都必须按会话逐个显式开启。
+
+## 脚手架项目的引擎版本固定
+
+通过该服务器的 create 工具生成的项目，会在项目内部声明所使用的 Extension.js 引擎版本。项目内的这个版本固定优先于服务器环境，因此后续的会话都会用脚手架声明的那个版本来构建。
+
+## 下一步
+
+- 把它与 Google 的 Chrome 调试服务器一起运行：[Chrome DevTools MCP](/docs/integrations/chrome-devtools-mcp) 里有完整的能力对照表。
+- 把文档也接入你的助手：[通过 MCP 与 llms.txt 提供 AI 访问](/docs/ai-access)。
+- 把同样的检查接入 CI：[CI 模板](/docs/workflows/ci-templates)。

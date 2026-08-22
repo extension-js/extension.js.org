@@ -1,0 +1,106 @@
+---
+title: "用於引擎交握的 Capabilities 指令"
+description: "在一次機器可讀的交握中印出 Extension.js 的引擎版本、契約 schema 版本，以及支援 json 輸出的指令，供腳本與 agent 使用。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "capabilities",
+    "automation",
+    "agents",
+  ]
+---
+
+印出引擎版本、契約版本，以及支援 json 輸出的指令。
+
+`capabilities` 是 agent 或腳本在做其他任何事之前先執行的那次交握。一次呼叫就能告訴呼叫端：它正在跟哪一個 CLI 對話、這個 CLI 會寫出哪些契約 schema，以及哪些指令接受 `--output json`。它不需要專案、不需要工作階段，也不需要瀏覽器。
+
+## 何時使用 `capabilities`
+
+- agent 要開啟一個工作階段，必須先知道該用哪些 schema 版本來解析。
+- 腳本想用功能偵測判斷是否支援 `--output json`，而不是靠版本號猜測。
+- 你想確認某次 `npx` 呼叫實際解析到的是哪一個 CLI 建置。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension capabilities [options]
+```
+
+```bash pnpm
+extension capabilities [options]
+```
+
+```bash yarn
+extension capabilities [options]
+```
+
+```bash bun
+extension capabilities [options]
+```
+
+```bash deno
+extension capabilities [options]
+```
+
+</CodeGroup>
+
+## 引數與旗標
+
+| 旗標                      | 用途       | 預設值 |
+| ------------------------- | ---------- | ------ |
+| `--output <pretty\|json>` | 結果格式。 | `json` |
+
+這是唯一一個預設輸出 `json` 的指令。交握本來就是給機器用的，所以機器格式才是預設值，`--output pretty` 反而是要你主動指定的那一個。
+
+## 它會回傳什麼
+
+JSON 輸出是一個 schema-1 信封（參見 [結果信封](/docs/contracts/result-envelope)），它的 `value` 帶有五個欄位：
+
+```json
+{
+  "schema": 1,
+  "ok": true,
+  "command": "capabilities",
+  "status": "ok",
+  "value": {
+    "name": "extension",
+    "version": "4.0.22",
+    "envelopeSchema": 1,
+    "readySchemaVersion": 2,
+    "outputJsonCommands": ["build", "capabilities", "dev", "doctor", "eval", "..."]
+  },
+  "error": null,
+  "warnings": []
+}
+```
+
+| 欄位                 | 它告訴你什麼                                    |
+| -------------------- | ----------------------------------------------- |
+| `name`               | CLI 的套件名稱。                                |
+| `version`            | 作出回應的 CLI 版本。                           |
+| `envelopeSchema`     | 這個 CLI 寫出的結果信封 schema。                |
+| `readySchemaVersion` | 這個 CLI 內建引擎寫出的 `ready.json` 契約版本。 |
+| `outputJsonCommands` | 所有接受 `--output json` 的指令，已排序。       |
+
+`outputJsonCommands` 是從即時的指令註冊資訊讀取而來，絕不是手工維護的清單，因此它不可能與 CLI 實際接受的指令產生落差。請把上面的範例當成示意，並解析真正回傳的內容。
+
+pretty 輸出會把同樣的資訊印成四行帶標籤的文字。兩種格式的結束碼都是 `0`。
+
+## 典型的 agent 流程
+
+1. 執行 `extension capabilities`，確認 `envelopeSchema` 與 `readySchemaVersion` 都是你支援的版本。
+2. 開啟工作階段：`extension dev --allow-control --output json`。
+3. 用動作類指令來驅動它：[`inspect`](/docs/commands/inspect)、[`eval`](/docs/commands/eval)、[`storage`](/docs/commands/storage)、[`reload`](/docs/commands/reload)。
+
+## 後續步驟
+
+- 在 [結果信封](/docs/contracts/result-envelope) 中了解每個支援 json 的指令都會輸出的那個信封。
+- 用 [`dev`](/docs/commands/dev) 開啟這次交握所準備的工作階段。
+- 在 [除錯](/docs/debugging) 中了解更完整的除錯工作流程。

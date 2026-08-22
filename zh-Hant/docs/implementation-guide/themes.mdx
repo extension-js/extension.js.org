@@ -1,0 +1,64 @@
+---
+title: "Extension.js 中的瀏覽器佈景主題"
+description: "用同一份佈景主題 manifest 同時服務 Chrome 與 Firefox：hex 色碼會在建置期轉換成 Chromium 需要的整數陣列，無效的值會讓編譯失敗，靜態佈景主題則會略過開發期的插樁。"
+keywords:
+  [
+    "extension.js",
+    "browser theme",
+    "theme manifest",
+    "theme colors",
+    "static theme",
+    "chrome theme",
+    "firefox theme",
+    "theme_colors integer array",
+  ]
+---
+
+Chrome 與 Firefox 對「佈景主題的顏色長什麼樣子」看法並不一致。Firefox 會把 `theme.colors` 的值當成 CSS 字串來解析，而 Chrome 只接受整數陣列。Extension.js 在建置期就把這個差異解決掉，所以同一份 `manifest.json` 可以同時服務兩種引擎。
+
+## 一份 manifest，兩種色彩格式
+
+在 manifest 裡寫 hex 色碼，然後為任何目標建置：
+
+```json
+{
+  "theme": {
+    "colors": {
+      "frame": "#1a1b26",
+      "toolbar": "#24283bcc"
+    }
+  }
+}
+```
+
+對 Chromium 家族的目標，建置會把每個 hex 字串轉換成 Chrome 要求的整數陣列。對 Gecko 目標，字串形式會原樣輸出，因為 Firefox 本來就能直接解析。
+
+這個轉換接受 3、4、6 與 8 位數的 hex。8 位數的值會變成 `[R, G, B, A]`，其中 alpha 位元組會被縮放成 0 到 1 的浮點數，並四捨五入到小數點後三位。`#24283bcc` 會變成 `[36, 40, 59, 0.8]`。轉換器也會讀取 CSS 具名關鍵字（`tomato` 會變成 `[255, 99, 71]`）、`transparent`（`[0, 0, 0, 0]`），以及數值形式的 `rgb()`/`rgba()` 字串。超出這套文法的值會原封不動地直接通過。
+
+## 無效的值會讓建置失敗
+
+只要佈景主題的某個值形狀不對，Chrome 就會拒絕整個擴充功能，所以 Extension.js 改成在編譯期就攔下這個錯誤。在 Chromium 家族的目標上，每一個無效的佈景主題值都會變成一個指名到確切欄位的編譯錯誤：
+
+- `theme.colors.*` 的項目必須是 `[R, G, B]` 或 `[R, G, B, A]` 陣列、hex 字串，或是轉換器能由此產生上述結果的值。各通道必須是 0 到 255 的整數，alpha 必須是數值。
+- `theme.tints.*` 的項目必須是剛好 3 個數字組成的 `[hue, saturation, lightness]` 陣列。
+
+每則錯誤都會說明 Chrome 對那個特定欄位接受什麼，讓你直接修正值，而不必去解讀瀏覽器裡那個拒絕畫面。
+
+## Safari 目標會發出警告
+
+Safari 沒有佈景主題這個介面。當你為 `safari` 或 webkit 系目標建置，而 manifest 帶有任何 `theme` 鍵時，建置會發出一則警告。該欄位會原樣出現在輸出的 manifest 中，Safari 會忽略它。
+
+## 靜態佈景主題會略過開發期插樁
+
+靜態佈景主題指的是帶有 `theme` 鍵、而且沒有任何執行期介面的 manifest。當下列這 15 個鍵一個都不存在時，Extension.js 就會把這份 manifest 視為靜態佈景主題：
+
+`background`, `content_scripts`, `action`, `browser_action`, `page_action`, `sidebar_action`, `side_panel`, `options_page`, `options_ui`, `devtools_page`, `chrome_url_overrides`, `sandbox`, `user_scripts`, `declarative_net_request`, `web_accessible_resources`
+
+靜態佈景主題完全不套用任何開發期插樁。本來也沒有東西可以插樁：沒有 background、沒有頁面、沒有 content script。更重要的是，佈景主題會依佈景主題 schema 驗證，而該 schema 禁止多餘的頂層鍵，addons.mozilla.org 對每一個這樣的鍵都會直接報錯。注入只在開發期使用的鍵，會讓產物不再是一個合法的佈景主題。
+
+這個判斷讀的是磁碟上你的 `manifest.json`，而不是建置過程中的中間輸出。等到開發期的修補套上去時，編譯後的 manifest 早就帶著被注入的鍵，看起來也不再像一個佈景主題了。
+
+## 後續步驟
+
+- 用 [瀏覽器專屬的 manifest 欄位](/docs/features/browser-specific-fields) 為每個欄位指定單一引擎。
+- 用 [多平台建置](/docs/features/multi-platform-builds) 產生各目標專屬的產物。

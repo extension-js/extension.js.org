@@ -1,0 +1,86 @@
+---
+title: "Manifest 拒绝：Chromium 为什么不加载你的扩展"
+description: "诊断那些让 Chromium 在启动前就拒绝整个扩展的 manifest 形态，并了解 Extension.js 会自动修复哪些致命形态。"
+keywords:
+  [
+    "chrome refuses to load extension",
+    "manifest.json invalid",
+    "required value name is missing or invalid",
+    "invalid match pattern",
+    "could not load icon",
+    "default_locale",
+    "manifest v2 not supported",
+    "extension.js",
+    "debugging",
+  ]
+---
+
+有些 manifest 形态会让 Chromium 拒绝加载整个扩展。这种拒绝要么表现为一个原生对话框，要么根本什么都不显示，但绝不会是一条控制台报错。没有外力帮忙时，开发会话就这么卡住了：浏览器在跑，扩展却不在，调试通道也永远连不上。
+
+Extension.js 在两个位置补上了这个缺口：
+
+- **启动之前**，它会读取每一个即将加载的扩展的构建产物 `manifest.json`，并对每一个能够确证的拒绝原因发出警告，点名具体字段和原因。
+- **构建时**，它会修复一小组毫无歧义的致命形态，并为每一次修复打印一行修复说明。
+
+## 启动前诊断
+
+这些检查针对构建后的扩展运行，就在浏览器启动之前。
+
+### manifest 版本相关的拒绝
+
+| 形态                                             | Chromium 为什么拒绝                                                    |
+| ------------------------------------------------ | ---------------------------------------------------------------------- |
+| `manifest_version: 2`                            | 现代 Chromium 直接拒绝 MV2。请改在 Firefox 上运行，或迁移到 MV3。      |
+| MV3 有 `background.scripts` 而没有 `service_worker` | 这是 Firefox 风格的 background。Chromium 需要 `background.service_worker`。 |
+| 其他任何值（缺失、`1`、大于 `3`）                | 作为不受支持的 manifest 版本被拒绝。                                   |
+
+### 无效的 match 模式
+
+只要有一个模式无效，Chrome 就会拒绝整个扩展。Extension.js 会检查 `host_permissions`、`optional_host_permissions`、`content_scripts`（`matches` 与 `exclude_matches`），以及 `web_accessible_resources` 中的 matches。
+
+host 语法允许 `*`、`*.domain.tld` 或一个字面量 host。host 中任何其他位置的通配符都是无效的，例如 `https://foo.*.com/*`。端口、查询字符串和片段不会触发拒绝，而且端口本身也可以是通配符。
+
+### 加载拦截项清单
+
+下面每一项都已在真实的 Chrome 构建上验证过会拒绝整个扩展：
+
+- **`name`**：缺失、为空，或不是字符串。Chrome 要求一个非空的字符串名称。
+- **`version`**：缺失，或不是 1 到 4 段以点分隔的整数，且每段取值在 0 到 65535 之间。
+- **MV3 的 `web_accessible_resources`**：条目必须是字典，包含 `resources`，外加 `matches`、`extension_ids` 或 `use_dynamic_url` 三者之一。MV2 的字符串数组写法在 MV3 上会被拒绝。MV2 下它仍然合法。
+- **`content_scripts` 语法**：`matches` 是必填且不得为空，`js` 与 `css` 的条目必须是字符串，`run_at` 只接受 `document_start`、`document_end` 或 `document_idle`，并且每个条目至少要有一个 `js` 或 `css` 文件。
+- **`minimum_chrome_version`**：无效的值会直接被拒绝。取值合法但高于解析出来的浏览器版本同样会被拒绝，因此该检查比对的是这个会话实际启动的那个二进制。
+- **`commands`**：Chrome 最多允许 4 个带 `suggested_key` 的快捷键。Firefox 没有上限，所以从 Firefox 移植过来的扩展经常在这里翻车。
+- **`key`**：必须是合法的 base64 公钥。padding 有问题就会导致扩展被拒绝。
+- **图标**：只要有一个 manifest 图标（`icons.*` 或任意 `*_action.default_icon`）对应的文件缺失或大小为 0 字节，整个扩展就会被拒绝。
+- **语言包**：声明了 `default_locale`，但对应的 `_locales/<locale>/messages.json` 缺失或不是合法 JSON，会被拒绝。整串 `__MSG_key__` 引用在目录中没有定义时同样如此（查找不区分大小写，`@@predefined` 名称除外）。`_locales` 目录树里有内容、manifest 中却没有 `default_locale`，也会被拒绝。
+- **`storage.managed_schema`**：schema 路径在扩展目录内不存在时，整个扩展会被拒绝。
+
+每一条发现都会在启动之前作为一条警告打印出来，点名扩展路径和每一个拦截项，所以卡住的原因会提前讲清楚。
+
+## 构建时的自动修复
+
+其中一部分致命形态足够没有歧义，可以直接修掉。在构建过程中，Extension.js 会在产出的 `manifest.json` 里修复这些：
+
+| 形态                                                        | 修复方式                                                          |
+| ----------------------------------------------------------- | ----------------------------------------------------------------- |
+| `name` 缺失、为空或不是字符串                               | 把数字和布尔值转成字符串，否则使用 `"Unnamed Extension"`。        |
+| `version` 缺失                                              | 注入 `"0.0.0"`。                                                  |
+| `version` 是数字（`1.0`）                                   | 转成字符串形式。                                                  |
+| `version` 字符串不符合 Chrome 的语法（`"x.y.z"`）           | 抢救出其中的数字部分（`"1.0-beta"` 变成 `"1.0"`），否则用 `"0.0.0"`。 |
+| action 上的 `default_icon` 为空（`""` 或 `{}`）             | 删掉这个键。空就意味着没有图标。                                  |
+| 图标文件存在但大小为 0 字节                                 | 删掉这条图标条目。                                                |
+| `content_security_policy.extension_pages` 的 script-src 里有 `'unsafe-inline'` | 去掉它。MV3 从不认它，所以改变的只是那个拒绝而已。 |
+| 具名 command 的 `description` 缺失或为空                    | 回退为该 command 的名称（`_execute_*` 命令除外）。                |
+
+每一次修复都会在发生的那一刻在 CLI 输出中报告一行修复说明，并记录一条 `manifest.json` 构建警告，所以不会有任何东西被悄悄改写。
+
+<Note>
+  修复只作用于产出的 `dist` manifest。你的源码 `manifest.json`
+  永远不会被修改。看到修复说明时请去修源码，让这次修复不再被需要。
+</Note>
+
+## 下一步
+
+- [调试总览](/docs/debugging)：运行中会话的完整控制面。
+- [可用浏览器](/docs/browsers/browsers-available)：挑一个能加载你的 manifest 的目标。
+- [跨浏览器兼容性](/docs/features/cross-browser-compatibility)：让同一份 manifest 在各个引擎上都能用。

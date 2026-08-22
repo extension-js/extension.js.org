@@ -1,0 +1,99 @@
+---
+title: "用 eval 命令在扩展上下文中执行代码"
+description: "在正在运行的 Extension.js 开发会话的任意上下文中执行一段 JavaScript 表达式，从 background worker 到实时页面，全部直接在终端里完成。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "eval",
+    "debugging",
+    "automation",
+  ]
+---
+
+在正在运行的开发会话的某个上下文中执行一段 JavaScript 表达式，并打印结果。
+
+`eval` 是自动化能力最强的动词，因此它上了双重锁。会话必须以 `extension dev --allow-eval` 启动，同时 CLI 必须出示开发服务器为当前项目与浏览器写下的会话令牌。只要你在同一个项目根目录下运行这两条命令，这两件事都会自动完成。
+
+## 什么时候使用 `eval`
+
+- 你想在不打开 DevTools 的情况下查看扩展状态（`chrome.runtime`、storage、DOM）。
+- agent 需要在页面内跑一次检查，并拿回一个结构化的值。
+- 你想要一个可脚本化的 REPL，对着 background worker 或某个实时标签页操作。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension eval <expression> [project-path] [options]
+```
+
+```bash pnpm
+extension eval <expression> [project-path] [options]
+```
+
+```bash yarn
+extension eval <expression> [project-path] [options]
+```
+
+```bash bun
+extension eval <expression> [project-path] [options]
+```
+
+```bash deno
+extension eval <expression> [project-path] [options]
+```
+
+</CodeGroup>
+
+例如，从页面内部读取当前活动标签页的标题与 URL：
+
+```bash
+extension eval "({title: document.title, url: location.href})" --context page
+```
+
+## 参数与 flag
+
+| flag                      | 作用                                                                                                                       | 默认值          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `<expression>`            | 要求值的 JavaScript 表达式。                                                                                               | 必填            |
+| `[project-path]`          | 扩展项目根目录的路径。                                                                                                     | `process.cwd()` |
+| `--context <context>`     | 目标上下文：`background`、`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`、`content`、`page`。 | `background`    |
+| `--url <glob\|substring>` | 用于 `content`/`page`：要定位的文档，会解析到它所属的标签页。                                                              | 未设置          |
+| `--tab <id>`              | 用于 `content`/`page`：某个特定标签页。不传时以 `--url` 匹配为准，否则用当前活动标签页。                                   | 活动标签页      |
+| `--browser <browser>`     | 要定位哪个会话（`chrome`、`chromium`、`edge`、`firefox`）。                                                                | `chromium`      |
+| `--timeout <ms>`          | 命令超时时间，单位毫秒。                                                                                                   | `5000`          |
+| `--output <pretty\|json>` | 输出格式（`json` 会把结果包进 schema-1 信封）。                                                                            | `pretty`        |
+
+扩展页面（`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）是通过它们自己的页内中继来应答的，所以对应界面必须已经在浏览器中打开。先用 `open`（见 [触发 action 与 command](/docs/debugging/trigger-actions-and-commands)）把它打开。
+
+pretty 输出打印的是值本身：字符串原样输出，其余一律按缩进 JSON 输出。信封结构只在 `--output json` 下出现（参见 [结果信封](/docs/contracts/result-envelope)）。
+
+## 解锁机制是怎么运作的
+
+1. `extension dev --allow-eval` 会以启用 eval 的方式启动会话。`--allow-eval` 同时也会解锁其他控制动词，所以你不需要同时加两个 flag。
+2. 开发服务器会把一个随机会话令牌写入 `.extension-js/control-token-<browser>`，权限为 `0600`。令牌按浏览器区分，因此并发会话不会互相冲突。
+3. `eval` 会从项目根目录读取该令牌，并在握手过程中出示它。
+
+没有带 `--allow-eval` 启动的会话会拒绝这次调用，并且拒绝信息中会点名 `--allow-eval` 这个应该补上的 flag。令牌缺失会以 `E_TOKEN_MISSING` 失败，令牌不匹配或 eval 被禁用则是 `E_EVAL_REFUSED`。
+
+## 失败模式
+
+- 表达式在目标中抛出异常：`E_EVAL`，并附带提示说明问题出在表达式本身。这是一个结果，不是传输错误。
+- 该浏览器没有会话：`E_SESSION_NOT_FOUND`，并给出应当运行的完整 `extension dev` 命令。
+- 目标界面未打开，或 `--tab` id 已失效：`E_TARGET_NOT_FOUND`。用 [`inspect --list-tabs`](/docs/commands/inspect#the-discovery-loop) 找出仍然存活的 id。
+- 调用超出了 `--timeout`：`E_TIMEOUT`。
+
+表达式成功时退出码为 `0`，否则为 `1`，因此脚本可以直接据此做判断。当所有动词都失败、而你想弄清楚是哪一环断了时，请运行 [`doctor`](/docs/commands/doctor)。
+
+## 下一步
+
+- 用 [`inspect`](/docs/commands/inspect) 找到要定位的标签页 id 与 DOM 状态。
+- 用 [`storage`](/docs/commands/storage) 读写 `chrome.storage`，无需自己写表达式。
+- 在 [调试](/docs/debugging) 中了解更完整的调试工作流。
+- 在 [结果信封](/docs/contracts/result-envelope) 中查看机器可读的输出格式。

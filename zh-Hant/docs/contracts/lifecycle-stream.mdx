@@ -1,0 +1,89 @@
+---
+title: "dev 工作階段的生命週期串流"
+description: "Extension.js 的 dev、start 與 preview 在機器模式下串流輸出的 NDJSON 生命週期影格：starting、compiled、recompiled、compile-failed、ready、browser-exited 與 failed。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "ndjson",
+    "lifecycle",
+    "contracts",
+  ]
+---
+
+以每次狀態轉換一個 JSON 影格的方式，跟隨一個執行中的工作階段。
+
+一個終止信封無法描述整個工作階段，因此 `dev`、`start` 與 `preview` 會為每一次生命週期轉換串流輸出一個 schema-1 影格。每個影格本身就是獨立成行的一個完整[結果信封](/docs/contracts/result-envelope)。
+
+## 開啟這道串流
+
+這道串流由 `EXTENSION_OUTPUT` 環境變數決定。把它設為 `json` 或 `ndjson`，影格就會獨佔 stdout：
+
+```bash
+EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-browser
+```
+
+串流開啟期間，原本共用 stdout 的人類可讀文案會移到 stderr。錯誤文案永遠留在 stderr，機器模式絕不會隱藏失敗。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/dZvO-H44bq8?autoplay=1&mute=1&loop=1&playlist=dZvO-H44bq8&controls=0&rel=0&playsinline=1"
+    title="Extension.js: the lifecycle stream"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 影格狀態
+
+| 狀態             | `ok`  | 何時送出                                                                    |
+| ---------------- | ----- | --------------------------------------------------------------------------- |
+| `starting`       | true  | 只有一次，工作階段開始時。帶有 `requestedPort` 與實際綁定的 `port`。        |
+| `compiled`       | true  | 第一次成功編譯。帶有 `assets` 與 `durationMs`。                             |
+| `recompiled`     | true  | 之後每一次成功編譯。                                                        |
+| `compile-failed` | false | 一次編譯帶著錯誤結束，無論是第一次或之後。                                  |
+| `ready`          | true  | 只有一次，本次工作階段的 `ready.json` 已寫入磁碟時。                        |
+| `browser-exited` | false | 瀏覽器在工作階段中途結束，見下文。                                          |
+| `failed`         | false | 工作階段層級的失敗，例如伺服器始終沒能綁定，或 `ready.json` 回報 `error`。 |
+
+每個影格的 `value` 都帶有工作階段身分：`command`、`browser`、`distPath`、`pid`、`port`，以及已知時的 `readyPath`、`eventsPath`、`runId`、`instanceId` 與 `toolchainVersion`。
+
+## 編譯失敗
+
+`compile-failed` 影格會把編譯器輸出放在 `value.output` 裡，因此你永遠不必去刮 stdout。這段輸出已去除 ANSI 控制碼，並以 2000 個字元為上限。當上限把它截斷時，該影格會設定 `truncated: true`。
+
+一次工作階段中的第一次失敗使用錯誤碼 `E_FIRST_COMPILE`，之後每一次都使用 `E_COMPILE`。
+
+```jsonl
+{"schema":1,"ok":true,"command":"dev","status":"starting","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"requestedPort":8080},"error":null,"warnings":[]}
+{"schema":1,"ok":true,"command":"dev","status":"compiled","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","assets":12,"durationMs":841},"error":null,"warnings":[]}
+{"schema":1,"ok":true,"command":"dev","status":"ready","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4"},"error":null,"warnings":[]}
+{"schema":1,"ok":false,"command":"dev","status":"compile-failed","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","output":"ERROR in ./content/scripts.ts\nModule parse failed: Unexpected token (12:3)","durationMs":204},"error":{"code":"E_COMPILE","message":"A recompilation failed after a change."},"warnings":[]}
+```
+
+## ready 遵循契約
+
+`ready` 影格在送出之前會先讀取 `ready.json`。編譯可能成功，而瀏覽器卻拒絕了這個擴充功能，發生這種情況時契約會停留在 `error`。
+
+這種情況下，串流改為發出一個錯誤碼為 `E_READY_ERROR_STATUS` 的 `failed` 影格，並由 `value.readyCode` 指出契約自身的錯誤碼。
+
+## 瀏覽器結束
+
+一個背景監看器每秒輪詢一次 `ready.json`，尋找啟動器寫下的結束戳記。當 `browserExitedAt` 出現時，串流會發出一個 `browser-exited` 影格。
+
+影格的錯誤碼取決於契約中的證據：
+
+- `E_PROFILE_LOCKED`：契約顯示設定檔被鎖定。瀏覽器根本沒有啟動，另一個工作階段正佔用該設定檔。
+- `E_BROWSER_LAUNCH`：其餘所有非預期的結束。
+
+當契約中有這些欄位時，影格的 `value` 會帶有 `exitCode` 與 `browserExitedAt`。
+
+## 後續步驟
+
+- 在 [ready.json](/docs/contracts/ready-json) 中閱讀這些影格背後的契約。
+- 在 [用 agent 驅動 CLI](/docs/workflows/driving-the-cli) 中了解如何從 agent 驅動整個迴圈。

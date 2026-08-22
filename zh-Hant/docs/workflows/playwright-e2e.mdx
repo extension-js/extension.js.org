@@ -86,21 +86,35 @@ export default defineConfig({
 - `dist/extension-js/<browser>/ready.json`
 - `dist/extension-js/<browser>/events.ndjson`（用於 watch／rebuild 事件的換行分隔 JSON）
 
-`ready.json` 包含為腳本／代理人設計的穩定欄位：
+`ready.json`（schema v2）包含為腳本／代理人設計的穩定欄位：
 
-- `status`：`starting` | `ready` | `error`
-- `command`：`dev` | `start` | `preview`
+- `status`：`starting` | `ready` | `error` | `stopped`
+- `command`：`dev` | `start` | `preview` | `build`
 - `browser`
 - `distPath`
 - `manifestPath`
 - `port`
 - `pid`
+- `browserPid`（啟動的瀏覽器程序，用它來收尾關閉）
 - `runId`
 - `startedAt`
 - `compiledAt`
 - `errors`
+- `runtime`：service worker 連上之後為 `"attached"`
+- `executorAttachedAt`
 
-把這份合約當作就緒狀態與失敗的真相來源。
+把這份合約當作就緒狀態與失敗的真相來源。完整的欄位參考，包含 `extensionId`、`profilePath`、`cdpPort` 以及各種錯誤狀態，請見 [ready.json](/docs/contracts/ready-json)。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/CZgFvleP2qA?autoplay=1&mute=1&loop=1&playlist=CZgFvleP2qA&controls=0&rel=0&playsinline=1"
+    title="Extension.js: Playwright end-to-end run"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ## 執行測試
 
@@ -122,8 +136,8 @@ yarn playwright test
 bunx playwright test
 ```
 
-```bash bun
-bunx playwright test
+```bash deno
+deno run -A npm:playwright test
 ```
 
 </CodeGroup>
@@ -134,6 +148,8 @@ bunx playwright test
 2. 等待 `ready.json` 回報 `status: "ready"`。
 3. 用 `distPath` 中的擴充功能輸出啟動 Playwright。
 4. 執行測試並關閉。
+
+第 2 步有一個要注意的地方：`status: "ready"` 只代表編譯完成。如果你的測試會透過 act 指令（`eval`、`storage`、`reload`、`open`）驅動擴充功能，還要等到合約帶有 `runtime: "attached"`。由 Playwright 啟動的瀏覽器會自己載入 `distPath`，所以純 UI 測試只需要 `ready`。
 
 ### 開發模式 vs 測試模式
 
@@ -150,14 +166,16 @@ bunx playwright test
 採用以下雙程序模式：
 
 1. 程序 A：`extension dev --no-browser`
-2. 程序 B：`extension dev --wait --browser=<browser> --wait-format=json`
+2. 程序 B：`extension dev --wait --browser=<browser> --output json`
 3. 等待步驟成功結束後再啟動 Playwright
 
 正式導向的變體：
 
 1. 程序 A：`extension start --no-browser`
-2. 程序 B：`extension start --wait --browser=<browser> --wait-format=json`
+2. 程序 B：`extension start --wait --browser=<browser> --output json`
 3. 等待步驟成功結束後再啟動 Playwright
+
+`--output json` 會在 stdout 印出單一信封物件，給人閱讀的文案則移到 stderr。較舊的 `--wait-format` 別名仍可使用，但會在 stderr 發出警告。
 
 ```ts
 import { spawn } from "node:child_process";
@@ -186,7 +204,7 @@ async function waitForReady() {
         "--wait",
         `--browser=${browserName}`,
         "--wait-timeout=60000",
-        "--wait-format=json",
+        "--output=json",
       ],
       { stdio: ["ignore", "pipe", "pipe"], env: process.env },
     );
@@ -222,6 +240,12 @@ await context.close();
 child.kill("SIGTERM");
 ```
 
+`headless: false` 是必要的，不是偏好設定。Playwright 預設的 headless 模式會執行 Chromium
+的 `headless_shell` 執行檔，它完全不會載入任何擴充功能。為了 CI 把它改成 `true` 的測試
+套件仍然會通過，因為它悄悄測試的是一個沒有你的擴充功能的瀏覽器。若要在沒有可見視窗的
+情況下執行，請保持 `headless: false` 並在 `args` 中加入 `--headless=new`，它使用的是確實
+支援擴充功能的完整 Chromium headless 模式。
+
 ## 擴充功能的實務指引
 
 - 保持測試 fixture 確定性；擴充功能啟動可能對 profile 狀態敏感。
@@ -239,9 +263,9 @@ child.kill("SIGTERM");
 
 ## 儲存庫參考
 
-你的儲存庫包含 Playwright 設定：
+`playwright` 範本會建立一套可用的設定，你可以直接拿來參考：
 
-- `playwright.config.ts`
+- `playwright.config.ts` 與一個 `e2e/` 資料夾，見 [extension-js/examples/playwright](https://github.com/extension-js/examples/tree/main/examples/playwright)
 
 ## 下一步
 

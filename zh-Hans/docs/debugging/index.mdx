@@ -19,15 +19,26 @@ keywords:
 
 它运行在本地，不需要账号，观察始终是免费的。任何会**改变**状态的操作都需要按会话显式开启。
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/yMa4rYv5Dlw?autoplay=1&mute=1&loop=1&playlist=yMa4rYv5Dlw&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension eval"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
 ## 启用
 
 启动一个开发会话时带上你需要的控制开关：
 
 ```bash
-# 只读模式始终开启。加上控制开关以对扩展执行操作：
+# Read-only is always on. Add control to act on the extension:
 pnpm extension dev --allow-control
 
-# 再加上 eval 以在某个上下文中执行任意表达式：
+# Add eval to also run arbitrary expressions in a context:
 pnpm extension dev --allow-control --allow-eval
 ```
 
@@ -45,6 +56,24 @@ pnpm extension dev --allow-control --allow-eval
 | `extension open action`                    | [触发工具栏按钮](/docs/debugging/trigger-actions-and-commands)——会打开它的 popup，或重放 `onClicked` | `--allow-control` |
 | `extension open command --name <cmd>`      | [重放某个键盘快捷键命令](/docs/debugging/trigger-actions-and-commands)                               | `--allow-control` |
 | `extension eval "<expr>" --context <c>`    | 在指定上下文中求值一个表达式并返回结果                                                               | `--allow-eval`    |
+
+`extension logs` 与 `extension inspect` 各自有独立的参考页：[logs](/docs/commands/logs) 与 [inspect](/docs/commands/inspect)。
+
+### 共享 flag
+
+每个执行操作的命令都接受同样这三个 flag：
+
+- `--browser` 选择要指向的会话（默认 `chromium`）。
+- `--timeout <ms>` 限定一次往返的时长（默认 5000）。
+- `--output <pretty|json>` 选择 stdout 的输出方言。
+
+当会话缺少所需的解锁开关时，拒绝信息会指明要用哪个 flag 重新启动：`eval` 对应 `--allow-eval`，其余全部对应 `--allow-control`。你不用去猜自己漏了哪个门控。
+
+### 哪些内容会落到磁盘上
+
+除了实时通道之外，会话还会在 `dist/extension-js/<browser>/` 下写入只追加的记录：`logs.ndjson` 保存捕获到的每一条日志事件，`actions.ndjson`（在会话带 `--allow-control` 时写入）审计已执行的控制操作。两者在会话结束后仍可读取。
+
+日志契约还预留了结构化的 `dx.signal` 条目，它们是关于运行时自身健康状况的机器可读诊断信息，过滤方式为 `extension logs --signals-only`。目前还没有任何发射端，因此这个过滤器现在什么也不会返回。它的结构已经先行文档化，这样等第一条 signal 落地时，消费方就可以据此分支。
 
 ## 指定上下文
 
@@ -102,7 +131,6 @@ Extension.js 通过**浏览器内伴侣进程**进行调试，而不是 Chrome D
 | `logs`、`inspect`、`storage`、`reload`、`open`（含 `action`/`command`） | ✓                    | ✓（已验证）              |
 | `page` / `content` 上下文中的 `eval`                                    | ✓                    | ✓                        |
 | `eval --context background`                                             | 仅 MV2 构建（见脚注) | ✓（MV2 background 页面） |
-| `inspect --deep-dom`（闭合 shadow root）                                | ✓                    | —（依赖 CDP）            |
 | `extension_list_extensions`（MCP 工具）                                 | ✓                    | —（依赖 CDP）            |
 
 （在 Chromium MV3 构建上，`eval --context background` 返回的是一条解释性错误。MV3 的后台是 service worker，而 Chrome 的扩展 CSP 在每个 MV3 构建上都拒绝 `unsafe-eval`，不只是生产环境。在 Chromium MV3 上请在 `page` / `content` 中求值，或者针对 Firefox/MV2 构建调用后台。`extension_list_extensions` 是 MCP 工具而不是 CLI 子命令——它通过 DevTools Protocol 连接，因此仅支持 Chromium。）
@@ -123,5 +151,6 @@ Extension.js 通过**浏览器内伴侣进程**进行调试，而不是 Chrome D
 ## 下一步
 
 - [触发动作和键盘命令](/docs/debugging/trigger-actions-and-commands)——无需点击即可测试处理器，无头并可在 CI 中运行。
+- [Manifest 拒绝](/docs/debugging/manifest-refusals)——为什么 Chromium 会在会话还来不及连接之前就拒绝一个扩展。
 - [同时运行两个 MCP 服务器](/docs/integrations/chrome-devtools-mcp)——Extension.js 控制能力与 Chrome DevTools MCP 并存。
 - [CI 模板](/docs/workflows/ci-templates)——将这些能力接入 pull request 的检查。

@@ -1,0 +1,89 @@
+---
+title: "用 reload 命令重启扩展上下文"
+description: "按需重新加载正在运行的 Extension.js dev 会话的后台 worker、内容脚本所在标签页或某个页面，可以从终端或脚本发起。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "reload",
+    "debugging",
+    "automation",
+  ]
+---
+
+按需重新加载正在运行的扩展或标签页。
+
+[`dev`](/docs/commands/dev) 会话在文件变化时本来就会自动重载。`reload` 面向的是自动重载看不到的场景：你手工改动的状态、卡死的 service worker，或者需要在两次运行之间拿到干净上下文的测试。
+
+会话必须在控制通道解锁的状态下运行：用 `extension dev --allow-control` 启动它。被拒绝时，报错会指出缺少的那个 flag。
+
+## 何时使用 `reload`
+
+- 后台 worker 里存着有问题的内存状态，你想干净地重启一次。
+- 某个脚本写入了 storage 或触发了一段流程，之后需要一个全新的上下文。
+- 你改了文件监视器视野之外的东西，想强制重新读取。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension reload [project-path] [options]
+```
+
+```bash pnpm
+extension reload [project-path] [options]
+```
+
+```bash yarn
+extension reload [project-path] [options]
+```
+
+```bash bun
+extension reload [project-path] [options]
+```
+
+```bash deno
+extension reload [project-path] [options]
+```
+
+</CodeGroup>
+
+## 参数与 flag
+
+| flag                      | 作用                                                      | 默认值          |
+| ------------------------- | --------------------------------------------------------- | --------------- |
+| `[project-path]`          | 扩展项目根目录路径。                                      | `process.cwd()` |
+| `--context <context>`     | 重载什么：`background`、`content` 或 `page`。             | `background`    |
+| `--tab <id>`              | 用于 `content`/`page`：指定某个标签页。                   | 活动标签页      |
+| `--browser <browser>`     | 目标是哪个会话（`chrome`、`chromium`、`edge`、`firefox`）。 | `chromium`      |
+| `--timeout <ms>`          | 命令超时时间，单位毫秒。                                  | `5000`          |
+| `--output <pretty\|json>` | 输出格式（`json` 会把结果包进 schema-1 信封）。           | `pretty`        |
+
+## 每种 context 分别重载什么
+
+- `background` 会重启扩展本身，从而重启 service worker 并重新读取 manifest。
+- `content` 会重载承载目标内容脚本的标签页，让脚本重新注入。
+- `page` 把目标标签页当作普通页面重载一次。
+
+当活动标签页不是你想要的那个时，用 [`inspect --list-tabs`](/docs/commands/inspect#the-discovery-loop) 找到数字形式的标签页 id。
+
+## 失败模式
+
+- 该浏览器没有对应会话：`E_SESSION_NOT_FOUND`，并附上要运行的完整 `extension dev --allow-control` 命令。
+- 会话运行时没有带 `--allow-control`：连接会被拒绝，报错会指出这个 flag。
+- `--tab` 指定的 id 已经不存在：`E_TARGET_NOT_FOUND`。
+- 调用的耗时超过了 `--timeout`：`E_TIMEOUT`。
+
+成功时退出码是 `0`，任何失败都是 `1`。机器消费方应当读取 `--output json` 输出的信封（参见 [结果信封](/docs/contracts/result-envelope)）。
+
+## 下一步
+
+- 在 [重载与 HMR](/docs/features/reload-and-hmr) 了解自动重载已经覆盖了哪些情况。
+- 用 [`logs`](/docs/commands/logs) 或 [`inspect`](/docs/commands/inspect) 确认重载后的上下文是干净的。
+- 用 [`doctor`](/docs/commands/doctor) 诊断拒绝了该调用的会话。
+- 在 [调试](/docs/debugging) 中了解更完整的调试流程。

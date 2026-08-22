@@ -55,7 +55,7 @@ extension build [project-path] [options]
 extension build [project-path] [options]
 ```
 
-```bash bun
+```bash deno
 extension build [project-path] [options]
 ```
 
@@ -108,16 +108,35 @@ dist/
 | 旗標                     | 別名            | 用途                                                                                | 預設值              |
 | ------------------------ | --------------- | ----------------------------------------------------------------------------------- | ------------------- |
 | `[path]`                 | -               | 建置本地擴充功能專案。                                                              | `process.cwd()`     |
-| `--browser <browser>`    | -               | 瀏覽器/引擎目標(`chromium`、`chrome`、`edge`、`firefox`、引擎別名,或逗號分隔的值)。 | `chromium`          |
+| `--browser <browser>`    | -               | 瀏覽器/引擎目標(`chromium`、`chrome`、`edge`、`firefox`、`safari`、引擎別名,或逗號分隔的值)。 | `chromium`          |
 | `--polyfill [boolean]`   | -               | 為 Chromium 目標啟用 `browser.*` API 相容性 polyfill。                              | `false`             |
+| `--no-polyfill`          | -               | 關閉跨瀏覽器 polyfill。                                                             | polyfill 預設停用   |
 | `--zip [boolean]`        | -               | 產生打包好的 zip 產物。                                                             | `false`             |
 | `--zip-source [boolean]` | -               | 在 zip 輸出中包含原始檔。                                                           | `false`             |
-| `--zip-filename <name>`  | -               | 設定自訂 zip 檔名。                                                                 | 擴充功能名稱 + 版本 |
+| `--zip-filename <name>`  | -               | 設定自訂 zip 檔名。                                                                 | 清理過的擴充功能名稱 + 版本 |
 | `--silent [boolean]`     | -               | 隱藏建置記錄。                                                                      | `false`             |
 | `--mode <mode>`          | -               | 覆寫打包工具模式(`development`、`production` 或 `none`),同時會設定 `NODE_ENV`。     | `production`        |
 | `--extensions <list>`    | -               | 以逗號分隔的搭配擴充功能或 store URL。                                              | 未設                |
-| `--install [boolean]`    | -               | 當缺少時安裝專案相依套件。                                                          | 依指令行為而定      |
-| `--author`               | `--author-mode` | 啟用維護者診斷。                                                                    | 停用                |
+| `--install [boolean]`    | -               | 內部旗標。當缺少時安裝專案相依套件。除非設定 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`,否則生命週期指令碼維持停用。 | `node_modules` 缺少時安裝 |
+| `--output <pretty\|json>`| -               | 結果格式。`json` 會在 stdout 印出一個 schema-1 信封。                               | `pretty`            |
+| `--debug`                | -               | 啟用維護者診斷。                                                                    | 停用                |
+
+`--author` 與 `--author-mode` 是 `--debug` 的隱藏、已淘汰別名。
+
+### Safari 旗標
+
+這些旗標只適用於 `safari` 與 `webkit-based` 目標。把其中任何一個和其他目標一起傳入都會以錯誤結束,所以打錯字時不會靜默地什麼都不做。
+
+| 旗標                     | 用途                                                                                        | 預設值                             |
+| ------------------------ | ------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `--open [boolean]`       | 打包完成後開啟建置出的 Safari 應用程式。除非你明確要求,`build` 不會開啟它。                 | `false`                            |
+| `--app-name <name>`      | 覆寫 Safari 應用程式名稱。                                                                  | manifest 的 `name`                 |
+| `--bundle-id <id>`       | 由你自己擁有、反向 DNS 形式的 bundle 識別碼。格式錯誤的值會在任何建置開始前就失敗。         | 自動產生的 `dev.extensionjs.*` id  |
+| `--development-team <id>` | 用來簽署 Safari 應用程式的 Apple Developer team id。沒有它時建置為 ad-hoc 簽署,Safari 會視為未簽署,因此每次啟動都要重新勾選「開發 ▸ 允許未簽署的擴充功能」。 | 未設(ad-hoc 簽署) |
+| `--macos-only [boolean]` | 產生僅 macOS 的 Xcode 專案。傳 `false` 可產生 macOS + iOS 通用專案。                        | `true`                             |
+| `--force-regenerate`     | 即使 Safari Xcode 專案已是最新,仍重新產生它。                                              | 停用                               |
+
+Safari 打包會在建置前先跑一次預檢。在非 macOS 主機上,`build` 會警告並跳過 Safari 打包步驟,但仍會編譯 bundle。在 macOS 上,若 Xcode 損壞或缺少,則屬致命錯誤。
 
 ## 共用全域選項
 
@@ -145,7 +164,7 @@ extension build ./my-extension --mode development
 extension build ./my-extension --mode development
 ```
 
-```bash bun
+```bash deno
 extension build ./my-extension --mode development
 ```
 
@@ -161,9 +180,22 @@ extension build ./my-extension --mode development
 | `--zip-filename` | 設定自訂 zip 名稱        | CI 的命名規則       |
 | `--zip-source`   | 在產物旁附加原始碼壓縮檔 | 合規 / 審查流程     |
 
+每個 zip 都落在它自己的 `dist/<browser>` 資料夾裡,與未壓縮的輸出放在一起。沒有 `--zip-filename` 時,名稱是 manifest 的 `name` 轉小寫、移除 `a-z0-9` 與空白以外的所有字元、把剩下的空白換成連字號,再接上 manifest 的 `version`。一個名為 `My Extension+`、版本為 `1.0.0` 的 manifest 會打包成 `dist/chrome/my-extension-1.0.0.zip`。因為名稱經過改寫,請從建置輸出讀取實際路徑,而不要用 manifest 名稱自行組合。
+
 ## 範例
 
 ### 使用 zip 輸出與自訂檔名建置
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/ETUESw0uOi4?autoplay=1&mute=1&loop=1&playlist=ETUESw0uOi4&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension build for Edge and Chrome"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 <CodeGroup>
 
@@ -183,7 +215,7 @@ extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-ext
 extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
 ```
 
-```bash bun
+```bash deno
 extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-extension.zip
 ```
 
@@ -211,7 +243,7 @@ extension build ./my-extension --browser=chrome,firefox --polyfill
 extension build ./my-extension --browser=chrome,firefox --polyfill
 ```
 
-```bash bun
+```bash deno
 extension build ./my-extension --browser=chrome,firefox --polyfill
 ```
 
@@ -239,23 +271,51 @@ extension build ./my-extension --zip --zip-source
 extension build ./my-extension --zip --zip-source
 ```
 
-```bash bun
+```bash deno
 extension build ./my-extension --zip --zip-source
 ```
 
 </CodeGroup>
+
+## 成功的建置會印出什麼
+
+在資源摘要之後,一次成功的建置會印出輸出資料夾與它的大小,
+接著是一個可以把建置交給別人審閱的連結:
+
+```plaintext
+⏵⏵⏵ Extension built for production in dist/chrome (35.5 KB).
+⏵⏵⏵ Send this build to someone for review: https://docs.extension.dev/share/unpublished-build-for-review
+```
+
+每個目標都會印出自己的這一組行,所以多瀏覽器建置會按瀏覽器重複一次。
+
+帶警告成功的建置會在那兩行之上印出警告細節,
+而且編譯那一行會顯示 `compiled with warnings` 而不是 `compiled in`。
+
+不要用這些文字為 CI 把關。它是寫給人看的,會隨版本改變。
+請改用結束碼,或下面的 `--output json`,那才是受支援的機器契約。
+
+## 用 `--output json` 取得機器可讀輸出
+
+`--output json` 會在 stdout 印出一個 schema-1 信封,並把給人看的建置訊息導到 stderr。stdout 始終可以當作單一份 JSON 文件解析。
+
+- 成功的執行會印出一個 `status: "built"` 框。它的 `value` 帶著建置出的瀏覽器、解析後的模式,以及每個瀏覽器一份摘要。每份摘要記錄輸出路徑、資源總量、警告文字,以及相關時的 Safari 應用程式識別。
+- 失敗的建置會在行程以 `1` 結束前印出一個 `ok: false` 框,其 `status: "build-failed"`、`error.code: "E_COMPILE"`。
+
+每次建置也會寫出 `dist/extension-js/<browser>/build-summary.json`。以 shell 呼叫 `extension build` 的指令碼可以從那裡讀取結構化的警告。請檢查檔案的修改時間,以免讀到過期檔案。
 
 ## 最佳實務
 
 - **檢視建置記錄:** 每次建置後檢查警告與遺漏的資源。
 - **最佳化 manifest:** 讓 `manifest.json` 與每個目標瀏覽器相容。
 - **有意義地命名產物:** 使用 `--zip-filename` 讓 CI 產物有穩定名稱。
-- **驗證每個目標輸出:** 在發布前檢查各個 `dist/<browser>` 資料夾。
+- **驗證每個目標輸出:** 在發布前檢查各個 `dist/<browser>` 資料夾。之後的一次 `dev` 會用帶開發檢測的建置覆寫同一個資料夾,那個建置會加上 `scripting`、`tabs`、`management`、`storage` 等權限,以及針對 `<all_urls>` 的 `host_permissions` 和寬鬆的 web-accessible resources。打包或發布前請重新執行一次 `build`。
 
 ## 後續步驟
 
-- 把這個建置透過一個連結交給別人審閱，參見 [Share an unpublished build for review](https://docs.extension.dev/share/unpublished-build-for-review)。
-- 把產物提交到瀏覽器商店，參見 [extension.dev 發布文件](https://docs.extension.dev/publish/overview)。
+- 把這個建置透過一個連結交給別人審閱，參見 [Share an unpublished build for review](https://docs.extension.dev/share/unpublished-build-for-review?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam)。
+- 把產物提交到瀏覽器商店，參見 [extension.dev 發布文件](https://docs.extension.dev/publish/overview?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam)。
+- 用 [`publish`](/docs/commands/publish) 為專案在 extension.dev 上取得可分享的 URL。
 - 用 [`preview`](/docs/commands/preview) 執行現有的建置輸出。
 - 用 [`start`](/docs/commands/start) 在一個指令中完成建置與啟動。
 - 在 [`extension.config.js`](/docs/features/extension-configuration) 中集中設定共用預設值。

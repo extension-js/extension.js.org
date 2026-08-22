@@ -14,7 +14,6 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["chromium", "firefox"]} />
 不必為每個瀏覽器各自維護一份 manifest 檔案。
 
 Extension.js 讓你用前綴在同一份檔案內定義瀏覽器專屬的值，在編譯時只輸出符合當前目標的欄位。
@@ -25,9 +24,9 @@ Extension.js 讓你用前綴在同一份檔案內定義瀏覽器專屬的值，�
 
 ## 運作方式
 
-Extension.js 會掃描 manifest 鍵值，並針對所選的瀏覽器解析帶前綴的條目：
+Extension.js 會掃描 manifest 鍵值，並針對所選的瀏覽器解析帶前綴的條目。解析是以引擎家族為單位，而不是以廠商為單位：
 
-- Chromium 家族目標（`chrome`、`edge`、`chromium-based`，以及分支 `brave`、`opera`、`vivaldi`、`yandex`）會解析：`chromium:`、`chrome:`、`edge:`
+- Chromium 家族目標（`chromium`、`chrome`、`edge`、`chromium-based`，分支 `brave`、`opera`、`vivaldi`、`yandex`，以及 Safari 輸出）會解析：`chromium:`、`chrome:`、`edge:`
 - Gecko 家族目標（`firefox`、`gecko-based`，以及分支 `waterfox`、`librewolf`）會解析：`firefox:`、`gecko:`
 
 當帶前綴的鍵符合當前目標時，Extension.js 會在輸出的 manifest 中將其改寫為不帶前綴的鍵。分支目標會繼承其引擎家族的前綴，因此當你以 `brave` 或 `waterfox` 這類分支為目標時，只帶有 `chromium:`/`firefox:` 鍵的 manifest 仍能正確解析。精確的瀏覽器名稱前綴也會符合它自己的目標（例如當你執行 `--browser=brave` 時的 `brave:`）。
@@ -52,34 +51,66 @@ Extension.js 會掃描 manifest 鍵值，並針對所選的瀏覽器解析帶前
 }
 ```
 
-你也可以在同一個瀏覽器家族中針對特定廠商變體做設定：
-
-```json
-{
-  "chrome:action": {
-    "default_title": "Chrome variant"
-  },
-  "edge:action": {
-    "default_title": "Edge variant"
-  }
-}
-```
-
 這讓 `service_worker` 只會出現在 Chromium 家族的輸出中，同時為 Firefox 輸出保留 `background.scripts`。
 
 支援的前綴對應表：
 
-| 前綴        | 套用於下列目標瀏覽器                                                      |
-| ----------- | ------------------------------------------------------------------------- |
-| `chromium:` | `chrome`、`edge`、`chromium-based`、`brave`、`opera`、`vivaldi`、`yandex` |
-| `chrome:`   | `chrome`、`edge`、`chromium-based`、`brave`、`opera`、`vivaldi`、`yandex` |
-| `edge:`     | `edge`、`chromium-based`,以及其他 Chromium 家族目標                       |
-| `firefox:`  | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`        |
-| `gecko:`    | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`        |
+| 前綴        | 套用於下列目標瀏覽器                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------- |
+| `chromium:` | 每一個 Chromium 家族目標：`chromium`、`chrome`、`edge`、`chromium-based`、分支、Safari 輸出 |
+| `chrome:`   | 每一個 Chromium 家族目標（清單與 `chromium:` 相同）                                         |
+| `edge:`     | 每一個 Chromium 家族目標（清單與 `chromium:` 相同）                                         |
+| `firefox:`  | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`                          |
+| `gecko:`    | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`                          |
+| `safari:`   | `safari` 與 `webkit-based`；在這些目標上優先於 Chromium 家族的鍵                            |
+| `webkit:`   | `safari` 與 `webkit-based`（行為與 `safari:` 相同）                                         |
 
-精確的瀏覽器名稱前綴（例如 `brave:`、`vivaldi:` 或 `waterfox:`）只在你以同一個瀏覽器為目標時才會解析。
+精確的瀏覽器名稱前綴（例如 `brave:`、`vivaldi:` 或 `waterfox:`）只在你以同一個瀏覽器為目標時才會額外解析，並且勝過它所屬的家族前綴（以 `chrome` 為目標時，`chrome:` 勝過 `chromium:`）。
+
+Safari 輸出繼承 Chromium 家族（轉換器接收的是 Chrome 形態的 manifest），因此 `chromium:`/`chrome:`/`edge:` 鍵同樣適用於 Safari；若只想覆寫 Safari，請使用 `safari:`（或 `webkit:`），它們優先於家族鍵。
 
 這對任何層級的任何 manifest 欄位都有效，包含 `permissions`、`content_scripts` 與 `background`。
+
+### 家族層級的解析，而不是以廠商為單位
+
+`chromium:`、`chrome:` 與 `edge:` 都是 Chromium 家族內的家族前綴：它們各自都適用於每一個 Chromium 家族目標。如果某個欄位只想給單一廠商使用，請改用它精確的瀏覽器名稱前綴（例如 `brave:`），它只會為該目標解析。
+
+### 優先順序：三層結構
+
+當多個鍵設定同一個欄位時，勝出者取決於層級，而不是它在檔案中的位置：
+
+1. 不帶前綴的一般鍵是基礎。
+2. 家族前綴（Chromium 目標上的 `chromium:`、`chrome:`、`edge:`，Gecko 目標上的 `firefox:`、`gecko:`）會覆寫一般鍵。
+3. 精確前綴會覆寫前面兩者。精確指的是該前綴點名了確切的目標，例如為 `chrome` 建置時的 `chrome:`，或為 `brave` 建置時的 `brave:`。在 Safari 與 webkit 系目標上，`safari:` 與 `webkit:` 兩者都算精確前綴。
+
+原始碼順序只在同一層級內用來打破平手。看以下例子：
+
+```json
+{
+  "chrome:action": {
+    "default_title": "First"
+  },
+  "edge:action": {
+    "default_title": "Second"
+  }
+}
+```
+
+為 `chrome` 建置會輸出 `"First"`：`chrome:` 點名了確切的目標，因此位於精確層，勝過在此處只是家族比對的 `edge:`。為 `edge` 建置則因為對稱的理由輸出 `"Second"`。為 `chromium` 或 `brave` 建置會輸出 `"Second"`，因為兩個前綴都只是家族比對，原始碼順序較後的那個贏得平手。
+
+只要帶前綴的鍵有比對到，它一定會覆寫同名的一般鍵，無論兩者在檔案中的先後位置。
+
+### 前綴在每一層都會解析
+
+解析器會走訪整棵 manifest 樹，包含陣列。位於 `content_scripts` 條目內或任何巢狀物件內的帶前綴鍵，都依照與頂層鍵相同的三層規則解析。
+
+### 同一個解析器也驅動進入點探索
+
+前綴解析不只影響輸出的 JSON。同一個解析器會在 script 與 HTML 進入點探索之前執行，因此 `firefox:background` 腳本或帶前綴的頁面，只有在相符的目標上才會成為被編譯的進入點。
+
+### 分支與 `*-based` 別名
+
+家族分類會先比對一份已知分支清單，再退回到子字串檢查。`chrome`、`edge`、`brave`、`opera`、`vivaldi` 與 `yandex` 依名稱歸類為 Chromium 家族，其他任何包含 `chromium` 的名稱也一樣。`firefox`、`waterfox` 與 `librewolf` 依名稱歸類為 Gecko 家族，其他任何包含 `gecko` 或 `firefox` 的名稱也一樣。這就是 `chromium-based` 與 `gecko-based` 別名，以及以它們為基礎的任意 `*-based` 名稱，都能繼承所屬家族帶前綴鍵的原因。
 
 ## 最佳實務
 

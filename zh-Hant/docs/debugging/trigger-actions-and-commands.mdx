@@ -16,7 +16,18 @@ keywords:
 
 在 CI 中你無法點擊工具列圖示，而沒有 popup 的動作只有在 `onClicked` 觸發時才會做事。Extension.js 讓你能直接觸發這些處理函式 — 工具列動作與鍵盤快速鍵指令 — 讓你可以無頭執行它們，並對結果進行斷言。
 
-這之所以可行，是因為 Extension.js 會在建置時擷取你的 `chrome.action.onClicked` 與 `chrome.commands.onCommand` 監聽器（開發期執行階段會在你的 background 程式碼之前載入），並在需要時重播它們。沒有視窗、沒有滑鼠、沒有 flaky 測試。
+這之所以可行，是因為 Extension.js 會在建置時擷取你的 `chrome.action.onClicked` 與 `chrome.commands.onCommand` 監聽器（開發期執行階段會在你的 background 程式碼之前載入），並在需要時重播它們。重播執行在 background 情境中，也就是你的監聽器所在的那個 service worker 或 background 頁面。沒有視窗、沒有滑鼠、沒有 flaky 測試。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/lB2vRfh2yvQ?autoplay=1&mute=1&loop=1&playlist=lB2vRfh2yvQ&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension open action"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 <Note>
   需要以 `--allow-control` 啟動的開發 session —
@@ -112,16 +123,21 @@ Extension.js 會在這件事重要時告訴你：結果會回報 `gesture: false
 啟動 session、觸發動作、對副作用進行斷言 — 不需要瀏覽器 UI、不需要 Playwright。這就是一個 GitHub Actions job 的完整流程：
 
 ```yaml
-- run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
-- run: pnpm extension open action --browser=chromium --output json
 - run: |
+    pnpm extension dev --browser=chromium --allow-control &
+    pnpm extension dev --browser=chromium --wait --output json
+    pnpm extension open action --browser=chromium --output json
     pnpm extension storage get --key lastClickedAt --browser=chromium --output json \
       | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0)).value?.lastClickedAt ? 0 : 1)'
 ```
 
+第一行會在背景啟動 session。第二行是就緒閘門：`--wait`
+會等待該 session 的[就緒合約](/docs/contracts/ready-json)後結束，它自己從不啟動任何東西。
+把兩者放在同一個 `run:` 步驟裡，讓背景執行的伺服器與閘門共用一個 shell。
+
 由於觸發是可重現且無頭的，它是個可靠的檢核點 — Extension.js 自家的 `smoke:open-action` 檢查正是走相同路徑，它會觸發動作 _以及_ 一個指令，再讀回 `chrome.storage` 來證明每個處理函式確實有執行。
 
-完整 pipeline 請見 [CI 範本](/docs/workflows/ci-templates#test-handlers-without-a-browser-ui)。
+完整 pipeline 請見 [CI 範本](/docs/workflows/ci-templates#不需-ui-的事件處理測試)。
 
 ## 跨瀏覽器
 

@@ -216,6 +216,30 @@ export function checkComponents(pages) {
   return findings;
 }
 
+// A heading with nothing under it still ships to llms-full.txt and to every
+// machine consumer, which then emits a section promising content that is not
+// there. Thirteen pages carried an empty "Video walkthrough" this way.
+export function checkEmptySections(pages) {
+  const findings = [];
+  for (const page of pages) {
+    const source = readFileSync(page.abs, "utf-8");
+    const matches = [...source.matchAll(/^(##+)\s+(.+?)\s*$/gm)];
+    for (let index = 0; index < matches.length; index += 1) {
+      const level = matches[index][1].length;
+      const next = matches[index + 1];
+      // A section that opens straight into its own subsection is not empty:
+      // only a heading with no prose AND no deeper heading is a dead promise.
+      if (next && next[1].length > level) continue;
+      const start = matches[index].index + matches[index][0].length;
+      const end = next ? next.index : source.length;
+      if (source.slice(start, end).trim() === "") {
+        findings.push({ kind: "empty-section", page: page.id, detail: `"${matches[index][2]}" has no content under it` });
+      }
+    }
+  }
+  return findings;
+}
+
 function loadReviewRecords(lane) {
   const dir = path.join(REVIEW_DIR, lane);
   const records = new Map();
@@ -241,6 +265,7 @@ export function buildLedger({ latest } = {}) {
   const versionFindings = checkVersionPins(pages, latest);
   const parityFindings = checkTranslationParity(pages);
   const componentFindings = checkComponents(pages);
+  const emptySectionFindings = checkEmptySections(pages);
 
   const ledgerPages = pages.map((page) => {
     const analysis = analyzePage(readFileSync(page.abs, "utf-8"));
@@ -259,7 +284,7 @@ export function buildLedger({ latest } = {}) {
 
   return {
     pages: ledgerPages,
-    laneAFindings: [...caveatFindings, ...localeFindings, ...versionFindings, ...parityFindings, ...componentFindings],
+    laneAFindings: [...caveatFindings, ...localeFindings, ...versionFindings, ...parityFindings, ...componentFindings, ...emptySectionFindings],
     summary: {
       totalPages: ledgerPages.length,
       en: ledgerPages.filter((p) => p.locale === "en").length,

@@ -1,0 +1,55 @@
+---
+title: "在 WSL 下開發擴充功能"
+description: "在 Windows Subsystem for Linux 中執行 Extension.js 開發工作階段。涵蓋 Linux 優先的瀏覽器解析順序、Windows .exe 後備,以及 Chrome 包裝指令稿的替換。"
+keywords:
+  [
+    "extension.js",
+    "wsl",
+    "windows subsystem for linux",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "docs",
+    "browsers",
+  ]
+---
+
+在 Windows Subsystem for Linux(WSL)中執行完整的 Extension.js 開發迴圈,瀏覽器會自動從邊界的任一側解析出來。
+
+Extension.js 會透過 `WSL_DISTRO_NAME`、`WSL_INTEROP` 或 `WSLENV` 變數,或是 Microsoft 核心簽章來偵測 WSL。接著它會依一套固定的順序解析瀏覽器執行檔。
+
+## 解析順序
+
+1. **優先使用 Linux 原生瀏覽器。** 當有可用的 GUI 顯示時(已設定 `DISPLAY` 或 `WAYLAND_DISPLAY`),Extension.js 會檢查已知的 Linux 安裝位置。例如 `/opt/google/chrome/chrome`、`/usr/bin/chromium`、`/snap/bin/chromium` 與 `/usr/bin/firefox`。使用 Linux 瀏覽器可讓整個開發迴圈都留在 Linux 這一側。
+2. **後備到 `/mnt/c` 底下的 Windows `.exe`。** 當沒有 Linux 瀏覽器時,Extension.js 會去找 Windows 上的安裝。它會檢查 `/mnt/c/Program Files/Google/Chrome/Application/chrome.exe`,以及對應的 Chromium、Edge 與 Firefox 路徑,還有它們的 `Program Files (x86)` 變體。
+3. **啟動時重試一次。** 如果選定的執行檔啟動失敗,Extension.js 會用 Windows 執行檔再重試一次,然後才放棄。
+
+你也可以傳入明確的路徑,完全跳過這套順序:
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe"
+```
+
+## Chrome 包裝指令稿的替換
+
+在 Linux 上,`google-chrome` 及其頻道變體都是 shell 包裝指令稿,而不是真正的執行檔。這個包裝指令稿在 exec 啟動 Chrome 時會關閉額外的檔案描述符,因而破壞開發工作階段所仰賴的 `--remote-debugging-pipe` 通道。
+
+在有 GUI 的 WSL 下,Extension.js 會依名稱辨識包裝指令稿(`google-chrome`、`google-chrome-stable`、`google-chrome-beta`、`google-chrome-dev`、`google-chrome-unstable`),並在 `/opt/google/chrome/chrome` 這個檔案存在時,把它換成真正的執行檔。基於同樣的原因,已知安裝位置清單中真正的執行檔也排在包裝指令稿之前。
+
+## shell 別名不是路徑
+
+<Warning>
+  Extension.js 以 `child_process.spawn` 啟動瀏覽器,它永遠不會讀取你的 shell
+  設定。像 `google-chrome=...` 這樣的 shell
+  別名對啟動器而言並不存在。請傳入真實的檔案路徑,或是一個確實存在於磁碟上的可執行包裝指令稿。
+</Warning>
+
+## 什麼都找不到時
+
+如果兩側都沒有瀏覽器,CLI 會帶著 WSL 專屬的指引結束:在 WSL 內安裝一個 Linux 瀏覽器,或把 `--chromium-binary` 指向 Windows 的 `.exe`。Firefox 會透過它自己的順序以相同方式解析(`/usr/bin/firefox`、`/snap/bin/firefox`、`/opt/firefox/firefox`,然後是 `/mnt/c/Program Files/Mozilla Firefox/firefox.exe`)。
+
+## 下一步
+
+- 在 [可用的瀏覽器](/docs/browsers/browsers-available) 中選擇一個目標。
+- 在 [執行其他瀏覽器](/docs/browsers/running-other-browsers) 中指向自訂執行檔。

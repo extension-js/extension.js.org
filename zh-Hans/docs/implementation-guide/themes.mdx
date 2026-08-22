@@ -1,0 +1,64 @@
+---
+title: "Extension.js 中的浏览器主题"
+description: "用同一份主题 manifest 同时服务 Chrome 与 Firefox：hex 颜色在构建期转换成 Chromium 需要的整数数组，无效值会让编译失败，静态主题则跳过开发期插桩。"
+keywords:
+  [
+    "extension.js",
+    "browser theme",
+    "theme manifest",
+    "theme colors",
+    "static theme",
+    "chrome theme",
+    "firefox theme",
+    "theme_colors integer array",
+  ]
+---
+
+Chrome 与 Firefox 对「主题颜色长什么样」并不一致。Firefox 把 `theme.colors` 的值当作 CSS 字符串解析，而 Chrome 只接受整数数组。Extension.js 在构建期把这个差异抹平，所以同一份 `manifest.json` 能同时服务两种引擎。
+
+## 一份 manifest，两种颜色格式
+
+在 manifest 里写 hex 颜色，然后为任意目标构建：
+
+```json
+{
+  "theme": {
+    "colors": {
+      "frame": "#1a1b26",
+      "toolbar": "#24283bcc"
+    }
+  }
+}
+```
+
+对 Chromium 家族的目标，构建会把每个 hex 字符串转换成 Chrome 要求的整数数组。对 Gecko 目标，字符串形式原样输出，因为 Firefox 本来就能解析它。
+
+这个转换接受 3、4、6 和 8 位的 hex。8 位的值会变成 `[R, G, B, A]`，其中 alpha 字节会被缩放为 0 到 1 的浮点数并四舍五入到三位小数。`#24283bcc` 会变成 `[36, 40, 59, 0.8]`。转换器还能读 CSS 具名关键字（`tomato` 会变成 `[255, 99, 71]`）、`transparent`（`[0, 0, 0, 0]`），以及数值形式的 `rgb()`/`rgba()` 字符串。超出这套语法的值会原封不动地透传。
+
+## 无效的值会让构建失败
+
+只要主题的某个值形状不对，Chrome 就会拒绝整个扩展，所以 Extension.js 改为在编译期就抓住这个错误。在 Chromium 家族的目标上，每一个无效的主题值都会变成一个点名到具体字段的编译错误：
+
+- `theme.colors.*` 的条目必须是 `[R, G, B]` 或 `[R, G, B, A]` 数组、hex 字符串，或者转换器能由此产出这些结果的值。各通道必须是 0 到 255 的整数，alpha 必须是数值。
+- `theme.tints.*` 的条目必须是恰好 3 个数字组成的 `[hue, saturation, lightness]` 数组。
+
+每条错误都会说明 Chrome 对那个具体字段能接受什么，这样你直接改值就行，不用去猜浏览器里那块拒绝提示的意思。
+
+## Safari 目标会给出警告
+
+Safari 没有主题这个界面。当你为 `safari` 或 webkit 系目标构建、而 manifest 里带有任何 `theme` 键时，构建会发出一条警告。该字段会原样出现在输出的 manifest 里，Safari 会忽略它。
+
+## 静态主题会跳过开发期插桩
+
+静态主题指的是带有 `theme` 键、且没有任何运行时界面的 manifest。当下面这 15 个键一个都不存在时，Extension.js 就把这份 manifest 当作静态主题：
+
+`background`, `content_scripts`, `action`, `browser_action`, `page_action`, `sidebar_action`, `side_panel`, `options_page`, `options_ui`, `devtools_page`, `chrome_url_overrides`, `sandbox`, `user_scripts`, `declarative_net_request`, `web_accessible_resources`
+
+静态主题不接受任何开发期插桩。本来也没什么可插桩的：没有 background、没有页面、没有 content script。更重要的是，主题会按主题 schema 校验，而该 schema 禁止出现额外的顶层键，addons.mozilla.org 对每一个这样的键都会直接报错。注入仅用于开发的键会让产物不再是一个合法的主题。
+
+这个判断读的是磁盘上你的 `manifest.json`，而不是构建过程中的中间输出。等到开发期的补丁落下来时，编译后的 manifest 早已带上注入的键，看起来也就不再像一个主题了。
+
+## 下一步
+
+- 用 [浏览器专属的 manifest 字段](/docs/features/browser-specific-fields) 为每个字段指定单一引擎。
+- 用 [多平台构建](/docs/features/multi-platform-builds) 产出按目标区分的产物。

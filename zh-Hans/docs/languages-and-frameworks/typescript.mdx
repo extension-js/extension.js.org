@@ -16,6 +16,8 @@ keywords:
 
 Extension.js 在所有扩展上下文中都能跑 TypeScript：background、content script、popup、options 和 sidebar。它默认使用 Rspack + SWC 管线。你不需要单独的 `tsc` 步骤、ts-loader，也不需要额外的打包器规则。
 
+构建过程完全不需要 `typescript` 包。SWC 会编译你的源码并擦除类型。这个包只对编辑器工具和 `tsc --noEmit` 类型检查有意义。正因如此，缺少 `typescript` 包永远不会让构建失败——这一点和缺少框架集成包不同。
+
 ## 什么场景适合用 TypeScript
 
 - 你希望在各个扩展上下文中获得更安全的重构和更清晰的契约。
@@ -48,8 +50,8 @@ yarn dlx extension@latest create my-extension --template=new-typescript
 bunx extension@latest create my-extension --template=new-typescript
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-typescript
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-typescript
 ```
 
 </CodeGroup>
@@ -80,8 +82,8 @@ yarn dlx extension@latest create my-extension --template=content-typescript
 bunx extension@latest create my-extension --template=content-typescript
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-typescript
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-typescript
 ```
 
 </CodeGroup>
@@ -145,7 +147,7 @@ bunx tsc --init
 ```
 
 ```bash deno
-deno run -A npm:tsc --init
+deno run -A npm:typescript/tsc --init
 ```
 
 </CodeGroup>
@@ -156,8 +158,8 @@ deno run -A npm:tsc --init
 
 Extension.js 会在 `package.json` 旁边查找 `tsconfig.json`。
 
-- 如果存在 TypeScript 源文件但缺少 `tsconfig.json`，Extension.js 会抛出错误，要求你创建一个。
-- 如果 Extension.js 仅通过依赖或配置检测到 TypeScript，但没有源文件，它可以为你生成一份基线 `tsconfig.json`。
+- 有 `.ts` 源文件却没有 `tsconfig.json` 时，Extension.js 会往项目里写入一份基线配置。构建会提示 `Creating a default tsconfig.json` 并继续。
+- 如果项目声明了 `typescript` 依赖，但还没有 `tsconfig.json`、也还没有 `.ts` 源文件，Extension.js 会为它写入一份基线配置。
 
 基线配置示例：
 
@@ -173,7 +175,6 @@ Extension.js 会在 `package.json` 旁边查找 `tsconfig.json`。
     "lib": ["dom", "dom.iterable", "esnext"],
     "moduleResolution": "bundler",
     "module": "esnext",
-    "noEmit": true,
     "resolveJsonModule": true,
     "strict": true,
     "target": "esnext",
@@ -182,6 +183,11 @@ Extension.js 会在 `package.json` 旁边查找 `tsconfig.json`。
   "exclude": ["node_modules", "dist"]
 }
 ```
+
+有两个默认值值得了解：
+
+- `moduleResolution` 为 `bundler`，它对应 Rspack + SWC 管线。已被移除的 `node`（node10）模式会让 TypeScript 7 上的 `tsc --noEmit` 失败。
+- 只有当 Extension.js 在项目中检测到 JSX 框架时，`jsx` 才是 `react-jsx`。没有检测到时，它保持 `preserve`。
 
 #### 自动类型
 
@@ -220,6 +226,3 @@ Extension.js 在开发期会在项目根目录生成 `extension-env.d.ts`。该�
 - 探索 [Sass 模块](/docs/languages-and-frameworks/sass)等样式方案。
 - 阅读[浏览器扩展中的 JavaScript 和 TypeScript 文件](/docs/concepts/javascript-typescript-browser-extension-files)。
 - 用一套 TypeScript 代码跨浏览器发布，详见 [跨浏览器兼容性](/docs/features/cross-browser-compatibility)。
-
-## 视频讲解
-
