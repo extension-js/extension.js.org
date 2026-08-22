@@ -1,0 +1,93 @@
+{
+ "batch": "b07",
+ "pages": [
+  {
+   "page": "docs/browsers/running-other-browsers.mdx",
+   "claimsChecked": 13,
+   "claimsVerifiedByRunning": 7,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Published CLI under test is extension@4.1.3. Verified fork names in dev/build/start/preview --help (start and preview do omit safari/webkit-based as claimed), that build accepts no binary flags, --gecko-binary/--firefox-binary alias, the chromium-based hard-exit ('chromium-based requires --chromium-binary' in run-chromium/chromium-launch/index.ts:687), EDGE_BINARY override, and the browser.<target>/commands.<name> chromiumBinary/geckoBinary config keys in programs/extension/config-types.ts."
+  },
+  {
+   "page": "docs/commands/install.mdx",
+   "claimsChecked": 15,
+   "claimsVerifiedByRunning": 8,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Ran install --where, install chrome --where, install --where --output json (status \"located\", value.paths) and install safari (refuses with the Xcode explanation). macOS cache path matched exactly. The 'all' asymmetry is correct: installTargets('all') = chrome/chromium/edge/firefox vs vendors('all') = chrome/edge/firefox in programs/extension/helpers/vendors.ts. E_BROWSER_DOWNLOAD, status \"installed\"/value.browsers, playwright msedge, EXT_BROWSERS_CACHE_DIR and EXTENSIONJS_BINARIES_IN_DIST all confirmed in source."
+  },
+  {
+   "page": "docs/concepts/session-artifacts.mdx",
+   "claimsChecked": 15,
+   "claimsVerifiedByRunning": 6,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Ran a real dev session (--no-browser) and a build: .extension-js/control-port-chromium, dist/extension-js/<browser>/{ready.json,events.ndjson,logs.ndjson,build-summary.json}, and the auto-written dist/extension-js/.gitignore containing '*' all appeared as documented. Debug-port derivation (9222 default, PORT_OFFSET 100, first 8 hex chars mod 1000, --port 0 refusal), 0600 token mode, FORCE_KILL_GRACE_MS 5000, taskkill /T /F, benign socket codes and hot/ pruning all match source. build-summary.json fields matched the documented table exactly."
+  },
+  {
+   "page": "docs/features/browser-specific-fields.mdx",
+   "claimsChecked": 11,
+   "claimsVerifiedByRunning": 4,
+   "findings": 1,
+   "verdict": "minor-issues",
+   "note": "Built the same prefixed manifest for chrome and chromium: the documented three-tier lattice held exactly (chrome:short_name won as 'First' on chrome, edge:short_name won as 'Second' on chromium by source order). Resolver in programs/develop/lib/manifest-utils.ts matches the prefix map, including safari:/webkit: beating chromium-family keys. One inaccurate sentence about how family classification is implemented."
+  },
+  {
+   "page": "docs/features/telemetry-and-privacy.mdx",
+   "claimsChecked": 17,
+   "claimsVerifiedByRunning": 2,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Checked every number against programs/extension/helpers/telemetry.ts: 0.2 sample rate, 3 max events, 60_000 ms debounce, 1 MiB audit cap with the 10x drop, events.jsonl next to consent, the config->cache->tmp->./.cache fallback order, $ip null, the create sampling exemption, and the CI gate that demotes a stored 'enabled'. Ran `extension telemetry --help` to confirm enable|disable|status with status as default."
+  },
+  {
+   "page": "docs/hall-of-fame.mdx",
+   "claimsChecked": 9,
+   "claimsVerifiedByRunning": 5,
+   "findings": 2,
+   "verdict": "minor-issues",
+   "note": "Checked every outbound link with curl and the sponsor assets on disk. images/sponsors/testmuai.svg and testmuai_dark.svg exist; extension-js/docs, BACKERS.md and TELEMETRY.md all return 200. Two problems: a 404 contributing link, and a tier promise contradicted by where the Bronze sponsor is actually displayed."
+  },
+  {
+   "page": "docs/implementation-guide/manifest-json.mdx",
+   "claimsChecked": 15,
+   "claimsVerifiedByRunning": 8,
+   "findings": 2,
+   "verdict": "significant-issues",
+   "note": "Built a manifest exercising background/action/side_panel/content_scripts: every documented output rewrite was exact (background/service_worker.js, sidebar/index.html, action/index.html, content_scripts/content-0.js|.css). The legacy-path list matches LEGACY_MANIFEST_PATH_RULES one for one. Two claims failed when run: the legacy warning is not dev-only, and public/manifest.json is not ignored."
+  },
+  {
+   "page": "docs/integrations/chrome-devtools-mcp.mdx",
+   "claimsChecked": 9,
+   "claimsVerifiedByRunning": 3,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Verified against the real packages: chrome-devtools-mcp@1.7.0 documents --categoryExtensions with the exact pipe-only / 'not supported ... until 149' caveat the Note reproduces, and @extension.dev/mcp@10.9.0 exposes every extension_* tool named on the page (extension_dev, extension_build, extension_manifest_validate, extension_open, extension_list_extensions, extension_logs, extension_storage, extension_eval, extension_reload, extension_start). The gesture/activeTab claims are browser-behavior statements I did not launch a browser to test."
+  },
+  {
+   "page": "docs/languages-and-frameworks/ecmascript-modules.mdx",
+   "claimsChecked": 8,
+   "claimsVerifiedByRunning": 2,
+   "findings": 1,
+   "verdict": "minor-issues",
+   "note": "Both templates exist (examples/new, examples/content) and both screenshot images resolve. import.meta.env.EXTENSION_PUBLIC_* and process.env.EXTENSION_PUBLIC_* are both defined in programs/develop/plugin-compilation/env.ts, and background.type === 'module' is honored in feature-scripts/steps/add-scripts.ts. The page ends on a section heading with no content under it."
+  },
+  {
+   "page": "docs/publishing/chrome-credentials.mdx",
+   "claimsChecked": 5,
+   "claimsVerifiedByRunning": 1,
+   "findings": 0,
+   "verdict": "accurate",
+   "note": "Almost entirely Chrome Web Store and Google Cloud console procedure, which cannot be checked without a $5 store account and an OAuth consent screen, so I marked those unverifiable rather than guessing. What I could check held: `extension build --browser chrome --zip` is a real invocation, the STORE.md cross-link resolves to docs/workflows/store-metadata.mdx, and the CHROME_* env var naming is consistent with the sibling firefox-credentials and edge-credentials pages."
+  },
+  {
+   "page": "docs/workflows/playwright-e2e.mdx",
+   "claimsChecked": 13,
+   "claimsVerifiedByRunning": 6,
+   "findings": 1,
+   "verdict": "minor-issues",
+   "note": "Ran the documented two-process pattern for real: `extension dev --no-browser` then `extension dev --wait --browser=chromium --output=json` exited 0 and printed exactly the envelope the sample code parses, so payload.results[0] with schemaVersion 2, distPath, port, pid, runId, compiledAt and errors is correct. Confirmed the deprecated --wait-format alias still works and warns on stderr. browserPid, runtime:'attached' and executorAttachedAt all exist in source. One claim about the reader's repository is wrong."
+  }
+ ]
+}
