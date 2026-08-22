@@ -100,9 +100,19 @@ In extension page contexts (for example, popup/options/new tab), module imports 
 
 ## Content script note
 
-In content scripts, Extension.js emits CSS as stylesheet content without JavaScript class-name mappings.
+Content scripts get the same treatment as extension pages. Rspack generates scoped class
+names, exports them to your JavaScript, and Extension.js registers the emitted stylesheet in
+the manifest `content_scripts[].css` entry, and in `web_accessible_resources` so it can also
+be injected into a shadow root. Import the class names you need and apply them:
 
-Use component-level local class naming in content scripts. Do not assume CSS module class imports work there unless you have explicitly tested it.
+```ts
+import {primary} from "./styles/myComponent.module.css";
+
+const button = document.createElement("button");
+button.className = primary;
+```
+
+See the `content-css-modules` template above for a working example.
 
 ## React/Preact example usage
 

@@ -42,7 +42,12 @@ Make GitHub search as fast as a native browser shortcut. The extension reserves 
 
 ## Step 1: create the extension
 
-Use the Extension.js `create` command to scaffold a minimal extension named `github-search`.
+Use the Extension.js `create` command to scaffold an extension named `github-search`.
+
+The default template is a working sidebar starter, so the scaffold already contains
+`src/manifest.json` and `src/background.js`. The next two steps replace those two files.
+Everything you write in this tutorial goes in `src/`, because Extension.js prefers
+`src/manifest.json` when it is present.
 
 <CodeGroup>
 
@@ -91,6 +96,8 @@ the latest release) before running `deno task dev`.
 
 Every extension starts with a manifest file. It defines metadata, permissions, and runtime files. Based on the [plan above](#the-plan), set the `gh` shortcut and add a service worker for user events.
 
+Open the `src/manifest.json` the scaffold created and replace its contents with:
+
 ```json
 {
   "manifest_version": 3,
@@ -112,7 +119,7 @@ In browser extensions, the background service worker (a script that runs indepen
 
 For this example, add a script that listens to Omnibox input and routes the query to GitHub search.
 
-Create `service_worker.js`:
+Create `src/service_worker.js`, and delete the `src/background.js` the scaffold shipped so nothing else claims the background entry:
 
 ```js
 // When the user has accepted what is typed into the omnibox.
@@ -129,6 +136,14 @@ chrome.omnibox.onInputEntered.addListener((text) => {
 The script above opens a new tab with GitHub search results whenever you type something after "gh" in the address bar.
 
 ## Step 4: load your extension
+
+Move into the project and install its dependencies. `create` scaffolds the project but
+does not install for you, and the `dev` script runs the local `extension` binary:
+
+```bash
+cd github-search
+npm install
+```
 
 Your `package.json` file now looks like this:
 

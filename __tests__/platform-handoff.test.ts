@@ -46,23 +46,15 @@ describe("hand-off to the extension.dev platform", () => {
     expect(read("docs/commands/publish.mdx")).toContain(SHARE_DOCS_URL);
   });
 
+  // This assertion used to pin the opposite text, which the CLI has never
+  // printed. A test that quotes terminal prose can only be trusted when it is
+  // checked against a real run, so it now asserts the lines 4.1.3 emits.
   it("quotes the exact lines a successful build prints", () => {
     const buildDoc = read("docs/commands/build.mdx");
-    expect(buildDoc).toContain(
-      "⏵⏵⏵ Build succeeded with no warnings.\nYour extension is ready for deployment.",
-    );
-  });
-
-  it("claims no printed link on any locale's build page", () => {
-    const claims = [
-      "the link a successful build prints",
-      "构建成功后终端也会打印这个链接",
-      "建置成功後終端機也會印出這個連結",
-    ];
-    for (const localeDir of LOCALE_DIRS) {
-      const body = read(`${localeDir}/commands/build.mdx`);
-      for (const claim of claims) expect(body).not.toContain(claim);
-    }
+    expect(buildDoc).toContain("⏵⏵⏵ Extension built for production in dist/");
+    expect(buildDoc).toContain("⏵⏵⏵ Send this build to someone for review:");
+    expect(buildDoc).not.toContain("Build succeeded with no warnings.");
+    expect(buildDoc).not.toContain("Your extension is ready for deployment.");
   });
 
   it("points every locale's build page at the share destination", () => {
