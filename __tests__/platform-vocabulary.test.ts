@@ -8,7 +8,13 @@ const ROOT = resolve(__dirname, "..");
 
 const LOCALE_DIRS = ["docs", "zh-Hans/docs", "zh-Hant/docs"];
 
-const ALLOWED_PAGES = ["docs/commands/publish.mdx"];
+// The publish page is where this vocabulary belongs, in every locale. The
+// Chinese twins were created later, so the list had only the English page.
+const ALLOWED_PAGES = [
+  "docs/commands/publish.mdx",
+  "zh-Hans/docs/commands/publish.mdx",
+  "zh-Hant/docs/commands/publish.mdx",
+];
 
 const PLATFORM_VOCABULARY = [
   "EXTENSION_DEV_TOKEN",

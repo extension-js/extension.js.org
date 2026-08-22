@@ -1,0 +1,98 @@
+---
+title: "用 storage 命令读写扩展存储"
+description: "从终端读写正在运行的 Extension.js 开发会话的 chrome.storage 区域，支持 JSON 值与按区域定位。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "storage",
+    "debugging",
+    "automation",
+  ]
+---
+
+从终端读写扩展的 `chrome.storage` 区域。
+
+`storage` 与一个正在运行的开发会话通信，并把 storage 调用放到扩展内部执行，所以你看到的正是你的代码看到的内容。不需要 DevTools，也不需要临时的 `console.log`。
+
+会话必须以解锁控制通道的方式运行：用 `extension dev --allow-control` 启动它。被拒绝时，错误信息会点名缺少的那个 flag。
+
+## 什么时候使用 `storage`
+
+- 你想查看扩展持久化了什么，又不想为此专门搭一个调试界面。
+- 测试或 agent 需要在跑通某个流程之前先给 storage 播下初始状态。
+- 你想在一个实时会话中翻转某个存储的功能开关，并观察效果。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension storage <get|set> [project-path] [options]
+```
+
+```bash pnpm
+extension storage <get|set> [project-path] [options]
+```
+
+```bash yarn
+extension storage <get|set> [project-path] [options]
+```
+
+```bash bun
+extension storage <get|set> [project-path] [options]
+```
+
+```bash deno
+extension storage <get|set> [project-path] [options]
+```
+
+</CodeGroup>
+
+先读取整个 `local` 区域，再读取单个键，然后写入一个值：
+
+```bash
+extension storage get
+extension storage get --key settings
+extension storage set --key settings --value '{"theme": "dark"}'
+```
+
+## 参数与 flag
+
+| flag                      | 作用                                                                       | 默认值          |
+| ------------------------- | -------------------------------------------------------------------------- | --------------- |
+| `<action>`                | `get` 或 `set`。                                                           | 必填            |
+| `[project-path]`          | 扩展项目根目录的路径。                                                     | `process.cwd()` |
+| `--area <area>`           | 存储区域（`local`、`sync`、`session`、`managed`）。                        | `local`         |
+| `--key <key>`             | 要读取或写入的键。`get` 不带键时返回整个区域。                             | 未设置          |
+| `--value <json>`          | `set` 要写入的值。先按 JSON 解析，解析失败则保留为原始字符串。             | `set` 必填      |
+| `--context <context>`     | 执行该调用的上下文（`background`、`popup`、`options`、`sidebar`、`content`）。 | `background`    |
+| `--browser <browser>`     | 要定位哪个会话（`chrome`、`chromium`、`edge`、`firefox`）。                | `chromium`      |
+| `--timeout <ms>`          | 命令超时时间，单位毫秒。                                                   | `5000`          |
+| `--output <pretty\|json>` | 输出格式（`json` 会把结果包进 schema-1 信封）。                            | `pretty`        |
+
+## 值是怎么解析的
+
+`--value` 会按 JSON 解析，因此 `'{"theme": "dark"}'`、`'42'` 和 `'true'` 都是带类型送达的。不是合法 JSON 的输入会退回为原始字符串，所以 `--value hello` 会存下字符串 `"hello"`，不需要额外加引号。
+
+`set` 同时需要 `--key` 和 `--value`。少了任何一个，都会在建立任何连接之前以 `E_ARGS` 失败。除 `get` 与 `set` 以外的动作也以同样的方式失败。
+
+## 失败模式
+
+- 该浏览器没有会话：`E_SESSION_NOT_FOUND`，并给出应当运行的完整 `extension dev --allow-control` 命令。
+- 会话在运行时没有带 `--allow-control`：连接被拒绝，错误信息会点名这个 flag。
+- storage 调用在扩展内部抛出了异常（例如向只读的 `managed` 区域写入）：`E_STORAGE`。
+- 调用超出了 `--timeout`：`E_TIMEOUT`。
+
+成功时退出码为 `0`，任何失败都是 `1`。机器消费方应当读取 `--output json` 输出的信封（参见 [结果信封](/docs/contracts/result-envelope)）。
+
+## 下一步
+
+- 用 [`eval`](/docs/commands/eval) 在同一个会话中执行任意表达式。
+- 播下状态之后，用 [`reload`](/docs/commands/reload) 重启 background worker。
+- 用 [`doctor`](/docs/commands/doctor) 诊断拒绝该调用的会话。
+- 在 [调试](/docs/debugging) 中了解更完整的调试工作流。

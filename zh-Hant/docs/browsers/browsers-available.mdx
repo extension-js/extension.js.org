@@ -14,7 +14,6 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
 從單一 CLI 工作流程,在各大瀏覽器上執行並測試你的擴充功能。
 
 從單一 CLI 驗證一個擴充功能在 Chrome、Edge、Firefox 與自訂瀏覽器執行檔上的行為。
@@ -41,7 +40,71 @@ keywords:
 
 如果沒指定瀏覽器,CLI 預設使用 `chromium`。
 
+`--browser` 只接受下列這些值,可以單獨使用,也可以用逗號分隔:
+
+```text
+chrome | chromium | edge | firefox | brave | opera | vivaldi | yandex |
+waterfox | librewolf | chromium-based | gecko-based | firefox-based |
+safari | webkit-based
+```
+
+`--browser=all` 也會被接受,它會展開為 `chrome, edge, firefox`。
+
+<Warning>
+  開發時請優先使用 `chromium`(或透過 `npx extension install chrome`
+  安裝的 Chrome for Testing),而不是品牌版 Chrome。較新的品牌版 Chrome
+  版本(150+)會捨棄 `--load-extension` 開關,除非有原則停用該行為。被捨棄的開關
+  看起來和一次正常啟動完全一樣。當 Extension.js 無法確認載入成功時,它會發出警告,
+  並指引你前往 `chrome://extensions`。
+</Warning>
+
 `safari`(以及它的 `webkit-based` 別名)是例外:它是**僅限 macOS** 的建置目標,只支援 `build` 與 `dev`,不支援 `preview` 或 `start`。請參見 [建置 Safari 擴充功能](/docs/browsers/safari)。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/_vyLR3YBEIo?autoplay=1&mute=1&loop=1&playlist=_vyLR3YBEIo&controls=0&rel=0&playsinline=1"
+    title="Extension.js: Chromium, Edge and Firefox from one dev command"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 請求的目標 vs. 啟動的執行檔
+
+你請求的瀏覽器決定產物。執行檔只是執行時。
+
+當你執行 `extension dev --browser=chromium` 時,Extension.js 一律會:
+
+- 把輸出寫到 `dist/chromium`(資料夾以請求的目標命名,絕不會以啟動它的執行檔命名)。
+- 為請求的目標解析[瀏覽器專屬的 manifest 欄位](/docs/features/browser-specific-fields)。
+
+如果請求的瀏覽器沒有安裝,Extension.js 不會更動目標。對 `chrome` 與 `chromium`,它會尋找另一個受管理的 Chromium 系列執行檔(先前由 `npx extension install` 下載的),改用它作為執行時:
+
+- 請求 `chromium` 但缺少:回退到受管理的 Chrome,再回退到受管理的 Edge。
+- 請求 `chrome` 但缺少:回退到受管理的 Chromium,再回退到受管理的 Edge。
+
+發生這種情況時,CLI 會印出一則警告,指出缺少的瀏覽器與修正方式,例如 `npx extension install chromium`。這則警告刻意不寫出替代執行檔的路徑。工作階段的身分卡片已經有一列 Binary 指出實際使用的執行檔,所以這件事只會印一次。輸出資料夾與產出的 manifest 與沒有回退時完全相同。
+
+### 執行檔來源標籤
+
+身分卡片會標示這次工作階段的執行檔來自哪裡:
+
+| 標籤       | 意義                                                       |
+| ---------- | ---------------------------------------------------------- |
+| `managed`  | 來自受管理快取的執行檔(`npx extension install <browser>`)。 |
+| `pinned`   | 你用 `--chromium-binary` 或 `--gecko-binary` 指定的執行檔。 |
+| `system`   | 在你系統上找到的瀏覽器。                                   |
+| `snapshot` | 受管理的 Chromium 主線快照。                               |
+
+### Chromium 快照 vs 穩定版
+
+受管理的 `chromium` 安裝是主線(tip-of-tree)快照,而不是穩定版釋出。當系統上存在穩定版 Chromium 時,Extension.js 會自動切換過去,並印出一則帶有退出方式的警告。設定 `EXTENSION_PREFER_CHROMIUM_SNAPSHOT=true` 就會繼續使用快取的快照。
+
+在 Chromium 系列內部,這種替換是安全的:`dist/chrome` 與 `dist/chromium` 逐位元組相同,因為 manifest 前綴是依引擎系列解析,而不是依廠商。前綴規則請參見[瀏覽器專屬的 manifest 欄位](/docs/features/browser-specific-fields)。
+
+若要預先安裝受管理的執行檔以取得可重現的執行結果,請使用 `npx extension install <browser>` 或 `npx extension install all`(後者也涵蓋 `chromium`)。
 
 ## 支援的瀏覽器
 

@@ -55,8 +55,8 @@ yarn dlx extension@latest create my-extension --template=new-env
 bunx extension@latest create my-extension --template=new-env
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-env
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-env
 ```
 
 </CodeGroup>
@@ -87,8 +87,8 @@ yarn dlx extension@latest create my-extension --template=content-env
 bunx extension@latest create my-extension --template=content-env
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-env
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-env
 ```
 
 </CodeGroup>
@@ -187,8 +187,20 @@ Extension.js 會在編譯時注入內建變數，讓你的擴充功能程式碼�
 | `EXTENSION_AUTO_EXIT_MS`          | 開發程序在 N 毫秒後自動結束                                                                           | CI 強制停止控制                                                   |
 | `EXTENSION_FORCE_KILL_MS`         | 強制終止逾時的備援設定                                                                                | CI 清理韌性                                                       |
 | `EXTENSION_VERBOSE`               | 在特定流程中輸出詳細診斷                                                                              | 除錯 CLI 行為                                                     |
-| `EXTENSION_AUTHOR_MODE`           | 維護者／作者診斷模式                                                                                  | 內部診斷與工具                                                    |
+| `EXTENSION_DEBUG`                 | 啟用除錯輸出通道（設為 `1`/`true`），等同於傳入 `--debug`                                             | 不改動指令就能診斷 CLI 行為                                       |
+| `EXTENSION_AUTHOR_MODE`           | `EXTENSION_DEBUG` 的舊別名；明確設定的 `EXTENSION_DEBUG` 值優先                                       | 已被取代，請改用 `EXTENSION_DEBUG`                                |
+| `EXTENSION_OUTPUT`                | 強制機器輸出（`json` 或 `ndjson`）；人類可讀的 stdout 會安靜下來，其他任何值都代表 pretty             | 對被包裝的呼叫來說，與 `--output` 效果相同                        |
 | `EXTENSION_CLI_NO_BROWSER`        | 從 CLI 停用瀏覽器啟動（設為 `1`）                                                                     | 等同於 `--no-browser` 旗標                                        |
+| `EXTENSION_DEV_INSTANCE_ID`       | 固定開發工作階段的 instance id，而不是每次產生一個                                                    | 讓接上某次執行的 harness 擁有穩定的工作階段識別                   |
+| `EXTENSION_CONTROL_PORT`          | 由開發伺服器設定，用來在同一程序中把控制通道埠號交給編譯器                                            | 內部協調值，讀取即可，不要自行設定                                |
+| `EXTENSION_WATCH_POLL`            | 把檔案監看切換成輪詢（設為 `true`）                                                                   | 網路磁碟與容器中 inotify 事件送不到的情況                         |
+| `EXTENSION_WATCH_POLL_INTERVAL`   | 開啟輪詢時的輪詢間隔（毫秒，預設 `1000`）                                                             | 在重建延遲與 CPU 成本之間取捨                                     |
+| `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` | 啟動時清掃暫時受管理設定檔的年齡門檻（小時，預設 `12`）                                           | 在 CI 中更快保留或回收暫時設定檔                                  |
+| `EXTENSION_USE_SYSTEM_PROFILE`    | 用系統瀏覽器設定檔啟動，而不是受管理的設定檔（設為 `true`）；`EXTJS_USE_SYSTEM_PROFILE` 是可接受的別名 | 需要你真實登入狀態與擴充功能的工作階段                            |
+| `EXTENSION_HEADLESS`              | 強制使用 headless 後端（設為 `1`/`true`）                                                             | macOS 上自動化工作階段的搶焦點防護                                |
+| `EXTENSION_PREFER_CHROMIUM_SNAPSHOT` | 優先使用受管理的 Chromium tip-of-tree 快照，而不是系統的穩定版瀏覽器（設為 `true`）                | 針對最新的 Chromium 做測試                                        |
+| `EXTENSIONJS_BINARIES_IN_DIST`    | 把受管理的瀏覽器執行檔存到專案的 `dist/` 下，而不是共用快取（設為 `1`）                               | 完全自給自足的專案簽出                                            |
+| `EDGE_BINARY`                     | 要啟動的 Edge 執行檔絕對路徑                                                                          | 非標準的 Edge 安裝位置                                            |
 | `EXTENSION_DEV_NO_BROWSER`        | 在開發伺服器停用瀏覽器啟動                                                                            | Monorepo 監看時不需啟動瀏覽器                                     |
 | `EXTENSION_NO_RELOAD`             | 在開發模式跳過 content-script 的重載執行階段                                                          | 等同於 `extension dev --no-reload`                                |
 | `EXTENSION_DEV_DRY_RUN`           | 跳過開發伺服器啟動（提前結束）                                                                        | 為 CLI 接線做煙霧測試                                             |
@@ -208,8 +220,20 @@ Extension.js 會在編譯時注入內建變數，讓你的擴充功能程式碼�
 | `EXTENSION_TELEMETRY_DEBOUNCE_MS` | 相同事件元組的去重視窗（毫秒）         | `60000` |
 | `EXTENSION_TELEMETRY_TIMEOUT_MS`  | 遙測請求的 HTTP 逾時（毫秒）           | `300`   |
 | `EXTENSION_TELEMETRY_DEBUG`       | 將遙測 payload 印到 stderr（設為 `1`） | 未設    |
+| `EXTENSION_TELEMETRY_AUDIT_MAX_BYTES` | 本機稽核記錄的輪替上限（位元組）   | `1048576` |
 
-完整的退出條款請參閱 [遙測與隱私](/docs/features/telemetry-and-privacy)。
+`EXTENSION_TELEMETRY=1` 同時也是 CI 中的明確加入方式：在 CI 裡遙測預設是關閉的。完整的退出條款請參閱 [遙測與隱私](/docs/features/telemetry-and-privacy)。
+
+### 鷹架（`extension create`）變數
+
+| 變數                              | 用途                                                                | 預設值        |
+| --------------------------------- | ------------------------------------------------------------------- | ------------- |
+| `EXTENSION_CREATE_TEMPLATE_REF`   | 範本語料庫的 ref：分支、tag 或 commit SHA；`main` 會回到浮動分支    | 一個釘選的 commit |
+| `EXTENSION_CREATE_TEMPLATE_URL`   | 完全覆寫範本封存檔的 URL                                            | 未設          |
+| `EXTENSION_CREATE_ENGINE_VERSION` | 釘選寫入鷹架專案的 `extension` 相依套件版本                         | CLI 版本      |
+| `EXTENSION_CREATE_TIMEOUT_MS`     | 範本下載的網路逾時（毫秒）                                          | `60000`       |
+
+釘選語料庫的運作方式請參閱[範本](/docs/getting-started/templates)。
 
 ### 瀏覽器傳輸調校變數
 
@@ -223,6 +247,7 @@ Extension.js 會在編譯時注入內建變數，讓你的擴充功能程式碼�
 | `EXTENSION_RDP_EVAL_TIMEOUT_MS`       | Firefox RDP 評估逾時（毫秒）      | `8000`  |
 | `EXTENSION_RDP_MAX_RETRIES`           | Firefox RDP 連線重試次數          | `150`   |
 | `EXTENSION_RDP_RETRY_INTERVAL_MS`     | Firefox RDP 連線重試間隔（毫秒）  | `1000`  |
+| `EXTENSION_RDP_REQUEST_TIMEOUT_MS`    | Firefox RDP 單次請求逾時（毫秒）  | `30000` |
 
 ## 瀏覽器專屬環境變數
 

@@ -1,0 +1,124 @@
+---
+title: "结果信封（schema 1）"
+description: "每个 Extension.js 命令在 --output json 下打印的 schema-1 JSON 信封，以及公开的 schema、错误码表和 golden 固件。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "envelope",
+    "contracts",
+    "json",
+  ]
+---
+
+每条命令解析一份 JSON 文档，而不是去刮取日志行。
+
+在 `--output json` 下，每个会终止的命令都会在 stdout 上恰好回一个 schema-1 信封。长时间运行的命令则以 [生命周期帧](/docs/contracts/lifecycle-stream) 的形式流式输出同样的结构。
+
+## 信封结构
+
+| 字段        | 类型           | 含义                                                                     |
+| ----------- | -------------- | ------------------------------------------------------------------------ |
+| `schema`    | `1`            | 信封版本。只做增量变更时这个数字不变。                                   |
+| `ok`        | boolean        | 命令是否成功。                                                           |
+| `command`   | string         | 产生这个结果的命令。                                                     |
+| `status`    | string         | 简短的机器状态，例如 `ready`、`usage` 或 `failed`。                      |
+| `value`     | any 或 null    | 命令的负载。失败时也可能带有负载，`doctor` 就是这么设计的典型例子。      |
+| `error`     | object 或 null | 当 `ok` 为 false 时出现，见下文。                                        |
+| `warnings`  | string[]       | 非致命的提示。                                                           |
+| `truncated` | boolean        | 可选。当负载因为超出体积上限而被截断时设置。                             |
+| `hint`      | string         | 可选。下一步建议。                                                       |
+
+`error` 对象：
+
+| 字段      | 类型   | 含义                                                                                 |
+| --------- | ------ | ------------------------------------------------------------------------------------ |
+| `code`    | string | 来自 [错误码表](/docs/contracts/error-codes) 的稳定 `E_*` 标识符。请匹配这个字段。   |
+| `message` | string | 自由文案，随时可能被改写。永远不要匹配它。                                           |
+| `name`    | string | 可选。原始错误类的名称。                                                             |
+| `engine`  | string | 可选。发生失败的浏览器引擎。                                                         |
+| `hint`    | string | 可选。修复建议文案。                                                                 |
+| `refs`    | object | 可选。message 中提到的那些可操作部分：`flag`、`command`、`path`、`version`。         |
+
+## 成功与失败示例
+
+```json
+{
+  "schema": 1,
+  "ok": true,
+  "command": "capabilities",
+  "status": "ok",
+  "value": {
+    "name": "extension",
+    "version": "4.1.3",
+    "envelopeSchema": 1,
+    "readySchemaVersion": 2,
+    "outputJsonCommands": [
+      "build",
+      "capabilities",
+      "create",
+      "dev",
+      "doctor",
+      "eval",
+      "inspect",
+      "install",
+      "logs",
+      "open",
+      "preview",
+      "publish",
+      "reload",
+      "start",
+      "storage",
+      "telemetry",
+      "uninstall"
+    ]
+  },
+  "error": null,
+  "warnings": []
+}
+```
+
+```json
+{
+  "schema": 1,
+  "ok": false,
+  "command": "eval",
+  "status": "failed",
+  "value": null,
+  "error": {
+    "code": "E_TARGET_NOT_FOUND",
+    "message": "No tab matched the requested target.",
+    "hint": "List targets with `extension inspect --list-tabs`."
+  },
+  "warnings": []
+}
+```
+
+## 人类可读文案去哪了
+
+`EXTENSION_OUTPUT` 环境变量是机器模式的开关。当它是 `json` 或 `ndjson` 时，帧独占 stdout，人类可读文案让路：
+
+- 信息性输出和警告会静默，或者在流式场景需要时改走 stderr。
+- 错误文案永远不会被抑制。它总是写到 stderr，这样启动失败依然可见，而 stdout 保持可解析。
+
+把 stdout 接给你的解析器，把 stderr 留给人看。两者永不混流。
+
+## 公开的契约产物
+
+`extension-develop` 包通过 `./contract/*` 导出，把契约作为可导入的文件一起发布：
+
+| 产物                                              | 是什么                                                                                                         |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `extension-develop/contract/envelope.schema.json` | 信封的 JSON Schema。它的 `$id` 是 `https://extension.js.org/contract/envelope-1.json`。                          |
+| `extension-develop/contract/codes.json`           | 长期稳定的错误码表，带有 `folded` 与 `legacy` 映射。                                                            |
+| `extension-develop/contract/golden.*.json`        | golden 固件，每个命令、每种状态一份，例如 `golden.dev.ready.json` 与 `golden.eval.target-not-found.json`。       |
+
+请用这份 schema 校验你的消费方，并把测试固定到 golden 固件上。错误码只会新增，永远不会被改名或删除。
+
+## 下一步
+
+- 用 [错误码表](/docs/contracts/error-codes) 对失败情况做分支处理。
+- 用 [生命周期流](/docs/contracts/lifecycle-stream) 跟踪长时间运行的会话。

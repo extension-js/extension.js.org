@@ -18,7 +18,6 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["chrome", "firefox", "edge"]} />
 Extension.js 在开发与构建期间处理浏览器特定的设置。你可以从同一个项目为 Chromium
 与 Gecko(Firefox 引擎) 目标生成运行时正确的产物。
 
@@ -32,7 +31,7 @@ Extension.js 在开发与构建期间处理浏览器特定的设置。你可以�
 
 Chrome 与 Firefox 扩展在大部分 WebExtensions 接口上是一致的，但有三处日常都会遇到的差异：
 
-- **后台脚本：** Chrome (Manifest V3) 要求 `background.service_worker`。Firefox 使用 `background.scripts`，并采用非持久事件页。Extension.js 通过同一份带前缀的 manifest 同时分发到两者。
+- **后台脚本：** Chrome (Manifest V3) 要求 `background.service_worker`。Firefox 使用 `background.scripts`，并采用非持久事件页。Extension.js 会在这两种形态之间做双向翻译，所以一份 manifest 里两种写法都能用。
 - **运行时 API 命名空间：** Firefox 原生支持 `browser.*`。Chromium 使用 `chrome.*`。在 Chromium 目标中传入 `--polyfill` 可以填平这个差异。
 - **权限与内容安全策略 (CSP)：** 浏览器对部分 `permissions` 和 `host_permissions` 条目的处理不同。把浏览器差异放进带前缀的 manifest 键里，而不是在运行时做特性检测。
 
@@ -66,8 +65,8 @@ yarn dlx extension@latest create my-extension --template=action
 bunx extension@latest create my-extension --template=action
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=action
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=action
 ```
 
 </CodeGroup>
@@ -100,7 +99,7 @@ extension dev --browser firefox
 extension dev --browser firefox
 ```
 
-```bash bun
+```bash deno
 extension dev --browser firefox
 ```
 
@@ -124,7 +123,7 @@ extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS
 extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
 ```
 
-```bash bun
+```bash deno
 extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS/Brave\\ Browser
 ```
 
@@ -166,6 +165,15 @@ extension dev --chromium-binary /Applications/Brave\\ Browser.app/Contents/MacOS
   字段](/docs/features/browser-specific-fields)。
 </Note>
 
+#### background 的翻译是双向的
+
+常见场景下你不需要给 background 加前缀。Extension.js 会双向翻译一个普通的 MV3 `background`：
+
+- Gecko 构建如果发现 `background.service_worker` 而没有 `background.scripts`，会通过 `scripts` 把 background 重新指向产出的 bundle，并去掉 Firefox 会拒绝的 `service_worker` 与 `type`。
+- Chromium MV3 构建如果发现 `background.scripts` 且没有设置 worker，会用第一个脚本填充 `service_worker`。
+
+在 Chromium 方向上，`scripts` 总是会从输出中移除。只要出现 `background.scripts`，哪怕旁边有一个合法的 `service_worker`，Chromium MV3 也会拒绝整个扩展，所以这个键永远不能出现在 Chromium 构建里。
+
 ### 3) 按浏览器目标输出
 
 Extension.js 会把每个目标写入各自的构建目录：
@@ -173,6 +181,7 @@ Extension.js 会把每个目标写入各自的构建目录：
 - `dist/chrome`
 - `dist/edge`
 - `dist/firefox`
+- `dist/chromium`(默认目标)
 - `dist/chromium-based`(自定义 Chromium 引擎)
 - `dist/gecko-based`(自定义 Gecko 引擎)
 
@@ -200,7 +209,7 @@ extension build --browser chrome --polyfill
 extension build --browser chrome --polyfill
 ```
 
-```bash bun
+```bash deno
 extension build --browser chrome --polyfill
 ```
 
@@ -209,11 +218,13 @@ extension build --browser chrome --polyfill
 启用后，Extension.js 会为非 Firefox 目标使用 `webextension-polyfill`(Mozilla 的 `browser.*` 兼容库)。  
 对于 Firefox，Extension.js 会跳过这一步，因为 Firefox 已原生支持 `browser.*`。
 
+polyfill 模块会先从你的项目里解析，然后才回落到 Extension.js 内置的依赖。包管理器可能会把 `webextension-polyfill` 提升到你的项目根目录，而你自己安装的那份会优先于内置的那份。如果完全解析不到任何一份，构建会打印一条警告并在没有 polyfill 的情况下继续，而不是失败。
+
 ## 最佳实践
 
 - **保持一份代码**：尽量用带前缀的 manifest 字段表达浏览器差异。
 - **每次只构建一个目标**：在持续集成 (CI) 中为每个浏览器单独生成产物(`dist/<browser>`)。
-- **必要时再用 `--polyfill`**：仅当 Chromium 系目标依赖 `browser.*` 时启用。
+- **必要时再用 `--polyfill`**：`build` 默认关闭，需要你显式传入 `--polyfill`；`dev` 和 `start` 则默认开启。如果你的代码不依赖 `browser.*`，在这两个命令上传入 `--no-polyfill` 关闭它。
 - **及早检查 API 支持情况**：依赖浏览器特定 API 前先查阅 [MDN WebExtensions 文档](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions)。
 
 ## 下一步

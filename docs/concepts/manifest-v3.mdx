@@ -44,7 +44,7 @@ Chromium uses a service worker for the MV3 background. To import ES modules from
 
 Without `"type": "module"`, `import` statements fail at registration with no clear error in the extension console. With it, you can write modern ES module syntax in the worker file.
 
-Extension.js sets `type: "module"` automatically when your background entry uses ES module syntax. It also compiles `.ts`/`.tsx` workers to a single bundled output so module resolution still works in production.
+Extension.js bundles your background entry, including `.ts`/`.tsx` workers, into a single output file, so `import` statements resolve at build time and the worker registers without `type: "module"`. Declare `type: "module"` yourself when you want a real module worker, and Extension.js keeps it in the emitted manifest.
 
 ## Why `background.js` behaves differently in Manifest V3
 
@@ -119,7 +119,7 @@ Three places where MV3 trips people up:
 ## How Extension.js helps with Manifest V3
 
 - Routes background entries to `service_worker` (Chromium) or `scripts` (Firefox) automatically.
-- Sets `type: "module"` when the background uses ES module syntax.
+- Bundles the background entry into one file, so `import` resolves at build time, and keeps `type: "module"` when you declare it.
 - Validates `web_accessible_resources`, `permissions`, and `host_permissions` against the active manifest version at build time.
 - Emits per-browser `dist/<browser>` artifacts so MV3 differences between Chrome and Firefox stay isolated.
 - Reloads content scripts, the service worker, and HTML pages on save during `extension dev`.

@@ -56,8 +56,8 @@ yarn dlx extension@latest create my-extension --template=content
 bunx extension@latest create my-extension --template=content
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content
 ```
 
 </CodeGroup>
@@ -88,8 +88,8 @@ yarn dlx extension@latest create my-extension --template=content-react
 bunx extension@latest create my-extension --template=content-react
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-react
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-react
 ```
 
 </CodeGroup>
@@ -208,8 +208,8 @@ yarn dlx extension@latest create my-extension --template=content-multi-one-entry
 bunx extension@latest create my-extension --template=content-multi-one-entry
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-multi-one-entry
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-multi-one-entry
 ```
 
 </CodeGroup>
@@ -240,13 +240,24 @@ yarn dlx extension@latest create my-extension --template=content-multi-three-ent
 bunx extension@latest create my-extension --template=content-multi-three-entries
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-multi-three-entries
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-multi-three-entries
 ```
 
 </CodeGroup>
 
 儲存庫：[extension-js/examples/content-multi-three-entries](https://github.com/extension-js/examples/tree/main/examples/content-multi-three-entries)
+
+## 傳統的多檔案進入點
+
+當一個 `content_scripts.js` 陣列列出多個沒有 `import` 也沒有 `export` 的純 JavaScript 檔案時，Extension.js 會把它們串接成一個 bundle。把每個檔案當成獨立模組打包會破壞它們。瀏覽器會依序把這些傳統檔案注入到同一個共享作用域，而串接正好保留了這個行為：
+
+- 跨檔案的隱含全域變數仍然可用。第一個檔案中的頂層 `var` 或函式對下一個檔案依然可見。
+- 每個原始檔都會註冊為建置相依，所以儲存這一組中的任何檔案都會觸發重新建置。
+- 輸出的 source map 指向你真正的檔案與行號，因此錯誤可以追回原始程式碼。
+- 串接群組中的原始 `.ts` 檔案會在串接前用內建的 SWC 去除型別。
+
+使用 `import` 或 `export` 的進入點維持一般的模組打包。
 
 ## `scripts/` 資料夾行為
 
@@ -257,6 +268,17 @@ bunx extension@latest create my-extension --template=content-multi-three-entries
 - Script 進入檔案如果需要掛載行為，仍應 export 一個 default function。
 - 在 watch mode 中，Extension.js 把在 `scripts/` 底下新增或刪除受支援檔案視為結構性變更。
 - 當該進入點集合改變時，Extension.js 可能需要重新啟動開發伺服器。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/HuyLnqez4kc?autoplay=1&mute=1&loop=1&playlist=HuyLnqez4kc&controls=0&rel=0&playsinline=1"
+    title="Extension.js: content script HMR"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ## 輸出路徑
 
@@ -298,8 +320,8 @@ yarn dlx extension@latest create my-extension --template=content-main-world
 bunx extension@latest create my-extension --template=content-main-world
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-main-world
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-main-world
 ```
 
 </CodeGroup>
@@ -308,9 +330,18 @@ bunx extension@latest create my-extension --template=content-main-world
 
 - **`world: "MAIN"` 僅限 Chromium。** Firefox 不支援 `world` 欄位並會忽略它。你的腳本在 Firefox 仍會以 isolated world 執行。
 - **跨瀏覽器的 MAIN world 行為：** 使用 `chromium:` manifest 前綴，僅針對 Chromium 目標宣告它。然後為 Firefox 提供 isolated world 後備。
-- 在開發期，MAIN world 腳本透過內部 bridge 機制載入程式碼 chunk 與解析 public path。
 - 在 MAIN world 中**無法**使用擴充功能 API（`chrome.runtime`、`chrome.storage` 等）；只能存取頁面情境的全域變數。
 - 把 MAIN world 視為進階路徑。在每個目標瀏覽器上盡早驗證行為。
+
+### isolated world 橋接
+
+MAIN world 腳本無法呼叫擴充功能 API，因此 Extension.js 會為每個 MAIN 群組搭配一個可以呼叫的輔助腳本。請預期建置後的 manifest 在這裡會和你的原始碼不同：
+
+- dist 中的 manifest 會比原始碼包含更多 `content_scripts` 進入點。Extension.js 會在每個 MAIN 群組之前插入一個 isolated world 橋接進入點。
+- 橋接進入點的資產索引排在你的進入點之後。你的 `content_scripts/content-N` 輸出仍保留產生它們的來源進入點索引。
+- 橋接透過 `runtime.getURL` 解析擴充功能 URL，並把 MAIN world 的程式碼 chunk 注入頁面。
+- 橋接在處理訊息之前會驗證 `event.source` 是否為同一個 window。
+- 它只會注入擴充功能協定的 URL（`chrome-extension://`、`moz-extension://`）或相對路徑，絕不會注入任意遠端 URL。
 
 ### Isolated vs MAIN 快速範例
 

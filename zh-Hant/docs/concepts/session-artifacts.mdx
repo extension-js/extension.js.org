@@ -1,0 +1,128 @@
+---
+title: "工作階段產物：Extension.js 把開發工作階段狀態放在哪裡"
+description: "了解 Extension.js 在一次開發工作階段中寫入的兩個磁碟根目錄：.extension-js 中長期保留的控制檔案，以及 dist/extension-js 中依瀏覽器區分的契約、記錄與設定檔。"
+keywords:
+  [
+    "extension.js",
+    "session artifacts",
+    "ready.json",
+    "events.ndjson",
+    "control port",
+    "control token",
+    "browser profile",
+    "dist folder",
+    "multi-browser development",
+    "debug port",
+    "instance id",
+  ]
+---
+
+每一次 `extension dev` 工作階段都會把狀態寫到磁碟上：機器可讀的契約、記錄、一條控制通道，以及一份受管理的瀏覽器設定檔。知道每個檔案放在哪裡，你就知道哪些東西能在清空 `dist/` 之後留存、哪些可以安全解析，以及哪些絕對不能進入提交。
+
+## 雙根目錄契約
+
+工作階段狀態分散在兩個生命週期不同的根目錄：
+
+| 根目錄 | 生命週期 | 存放內容 |
+| --- | --- | --- |
+| `<project>/.extension-js/` | 清空 `dist/` 後仍然留存 | `control-port-<browser>`、`control-token-<browser>` |
+| `<project>/dist/extension-js/` | 隨 `dist/` 一起消失 | `ready.json`、`events.ndjson`、`logs.ndjson`、`actions.ndjson`、`build-summary.json`，以及受管理的設定檔 |
+
+這樣切分是刻意的。瀏覽器設定檔的壽命可能比 `dist/` 更長，而快取在其中的擴充功能會記住它當初拿到的控制座標。當這些座標放在 `dist/` 底下時，清空該資料夾就會讓設定檔裡快取的 service worker 變成孤兒，不斷去撥打一個已經失效的埠號。凡是設定檔可能已經記死的東西，現在都放在 `.extension-js/` 裡，清空 `dist/` 碰不到它們。
+
+控制權杖檔案以 `0600` 權限寫入。它們會授權像 `extension eval` 這類會改變狀態的動作，因此只有你自己的使用者能讀取。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/oCqZ7Bhi6L0?autoplay=1&mute=1&loop=1&playlist=oCqZ7Bhi6L0&controls=0&rel=0&playsinline=1"
+    title="Extension.js: one dev command, two browser sessions"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 依瀏覽器建鍵
+
+每個產物的名稱裡都嵌入了瀏覽器：`control-token-chrome`、`dist/extension-js/firefox/ready.json`。如果每個專案只有單一槽位，那麼同一個專案上一旦啟動第二個瀏覽器工作階段就會出問題：第二個工作階段會覆寫第一個工作階段的權杖，而其中任何一方關閉時都會把它刪掉，兩邊都失效。
+
+正因為每個槽位都有鍵，你可以在同一個專案上同時執行 `extension dev --browser chrome` 與 `extension dev --browser firefox`。每個工作階段都保有自己的設定檔、自己的除錯埠號，以及自己的控制通道。
+
+在 `dist/extension-js/` 內部，每個瀏覽器都有自己的產物資料夾：
+
+```text
+dist/
+  chrome/                        # the compiled extension
+  extension-js/
+    .gitignore                   # auto-written, ignores everything below
+    chrome/
+      ready.json                 # machine contract for the current session
+      events.ndjson              # lifecycle event stream
+      logs.ndjson                # unified extension log stream
+      actions.ndjson             # audit log of control-channel actions
+      build-summary.json         # structured build result
+    profiles/
+      chrome-profile/            # managed browser profile root
+```
+
+## 除錯埠號的推導
+
+每個工作階段都會推導出屬於自己的 DevTools 除錯埠號，而不是共用同一個：
+
+1. 從基準開始：你的 `--port` 值加上固定偏移 `100`；若沒有有效的基準，則採用預設的 `9222`。
+2. 再加上一個依實例而異的偏移，由實例 id 的前 8 個十六進位字元對 1000 取餘數而來。
+
+`--port 0` 代表由作業系統指派開發伺服器埠號，因此 Extension.js 拒絕據此推導除錯埠號。從零推導會得到一個無法綁定的特權埠號，所以此時改用預設值。
+
+## 實例登錄表
+
+要連上某個工作階段的工具，會透過一張以精確實例 id 建鍵的實例登錄表來解析埠號。精確的 id 優先。對於已知但沒有登錄埠號的實例，回傳的是呼叫端自己提供的後備值，絕不會是另一個實例的埠號。
+
+當既沒有給實例 id、也沒有後備值時，查詢會擲出 `AmbiguousInstanceError`，而不是用猜的。退而採用最近啟動的瀏覽器會讓不同實例的資料流交叉，所以登錄表拒絕這麼做。
+
+## 拆除
+
+工作階段結束時，Extension.js 會分階段拆除瀏覽器：
+
+- 在訊號路徑上，瀏覽器子處理程序先收到 `SIGTERM`，經過 5 秒寬限期後再收到 `SIGKILL`。
+- 在處理程序結束時，處理常式只有一個同步時間切片，因此會同步地以 `SIGKILL` 強制結束子處理程序。
+- 在 Windows 上，兩條路徑都以 `taskkill /PID <pid> /T /F` 結束整棵處理程序樹。
+
+關閉過程中出現的 `ECONNRESET`、`EPIPE`、`ECONNABORTED` 或 `ENOTCONN` 這幾種 socket 錯誤碼會被視為無害。它們來自瀏覽器正在關閉的 socket，因此優雅關閉仍然是優雅關閉，而不會以結束碼 1 收場。
+
+## 自動寫入的 gitignore
+
+<Warning>
+  受管理的設定檔裡保存著真實的瀏覽資料：cookie、瀏覽紀錄，以及你在開發工作階段期間所做的任何登入。
+  絕對不要提交它，也絕對不要散布它。
+</Warning>
+
+Extension.js 會在 `dist/extension-js/` 裡寫入一個內容為 `*` 的 `.gitignore`，讓整個工作階段根目錄都不進入提交。如果你的專案根目錄已經有 `.gitignore`，它還會在其中附加 `.extension-js`，因為使用中的控制權杖同樣絕對不能進入提交。這兩次寫入都只是衛生防護：它們絕不會覆寫既有內容，也絕不會讓建置失敗。
+
+## build-summary.json
+
+呼叫 `extension build` 的宿主程式可以得到一條結構化的結果通道，而不必去刮取 stdout：
+
+| 欄位 | 意義 |
+| --- | --- |
+| `browser` | 這次建置的瀏覽器目標。 |
+| `output_path` | 建置輸出所在的 dist 絕對路徑（已知時）。 |
+| `total_assets` | 產出的資源數量。 |
+| `total_bytes` | 產出的總位元組數。 |
+| `largest_asset_bytes` | 單一最大資源的大小。 |
+| `warnings_count`、`errors_count` | 編譯得到的總數。 |
+| `warnings` | 純文字警告訊息，已移除 ANSI，最多 20 筆。 |
+| `safari` | 僅在有執行打包器的 Safari 建置中才會出現。 |
+
+這個檔案不會在兩次執行之間被刪除，因此使用端必須自行防範讀到過期檔案。在信任它之前，請把檔案的 mtime 與你啟動建置的時間做比較。
+
+## hot/ 的清理
+
+在開發期間，熱更新 chunk 是在擴充功能 origin 內部從磁碟取回的，因此過期的世代會不斷堆積在最終交付的內容裡。每次編譯之後，Extension.js 會把 `hot/` 清理到只留下目前世代加上前一個世代。前一個世代會多留存一輪，好讓傳輸中的請求仍然取得到內容。
+
+## 下一步
+
+- 透過 [ready.json 與事件串流](/docs/workflows/playwright-e2e) 解析工作階段狀態，而不是解析終端機輸出。
+- 在 [瀏覽器設定檔](/docs/browsers/browser-profile) 中了解受管理設定檔的行為。
+- 在 [讀懂 CLI 輸出](/docs/concepts/reading-cli-output) 中了解工作階段在終端機這一側的樣子。

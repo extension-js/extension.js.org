@@ -16,6 +16,8 @@ keywords:
 
 Extension.js 在所有擴充功能情境下都能執行 TypeScript：background、content script、popup、options 與 sidebar。它預設使用 Rspack + SWC pipeline。你不需要額外的 `tsc` 步驟、ts-loader 或額外的 bundler rule。
 
+建置完全不需要 `typescript` 套件。SWC 會編譯你的原始碼並移除型別。這個套件只對編輯器工具與 `tsc --noEmit` 型別檢查有意義。也因此，缺少 `typescript` 套件永遠不會讓建置失敗，這一點和缺少框架整合套件不同。
+
 ## 什麼情況下適合使用 TypeScript
 
 - 你希望在擴充功能各情境之間有更安全的重構與更明確的介面。
@@ -48,8 +50,8 @@ yarn dlx extension@latest create my-extension --template=new-typescript
 bunx extension@latest create my-extension --template=new-typescript
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-typescript
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-typescript
 ```
 
 </CodeGroup>
@@ -80,8 +82,8 @@ yarn dlx extension@latest create my-extension --template=content-typescript
 bunx extension@latest create my-extension --template=content-typescript
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-typescript
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-typescript
 ```
 
 </CodeGroup>
@@ -145,7 +147,7 @@ bunx tsc --init
 ```
 
 ```bash deno
-deno run -A npm:tsc --init
+deno run -A npm:typescript/tsc --init
 ```
 
 </CodeGroup>
@@ -156,8 +158,8 @@ deno run -A npm:tsc --init
 
 Extension.js 會在 `package.json` 旁邊尋找 `tsconfig.json`。
 
-- 如果 TypeScript 原始檔存在但缺少 `tsconfig.json`，Extension.js 會拋出錯誤，要求你建立一份。
-- 如果 Extension.js 透過相依套件或設定偵測到 TypeScript，但找不到原始檔，它可以為你產生一份基準的 `tsconfig.json`。
+- 有 `.ts` 原始檔卻沒有 `tsconfig.json` 時，Extension.js 會在專案中寫入一份基準設定。建置會顯示 `Creating a default tsconfig.json` 並繼續進行。
+- 若專案宣告了 `typescript` 相依套件，但還沒有 `tsconfig.json`、也還沒有 `.ts` 原始檔，Extension.js 會為它寫入一份基準設定。
 
 範例基準設定：
 
@@ -173,7 +175,6 @@ Extension.js 會在 `package.json` 旁邊尋找 `tsconfig.json`。
     "lib": ["dom", "dom.iterable", "esnext"],
     "moduleResolution": "bundler",
     "module": "esnext",
-    "noEmit": true,
     "resolveJsonModule": true,
     "strict": true,
     "target": "esnext",
@@ -182,6 +183,11 @@ Extension.js 會在 `package.json` 旁邊尋找 `tsconfig.json`。
   "exclude": ["node_modules", "dist"]
 }
 ```
+
+有兩個預設值值得知道：
+
+- `moduleResolution` 是 `bundler`，對應 Rspack + SWC pipeline。已被移除的 `node`（node10）模式會讓 TypeScript 7 上的 `tsc --noEmit` 失敗。
+- 只有當 Extension.js 在專案中偵測到 JSX 框架時，`jsx` 才會是 `react-jsx`。沒有偵測到時，它會維持 `preserve`。
 
 #### 自動型別
 
@@ -220,6 +226,3 @@ Extension.js 會在 `package.json` 旁邊尋找 `tsconfig.json`。
 - 探索 [Sass modules](/docs/languages-and-frameworks/sass) 等樣式選項。
 - 閱讀 [瀏覽器擴充功能中的 JavaScript 與 TypeScript 檔案](/docs/concepts/javascript-typescript-browser-extension-files)。
 - 用一套 TypeScript 程式碼跨瀏覽器發布，詳見 [跨瀏覽器相容性](/docs/features/cross-browser-compatibility)。
-
-## 影片導覽
-

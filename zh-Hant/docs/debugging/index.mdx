@@ -19,15 +19,26 @@ keywords:
 
 它在本機運作、不需要帳號，觀察永遠免費。任何會 _改變_ 狀態的操作則需要在每個 session 中明確啟用。
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/yMa4rYv5Dlw?autoplay=1&mute=1&loop=1&playlist=yMa4rYv5Dlw&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension eval"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
 ## 開啟方式
 
 啟動帶有你所需控制旗標的開發 session：
 
 ```bash
-# 唯讀模式永遠開啟。加上 control 才能對擴充功能執行動作：
+# Read-only is always on. Add control to act on the extension:
 pnpm extension dev --allow-control
 
-# 再加上 eval 以便在 context 中執行任意運算式：
+# Add eval to also run arbitrary expressions in a context:
 pnpm extension dev --allow-control --allow-eval
 ```
 
@@ -45,6 +56,24 @@ pnpm extension dev --allow-control --allow-eval
 | `extension open action`                    | [觸發工具列動作](/docs/debugging/trigger-actions-and-commands) — 開啟其 popup，或重播 `onClicked` | `--allow-control` |
 | `extension open command --name <cmd>`      | [重播鍵盤快速鍵指令](/docs/debugging/trigger-actions-and-commands)                                | `--allow-control` |
 | `extension eval "<expr>" --context <c>`    | 在某個 context 中執行運算式並回傳結果                                                             | `--allow-eval`    |
+
+`extension logs` 與 `extension inspect` 各自有專屬的參考頁面：[logs](/docs/commands/logs) 與 [inspect](/docs/commands/inspect)。
+
+### 共用旗標
+
+每個會執行動作的指令都接受同樣這三個旗標：
+
+- `--browser` 選擇要作用的 session（預設 `chromium`）。
+- `--timeout <ms>` 限制一次往返的時間（預設 5000）。
+- `--output <pretty|json>` 選擇 stdout 的輸出形式。
+
+當 session 缺少所需的解鎖旗標時，拒絕訊息會直接指出要用哪個旗標重新啟動：`eval` 對應 `--allow-eval`，其餘一律是 `--allow-control`。你不必猜自己漏掉了哪個限制。
+
+### 哪些內容會寫到磁碟
+
+除了即時通道之外，session 還會在 `dist/extension-js/<browser>/` 下寫入只追加的紀錄：`logs.ndjson` 保存每一筆擷取到的日誌事件，`actions.ndjson`（在 session 帶有 `--allow-control` 時寫入）稽核執行過的控制動作。兩者在 session 結束後仍可讀取。
+
+日誌合約也保留了結構化的 `dx.signal` 項目，那是關於執行階段自身健康狀況的機器可讀診斷資訊，過濾方式為 `extension logs --signals-only`。目前尚未有任何發送端，因此這個過濾器現在不會回傳任何內容。它的結構先行記錄下來，讓消費端在第一筆 signal 出現的那天就能據此分支。
 
 ## 指定 context
 
@@ -102,7 +131,6 @@ Extension.js 透過**瀏覽器內的伴隨程式**進行除錯，而非 Chrome D
 | `logs`、`inspect`、`storage`、`reload`、`open`（含 `action`/`command`） | ✓                     | ✓（已驗證）              |
 | `page` / `content` context 中的 `eval`                                  | ✓                     | ✓                        |
 | `eval --context background`                                             | 僅 MV2 建置（見附註） | ✓（MV2 background 頁面） |
-| `inspect --deep-dom`（封閉的 shadow root）                              | ✓                     | —（使用 CDP）            |
 | `extension_list_extensions`（MCP 工具）                                 | ✓                     | —（使用 CDP）            |
 
 （在 Chromium MV3 建置上，`eval --context background` 回傳的是說明性的錯誤。MV3 的 background 是 service worker，而 Chrome 的擴充功能 CSP 在每個 MV3 建置上都會拒絕 `unsafe-eval`，不只是正式環境。在 Chromium MV3 上請在 `page` / `content` 中執行運算式，或改以 Firefox/MV2 建置為目標呼叫 background。`extension_list_extensions` 是 MCP 工具而非 CLI 動詞 — 它透過 DevTools Protocol 連線，所以僅限 Chromium。）
@@ -123,5 +151,6 @@ Extension.js 透過**瀏覽器內的伴隨程式**進行除錯，而非 Chrome D
 ## 下一步
 
 - [觸發動作與鍵盤指令](/docs/debugging/trigger-actions-and-commands) — 不需點擊也能測試處理函式，可無頭執行並用於 CI。
+- [Manifest 拒絕載入](/docs/debugging/manifest-refusals) — 為什麼 Chromium 會在 session 還來不及連上之前就拒絕一個擴充功能。
 - [同時執行兩個 MCP server](/docs/integrations/chrome-devtools-mcp) — Extension.js 控制與 Chrome DevTools MCP 並用。
 - [CI 範本](/docs/workflows/ci-templates) — 將這些整合進 PR 檢核流程。

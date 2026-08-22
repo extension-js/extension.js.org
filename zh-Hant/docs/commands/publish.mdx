@@ -1,0 +1,227 @@
+---
+title: "用於取得可分享建置連結的 Publish 指令"
+description: "用 Extension.js 的 publish 指令,把你在 extension.dev 上的專案變成一個可分享的 URL。需要存取權杖,並會印出分享連結。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "publish",
+    "share",
+  ]
+---
+
+向 [extension.dev](https://docs.extension.dev) 索取一個可分享的 URL,指向你已經放在那裡的專案。
+
+`publish` 是一個很薄的客戶端。它不編譯、不打包,也不上傳任何東西。它向平台送出一個帶身分驗證的請求,然後印出平台回覆的那個 URL。
+
+## 何時使用 `publish`
+
+- 給審閱者一個建置連結,而不是一個 zip 檔。
+- 在 `build` 產出產物之後,把分享連結接進 CI。
+- 把分享連結釘在某一個特定建置上,而不是專案的最新建置。
+
+`publish` 解析的是一個已經存在於 extension.dev 上的專案,所以它需要平台已經記錄過的建置。如果你想把此刻還躺在自己 `dist/` 裡的建置寄給別人,請改為上傳那個建置:[Share an unpublished build for review](https://docs.extension.dev/share/unpublished-build-for-review)。
+
+<Note>
+  `publish` 會與 extension.dev 平台溝通,而它是獨立於 Extension.js
+  的另一個產品。那些在你機器上執行的 Extension.js
+  指令(`create`、`dev`、`build`、`preview`、`start`)從來不需要帳號,`publish` 需要。
+</Note>
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension publish [project-path] [options]
+```
+
+```bash pnpm
+extension publish [project-path] [options]
+```
+
+```bash yarn
+extension publish [project-path] [options]
+```
+
+```bash bun
+extension publish [project-path] [options]
+```
+
+```bash deno
+extension publish [project-path] [options]
+```
+
+</CodeGroup>
+
+被發布的專案取決於你的權杖被授權到哪個專案。路徑引數不會上傳任何東西,它只是指出一個本地資料夾,下面的範圍檢查會拿這個資料夾的專案名稱去比對。
+
+## 權杖需求
+
+沒有存取權杖時,`publish` 拒絕執行。它依下列順序在三個地方尋找:
+
+1. 指令列上的 `--token <token>`。
+2. 環境變數 `EXTENSION_DEV_TOKEN`(CI 中建議用這個)。
+3. `npx @extension.dev/mcp login` 寫下的已儲存裝置登入。
+
+三者都沒有時,指令會在發出任何網路請求之前以結束碼 `1` 結束,並向 stderr 印出:
+
+```plaintext
+No token. Publishing needs an extension.dev access token.
+Get one: https://docs.extension.dev/tools/publish
+Pass --token, set EXTENSION_DEV_TOKEN, or run npx @extension.dev/mcp login.
+```
+
+可以在 extension.dev 主控台或專案的 access-tokens API 建立權杖,文件見 [Access tokens](https://docs.extension.dev/tools/access-tokens)。
+
+## 範圍檢查
+
+一次已儲存的裝置登入只對應一個專案。從一個無關的資料夾發布,會為那個專案產生一個分享連結,而任何顯眼的地方都不會寫明它究竟屬於誰。`publish` 把這種不一致當成拒絕,而不是警告:
+
+- 當資料夾的專案名稱與已儲存登入的專案對不上時,指令拒絕執行,並把兩者都列出來。
+- 傳 `--project <slug>`,就可以在任何位置刻意發布該登入對應的專案。
+- 傳入的 `--project` slug 與已儲存登入不相符時,同樣會被拒絕。
+- 使用 `--token` 或 `EXTENSION_DEV_TOKEN` 提供的權杖時,會完全略過與已儲存登入的比對。
+
+本地專案名稱依序取自 `package.json`、`manifest.json`、`src/manifest.json`,最後才是資料夾名稱。
+
+## 參數與 flag
+
+| flag                      | 作用                                                              | 預設值                                 |
+| ------------------------- | ----------------------------------------------------------------- | -------------------------------------- |
+| `[project-path]`          | 範圍檢查讀取專案名稱的那個資料夾。不會被上傳。                    | `process.cwd()`                        |
+| `--token <token>`         | extension.dev 存取權杖。                                          | `EXTENSION_DEV_TOKEN`,再來是已儲存登入 |
+| `--api <url>`             | 平台的基底 URL。適用於自架或 staging 端點。                       | `EXTENSION_DEV_API_URL`,再來是平台 URL |
+| `--ttl <hours>`           | 分享連結的存活時數,範圍 1 到 168。僅對私人專案有效。              | `24`                                   |
+| `--build-sha <sha>`       | 把分享 URL 釘在某個特定建置上,而不是最新建置。                    | 最新建置                               |
+| `--project <slug>`        | 當要發布的專案不是你目前所在的資料夾時,指出這次發布針對哪個專案。 | 未設                                   |
+| `--output <pretty\|json>` | 輸出格式。`json` 會印出完整的平台回應。                           | `pretty`                               |
+
+## 它會印出什麼
+
+pretty 輸出只有一行,就是分享 URL,因此可以乾淨地接進管線:
+
+```bash
+extension publish
+# https://<workspace>.extension.dev/<project>
+```
+
+`--output json` 會印出一個信封。平台回應放在 `value` 裡,而它帶的不只是那個 URL:
+
+```json
+{
+  "schema": 1,
+  "ok": true,
+  "command": "publish",
+  "status": "published",
+  "value": {
+    "shareUrl": "https://<workspace>.extension.dev/<project>?share=<share-token>",
+    "visibility": "private",
+    "token": "<share-token>",
+    "expiresAt": "2026-01-01T00:00:00.000Z",
+    "ttlHours": 24,
+    "project": "<project>",
+    "tokenSource": "stored-login"
+  },
+  "error": null,
+  "warnings": []
+}
+```
+
+公開專案只會回覆 `value.shareUrl` 與 `value.visibility`,沒有需要攜帶的權杖。
+
+加上 `--build-sha` 時,URL 指向的是那個建置,而不是專案總覽頁:`https://<workspace>.extension.dev/<project>/builds/<sha>`。
+
+## 公開專案與私人專案
+
+一個專案不是公開就是私人。`publish` 只讀取這個設定,從不更動它。你拿到哪一種連結由平台決定:
+
+| 專案可見性 | 會拿回什麼                                                      |
+| ---------- | --------------------------------------------------------------- |
+| 公開       | 專案自己的位址,不帶權杖。`--ttl` 會被忽略,因為沒有東西會過期。  |
+| 私人       | 同一個位址再加上 `?share=<token>`,它在 `--ttl` 小時之後就失效。 |
+
+兩種回覆指向的是同一個頁面。可見性決定的是要不要附上權杖,而不是你拿到哪個位址。
+
+## 釘在某一個建置上
+
+`--build-sha` 會連到某一個建置,而不是專案的最新建置。平台會拿這個 sha 去比對專案的建置索引,當沒有任何已完成的建置相符時,回覆 `404` 與 `UNKNOWN_BUILD` 代碼,所以打錯字會明確失敗,而不是產出一個指向錯誤產物的連結。
+
+<CodeGroup>
+
+```bash npm
+extension publish --build-sha=9fceb02
+```
+
+```bash pnpm
+extension publish --build-sha=9fceb02
+```
+
+```bash yarn
+extension publish --build-sha=9fceb02
+```
+
+```bash bun
+extension publish --build-sha=9fceb02
+```
+
+```bash deno
+extension publish --build-sha=9fceb02
+```
+
+</CodeGroup>
+
+## 範例
+
+### 在 CI 中發布
+
+```bash
+EXTENSION_DEV_TOKEN=$EXTENSION_DEV_TOKEN extension build --browser=chrome --zip
+SHARE_URL=$(EXTENSION_DEV_TOKEN=$EXTENSION_DEV_TOKEN extension publish)
+echo "Review build: $SHARE_URL"
+```
+
+### 給某一位審閱者的短期連結
+
+<CodeGroup>
+
+```bash npm
+extension publish --ttl=4
+```
+
+```bash pnpm
+extension publish --ttl=4
+```
+
+```bash yarn
+extension publish --ttl=4
+```
+
+```bash bun
+extension publish --ttl=4
+```
+
+```bash deno
+extension publish --ttl=4
+```
+
+</CodeGroup>
+
+## 行為說明
+
+- `publish` 從不編譯。想讓連結指向新鮮的輸出時,請先執行 [`build`](/docs/commands/build)。
+- 每一條失敗路徑都以結束碼 `1` 結束:權杖缺失、平台連不上,或任何非 2xx 回應——後者會印成 `publish failed (<status>): <message>`。
+- `--api` 接受結尾有沒有斜線的基底 URL 都可以。指令會自己補上 `/api/cli/publish`。
+- `--ttl` 會被平台夾在 1 到 168 小時的範圍內。
+- 這個指令回傳的 `?share=` 權杖,不是那個可撤銷的 30 天預覽連結。那種連結來自另一個動作,它會上傳建置;而 `publish` 什麼都不上傳。參見 [平台的 publish 頁面](https://docs.extension.dev/tools/publish)。
+
+## 後續步驟
+
+- 用 [`build`](/docs/commands/build) 產出要分享的產物。
+- 先用 [`preview`](/docs/commands/preview) 在本地驗證這些產物。
+- 不用 zip、也不用安裝,把一個未發布的建置透過連結交給別人,參見 [Share an unpublished build for review](https://docs.extension.dev/share/unpublished-build-for-review)。
+- 在 [Builds](https://docs.extension.dev/builds/overview) 中了解建置是怎麼被記錄的。

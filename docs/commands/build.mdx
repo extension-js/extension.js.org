@@ -114,11 +114,11 @@ dist/
 | `--no-polyfill`          | -               | Disables the cross-browser polyfill.                                                                        | polyfill disabled        |
 | `--zip [boolean]`        | -               | Creates a packaged zip artifact.                                                                            | `false`                  |
 | `--zip-source [boolean]` | -               | Includes source files in zip output.                                                                        | `false`                  |
-| `--zip-filename <name>`  | -               | Sets custom zip filename.                                                                                   | extension name + version |
+| `--zip-filename <name>`  | -               | Sets custom zip filename.                                                                                   | sanitized extension name + version |
 | `--silent [boolean]`     | -               | Suppresses build logs.                                                                                      | `false`                  |
 | `--mode <mode>`          | -               | Bundler mode override (`development`, `production`, or `none`). Also sets `NODE_ENV`.                       | `production`             |
 | `--extensions <list>`    | -               | Comma-separated companion extensions or store URLs.                                                         | unset                    |
-| `--install [boolean]`    | -               | Internal flag. Install project dependencies when missing.                                                   | command behavior default |
+| `--install [boolean]`    | -               | Internal flag. Install project dependencies when missing. Lifecycle scripts stay disabled unless `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`. | installs when `node_modules` is missing |
 | `--output <pretty\|json>`| -               | Result format. `json` prints a schema-1 envelope on stdout.                                                 | `pretty`                 |
 | `--debug`                | -               | Enable maintainer diagnostics.                                                                              | disabled                 |
 
@@ -133,6 +133,7 @@ These flags apply to `safari` and `webkit-based` targets only. Passing any of th
 | `--open [boolean]`       | Open the built Safari app after packaging. `build` never opens it unless you ask.           | `false`                            |
 | `--app-name <name>`      | Override the Safari app name.                                                               | the manifest `name`                |
 | `--bundle-id <id>`       | User-owned bundle identifier in reverse-DNS form. A malformed value fails before any build. | a generated `dev.extensionjs.*` id |
+| `--development-team <id>` | Apple Developer team id to sign the Safari app with. Without it the build is ad-hoc signed, which Safari treats as unsigned, so the extension needs Develop ▸ Allow Unsigned Extensions re-ticked on every launch. | unset (ad-hoc signed) |
 | `--macos-only [boolean]` | Generate a macOS-only Xcode project. Pass `false` for a universal macOS + iOS project.      | `true`                             |
 | `--force-regenerate`     | Regenerate the Safari Xcode project even when up to date.                                   | disabled                           |
 
@@ -179,6 +180,8 @@ Invalid values exit with an error. The default remains `production`.
 | `--zip`          | Creates a packaged artifact zip         | Store submission/manual distribution |
 | `--zip-filename` | Sets custom zip name                    | CI naming conventions                |
 | `--zip-source`   | Adds source archive alongside artifacts | Compliance/review pipelines          |
+
+Each zip lands inside its own `dist/<browser>` folder, next to the unpacked output. Without `--zip-filename`, the name is the manifest `name` lowercased with every character outside `a-z0-9` and spaces removed, remaining spaces turned into dashes, then the manifest `version`. A manifest named `My Extension+` at version `1.0.0` packages as `dist/chrome/my-extension-1.0.0.zip`. Because the name is rewritten, read the emitted path from the build output instead of composing it from the manifest name.
 
 ## Examples
 
@@ -299,7 +302,7 @@ machine contract.
 
 `--output json` prints one schema-1 envelope on stdout and routes the human build lines to stderr. Stdout stays parseable as a single JSON document.
 
-- A successful run prints a `status: "built"` frame. Its `value` carries the project path, built browsers, the resolved mode, and one summary per browser. Each summary records the output path, asset totals, warning text, and the Safari app identity when relevant.
+- A successful run prints a `status: "built"` frame. Its `value` carries the built browsers, the resolved mode, and one summary per browser. Each summary records the output path, asset totals, warning text, and the Safari app identity when relevant.
 - A failed build prints one `ok: false` frame with `status: "build-failed"` and `error.code: "E_COMPILE"` before the process exits `1`.
 
 Every build also writes `dist/extension-js/<browser>/build-summary.json`. Scripts that shell out to `extension build` can read structured warnings there. Guard against stale files by checking the file's modification time.
@@ -309,7 +312,7 @@ Every build also writes `dist/extension-js/<browser>/build-summary.json`. Script
 - **Check build logs:** Review logs for warnings and missing assets after each build.
 - **Optimize your manifest:** Keep `manifest.json` compatible with every target browser.
 - **Name artifacts intentionally:** Use `--zip-filename` for stable CI artifact naming.
-- **Validate target output:** Check each `dist/<browser>` folder before publishing.
+- **Validate target output:** Check each `dist/<browser>` folder before publishing. A later `dev` session overwrites that same folder with a dev-instrumented build that adds permissions such as `scripting`, `tabs`, `management`, and `storage`, plus `host_permissions` for `<all_urls>` and broad web-accessible resources. Run `build` again before you package or publish.
 
 ## Next steps
 

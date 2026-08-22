@@ -60,7 +60,7 @@ extension start [path-or-url] [options]
 extension start [path-or-url] [options]
 ```
 
-```bash bun
+```bash deno
 extension start [path-or-url] [options]
 ```
 
@@ -78,16 +78,27 @@ extension start [path-or-url] [options]
 | `--chromium-binary <path>`     | -                  | 自訂 Chromium 系列執行檔路徑。                                 | 系統預設        |
 | `--gecko-binary <path>`        | `--firefox-binary` | 自訂 Gecko 系列執行檔路徑。                                    | 系統預設        |
 | `--polyfill [boolean]`         | -                  | 為 Chromium 目標啟用 `browser.*` API 相容性 polyfill。         | `true`          |
+| `--no-polyfill`                | -                  | 關閉跨瀏覽器 polyfill。                                        | 預設啟用 polyfill |
 | `--starting-url <url>`         | -                  | 啟動瀏覽器後開啟的 URL。                                       | 未設            |
 | `--no-browser`                 | -                  | 建置但略過瀏覽器啟動。                                         | 預設啟動瀏覽器  |
 | `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 後結束。         | 停用            |
 | `--wait-timeout <ms>`          | -                  | `--wait` 模式的逾時時間。                                      | `60000`         |
-| `--wait-format <pretty\|json>` | -                  | 等待結果的輸出格式(`json` 為機器可讀)。                        | `pretty`        |
+| `--output <pretty\|json>`      | -                  | 結果格式。`json` 會在 stdout 上印出 schema-1 信封。            | `pretty`        |
 | `--port <port>`                | -                  | 啟用 runner 時的 runner/devtools 埠號。設 `0` 讓作業系統指定。 | `8080`          |
 | `--host <host>`                | -                  | 開發伺服器要綁定的主機。Docker/dev container 請用 `0.0.0.0`。  | `127.0.0.1`     |
+| `--public-host <host>`         | -                  | 當瀏覽器要連的主機與綁定用的 `--host` 不同時(遠端/dev container),改用這個可連線的主機。 | 綁定的主機(綁到 `0.0.0.0` 時為 `127.0.0.1`) |
 | `--extensions <list>`          | -                  | 以逗號分隔的搭配擴充功能或 store URL。                         | 未設            |
-| `--install [boolean]`          | -                  | 當缺少時安裝專案相依套件。                                     | 依指令行為而定  |
-| `--author`                     | `--author-mode`    | 啟用維護者診斷。                                               | 停用            |
+| `--install [boolean]`          | -                  | 內部旗標。當缺少時安裝專案相依套件。                           | 依指令行為而定  |
+| `--debug`                      | -                  | 啟用維護者診斷。                                               | 停用            |
+
+有兩個已淘汰的別名雖然從 `--help` 隱藏,但仍可使用:
+
+- `--wait-format <pretty|json>` 會對應到 `--output`,並在 stderr 警告一次。請把腳本改用 `--output`。
+- `--author` 與 `--author-mode` 會對應到 `--debug`。
+
+## 瀏覽器支援
+
+`start` 沒有 Safari 路徑。傳入 `--browser safari`(或 `webkit-based`)會以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 結束。Safari 目標請改用 [`dev`](/docs/commands/dev) 或 [`build`](/docs/commands/build)。
 
 ## 自動化中介資料
 
@@ -112,9 +123,21 @@ extension start [path-or-url] [options]
 3. 只在 `status: "ready"` 後才啟動外部瀏覽器自動化。
 
 `--wait` 在 `error`/逾時時以非零碼結束,並會忽略來自已死程序(`pid` 不存在)的過期契約。
+因為 `start` 可能很快就結束,只要時間戳落在 60 秒的視窗內,已完成執行留下的契約一樣算數。
+`--wait` 需要本地專案路徑。傳入遠端 URL 會以 `E_ARGS` 結束。
 如果你在同一次指令中同時傳入 `--wait` 與 `--no-browser`,`--wait` 優先,指令會以「僅等待」模式執行。
 
+### 用 `--output json` 取得機器可讀輸出
+
+`--output json` 會在 stdout 印出 schema-1 信封,每行一個 JSON 物件:
+
+- 一般的 `start` 執行會在建置前印出一個 `status: "started"` 影格。它帶有專案路徑、瀏覽器清單、要求的埠號與 `pid`。
+- `start --wait` 執行成功時會印出一個 `status: "ready"` 影格。它的 `value.results` 陣列會按瀏覽器帶出完整的就緒契約。
+- 建置失敗時會印出一個 `ok: false` 影格,其中 `status: "build-failed"`、`error.code: "E_COMPILE"`,接著程序以 `1` 結束。
+
 ## 記錄旗標
+
+這些旗標屬於實驗性質,可能在次版本之間變動。
 
 | 旗標                                                 | 用途                                                                                   | 預設值         |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------- |
@@ -152,7 +175,7 @@ extension start
 extension start
 ```
 
-```bash bun
+```bash deno
 extension start
 ```
 
@@ -178,7 +201,7 @@ extension start --browser firefox
 extension start --browser firefox
 ```
 
-```bash bun
+```bash deno
 extension start --browser firefox
 ```
 
@@ -204,7 +227,7 @@ extension start --no-browser
 extension start --no-browser
 ```
 
-```bash bun
+```bash deno
 extension start --no-browser
 ```
 

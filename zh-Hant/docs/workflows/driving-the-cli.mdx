@@ -1,0 +1,145 @@
+---
+title: "從 AI agent 驅動 CLI"
+description: "給驅動 Extension.js 的 agent 的操作手冊：capabilities 握手、機器可讀輸出、runtime attached 關卡、動作動詞，以及 --ai-help 酬載。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "ai",
+    "agents",
+    "automation",
+  ]
+---
+
+不必解析人類可讀的輸出，也能端到端地驅動一次真實的開發工作階段。
+
+本頁是寫給親自操作 CLI 的 AI agent 與自動化框架的操作手冊。如果你想要的是一個能依文件回答問題的助理，請改看[透過 MCP 與 llms.txt 提供 AI 存取](/docs/ai-access)。
+
+整個迴圈分四步：握手、啟動、過關、動作。每一步讀的都是[機器契約](/docs/contracts/index)，而不是終端機裡的文字。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/TITXqdqT1UA?autoplay=1&mute=1&loop=1&playlist=TITXqdqT1UA&controls=0&rel=0&playsinline=1"
+    title="Extension.js: an agent drives the CLI"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 第 1 步：用 capabilities 握手
+
+在做任何假設之前，先問問引擎它會說什麼：
+
+```bash
+extension capabilities
+```
+
+這條指令預設輸出 JSON，也是唯一這樣做的指令。它會回一個信封，其 `value` 為：
+
+```json
+{
+  "name": "extension",
+  "version": "4.1.3",
+  "envelopeSchema": 1,
+  "readySchemaVersion": 2,
+  "outputJsonCommands": [
+    "build",
+    "capabilities",
+    "create",
+    "dev",
+    "doctor",
+    "eval",
+    "inspect",
+    "install",
+    "logs",
+    "open",
+    "preview",
+    "publish",
+    "reload",
+    "start",
+    "storage",
+    "telemetry",
+    "uninstall"
+  ]
+}
+```
+
+把 `envelopeSchema` 與 `readySchemaVersion` 對照你的解析器所預期的版本。`outputJsonCommands` 是從實際註冊的指令讀出來的，因此它永遠不會和你正在執行的這個版本脫節。
+
+## 第 2 步：以機器可讀輸出啟動工作階段
+
+```bash
+extension dev ./my-extension --browser=chromium --allow-control --output json
+```
+
+`--allow-control` 會解鎖一組有邊界的動作動詞（`storage`、`reload`、`open`、`inspect`）。只有在你確實需要 `extension eval` 時才加上 `--allow-eval`，它會執行任意程式碼，並寫出一個 0600 權限的工作階段權杖。
+
+在 `--output json` 之下，指令會印出一個 `started` 信封，失敗同樣以信封形式回來。人類可讀的文案會移到 stderr，因此 stdout 始終可以解析。
+
+想逐一影格追蹤整個工作階段，就在環境中設定 `EXTENSION_OUTPUT=ndjson`，並讀取[生命週期串流](/docs/contracts/lifecycle-stream)。
+
+## 第 3 步：在 runtime attached 設下關卡
+
+就緒分成兩個階段，而太早動作是 agent 最常見的失敗方式：
+
+1. `ready.json` 回報 `status: "ready"`。這只代表編譯完成，僅此而已。
+2. 契約帶有 `runtime: "attached"` 與 `executorAttachedAt`。這時 service worker 已經連上，可以被驅動了。
+
+用第二個行程阻擋等待階段 1：
+
+```bash
+extension dev ./my-extension --wait --browser=chromium --output json
+```
+
+接著輪詢 `dist/extension-js/chromium/ready.json`，直到 `runtime` 等於 `"attached"` 之後，再執行任何動作動詞。關於讓你避開過期契約的新鮮度與 pid 存活規則，請見 [ready.json](/docs/contracts/ready-json)。
+
+## 第 4 步：執行動作並讀取信封
+
+每個動作動詞都接受 `--output json`，並回一個 schema-1 的[結果信封](/docs/contracts/result-envelope)：
+
+```bash
+extension storage get --key lastClickedAt --browser=chromium --output json
+extension reload --context background --browser=chromium --output json
+extension open action --browser=chromium --output json
+extension logs --context content --output ndjson
+```
+
+請依 `ok` 與 `error.code` 分支，絕不要依 `error.message`。[錯誤碼表](/docs/contracts/error-codes)在各版本之間保持穩定。
+
+## 用 --ai-help 探索 CLI
+
+`extension --ai-help --output json` 會印出一份機器可讀的自我描述。有兩個機制對呼叫端很重要：
+
+- `--ai-help` 會繞過引數解析器。它在任何子指令解析之前就執行，所以即使呼叫方式本身無效，它也照樣有效。
+- 酬載可能超出一個管線緩衝區，因此行程會在結束前先把 stdout 排空。請一路讀到 EOF。
+
+酬載的結構：
+
+| 鍵              | 裡面放什麼                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `version`       | CLI 版本。                                                                                          |
+| `commands`      | 每個指令一筆：`name`、`summary`、`supportsSourceInspection`。                                       |
+| `globalOptions` | 每個全域旗標一筆：`name`、`description`，在有限制時還會加上 `values` 與 `default`。                 |
+| `templates`     | 鷹架目錄：`default`、`bundled`、`catalogUrl`、`names`、`groups` 與 `notes`。                         |
+| `capabilities`  | 行為事實：`logger`、`managedDependencies`、`readyContract` 與 `dockerAndContainers`。                |
+| `examples`      | 可直接複製貼上的呼叫範例。                                                                          |
+
+`capabilities.readyContract` 這一區會列出契約路徑、狀態、欄位與事件類型，因此 agent 不必依賴這個文件網站也能自行設定。
+
+## 讓 agent 保持誠實的規則
+
+- 永遠不要解析漂亮的終端機輸出。你需要的每一項事實都有對應的機器可讀介面。
+- 在信任 `ready.json` 之前，先確認 `pid` 是否存活以及契約是否夠新。
+- 用 `runId` 把 `ready.json`、`events.ndjson` 與 `logs.ndjson` 串起來。
+- 用 `ready.json` 裡的 `browserPid` 關閉瀏覽器，絕不要靠比對行程名稱。
+- 把未知的信封欄位視為附加內容。schema 只會生長，不會破壞相容性。
+
+## 下一步
+
+- 把契約細節放在手邊：[ready.json](/docs/contracts/ready-json) 與[結果信封](/docs/contracts/result-envelope)。
+- 用 [CI 範本](/docs/workflows/ci-templates)把同一套迴圈接進 CI。

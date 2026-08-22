@@ -56,8 +56,8 @@ yarn dlx extension@latest create my-extension --template=new-less
 bunx extension@latest create my-extension --template=new-less
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-less
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-less
 ```
 
 </CodeGroup>
@@ -157,8 +157,8 @@ yarn dlx extension@latest create my-extension --template=content-less-modules
 bunx extension@latest create my-extension --template=content-less-modules
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-less-modules
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-less-modules
 ```
 
 </CodeGroup>
@@ -229,12 +229,29 @@ export default function MyComponent() {
 
 - 在扩展页面上下文里，`.module.less` 会按预期导出类名映射。
 - 在 content script 中，Extension.js 会把样式作为 CSS 资源输出，并以样式表的方式注入页面。
-- 如果项目缺少 Less 工具链，Extension.js 会安装可选依赖并提示重启。
+- 如果没有安装 `less` 包，Extension.js 会给出警告，并把原始的 Less 源码原样拷贝进输出的 CSS，因此在你自己安装它之前，这些界面会以无样式的形态渲染。
+
+## 关于 `less` 的安装后警告
+
+在某些包管理器下，安装一个使用 Less 的项目时可能会出现提示，说 `less` 的构建脚本没有被执行（pnpm 会打印
+`Ignored build scripts: less`，并请你批准它们）。这是预期之中的，**可以安全忽略**。
+Extension.js 通过自己的打包管线编译 Less，因此并不依赖 Less 那个可选的安装后步骤（它只是在 Less 自己的
+仓库里配置 Playwright，对使用者来说什么也不做）。无论哪种情况，你的 `.less` 与 `.module.less` 文件的
+构建和热重载都完全一样。
+
+脚手架生成的项目不会带上 `pnpm.ignoredBuiltDependencies` 键，所以用 pnpm 安装一个 Less 模板时，会像
+其他项目一样显示这条提示。npm 与 yarn 默认会运行该脚本，什么也不打印。
+
+如果你遇到了这条提示，有两种等价的方式让它安静下来：
+
+- **跳过它（推荐）**：在你的 `package.json` 中加上 `pnpm.ignoredBuiltDependencies: ["less"]`。
+  这相当于确认了这个脚本，但不去运行这个空操作。
+- **运行它**：执行 `pnpm approve-builds` 并选择 `less`，或者加上
+  `pnpm.onlyBuiltDependencies: ["less"]`。无害，只是没有必要。
+
+对于典型的 Extension.js 项目，两种做法在功能上没有任何差别。
 
 ## 下一步
 
 - 进一步了解 [CSS 模块](/docs/languages-and-frameworks/css-modules)。
 - 在扩展中配置 [PostCSS](/docs/integrations/postcss)。
-
-## 视频讲解
-

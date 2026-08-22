@@ -1,0 +1,93 @@
+---
+title: "發佈到瀏覽器商店"
+description: "瀏覽器擴充功能完整的上架歷程：註冊商店帳號、取得 API 憑證、設定專案、撰寫 STORE.md、提交、追蹤審查，以及處理退件。"
+keywords:
+  [
+    "publish",
+    "store",
+    "submission",
+    "chrome web store",
+    "firefox add-ons",
+    "edge add-ons",
+    "credentials",
+    "review",
+    "rejection",
+  ]
+---
+
+把擴充功能送上 Chrome Web Store、Firefox Add-ons 與 Edge Add-ons 是同一段歷程，在每個商店的形狀都一樣：註冊開發者帳號、手動建立一次 listing、取得 API 憑證，之後每一次提交都自動化。本頁講的是整段歷程。各商店的專屬指南會詳細說明每一個憑證入口：
+
+- [取得你的 Chrome Web Store 憑證](/docs/publishing/chrome-credentials)
+- [取得你的 Firefox Add-ons 憑證](/docs/publishing/firefox-credentials)
+- [取得你的 Edge Add-ons 憑證](/docs/publishing/edge-credentials)
+
+## 這段歷程
+
+<Steps>
+  <Step title="註冊商店帳號">
+    每個商店都要求先有開發者帳號，其他事情才談得上。費用、協議與各商店要求的註冊流程，
+    見下方的[帳號前置條件](#帳號前置條件)。
+  </Step>
+  <Step title="每個 listing 都先手動建立一次">
+    Chrome 與 Edge 的 API 無法建立新的 listing。第一個 zip 必須在商店後台手動上傳。
+    正是這次首傳建立了自動化所需要的擴充功能 ID（Chrome）與 Product ID（Edge）。
+    Firefox 可以透過 API 建立新的 unlisted 附加元件；listed 附加元件仍然需要一次手動首次提交。
+  </Step>
+  <Step title="逐個商店取得 API 憑證">
+    依照上面連結的各商店指南進行。每份指南都會指名確切的入口頁面、
+    展示每個值長什麼樣，並列出到期規則。
+  </Step>
+  <Step title="填入憑證">
+    在你自己的 CI 中設定環境變數，或把它們放在一份你自己撰寫的 `.env.submit` 檔案裡。
+    別讓它進 git。
+  </Step>
+  <Step title="撰寫 STORE.md">
+    在第一次提交之前先寫好 [STORE.md 中繼資料檔案](/docs/workflows/store-metadata)。
+    提交工具會讀取它，並自動附上審查者備註、發行說明與認證說明。少了它，提交出去就是完全沒有備註的。
+  </Step>
+  <Step title="提交">
+    從你自己的 CI 對各商店的 API 提交。工具支援時先跑一次 dry run：
+    dry run 會驗證憑證並打包 zip，但不會上傳任何東西。
+  </Step>
+  <Step title="追蹤審查">
+    提交成功只代表商店接受了這次上傳，並把它排進審查佇列。審查是第三方的決定：
+    輪詢各商店的後台或 API 取得狀態，在商店確認之前，絕對不要宣稱某個 listing 已經上線。
+  </Step>
+  <Step title="處理退件">
+    讀懂商店回覆的失敗原因，修掉肇因，並把兩者都記進 `STORE.md` 的版本歷程段落，
+    讓下一次提交不會重蹈覆轍。含糊的權限說明，是每個商店上最常見的退件原因。
+  </Step>
+</Steps>
+
+## 帳號前置條件
+
+| 商店             | 帳號                                                                                                        | 費用          | 自動化生效之前要先做什麼                                                              |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------- |
+| Chrome Web Store | 註冊 [開發者主控台](https://chrome.google.com/webstore/devconsole)                                            | 一次性 5 美元 | 在後台手動上傳第一個 zip。API 無法建立新項目，擴充功能 ID 也要在那之後才存在。         |
+| Firefox Add-ons  | [AMO](https://addons.mozilla.org) 開發者帳號，加上 Firefox Add-on Distribution Agreement                      | 免費          | 接受該協議。在你接受之前，API key 頁面會一直鎖著。                                     |
+| Edge Add-ons     | 在 [Partner Center](https://partner.microsoft.com/dashboard/microsoftedge/overview) 註冊 Microsoft Edge 計畫  | 免費          | 透過一次手動首次提交建立產品。沒有建立產品的 API，而自動化需要 Product ID。            |
+
+## 憑證放在哪裡
+
+憑證由你自己保管。`.env.submit` 檔案是常見的逐專案憑證檔：
+每個 repository 一份，不進 git，背後由你自己的機密儲存撐著。在 CI 中，把每個值都存成 secret。
+
+即使兩個專案共用同一個商店帳號，憑證也要逐專案分開保管。
+三個商店的 API 憑證都是帳號層級的，所以在商店這一側，
+為每條產品線各開一個發佈者帳號，才是唯一真正的隔離邊界。這樣輪換一份憑證就只會動到一個專案。
+
+## 各商店提交需要什麼
+
+| 商店    | 機密                                                                | 識別碼                             | 商店專屬規則                                                          |
+| ------- | ------------------------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------- |
+| Chrome  | OAuth client ID、client secret 與 refresh token，或一份服務帳戶 JSON | 擴充功能 ID、publisher ID          | 首次上傳是手動的。listing 文案只能在後台編輯：API 不接受任何中繼資料。 |
+| Firefox | JWT issuer 與 JWT secret                                            | 附加元件 GUID（listed 通道必填）   | 新的附加元件必須在 manifest 中宣告 `data_collection_permissions`。     |
+| Edge    | Client ID 與 API key                                                | Product ID（一律必填）             | 該產品必須已經存在於 Partner Center 中。                              |
+
+## 後續步驟
+
+- 取得憑證：[Chrome](/docs/publishing/chrome-credentials)、
+  [Firefox](/docs/publishing/firefox-credentials)、
+  [Edge](/docs/publishing/edge-credentials)。
+- 這些文書工作寫一次就好：
+  [用一份 STORE.md 檔案管理商店中繼資料](/docs/workflows/store-metadata)。

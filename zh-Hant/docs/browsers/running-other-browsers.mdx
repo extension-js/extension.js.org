@@ -14,7 +14,6 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["waterfox", "opera", "brave"]} />
 執行熱門的 Chromium 與 Gecko 分支,可以用名稱(Extension.js
 會為你定位已安裝的執行檔)或提供明確的執行檔路徑。
 
@@ -42,6 +41,12 @@ extension dev --browser=waterfox
 ```
 
 如果該瀏覽器未安裝,Extension.js 會以安裝指引結束。具名分支會繼承其家族的 manifest 鍵,因此 `chromium:`/`firefox:` 前綴的欄位能正確解析(參見 [瀏覽器專屬 manifest 欄位](/docs/features/browser-specific-fields))。
+
+<Note>
+  `dev`、`build`、`start` 與 `preview` 的說明輸出都會列出所有分支名稱。`start`
+  與 `preview` 的清單沒有 `safari` 與 `webkit-based`,因為這兩個指令按設計就拒絕
+  Safari 目標。
+</Note>
 
 ## 執行自訂執行檔
 
@@ -75,6 +80,17 @@ extension dev --browser=firefox --gecko-binary="/path/to/firefox-developer-editi
 ```
 
 也可以搭配 `start` 與 `preview` 使用。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/7YvMhFRn5vA?autoplay=1&mute=1&loop=1&playlist=7YvMhFRn5vA&controls=0&rel=0&playsinline=1"
+    title="Extension.js: run Brave with --chromium-binary"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ## 在 `extension.config.*` 中設定
 
@@ -131,10 +147,20 @@ export default {
 
 ## 重要限制
 
-- `chromium-based` 需要有效的 `chromiumBinary` 路徑。
+- `chromium-based` 需要 `--chromium-binary`(或設定中的 `chromiumBinary`)。沒有它,啟動會直接以錯誤結束,不會回退到系統瀏覽器。
 - `gecko-based` / `firefox-based` 需要有效的 `geckoBinary` 路徑。
 - 無效路徑會立即失敗,並回報明確的 CLI/執行階段錯誤。
 - `build` 不接受執行檔旗標。基於執行檔的啟動方式只能用在 `dev`、`start` 與 `preview`。
+
+## Edge 執行檔覆寫
+
+設定 `EDGE_BINARY` 環境變數,即可在不更動設定的情況下,用指定的執行檔啟動 `--browser=edge`:
+
+```bash
+EDGE_BINARY="/path/to/msedge" extension dev --browser=edge
+```
+
+若該路徑不存在,啟動會直接失敗,而不會靜默回退。
 
 ## 最佳實務
 

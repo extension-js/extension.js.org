@@ -14,7 +14,6 @@ keywords:
   ]
 ---
 
-<AvatarBrowsers browsers={["waterfox", "opera", "brave"]} />
 运行常见的 Chromium 与 Gecko 分支：既可以直接按名称运行（Extension.js
 会为你定位已安装的二进制），也可以显式提供二进制路径。
 
@@ -42,6 +41,12 @@ extension dev --browser=waterfox
 ```
 
 如果该浏览器未安装，Extension.js 会带上安装指引退出。具名分支会继承其家族的 manifest 键，因此带 `chromium:`/`firefox:` 前缀的字段会被正确解析（参见 [按浏览器划分的 manifest 字段](/docs/features/browser-specific-fields)）。
+
+<Note>
+  `dev`、`build`、`start` 与 `preview` 的帮助输出都会列出全部分支名称。`start`
+  与 `preview` 的列表里没有 `safari` 和 `webkit-based`，因为这两个命令按设计就拒绝
+  Safari 目标。
+</Note>
 
 ## 运行自定义二进制
 
@@ -75,6 +80,17 @@ extension dev --browser=firefox --gecko-binary="/path/to/firefox-developer-editi
 ```
 
 它们也可以与 `start` 和 `preview` 搭配使用。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/7YvMhFRn5vA?autoplay=1&mute=1&loop=1&playlist=7YvMhFRn5vA&controls=0&rel=0&playsinline=1"
+    title="Extension.js: run Brave with --chromium-binary"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
 
 ## 在 `extension.config.*` 中配置
 
@@ -131,10 +147,20 @@ export default {
 
 ## 重要约束
 
-- `chromium-based` 需要一个有效的 `chromiumBinary` 路径。
+- `chromium-based` 需要 `--chromium-binary`（或配置中的 `chromiumBinary`）。没有它，启动会直接以错误退出，不会回退到系统浏览器。
 - `gecko-based` / `firefox-based` 需要一个有效的 `geckoBinary` 路径。
 - 无效路径会以清晰的 CLI / 运行时错误立即失败。
 - `build` 不接受二进制 flag。基于二进制的启动只能配合 `dev`、`start` 与 `preview` 使用。
+
+## Edge 二进制覆盖
+
+设置 `EDGE_BINARY` 环境变量，可以在不改动配置的情况下用指定的二进制启动 `--browser=edge`：
+
+```bash
+EDGE_BINARY="/path/to/msedge" extension dev --browser=edge
+```
+
+如果该路径不存在，启动会直接失败，而不会静默回退。
 
 ## 最佳实践
 

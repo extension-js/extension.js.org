@@ -42,7 +42,12 @@ keywords:
 
 ## 步驟 1：建立擴充功能
 
-使用 Extension.js 的 `create` 指令來建立一個名為 `github-search` 的最小擴充功能。
+使用 Extension.js 的 `create` 指令來建立一個名為 `github-search` 的擴充功能。
+
+預設範本是一個可直接運作的 sidebar 起始範本，因此建立出來的專案已經包含
+`src/manifest.json` 與 `src/background.js`。接下來兩個步驟會取代這兩個檔案。
+本教學中你寫的所有內容都放在 `src/` 底下，因為只要 `src/manifest.json` 存在，
+Extension.js 就會優先採用它。
 
 <CodeGroup>
 
@@ -62,16 +67,36 @@ yarn dlx extension@latest create github-search
 bunx extension@latest create github-search
 ```
 
-```bash bun
-bunx extension@latest create github-search
+```bash deno
+deno run -A npm:extension@latest create github-search
 ```
 
 </CodeGroup>
+
+<Note>
+  **正在使用 Deno？** Deno 會非常積極地快取 npm 套件，包括 `@latest`
+  標籤，因此 `npm:extension@latest` 可能一直解析到較舊的快取版本。
+  如果建立專案或 `dev` 建置失敗，而該錯誤在較新版本中已經修好
+  （例如 `manifest.json references files that were not emitted to
+  disk`），請固定版本或重新整理快取：
+
+```bash
+deno run -A --reload npm:extension@latest create github-search
+# or pin an exact version
+deno run -A npm:extension@4.1.3 create github-search
+```
+
+執行 `deno install` 之後，先確認解析出的版本（`extension` 應與最新發行版本相符），
+再執行 `deno task dev`。
+
+</Note>
 
 ## 步驟 2：建立 manifest 檔案
 
 
 每個擴充功能都從 manifest 檔案開始。它定義中繼資料、權限與執行階段檔案。根據[上述計畫](#計畫)，設定 `gh` 捷徑並加入處理使用者事件的 service worker。
+
+打開建立出來的 `src/manifest.json`，把內容換成：
 
 ```json
 {
@@ -94,7 +119,7 @@ bunx extension@latest create github-search
 
 在這個範例中，加入一段腳本來監聽 Omnibox 輸入，並把查詢字串導向 GitHub 搜尋。
 
-建立 `service_worker.js`：
+建立 `src/service_worker.js`，並刪除範本附帶的 `src/background.js`，這樣就不會有其他檔案占用 background 進入點：
 
 ```js
 // When the user has accepted what is typed into the omnibox.
@@ -112,17 +137,36 @@ chrome.omnibox.onInputEntered.addListener((text) => {
 
 ## 步驟 4：載入你的擴充功能
 
-你的 `package.json` 檔案現在看起來像這樣：
+進入專案並安裝相依套件。`create` 只會建立專案，不會替你安裝，而 `dev`
+script 執行的是本地的 `extension` 執行檔：
+
+```bash
+cd github-search
+npm install
+```
+
+你的 `package.json` 檔案現在看起來像這樣，其中 `extension` 固定在你建立專案時使用的版本：
 
 ```json
 {
+  "private": true,
+  "name": "github-search",
+  "description": "Adds a sidebar panel to the browser with a simple page.",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
   "scripts": {
     "dev": "extension dev",
     "start": "extension start",
-    "build": "extension build"
+    "build": "extension build",
+    "preview": "extension preview",
+    "build:chrome": "extension build --browser chrome",
+    "build:firefox": "extension build --browser firefox",
+    "build:edge": "extension build --browser edge"
   },
+  "dependencies": {},
   "devDependencies": {
-    "extension": "latest"
+    "extension": "^4.1.3"
   }
 }
 ```
@@ -147,8 +191,8 @@ yarn run dev
 bun run dev
 ```
 
-```bash bun
-bun run dev
+```bash deno
+deno task dev
 ```
 
 </CodeGroup>

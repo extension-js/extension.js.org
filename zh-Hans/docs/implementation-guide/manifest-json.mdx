@@ -34,7 +34,7 @@ Extension.js 会编译你的 manifest，并过滤带浏览器前缀的字段。�
 
 Extension.js 不会把 `public/manifest.json` 作为源 manifest。
 
-当项目存在 `package.json` 时，Extension.js 会忽略 `public/manifest.json`。这可以防止被复制的静态资源覆盖 Extension.js 生成的 manifest。
+放在 `public/` 下的 `manifest.json` 会让构建以 `manifest.json must not be placed under public/` 失败。请把它移到 `src/manifest.json` 或项目根目录，这样被复制的静态资源就永远不会覆盖 Extension.js 生成的 manifest。
 
 ## Extension.js 对它做了什么
 
@@ -128,6 +128,24 @@ Extension.js 还会按 manifest 入口索引归一化 content script：
 | 修改仍能干净解析的资源路径值                             | 重新编译 + 硬重载流程          |
 | 在 manifest 中新增/删除脚本或页面入口                    | 需要重启                       |
 | 引入不合法/缺失的被引用文件                              | 构建错误（先修复，再重新运行） |
+
+## Extension.js 会替你修复什么
+
+有些 manifest 形态会让 Chromium 直接拒绝加载扩展，而且几乎不给解释。Extension.js 会在浏览器启动之前诊断这些问题，并自动修复其中致命的那些。每次修复都会打印一条警告，指出具体的字段和原因。拒绝原因与修复方式的完整目录见 [Manifest 拒绝加载](/docs/debugging/manifest-refusals)。
+
+### 遗留路径警告
+
+当产出的 manifest 中仍然包含下列这些已废弃的生成路径时，开发构建与生产构建都会给出警告：
+
+- `devtools_page/devtools_page.html`
+- `options_ui/page.html`
+- `background/page.html`
+- `browser_action/default_popup.html`
+- `page_action/default_popup.html`
+- `side_panel/default_path.html`
+- `sidebar_action/default_panel.html`
+
+每命中一条都会产生一个 `ManifestLegacyWarning`。Extension.js 会在下一个大版本中把这些路径改写为标准化的目录。
 
 ## 最佳实践
 

@@ -78,12 +78,14 @@ steps:
 - 在启动 Playwright 之前，把 `dist/extension-js/<browser>/ready.json` 作为就绪契约。
 - 不要在 CI 自动化脚本中解析人类可读的日志。
 - 优先使用内置的等待命令：`extension dev --wait --browser=<browser>`(watch/dev) 或 `extension start --wait --browser=<browser>`(生产/start)。
-- 对于脚本或 CI 自动化，建议使用 `--wait-format=json`。
+- 对于脚本或 CI 自动化，建议使用 `--output json`。更早的 `--wait-format` 别名仍然可用，但会在 stderr 上告警。
+- 在机器输出模式下，给人看的文案会移到 stderr，因此 stdout 上只有一份可解析的 JSON 文档。
+- 收尾时，从 `ready.json` 读取 `browserPid` 并向该进程发信号。它是回收浏览器进程的受支持句柄。
 
 ### 就绪门示例
 
 ```bash
-pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-format=json
+pnpm extension start --wait --browser=chromium --wait-timeout=60000 --output json
 ```
 
 ## 测试无 UI 的处理器
@@ -91,12 +93,16 @@ pnpm extension start --wait --browser=chromium --wait-timeout=60000 --wait-forma
 你不总是需要 Playwright。对于事件处理器(工具栏 action、键盘命令)，Extension.js 可以直接对 dev 会话触发它们，然后你在副作用上做断言。这种方式是确定性的，且无头运行，因此是可靠的门控。
 
 ```yaml
-- run: pnpm extension dev --browser=chromium --allow-control --wait --wait-format=json
-- run: pnpm extension open action --browser=chromium --output json
 - run: |
+    pnpm extension dev --browser=chromium --allow-control &
+    pnpm extension dev --browser=chromium --wait --output json
+    pnpm extension open action --browser=chromium --output json
     pnpm extension storage get --key lastClickedAt --browser=chromium --output json \
       | node -e 'process.exit(JSON.parse(require("fs").readFileSync(0)).value?.lastClickedAt ? 0 : 1)'
 ```
+
+第一行启动会话，第二行以它的就绪契约作为门控。`--wait` 只负责等待，
+它不会启动会话，所以两者要放在同一个 `run:` 步骤里。
 
 同样的方法可以回放键盘命令(`extension open command --name <cmd>`)。返回的载荷以及一个注意点(回放不带用户手势，因此 `activeTab` 不会被授予) 请参见[触发 action 与命令](/docs/debugging/trigger-actions-and-commands)。
 
@@ -117,9 +123,9 @@ pnpm extension dev --host 0.0.0.0 --port 0 --no-browser
 - 失败的 E2E Job 未上传产物
 - 工作流之间使用未锁定的 Node/包管理器版本
 
-你的仓库中包含一个 E2E 工作流示例：
+`create` 不会为你生成 CI 工作流。想要一份可以直接照抄的完整示例，可以看看 Extension.js 用在自己身上的那一份：
 
-- `.github/workflows/e2e.yml`
+- [`.github/workflows/e2e.yml`](https://github.com/extension-js/extension.js/blob/main/.github/workflows/e2e.yml)
 
 ## 最佳实践
 

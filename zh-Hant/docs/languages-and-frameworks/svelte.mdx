@@ -50,8 +50,8 @@ yarn dlx extension@latest create my-extension --template=new-svelte
 bunx extension@latest create my-extension --template=new-svelte
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-svelte
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-svelte
 ```
 
 </CodeGroup>
@@ -82,8 +82,8 @@ yarn dlx extension@latest create my-extension --template=content-svelte
 bunx extension@latest create my-extension --template=content-svelte
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-svelte
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-svelte
 ```
 
 </CodeGroup>
@@ -144,15 +144,17 @@ deno add -D npm:svelte-loader npm:typescript
 
 </CodeGroup>
 
+當選用的 `svelte-loader` 套件缺少時，建置錯誤會指出與內建工具鏈相符的確切版本。錯誤訊息中的安裝指令會依你專案實際使用的套件管理器來呈現。
+
 ## 開發行為
 
 當 Extension.js 偵測到 Svelte 時，會：
 
 - 啟用 `.svelte` 檔案解析。
-- 在 JS 框架 pipeline 中設定 Svelte loader。
+- 在 JS 框架 pipeline 中設定 Svelte loader，並在開發階段啟用熱重載，讓修改過的元件不必整頁重新載入就能更新。
 - 套用 Svelte client 別名（例如 `svelte`、`svelte/store`、`svelte/reactivity`）。
 
-若專案缺少選用工具，Extension.js 會自動安裝所需項目並提示重新啟動。
+若專案缺少選用工具，Extension.js 不會替你安裝，而是以確切的安裝指令提出警告。之後請重新啟動。
 
 ## 使用範例
 
@@ -174,18 +176,23 @@ deno add -D npm:svelte-loader npm:typescript
 ```
 
 ```ts
+import {mount} from "svelte";
 import App from "./App.svelte";
 
-new App({
+mount(App, {
   target: document.getElementById("app")!,
 });
 ```
+
+Extension.js 以 Svelte 5 為目標。Svelte 4 的 class API（`new App(...)` 與 `app.$destroy()`）
+在模板所安裝的版本上會拋出 `component_api_invalid_new`。
 
 ### 在 `content_script` 檔中
 
 對於 content script，建立掛載節點，並在 default export 中回傳一個 cleanup 函式。這讓 Extension.js 在開發階段可以安全地重新掛載：
 
 ```ts
+import {mount, unmount} from "svelte";
 import App from "./App.svelte";
 
 export default function main() {
@@ -193,10 +200,10 @@ export default function main() {
   target.id = "extension-root";
   document.body.appendChild(target);
 
-  const app = new App({ target });
+  const app = mount(App, {target});
 
   return () => {
-    app.$destroy();
+    unmount(app);
     target.remove();
   };
 }
@@ -212,3 +219,16 @@ export default function main() {
 
 - 進一步了解 [TypeScript 支援](/docs/languages-and-frameworks/typescript)。
 - 在 [Content scripts](/docs/implementation-guide/content-scripts) 中複習 content script 的契約。
+
+## 影片導覽
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/GabUWD62wKk?autoplay=1&mute=1&loop=1&playlist=GabUWD62wKk&controls=0&rel=0&playsinline=1"
+    title="Extension.js: Svelte HMR"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>

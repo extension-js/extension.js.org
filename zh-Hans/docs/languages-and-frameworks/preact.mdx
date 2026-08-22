@@ -16,7 +16,7 @@ keywords:
 
 在保持类 React 开发体验和快速本地迭代的前提下，让扩展 UI 的包体积更小。
 
-Extension.js 会从依赖中检测 Preact，自动配置 JSX/TSX 转换、React 兼容别名以及 fast-refresh 支持。你写的 React 导入会通过这些别名映射到 Preact。
+Extension.js 会从依赖中检测 Preact，自动配置 JSX/TSX 转换和 React 兼容别名。你写的 React 导入会通过这些别名映射到 Preact。在开发期，改动通过 live reload 生效：受影响的界面会重新加载，而不是就地热替换组件。
 
 ## 什么场景适合用 Preact
 
@@ -50,8 +50,8 @@ yarn dlx extension@latest create my-extension --template=new-preact
 bunx extension@latest create my-extension --template=new-preact
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new-preact
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new-preact
 ```
 
 </CodeGroup>
@@ -82,8 +82,8 @@ yarn dlx extension@latest create my-extension --template=content-preact
 bunx extension@latest create my-extension --template=content-preact
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=content-preact
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-preact
 ```
 
 </CodeGroup>
@@ -124,6 +124,8 @@ deno add npm:preact
 
 Preact 自带 TypeScript 类型，所以你不需要单独安装 `@types/preact`。
 
+你只需要添加 `preact` 这一个包。Extension.js 会从你的项目里解析 `preact/compat`、`preact/test-utils` 以及 JSX 运行时，并按找到的内容构建别名映射，所以不需要再额外安装其他包。
+
 ### 配置
 
 Extension.js 期望 Preact 文件使用以下扩展名：
@@ -137,14 +139,17 @@ Extension.js 期望 Preact 文件使用以下扩展名：
 
 - 兼容别名（例如把 `react` 指向 `preact/compat`）。
 - 适配 Preact 的 JSX 处理。
-- 通过 `@rspack/plugin-preact-refresh` 集成的开发期 refresh。
+- 开发期的 live reload：文件变化时，受影响的界面会重新加载并重新挂载。
 
-如果项目缺少可选的 refresh 依赖，Extension.js 会安装它们并请求你重启。
+和 React 不同，Preact 目前还享受不到 fast refresh（保留状态的热更新）。上游的
+`@rspack/plugin-preact-refresh` 运行时与 Extension.js 内置的 Rspack 版本不兼容，
+所以 Extension.js 选择禁用它，而不是让 dev 模式出问题。你的应用在每次编辑后
+仍然会更新，只是组件状态不会在编辑之间保留。等上游插件修好后，fast refresh
+会回归。
 
 ### 排查
 
-- **缺少 refresh 依赖的警告：** 安装 `@rspack/plugin-preact-refresh`（如果有提示，也安装相关包）。
-- **安装后提示重启：** 停止并重新运行 `extension dev`，让开发服务器能干净地重新加载 refresh 接线。
+- **编辑后组件状态被重置：** 这是目前的预期行为，因为 Preact 用的是 live reload，而不是 fast refresh（见上文）。
 - **未检测到 Preact 集成：** 确认 `preact` 出现在 `dependencies` 或 `devDependencies` 中。
 
 ## 用法示例
@@ -207,3 +212,13 @@ render(<App />, rootDiv);
 
 ## 视频讲解
 
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/XwkP-M1gajg?autoplay=1&mute=1&loop=1&playlist=XwkP-M1gajg&controls=0&rel=0&playsinline=1"
+    title="Extension.js: Preact HMR"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>

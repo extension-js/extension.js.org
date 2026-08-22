@@ -1,0 +1,80 @@
+---
+title: "用 Extension.js 開發 Deno 專案"
+description: "在以 Deno 為先的專案中建立與建置瀏覽器擴充功能。Extension.js 會把 deno.jsonc 當作專案 manifest 讀取，並解析 npm: 匯入。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "browser",
+    "deno",
+    "deno.jsonc",
+    "npm specifiers",
+    "typescript",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Extension.js 把 Deno 視為一等公民的執行環境。用 Deno 建立專案，你拿到的是 `deno.jsonc` 而不是 `package.json`。在混合式專案裡，`deno.jsonc` 會與 `package.json` 並存，用來承載 Deno 原生的設定。無論是哪一種，`extension dev` 與 `extension build` 的行為都相同。
+
+## 用 Deno 建立專案
+
+```bash
+deno run -A npm:extension@latest create my-extension --template=react
+```
+
+接著執行 dev task：
+
+```bash
+cd my-extension
+deno task dev
+```
+
+## 主要模式：deno.jsonc 就是專案 manifest
+
+當你在 Deno 執行環境下建立專案時，`deno.jsonc` 會成為專案唯一的 manifest，而 `package.json` 會被移除。
+
+- 樣板的相依套件會以 `npm:` specifier 的形式進入 `imports`，由 `deno install` 負責解析。
+- `extension` 引擎本身也宣告在那裡，形式為 `npm:extension@<version>`。
+- `nodeModulesDir` 會設為 `"auto"`，因此 `npm:` 相依套件會落在一個真實的 `node_modules` 資料夾裡。bundler 在 dev 與 build 時都從那裡解析專案相依套件。
+- `deno task <name>` 也會到 `node_modules/.bin` 尋找執行檔，所以產生出來的 task 執行的是本機安裝的 Extension.js CLI。
+
+一個精簡的範例：
+
+```jsonc
+{
+  "imports": {
+    "react": "npm:react@^19.0.0",
+    "react-dom": "npm:react-dom@^19.0.0",
+    "extension": "npm:extension@^4.0.0"
+  },
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "dev": "extension dev",
+    "build": "extension build"
+  }
+}
+```
+
+當樣板自帶 Deno 設定檔時，Extension.js 會合併進那個檔案，而不是另外建立第二個。Deno 自己的探索邏輯偏好 `deno.json` 勝過 `deno.jsonc`，所以合併的目標會是 Deno 實際會讀取的那個檔案。
+
+## 伴隨模式：deno.jsonc 與 package.json 並存
+
+monorepo 樣板，以及那些已經有 `package.json` 的專案，都會保留它。相依套件仍然宣告在 `package.json` 中，由 `deno install` 從那裡解析。作為伴隨檔的 `deno.jsonc` 只承載 Deno 原生的設定，以及用來執行 CLI 的 `tasks`。
+
+## 工具鏈如何偵測 Deno
+
+偵測依據的是檔案，而不是你用什麼方式呼叫 CLI：
+
+- Extension.js 在掃描專案相依套件時會讀取 `deno.jsonc` 或 `deno.json`。框架、CSS 與 TypeScript 的偵測都看得到 `imports` 透過 `npm:` specifier 宣告的套件。
+- 當兩份 manifest 宣告了同一個套件時，以 `package.json` 中的項目為準。
+- 一個專案要算是由 Deno 管理，必須擁有 `deno.lock`，或是有一份 Deno 設定檔且旁邊沒有 `package.json`。對混合式專案而言，npm 家族的 lockfile 優先；而且只有當 `deno` 執行檔位於你的 PATH 上時，才會認定為 Deno。
+
+## Deno 專案中的 TypeScript
+
+TypeScript 的偵測規則與其他地方完全相同。參見 [TypeScript](/docs/languages-and-frameworks/typescript)：由 SWC 編譯原始碼，`typescript` 套件只有在做 `tsc --noEmit` 時才需要。
+
+## 下一步
+
+- 了解 Extension.js 如何處理 [Node API](/docs/languages-and-frameworks/node)。
+- 進一步了解如何管理 [extension 設定](/docs/features/extension-configuration)。

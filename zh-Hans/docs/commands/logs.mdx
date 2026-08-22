@@ -1,0 +1,139 @@
+---
+title: "用 logs 命令读取 dev 会话输出"
+description: "打印或流式读取一个正在运行的 Extension.js dev 会话中每个上下文的日志。可按上下文、级别、URL 或标签页过滤，并把 ndjson 管道给其他工具。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "edge",
+    "browser",
+    "logs",
+    "ndjson",
+    "debugging",
+  ]
+---
+
+打印或流式读取一个正在运行的开发会话中每个上下文的日志。
+
+`logs` 读取 [`dev`](/docs/commands/dev) 会话从你的扩展里收集到的日志记录：background、content script、popup、options 以及其余上下文。一条命令就能按顺序合并展示全部内容，不用打开任何一个 DevTools 窗口。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/WKLqY5Aozog?autoplay=1&mute=1&loop=1&playlist=WKLqY5Aozog&controls=0&rel=0&playsinline=1"
+    title="Extension.js: extension logs --follow"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 什么时候使用 `logs`
+
+- 你想在同一个流里同时看到 background worker 和某个 content script 的控制台输出。
+- agent 或脚本需要机器可读的日志记录，而不是从终端文本里刮取。
+- 你想查看扩展早些时候记录了什么，而不必重新触发一遍那个行为。
+
+## 用法
+
+<CodeGroup>
+
+```bash npm
+extension logs [project-path] [options]
+```
+
+```bash pnpm
+extension logs [project-path] [options]
+```
+
+```bash yarn
+extension logs [project-path] [options]
+```
+
+```bash bun
+extension logs [project-path] [options]
+```
+
+```bash deno
+extension logs [project-path] [options]
+```
+
+</CodeGroup>
+
+默认情况下，`logs` 打印磁盘上已有的记录然后退出。加上 `--follow` 可以保持连接，实时流式读取新记录。
+
+## 参数与 flag
+
+| flag                              | 作用                                                                                                     | 默认值                       |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `[project-path]`                  | 扩展项目根目录路径。                                                                                     | `process.cwd()`              |
+| `--browser <browser>`             | 读取哪个会话（`chrome`、`chromium`、`edge`、`firefox`）。                                                | `chromium`                   |
+| `--follow`                        | 通过控制通道实时流式输出，而不是打印完就退出。                                                           | 关闭                         |
+| `--context <list>`                | 用逗号分隔的上下文（`background`、`content`、`popup`、`options`、`sidebar`、`devtools`、`page`）。       | 全部上下文                   |
+| `--level <level>`                 | 最低严重级别（`off`、`error`、`warn`、`info`、`debug`、`trace`、`all`）。                                | `all`                        |
+| `--signals-only`                  | 实验性。只显示结构化的 `dx.signal` 诊断信息。目前还没有任何发射方，所以这个 flag 现在什么都不会打印。    | 关闭                         |
+| `--since <seq>`                   | 只显示这个序列号之后的事件。                                                                             | 未设置                       |
+| `--url <glob\|substring>`         | 只显示 URL 或主机名匹配的事件（用 `*` 的 glob，或一个普通子串）。                                        | 未设置                       |
+| `--tab <id>`                      | 只显示来自这个标签页 id 的事件。                                                                         | 未设置                       |
+| `--output <pretty\|json\|ndjson>` | 输出格式。                                                                                               | TTY 下为 `pretty`，管道下为 `ndjson` |
+
+选择某个 `--level` 会包含该级别以及所有更严重的级别。`--level warn` 会显示 `warn` 和 `error`。普通的 `console.log` 记录算作 `info`。
+
+## 一次性模式
+
+不加 `--follow` 时，命令直接读取 `dist/extension-js/<browser>/logs.ndjson`，不需要任何实时连接。开发会话会把每一条记录追加到那个文件，所以即使你已经关掉浏览器，一次性读取依然有效。
+
+如果该文件不存在，`logs` 会提示你先启动 `extension dev`，并以退出码 `1` 退出。机器可读格式还会输出一个错误码为 `E_LOGS_NOT_FOUND` 的失败信封（参见 [结果信封](/docs/contracts/result-envelope)）。
+
+## 跟随模式
+
+`--follow` 会查找会话的就绪契约，以日志消费方的身份连接控制通道，并在记录产生时把它们流式输出。它需要一个正在运行的开发会话，但不需要任何解锁 flag：日志消费始终是允许的。
+
+```bash
+extension logs --follow --context background,content --level info
+```
+
+如果流跟不上、会话丢弃了记录，`logs` 会在 stderr 上打印一行提示，说明丢弃的条数和原因。
+
+当你用 `Ctrl+C` 停止这个流时，机器可读格式会打印一个状态为 `interrupted` 的终止成功信封，这样消费方就能区分正常停止与崩溃。退出码为 `0`。
+
+如果找不到所选浏览器对应的会话，命令会以 `E_SESSION_NOT_FOUND` 失败，并指名应当运行的 `extension dev` 命令。
+
+## 输出格式
+
+pretty 模式每条记录打印一行：
+
+```plaintext
+[142] INFO (background) message text from the worker
+[143] ERROR (content) E_SOMETHING failed to reach the page
+    ↳ remediation hint, when the record carries one
+```
+
+`ndjson` 每行打印一条原始 JSON 记录，非常适合 `jq` 和日志采集器。`json` 会把每条记录格式化成多行。当 stdout 不是 TTY 时，`ndjson` 本来就是默认值，因此走管道不需要额外的 flag：
+
+```bash
+extension logs --context content | jq -r '.messageParts | join(" ")'
+```
+
+## 示例
+
+只看某个站点上 content script 的错误与警告：
+
+```bash
+extension logs --context content --level warn --url "*.example.com"
+```
+
+从某条已知记录之后继续读取，适合轮询的 agent：
+
+```bash
+extension logs --since 142 --output ndjson
+```
+
+## 下一步
+
+- 用 [`doctor`](/docs/commands/doctor) 诊断 `logs --follow` 连不上的会话。
+- 用 [`inspect`](/docs/commands/inspect) 一次调用就同时拿到 DOM 快照和最近的控制台输出。
+- 在 [调试](/docs/debugging) 中了解更完整的调试工作流。
+- 在 [结果信封](/docs/contracts/result-envelope) 中查看机器可读的失败格式。

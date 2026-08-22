@@ -1,0 +1,89 @@
+---
+title: "dev 会话的生命周期流"
+description: "Extension.js 的 dev、start 与 preview 在机器模式下流式输出的 NDJSON 生命周期帧：starting、compiled、recompiled、compile-failed、ready、browser-exited 和 failed。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "browser",
+    "ndjson",
+    "lifecycle",
+    "contracts",
+  ]
+---
+
+以每次状态变化一个 JSON 帧的方式跟随一个正在运行的会话。
+
+一个终止信封无法描述一整个会话，因此 `dev`、`start` 和 `preview` 会为每一次生命周期状态变化流式输出一个 schema-1 帧。每个帧本身就是独立成行的一个完整[结果信封](/docs/contracts/result-envelope)。
+
+## 打开这个流
+
+这个流由 `EXTENSION_OUTPUT` 环境变量控制。把它设为 `json` 或 `ndjson`，帧就会独占 stdout：
+
+```bash
+EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-browser
+```
+
+流开启期间，原本共用 stdout 的人类可读文案会移到 stderr。错误文案始终留在 stderr，机器模式绝不会隐藏失败。
+
+<Frame>
+  <iframe
+    className="w-full aspect-video rounded-xl"
+    src="https://www.youtube-nocookie.com/embed/dZvO-H44bq8?autoplay=1&mute=1&loop=1&playlist=dZvO-H44bq8&controls=0&rel=0&playsinline=1"
+    title="Extension.js: the lifecycle stream"
+    loading="lazy"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+    allowFullScreen
+  />
+</Frame>
+
+## 帧的状态
+
+| 状态             | `ok`  | 什么时候到达                                                              |
+| ---------------- | ----- | ------------------------------------------------------------------------- |
+| `starting`       | true  | 只有一次，会话开始时。携带 `requestedPort` 和实际绑定的 `port`。          |
+| `compiled`       | true  | 第一次编译成功。携带 `assets` 和 `durationMs`。                           |
+| `recompiled`     | true  | 之后每一次编译成功。                                                      |
+| `compile-failed` | false | 一次编译带着错误结束，无论是第一次还是之后。                              |
+| `ready`          | true  | 只有一次，本次会话的 `ready.json` 已落盘时。                              |
+| `browser-exited` | false | 浏览器在会话中途退出，见下文。                                            |
+| `failed`         | false | 会话级别的失败，例如服务器始终没能绑定，或者 `ready.json` 报告 `error`。 |
+
+每个帧的 `value` 都携带会话身份：`command`、`browser`、`distPath`、`pid`、`port`，以及已知时的 `readyPath`、`eventsPath`、`runId`、`instanceId` 和 `toolchainVersion`。
+
+## 编译失败
+
+`compile-failed` 帧会把编译器输出放在 `value.output` 里，所以你永远不需要去刮 stdout。这段输出已经去掉 ANSI 控制符，并且上限为 2000 个字符。当上限把它截断时，该帧会设置 `truncated: true`。
+
+一次会话中的第一次失败使用错误码 `E_FIRST_COMPILE`，之后每一次都使用 `E_COMPILE`。
+
+```jsonl
+{"schema":1,"ok":true,"command":"dev","status":"starting","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"requestedPort":8080},"error":null,"warnings":[]}
+{"schema":1,"ok":true,"command":"dev","status":"compiled","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","assets":12,"durationMs":841},"error":null,"warnings":[]}
+{"schema":1,"ok":true,"command":"dev","status":"ready","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4"},"error":null,"warnings":[]}
+{"schema":1,"ok":false,"command":"dev","status":"compile-failed","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","output":"ERROR in ./content/scripts.ts\nModule parse failed: Unexpected token (12:3)","durationMs":204},"error":{"code":"E_COMPILE","message":"A recompilation failed after a change."},"warnings":[]}
+```
+
+## ready 遵循契约
+
+`ready` 帧在触发之前会读取 `ready.json`。编译可能成功，而浏览器却拒绝了这个扩展，发生这种情况时契约会保持在 `error`。
+
+这种情况下，流改为发出一个错误码为 `E_READY_ERROR_STATUS` 的 `failed` 帧，并由 `value.readyCode` 指出契约自身的错误码。
+
+## 浏览器退出
+
+一个后台监视器每秒轮询一次 `ready.json`，查找启动器写下的退出戳记。当 `browserExitedAt` 出现时，流会发出一个 `browser-exited` 帧。
+
+这个帧的错误码取决于契约里的证据：
+
+- `E_PROFILE_LOCKED`：契约显示配置文件被锁定。浏览器根本没有启动，另一个会话正占用该配置文件。
+- `E_BROWSER_LAUNCH`：其余所有意外退出。
+
+当契约中有这些字段时，帧的 `value` 会携带 `exitCode` 和 `browserExitedAt`。
+
+## 下一步
+
+- 在 [ready.json](/docs/contracts/ready-json) 中阅读这些帧背后的契约。
+- 在 [用 agent 驱动 CLI](/docs/workflows/driving-the-cli) 中了解如何从 agent 驱动整个循环。

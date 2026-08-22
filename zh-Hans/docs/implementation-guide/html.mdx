@@ -44,8 +44,8 @@ yarn dlx extension@latest create my-extension --template=new
 bunx extension@latest create my-extension --template=new
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=new
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=new
 ```
 
 </CodeGroup>
@@ -76,8 +76,8 @@ yarn dlx extension@latest create my-extension --template=sidebar
 bunx extension@latest create my-extension --template=sidebar
 ```
 
-```bash bun
-bunx extension@latest create my-extension --template=sidebar
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=sidebar
 ```
 
 </CodeGroup>
@@ -139,6 +139,12 @@ bunx extension@latest create my-extension --template=sidebar
 4. 修补 HTML，注入对编译后产物的引用。
 5. 保留 public-root 引用（例如 `/icon.png`）作为 public 资源。
 
+从 HTML 引用的静态资源会按其相对源码的路径输出，因此运行时引用（例如你同时也会在 JavaScript 里读取的 `<img>` `src`）在构建后的扩展里，会和浏览器从源码提供它们时以同样的方式解析。
+
+### 同一页面上的多个经典脚本
+
+当一个页面列出多个 `<script>` 标签、且它们都没有使用 `type="module"` 时，这些脚本在浏览器里共享同一个 sloppy 模式的全局作用域：一个文件里的 `var` 声明和隐式全局变量对下一个文件可见。Extension.js 通过把全部为经典脚本的列表按标签顺序拼接进同一个共享作用域来保留这个行为，让跨脚本的全局变量在构建后依然有效。只要页面里有至少一个 `type="module"` 脚本，就仍然按标准的逐脚本打包处理。
+
 ## 开发期行为
 
 - Extension.js 会把 HTML 与所引用的资源加入文件依赖跟踪，因此编辑会触发重新编译。
@@ -183,6 +189,19 @@ pages/
 - 小型表单或开关。
 
 让 popup 保持小巧而稳健。Popup 经常被打开和关闭，因此不要依赖长时间存活的内存 UI 状态。
+
+#### Popup 的尺寸与宽度
+
+manifest 里没有控制 popup 尺寸的字段。浏览器会按你渲染出的 HTML 来决定 popup 大小，并受最小 25x25、最大 800x600 CSS 像素的硬性限制。要控制宽度，请在标记的根元素上设置：
+
+```css
+body {
+  width: 360px;
+  margin: 0;
+}
+```
+
+不要在根元素上使用 `width: 100vw` 或百分比宽度：popup 的视口是由你的内容推导出来的，这种循环的尺寸计算会让 popup 塌缩或抖动。如果 UI 需要超过 800x600，说明它已经超出了 popup 这个表面的适用范围，请改用 side panel 或 new tab 页面。
 
 ### Options 页面
 
