@@ -1,0 +1,60 @@
+{
+  "$comment": "Inverted truthfulness check. A page can contain no false sentence and still mislead by omitting a limitation we know exists. Every entry must cite verifiedBy: how we know the limitation is real. Never add an entry from memory alone.",
+  "caveats": [
+    {
+      "id": "safari-build-limits",
+      "mustAppearOn": [
+        "docs/browsers/safari.mdx"
+      ],
+      "anyOf": [
+        "no live reload",
+        "macOS only",
+        "\\*\\*macOS only\\*\\*"
+      ],
+      "why": "Safari support is macOS only, needs full Xcode, and has no live reload. A reader who skips this ships a broken dev loop.",
+      "verifiedBy": "extension build --help: 'safari builds a Safari app via Xcode (macOS only)'; docs/browsers/safari.mdx already states it, this entry keeps it from being dropped; translations verified 2026-08-22 (zh-Hans line 24 and 108, zh-Hant line 25 both carry the no-live-reload limit)",
+      "translations": {
+        "zh-Hans": [
+          "没有实时重载",
+          "實時重載",
+          "仅.{0,6}macOS",
+          "macOS"
+        ],
+        "zh-Hant": [
+          "尚未支援即時重載",
+          "即時重載",
+          "僅.{0,6}macOS",
+          "macOS"
+        ]
+      }
+    },
+    {
+      "id": "main-world-chromium-only",
+      "mustAppearOn": [
+        "docs/implementation-guide/content-scripts.mdx"
+      ],
+      "anyOf": [
+        "world[^\\n]{0,40}Chromium[- ]only",
+        "Chromium[- ]only[^\\n]{0,60}world",
+        "MAIN[^\\n]{0,80}(not supported|no effect|ignored)[^\\n]{0,40}Firefox",
+        "Firefox[^\\n]{0,80}(ignores|no effect)[^\\n]{0,40}(world|MAIN)"
+      ],
+      "why": "content_scripts[].world is a Chromium MV3 field. The Firefox MV2 build keeps the key, and Firefox ignores it, so a MAIN world script silently runs in the isolated world instead.",
+      "verifiedBy": "programs/develop/plugin-web-extension/feature-manifest/manifest-overrides/common/content_scripts.ts:20 comment 'Chromium-only (MV3+) field'; built examples/content-main-world dist/firefox/manifest.json is manifest_version 2 and still carries world: MAIN"
+    },
+    {
+      "id": "playwright-headless-drops-extensions",
+      "mustAppearOn": [
+        "docs/workflows/playwright-e2e.mdx"
+      ],
+      "anyOf": [
+        "headless[^\\n]{0,60}(extensions are not|does not support|drops|will not load)",
+        "headless_shell",
+        "--headless=new",
+        "headless: false[^\\n]{0,10}\\n[^\\n]{0,120}(required|extensions)"
+      ],
+      "why": "The page's example sets headless: false with no explanation. Playwright's default headless mode runs headless_shell, which silently loads no extensions, so a reader adapting the snippet for CI gets a green run that tested nothing.",
+      "verifiedBy": "Playwright chromium headless_shell does not support extensions; verified in this project while building the visual-render and reload suites, which require headless: false plus --headless=new"
+    }
+  ]
+}
