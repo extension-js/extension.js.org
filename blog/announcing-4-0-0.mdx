@@ -1,0 +1,72 @@
+---
+title: "Announcing Extension.js 4.0.0"
+description: "Extension.js 4.0.0 moves to Node.js 22, fixes classic multi-file content scripts in dev, speeds up Safari development, and adds Brave, Opera, Vivaldi, Yandex, Waterfox, and LibreWolf as browser targets."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "safari",
+    "browser",
+    "node",
+    "content script",
+  ]
+---
+
+<Update label="v4.0.0" description="June 30, 2026" tags={["release", "major"]}>
+
+Extension.js 4.0.0 is available.
+
+One note on timing before anything else: v4 shipped on June 30, 2026, and this write-up is about eight weeks behind it. The line kept moving in the meantime, so `npx extension@latest` installs 4.1.5 today, and everything described here is in it.
+
+## The one breaking change is Node.js
+
+v4 drops Node.js 20. That is the entire migration. There are no API changes, so you upgrade Node and your project keeps working. The current line asks for Node.js 22.12 or newer, and the CLI checks the runtime before any other code runs, so an old Node exits with code 1 and a message that says what to do instead of failing somewhere deep in a build.
+
+## What ships in v4
+
+**Version 4.0.0**
+
+- Classic multi-file content scripts work in development. When one `content_scripts.js` array lists several plain files, Extension.js concatenates them into the single shared scope the browser would give them, registers every file as a build dependency so any save rebuilds, and emits a source map that points at your real file and line instead of an inlined blob.
+- Faster Safari development. `extension dev --browser=safari` resyncs in the background instead of blocking on a full Xcode build every save, and a burst of saves collapses into one rebuild against the newest output.
+- No leaked browsers. A dev session that exits on its own now shuts the browser down through a shared teardown path, so Chrome and Firefox processes stop lingering after you are finished.
+- Six more browsers by name: Brave, Opera, Vivaldi, Yandex, Waterfox, and LibreWolf, alongside the `chromium-based` and `gecko-based` targets for custom binaries. Forks inherit the `chrome:` and `firefox:` manifest keys of their engine family, so a fork target does not need its own prefix.
+- Reload without a launched browser. `extension dev --no-browser` now reloads content scripts too, through the same service worker path a launched browser uses, which makes it a real option for continuous integration (CI), containers, and remote machines.
+- Profile control that holds. `profile: false`, `copyFromProfile`, and `keepProfileChanges` are honored from config through to both the Chromium and Firefox launchers, typed on `BrowserConfig`, and a kept profile is no longer clobbered on later runs.
+- Two dev sessions stop fighting over a debugging port, because the Chrome DevTools Protocol (CDP) and Remote Debugging Protocol (RDP) ports now resolve per browser instance.
+- Louder, cheaper failures. Compilation errors that prevent output exit non-zero, a Manifest V2 build against a Chromium target warns, a missing CSS `url()` asset warns and passes the URL through instead of failing the build, and a missing optional dependency prints a package-manager aware install hint instead of a raw JSON blob.
+- Windows content-script paths are canonicalized, so loader matching and content-script wrapping behave the same as on macOS and Linux.
+
+## The day-one flow has not changed
+
+That is deliberate. v4 is a runtime bump and a pile of correctness work, not a new command surface:
+
+```bash
+npx extension@latest create my-extension
+cd my-extension
+npm run dev
+```
+
+`create` to scaffold, `dev` to iterate, `build` to produce artifacts, `start` or `preview` to check the production output. Pick a target with `--browser` on any of them.
+
+## Upgrade notes
+
+If you are already on 3.x:
+
+- move to Node.js 22.12 or newer, then update the package to latest,
+- keep your `extension.config.js` as it is, since there are no API changes to follow,
+- if you were working around multi-file content scripts by inlining them into one file, you can split them back out.
+
+## What landed after 4.0
+
+Because this post is late, it is worth saying where the line actually is. Since June the 4.0.x and 4.1.x releases have been fixes and polish rather than new surface: Safari builds can be signed with `--development-team`, `doctor` names the browser binary it picked and how it picked it, and template slugs moved to `newtab-*` with the older `new-*` names kept as aliases. The full list lives in the changelog.
+
+## Thanks
+
+Thanks to everyone who filed an issue, tested a canary, or shipped an extension with this and told us where it hurt. Several of the fixes above exist because someone took the time to write down exactly what broke.
+
+Cezar Augusto<br/>
+Creator and Lead Developer, Extension.js
+
+</Update>
