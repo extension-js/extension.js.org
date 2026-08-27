@@ -130,6 +130,56 @@ Manifest 中的 CSS 進入點：
 import "./styles/popup.scss";
 ```
 
+## 內容腳本中的網頁字型
+
+把介面渲染到 shadow root 的內容腳本，無法只靠 CSS 載入網頁字型。有兩條平台規則會擋住它，而且都是靜默的。
+
+**shadow root 內部的 `@font-face` 永遠不會生效。** 字型（font face）解析的是文件的字型集，而不是 shadow 樹，所以 Chrome 會忽略該規則並靜默回退。修正前在 `content-custom-font` 範本上實測：`document.fonts` 為空，沒有發出任何字型請求，以 `"Momo Signature", cursive` 排版的文字寬度與純 `cursive` 完全相同。
+
+**注入樣式表中的根絕對 `url()` 會相對宿主頁面解析。** 注入到 `example.com` 的樣式表中的 `url(/fonts/Momo.woff2)` 請求的是 `https://example.com/fonts/Momo.woff2`，而不是擴充功能自己的那份檔案。
+
+改為把字型註冊到頁面自身的字型集上，URL 指向擴充功能，並在內容腳本卸載時移除它：
+
+```js
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  document.body.appendChild(rootDiv);
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+
+  const customFace = new FontFace(
+    "Momo Signature",
+    `url("${chrome.runtime.getURL("fonts/MomoSignature-Regular.woff2")}")`,
+  );
+
+  customFace
+    .load()
+    .then((face) => document.fonts.add(face))
+    .catch(() => {
+      // Ignore
+    });
+
+  return () => {
+    document.fonts.delete(customFace);
+    rootDiv.remove();
+  };
+}
+```
+
+該字型檔必須能被頁面存取，所以要在 `web_accessible_resources` 中宣告：
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["fonts/*.woff2"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+```
+
+字型一旦進入 `document.fonts`，shadow 樹就可以在一般的 `font-family` 規則裡以名稱使用它。可運行的版本見 [content-custom-font](https://github.com/extension-js/examples/tree/main/examples/content-custom-font)。
+
 ## 依情境的輸出行為
 
 | 情境           | 輸出行為                                                                           |

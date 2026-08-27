@@ -130,6 +130,68 @@ Manifest CSS entries:
 import "./styles/popup.scss";
 ```
 
+## Web fonts in a content script
+
+A content script that renders into a shadow root cannot load a webfont through
+CSS alone. Two platform rules get in the way, and both are silent.
+
+**A `@font-face` inside a shadow root never applies.** Font faces resolve against
+the document's font set, not the shadow tree, so Chrome ignores the rule and
+falls back without an error. Measured on the `content-custom-font` template
+before it was fixed: `document.fonts` was empty, zero font requests fired, and
+text set in `"Momo Signature", cursive` measured the same width as bare
+`cursive`.
+
+**A root-absolute `url()` in an injected stylesheet resolves against the host
+page.** `url(/fonts/Momo.woff2)` inside a stylesheet injected into `example.com`
+requests `https://example.com/fonts/Momo.woff2`, not the extension's copy.
+
+Register the face on the page's own font set instead, from a URL that names the
+extension, and remove it when the content script tears down:
+
+```js
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  document.body.appendChild(rootDiv);
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+
+  const customFace = new FontFace(
+    "Momo Signature",
+    `url("${chrome.runtime.getURL("fonts/MomoSignature-Regular.woff2")}")`,
+  );
+
+  customFace
+    .load()
+    .then((face) => document.fonts.add(face))
+    .catch(() => {
+      // Ignore
+    });
+
+  return () => {
+    document.fonts.delete(customFace);
+    rootDiv.remove();
+  };
+}
+```
+
+The font file must be reachable from the page, so declare it in
+`web_accessible_resources`:
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["fonts/*.woff2"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+```
+
+Once the face is on `document.fonts`, the shadow tree can use it by name in an
+ordinary `font-family` rule. The working version lives in
+[content-custom-font](https://github.com/extension-js/examples/tree/main/examples/content-custom-font).
+
 ## Output behavior by context
 
 | Context            | Output behavior                                                               |
