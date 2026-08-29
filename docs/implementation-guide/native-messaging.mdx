@@ -1,0 +1,193 @@
+---
+title: "Native messaging with local applications"
+description: "Exchange messages between your extension and a local application over stdio. Register a host manifest per OS and connect from the background script."
+keywords:
+  [
+    "native messaging",
+    "connectNative",
+    "sendNativeMessage",
+    "native messaging host",
+    "allowed_origins",
+    "allowed_extensions",
+    "chrome extension local app",
+    "firefox native messaging",
+    "extension.js",
+    "implementation guide",
+  ]
+---
+
+Native messaging lets your extension exchange JSON messages with an application on the user's machine. The browser starts the application as a child process and pipes messages over stdin and stdout. Use it for work the extension platform cannot do: read local files, talk to hardware, or call a password manager.
+
+Three pieces have to agree:
+
+1. The extension declares the `nativeMessaging` permission.
+2. A host manifest, a small JSON file registered with the OS, names the application and the extensions that may call it.
+3. The application speaks the length-prefixed stdio protocol.
+
+## Declare the permission
+
+Add `nativeMessaging` to the permissions in your `manifest.json`:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "Ping",
+  "version": "1.0",
+  "permissions": ["nativeMessaging"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
+```
+
+Extension.js writes the permission into the built manifest unchanged. There is no build-time handling beyond that: the host itself is never bundled.
+
+## Write the host manifest
+
+The host manifest tells the browser where the application lives and who may start it:
+
+```json
+{
+  "name": "com.example.ping",
+  "description": "Echo host for the docs example",
+  "path": "/absolute/path/to/ping-host",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://<your-extension-id>/"]
+}
+```
+
+- `name` is the identifier that your extension passes to `connectNative()`. Use lowercase letters, digits, underscores, and dots.
+- `path` must be absolute on macOS and Linux. On Windows it may be relative to the manifest, and it must point to an executable (use a `.bat` wrapper for a Node.js script).
+- `type` is always `stdio`.
+- `allowed_origins` lists the extension IDs that may call this host. Read your ID from `chrome://extensions` with Developer mode on.
+
+### Where to install it
+
+Chromium browsers find the manifest in fixed per-OS locations, named after the host (`com.example.ping.json`):
+
+| OS      | Per user                                                    | System wide                                    |
+| ------- | ----------------------------------------------------------- | ---------------------------------------------- |
+| macOS   | `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/` | `/Library/Google/Chrome/NativeMessagingHosts/` |
+| Linux   | `~/.config/google-chrome/NativeMessagingHosts/`             | `/etc/opt/chrome/native-messaging-hosts/`      |
+| Windows | Registry `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.example.ping`, default value = path to the JSON file | Same key under `HKLM`                          |
+
+Chromium (the open-source build) uses `Chromium` instead of `Google/Chrome` on macOS, and `~/.config/chromium/NativeMessagingHosts/` plus `/etc/chromium/native-messaging-hosts/` on Linux. The per-user directory on macOS and Linux lives inside the browser's user data directory, which matters during `extension dev` (see below).
+
+## A minimal Node.js host
+
+Each message is a 32-bit unsigned integer length, in native byte order (little-endian on every supported platform), followed by that many bytes of UTF-8 JSON. The same framing applies in both directions. This host echoes every message back:
+
+```js ping-host.js
+function send(message) {
+  const json = Buffer.from(JSON.stringify(message));
+  const header = Buffer.alloc(4);
+  header.writeUInt32LE(json.length, 0);
+  process.stdout.write(Buffer.concat([header, json]));
+}
+
+let buffer = Buffer.alloc(0);
+
+process.stdin.on("data", (chunk) => {
+  buffer = Buffer.concat([buffer, chunk]);
+
+  while (buffer.length >= 4) {
+    const length = buffer.readUInt32LE(0);
+    if (buffer.length < 4 + length) break;
+
+    const message = JSON.parse(buffer.subarray(4, 4 + length).toString());
+    buffer = buffer.subarray(4 + length);
+
+    send({ received: message });
+  }
+});
+```
+
+On macOS and Linux, point `path` at an executable wrapper script and make it executable:
+
+```sh ping-host
+#!/bin/sh
+exec node "$(dirname "$0")/ping-host.js"
+```
+
+Never write logs to stdout: the browser parses everything on that stream as message frames. Log to stderr or a file instead.
+
+## Connect from the background script
+
+Use a port for an ongoing conversation. The browser starts the host process on `connectNative()` and stops it when the port disconnects:
+
+```js background.js
+const port = chrome.runtime.connectNative("com.example.ping");
+
+port.onMessage.addListener((message) => {
+  console.log("From host:", message);
+});
+
+port.onDisconnect.addListener(() => {
+  console.log("Disconnected:", chrome.runtime.lastError?.message);
+});
+
+port.postMessage({ ping: Date.now() });
+```
+
+For a single request and response, `sendNativeMessage()` starts a fresh host process per call:
+
+```js
+chrome.runtime.sendNativeMessage("com.example.ping", { ping: 1 }, (reply) => {
+  console.log(reply);
+});
+```
+
+Messages from the host to the extension are capped at 1 MB. Messages from the extension to the host are capped at 4 GB. Reloading the extension disconnects every open port, so reconnect in your startup path if the connection must survive.
+
+## Firefox differences
+
+Firefox uses the same permission, the same APIs (`browser.runtime.connectNative`), and the same stdio protocol. The registration side differs:
+
+- Your extension needs an explicit ID through `browser_specific_settings.gecko.id`. Use the `firefox:` [manifest prefix](/docs/features/multi-platform-builds) so the key only reaches Firefox builds.
+- The host manifest replaces `allowed_origins` with `allowed_extensions`, listing that ID.
+
+```json
+{
+  "name": "com.example.ping",
+  "description": "Echo host for the docs example",
+  "path": "/absolute/path/to/ping-host",
+  "type": "stdio",
+  "allowed_extensions": ["ping@example.com"]
+}
+```
+
+Firefox looks in its own locations, independent of the Firefox profile:
+
+| OS      | Per user                                                        | System wide                                             |
+| ------- | --------------------------------------------------------------- | ------------------------------------------------------- |
+| macOS   | `~/Library/Application Support/Mozilla/NativeMessagingHosts/`   | `/Library/Application Support/Mozilla/NativeMessagingHosts/` |
+| Linux   | `~/.mozilla/native-messaging-hosts/`                            | `/usr/lib/mozilla/native-messaging-hosts/`              |
+| Windows | Registry `HKCU\Software\Mozilla\NativeMessagingHosts\com.example.ping` | Same key under `HKLM`                                   |
+
+## Native messaging during extension dev
+
+The host is registered with the OS, not bundled with your code. `extension dev` neither copies nor registers anything, so a host that works in development behaves the same after a store install.
+
+One profile detail matters on Chromium. By default, `extension dev` launches the browser with a fresh [managed profile](/docs/browsers/browser-profile) through `--user-data-dir`. Chromium resolves per-user host manifests inside the active user data directory, so a manifest that you installed for your everyday Chrome is invisible to that managed profile. Choose one of these setups:
+
+- Install the host manifest system wide (or, on Windows, in the registry). Those locations do not depend on the profile.
+- Run against your real browser profile instead:
+
+```bash
+extension dev --profile false
+```
+
+Firefox and Windows lookups are per OS user, not per profile, so the managed dev profile reaches them with no extra steps.
+
+## Best practices
+
+- **Validate every message**: The host runs with the user's full OS privileges, so treat extension input as untrusted and vice versa.
+- **Keep stdout clean**: One stray `console.log` in the host corrupts the frame stream.
+- **Handle disconnects**: Inspect `chrome.runtime.lastError` in `onDisconnect` to distinguish a missing host from a crashed one.
+- **Prefer ports for repeated calls**: `sendNativeMessage()` pays a process start per message.
+
+## Next steps
+
+- Review extension-internal channels in [Messaging](/docs/implementation-guide/messaging).
+- Understand permission prompts in [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions).
+- Learn how dev profiles work in [Browser profile](/docs/browsers/browser-profile).

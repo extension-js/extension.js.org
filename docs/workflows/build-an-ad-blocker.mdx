@@ -1,0 +1,172 @@
+---
+title: "Build an ad blocker"
+description: "Block ads and trackers in a browser extension with declarativeNetRequest static and dynamic rules, plus a badge that counts blocked requests."
+keywords:
+  [
+    "ad blocker",
+    "adblock",
+    "block requests",
+    "declarativenetrequest",
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+  ]
+---
+
+Block ads and trackers with the `declarativeNetRequest` API. You declare matching rules, and the browser blocks requests natively before they leave the network stack.
+
+## What you build
+
+| Piece           | What it does                                             |
+| --------------- | -------------------------------------------------------- |
+| `rules.json`    | Static block rules that ship with the extension          |
+| `background.js` | Adds and removes dynamic rules at runtime                |
+| Action badge    | Shows how many requests the extension blocked on a page  |
+
+## Why MV3 replaced blocking webRequest
+
+Manifest V2 ad blockers registered blocking `webRequest` listeners. Every request paused while extension JavaScript decided its fate. Manifest V3 removed that model for performance and privacy reasons. With `declarativeNetRequest`, the browser evaluates your rules itself. Your code never sits on the request path and never reads request contents to block them.
+
+For proxy-style use cases, such as routing all traffic through another server, use the `proxy` API instead of request rules.
+
+## Manifest
+
+Block and allow rules need no host permissions. Redirect rules and header rules need host permissions for the affected sites.
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "My Ad Blocker",
+  "version": "1.0.0",
+  "permissions": ["declarativeNetRequest"],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ads",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "My Ad Blocker"
+  }
+}
+```
+
+Extension.js compiles the ruleset file that `rule_resources` references and emits it with the build output.
+
+## Static rules
+
+Static rules live in `rules.json` and load when the extension loads.
+
+```json rules.json
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||ads.example.com^",
+      "resourceTypes": ["script", "image", "sub_frame", "xmlhttprequest"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||tracker.example.net^",
+      "resourceTypes": ["script", "xmlhttprequest"]
+    }
+  }
+]
+```
+
+The `||domain^` filter syntax matches a domain and all of its subdomains.
+
+## Dynamic rules
+
+Use dynamic rules for filters that change at runtime, such as user-added blocklist entries. Remove a rule id before you re-add it, so updates stay idempotent.
+
+```js background.js
+async function blockDomain(domain, ruleId) {
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [ruleId],
+    addRules: [
+      {
+        id: ruleId,
+        priority: 1,
+        action: { type: 'block' },
+        condition: {
+          urlFilter: `||${domain}^`,
+          resourceTypes: ['script', 'image', 'xmlhttprequest']
+        }
+      }
+    ]
+  })
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  blockDomain('annoying-banners.example', 1001)
+})
+```
+
+Chrome caps static and dynamic rule counts. Check the current limits in the `declarativeNetRequest` reference before you ship large filter lists.
+
+## Count blocked requests on the badge
+
+One call turns the action badge into a per-tab counter of matched rules.
+
+```js background.js
+chrome.declarativeNetRequest.setExtensionActionOptions({
+  displayActionCountAsBadgeText: true
+})
+```
+
+To read matched rules yourself with `getMatchedRules`, add the `declarativeNetRequestFeedback` permission.
+
+## Run it
+
+Before you edit `manifest.json`, know that manifest changes need a dev-server restart. See [Dev update behavior](/docs/workflows/dev-update-behavior).
+
+```bash
+extension dev ./my-ad-blocker --browser=chromium
+```
+
+Open a page that requests a blocked domain. The badge count rises as rules match.
+
+## Firefox notes
+
+- Firefox supports `declarativeNetRequest` in Manifest V3.
+- Firefox does not support `setExtensionActionOptions`, so the badge counter is Chromium-only.
+- Firefox still allows blocking `webRequest` in Manifest V3, which Chrome reserves for policy installs.
+- Use [browser-specific manifest fields](/docs/features/browser-specific-fields) when the two targets diverge.
+
+## Start from a template
+
+The `action` template ships a background script plus a toolbar popup, a good base for a blocker UI.
+
+```bash
+npx extension@latest create my-ad-blocker --template=action
+```
+
+Repository: [extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+## Best practices
+
+- Keep static rules in `rules.json` and reserve dynamic rules for user choices.
+- Give every dynamic rule a stable id, so removals stay predictable.
+- Scope `resourceTypes` to what you block, not to every type.
+- Prefer block and allow rules, which need no host permissions.
+- Test rules against real pages before you publish filter updates.
+
+## Next steps
+
+- Observe traffic without blocking it in [Intercept network requests](/docs/workflows/intercept-network-requests).
+- Audit your permission surface with the [Security checklist](/docs/workflows/security-checklist).
+- Review [Manifest V3 concepts](/docs/concepts/manifest-v3) for the background model.
