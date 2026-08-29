@@ -1,0 +1,92 @@
+---
+title: "Source maps for extension debugging"
+description: "What Extension.js emits by default in dev and build, how to see original TypeScript in DevTools, and which devtool values survive extension CSP."
+keywords:
+  [
+    "source maps",
+    "devtool",
+    "debug typescript chrome extension",
+    "cheap-module-source-map",
+    "unsafe-eval csp",
+    "manifest v3 source maps",
+    "content script source map",
+    "extension.js",
+    "debugging",
+  ]
+---
+
+Source maps connect the bundled JavaScript that the browser runs back to the files that you wrote. Extension.js configures them for you, with defaults that respect extension CSP. This page documents those defaults and how to change them.
+
+## Defaults
+
+The bundler's `devtool` setting controls source map output. Extension.js picks it from the command and the manifest version:
+
+| Command                              | Manifest v3             | Manifest v2                  |
+| ------------------------------------ | ----------------------- | ---------------------------- |
+| `extension dev`                      | `cheap-source-map`      | `eval-cheap-source-map`      |
+| `extension build`                    | none (`devtool: false`) | none (`devtool: false`)      |
+| `extension build --mode development` | `cheap-source-map`      | `eval-cheap-source-map`      |
+
+Manifest v3 avoids eval-based maps because extension CSP forbids `eval()` there. Manifest v2 gets the faster eval variant because Extension.js patches the dev CSP with `'unsafe-eval'`, in development only.
+
+## See your original TypeScript
+
+The dev default, `cheap-source-map`, maps lines but skips loader source maps. In DevTools you land on the compiled JavaScript, not your TypeScript. To map all the way back, switch to a `module` variant through the `config` hook in [`extension.config.js`](/docs/features/rspack-configuration):
+
+```js extension.config.js
+export default {
+  config: (config) => {
+    config.devtool = "cheap-module-source-map";
+    return config;
+  },
+};
+```
+
+The hook runs for `dev` and `build` alike, so the override applies everywhere. Use `source-map` instead when you also want column positions, at a slower rebuild cost.
+
+Then find each context in its own inspector:
+
+- **Background service worker**: open `chrome://extensions`, choose your extension, and follow the **service worker** link under "Inspect views". Your original files appear in the Sources panel.
+- **Content scripts**: open DevTools on the page itself. In the Sources panel, the **Content scripts** tab lists your extension. If the separate `.map` file fails to load there, an inline variant such as `inline-cheap-module-source-map` embeds the map in the emitted file.
+- **Popup, options, sidebar**: right-click inside the surface and choose **Inspect**.
+
+For the terminal-first version of the same session, see [Debugging](/docs/debugging).
+
+## Eval devtools and extension CSP
+
+Every `devtool` value that starts with `eval` wraps modules in `eval()` calls. Manifest v3 extension pages and service workers reject `'unsafe-eval'` in their CSP, on every build, so those values break the background and extension pages outright. Symptoms are CSP refusal errors and an extension that never boots.
+
+On manifest v3, choose from the non-eval family:
+
+- `cheap-source-map` (the dev default)
+- `cheap-module-source-map`
+- `source-map`
+- `inline-cheap-module-source-map` and other `inline-*` variants
+- `hidden-source-map` and `nosources-source-map`
+
+On manifest v2 the eval family works during `extension dev` because of the patched dev CSP. Production manifest v2 builds get no such patch, which is one more reason production defaults to no maps at all.
+
+## Production builds
+
+`extension build` runs in production mode by default and emits no source maps. That keeps store artifacts small and keeps your original source out of shipped packages.
+
+To debug a production-shaped bundle locally, either cut a development-mode build:
+
+```bash
+extension build --mode development
+```
+
+or set a `devtool` in the `config` hook, which production builds honor too. If you enable maps for a build that leaves your machine, prefer `hidden-source-map`: it emits `.map` files without advertising them in the bundle.
+
+## Best practices
+
+- **Keep the defaults during normal dev**: They are the fastest options that extension CSP allows.
+- **Reach for `cheap-module-source-map` when you need original TypeScript**: It is the cheapest map that crosses the loader chain.
+- **Never ship eval devtools in a manifest v3 project**: The extension fails CSP before your first breakpoint.
+- **Leave production maps off for store submissions**: Enable them only for local diagnosis.
+
+## Next steps
+
+- Change bundler settings in [Rspack configuration](/docs/features/rspack-configuration).
+- Drive a live session from the terminal in [Debugging](/docs/debugging).
+- Review build output in the [build command](/docs/commands/build).
