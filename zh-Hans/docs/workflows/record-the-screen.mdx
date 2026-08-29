@@ -1,0 +1,160 @@
+---
+title: "录制屏幕"
+description: "用 getDisplayMedia、tabCapture 与 MediaRecorder 构建一个屏幕录制扩展，并把录制结果保存为可下载的 WebM 文件。"
+keywords:
+  [
+    "screen recorder",
+    "screen capture",
+    "record screen",
+    "getdisplaymedia",
+    "tabcapture",
+    "browser",
+    "docs",
+    "workflows",
+  ]
+---
+
+在扩展页面中用 `getDisplayMedia` 录制屏幕，用 `MediaRecorder` 编码，再用 `downloads` API 保存结果。
+
+## 选择一个捕获 API
+
+| API               | 捕获对象                          | 运行位置                        | 浏览器        |
+| ----------------- | --------------------------------- | ------------------------------------ | --------------- |
+| `getDisplayMedia` | 通过选择器捕获屏幕、窗口或标签页 | 任意扩展页面，需用户手势  | Chrome、Firefox |
+| `tabCapture`      | 仅活动标签页                | 从后台获取 stream id        | 仅 Chromium   |
+
+`getDisplayMedia` 不需要 manifest 权限。浏览器会显示一个来源选择器，这个提示本身就是用户同意。`tabCapture` 跳过选择器，但需要 `tabCapture` 权限，以及此前在扩展上的一次用户手势，比如点击 action。
+
+## Manifest
+
+只有当你从 offscreen 文档录制时才把 `offscreen` 加入 permissions。
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "Screen Recorder",
+  "version": "1.0.0",
+  "permissions": ["downloads", "tabCapture"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open recorder"
+  }
+}
+```
+
+## 打开一个录制页面
+
+popup 在失去焦点时会关闭，这会中断它的录制。请改为把录制器放在一个专用页面上。把 `recorder.html` 与 `recorder.js` 放进 `pages/` [特殊文件夹](/docs/features/special-folders)，Extension.js 会把它们作为入口编译。
+
+```js background.js
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({
+    url: chrome.runtime.getURL('pages/recorder.html')
+  })
+})
+```
+
+## 用 getDisplayMedia 录制
+
+`getDisplayMedia` 需要用户手势，所以要在点击处理器里调用它，永远不要在页面加载时调用。
+
+```js pages/recorder.js
+let recorder
+const chunks = []
+
+document.getElementById('start').addEventListener('click', async () => {
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: true
+  })
+
+  recorder = new MediaRecorder(stream, { mimeType: 'video/webm' })
+  recorder.ondataavailable = (event) => chunks.push(event.data)
+  recorder.onstop = saveRecording
+  recorder.start()
+})
+
+document.getElementById('stop').addEventListener('click', () => {
+  recorder.stop()
+  recorder.stream.getTracks().forEach((track) => track.stop())
+})
+
+function saveRecording() {
+  const blob = new Blob(chunks, { type: 'video/webm' })
+  chunks.length = 0
+  chrome.downloads.download({
+    url: URL.createObjectURL(blob),
+    filename: 'recording.webm',
+    saveAs: true
+  })
+}
+```
+
+blob URL 在这里可用，因为录制器是一个文档，而不是 service worker。
+
+## 改为捕获活动标签页
+
+使用 `tabCapture` 时，后台把一个 stream id 交给你的页面，页面再把它变成一个流。不会出现选择器。
+
+```js pages/recorder.js
+async function captureTab(tabId) {
+  const streamId = await chrome.tabCapture.getMediaStreamId({
+    targetTabId: tabId
+  })
+
+  return navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: {
+      mandatory: {
+        chromeMediaSource: 'tab',
+        chromeMediaSourceId: streamId
+      }
+    }
+  })
+}
+```
+
+把得到的流送入上文同样的 `MediaRecorder` 流程。
+
+## 在后台录制
+
+要在没有任何可见扩展页面的情况下持续录制，Chrome 提供了 offscreen 文档。用 `chrome.offscreen.createDocument` 和 `USER_MEDIA` 原因创建一个，然后在那里运行捕获代码。这需要 `offscreen` 权限，且只在 Chromium 上可用。
+
+## 运行
+
+```bash
+extension dev ./screen-recorder --browser=chromium
+```
+
+点击 action 图标打开录制页面。开始一次捕获，停止它，WebM 文件就会出现在你的下载目录里。
+
+## Firefox 说明
+
+- `getDisplayMedia` 与 `MediaRecorder` 在 Firefox 的扩展页面中可用，所以主教程是可移植的。
+- Firefox 不支持 `tabCapture` 和 offscreen 文档。
+- 使用[浏览器特定的 manifest 字段](/docs/features/browser-specific-fields)，让 `tabCapture` 权限不进入 Firefox 构建。
+
+## 从模板开始
+
+`special-folders-pages` 模板展示了承载录制页面的 `pages/` 布局。
+
+```bash
+npx extension@latest create screen-recorder --template=special-folders-pages
+```
+
+代码仓库：[extension-js/examples/special-folders-pages](https://github.com/extension-js/examples/tree/main/examples/special-folders-pages)
+
+## 最佳实践
+
+- 录制结束时停止每一条轨道，让浏览器移除共享指示器。
+- 按浏览器选择捕获 API：`getDisplayMedia` 各处通用，`tabCapture` 用于 Chromium 的仅标签页流程。
+- 保持 `saveAs: true`，让用户选择录制文件的去处。
+- 用 `recorder.start(timeslice)` 对长录制分块，控制内存占用。
+
+## 下一步
+
+- 在[管理下载](/docs/workflows/manage-downloads)中管理保存的文件。
+- 回顾[特殊文件夹](/docs/features/special-folders)中 `pages/` 入口的契约。
+- 用[安全检查清单](/docs/workflows/security-checklist)审查捕获权限。

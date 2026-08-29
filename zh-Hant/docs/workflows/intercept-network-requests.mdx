@@ -1,0 +1,140 @@
+---
+title: "攔截網路請求"
+description: "用非阻斷式 webRequest 監聽器從瀏覽器擴充功能觀察 HTTP 流量、理解 MV3 的阻斷限制，並在 devtools 面板中檢視請求。"
+keywords:
+  [
+    "webrequest",
+    "intercept",
+    "http interceptor",
+    "network requests",
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+  ]
+---
+
+用 `webRequest` API 觀察頁面發出的每個請求。在 Manifest V3 中，這些監聽器只能觀察：你可以記錄、量測與分析流量，但不能在 JavaScript 中改寫它。
+
+## MV3 允許什麼
+
+| 目標                            | 可用的 API                                                |
+| ------------------------------- | --------------------------------------------------------- |
+| 觀察請求與回應                  | `webRequest` 非阻斷式監聽器                               |
+| 封鎖、重新導向、修改標頭        | `declarativeNetRequest` 規則                              |
+| 阻斷式 `webRequest` 處理器      | 僅限政策安裝的擴充功能（`webRequestBlocking`）            |
+| 處理代理或 VPN 驗證             | `onAuthRequired` 搭配 `webRequestAuthProvider` 權限       |
+
+一般安裝的 Chrome 在 Manifest V3 中不能使用 `webRequestBlocking`。如果你的目標是封鎖或改寫流量，請改為宣告規則。參考 [打造一個廣告封鎖器](/docs/workflows/build-an-ad-blocker)。
+
+## Manifest
+
+`webRequest` 事件只會針對擴充功能能存取的 host 觸發，因此把這個權限與 host permissions 搭配使用。
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "Request Inspector",
+  "version": "1.0.0",
+  "permissions": ["webRequest"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "devtools_page": "devtools/index.html"
+}
+```
+
+## 在 background 觀察請求
+
+在 background script 的最上層註冊監聽器，讓 service worker 在每次喚醒時重新註冊它們。
+
+```js background.js
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    console.log('→', details.method, details.url, details.type)
+  },
+  { urls: ['<all_urls>'] }
+)
+
+chrome.webRequest.onCompleted.addListener(
+  (details) => {
+    console.log('←', details.statusCode, details.url)
+  },
+  { urls: ['<all_urls>'] }
+)
+
+chrome.webRequest.onErrorOccurred.addListener(
+  (details) => {
+    console.warn('✗', details.error, details.url)
+  },
+  { urls: ['<all_urls>'] }
+)
+```
+
+每個 `details` 物件都帶有請求 id、分頁 id、方法、URL、資源類型與時間資訊。以 `details.requestId` 關聯事件，就能建立完整的請求時間軸。
+
+## 在 devtools 面板中檢視請求
+
+要連同回應內容一起檢視請求，devtools 面板是更好的介面。`chrome.devtools.network` API 以 HAR 項目形式提供已完成的請求，而且不需要 `webRequest` 權限。
+
+`devtools_page` 負責註冊面板：
+
+```js devtools/scripts.js
+chrome.devtools.panels.create('Requests', '', 'panel/index.html')
+```
+
+面板接著記錄受檢分頁的流量：
+
+```js panel/scripts.js
+chrome.devtools.network.onRequestFinished.addListener((entry) => {
+  console.log(entry.request.method, entry.request.url, entry.response.status)
+
+  entry.getContent((body) => {
+    if (body) console.log('body bytes:', body.length)
+  })
+})
+```
+
+監聽器只在 devtools 於該分頁開啟時收到流量。用 `chrome.devtools.network.getHAR` 讀取面板附加之前載入的內容。
+
+## 執行
+
+```bash
+extension dev ./request-inspector --browser=chromium
+```
+
+開啟任何頁面，觀察 background 主控台記錄流量。接著在頁面上開啟 devtools，選擇 Requests 面板。
+
+## Firefox 的差異
+
+- Firefox 的 Manifest V3 仍支援搭配 `webRequestBlocking` 權限的阻斷式 `webRequest`。
+- Firefox 把 Manifest V3 的 host permissions 視為選擇性加入。使用者從擴充功能面板授權，而不是在安裝時。
+- Firefox 以事件頁面而非 service worker 執行 background。最上層的監聽器註冊在兩者都可運作。
+- 上述 devtools API 在 Firefox 以相同的 `chrome.devtools.*` 名稱運作。
+
+共通的 API 面請參考 [跨瀏覽器相容性](/docs/features/cross-browser-compatibility)。
+
+## 從範本開始
+
+`devtools` 範本附帶可運作的 `devtools_page` 與面板串接。
+
+```bash
+npx extension@latest create request-inspector --template=devtools
+```
+
+儲存庫：[extension-js/examples/devtools](https://github.com/extension-js/examples/tree/main/examples/devtools)
+
+## 最佳實務
+
+- 縮小每個監聽器的 `urls` 過濾條件，不要在正式環境監聽 `<all_urls>`。
+- 用 `requestId` 而不是 URL 關聯事件，因為頁面會重複使用 URL。
+- 讓監聽器保持快速，因為每個被觀察的請求都會呼叫它們。
+- 只請求你的功能需要的最小 host permissions。
+- 封鎖用 `declarativeNetRequest`，`webRequest` 保留給觀察。
+
+## 後續步驟
+
+- 在 [打造一個廣告封鎖器](/docs/workflows/build-an-ad-blocker) 以宣告方式封鎖流量。
+- 在 [安全檢查清單](/docs/workflows/security-checklist) 檢視 host permission 衛生。
+- 在 [Manifest V3 概念](/docs/concepts/manifest-v3) 檢視 service worker 生命週期。

@@ -11,6 +11,8 @@ keywords:
     "browser",
     "manifest",
     "docs",
+    "edge opens chromium",
+    "chrome for testing",
   ]
 ---
 
@@ -87,6 +89,17 @@ safari | webkit-based
 
 发生这种情况时，CLI 会打印一条警告，说明缺失的浏览器以及修复方式，例如 `npx extension install chromium`。这条警告刻意不写出替代二进制的路径。会话的身份卡片里已经有一行 Binary 指明正在使用的确切二进制，所以这个事实只打印一次。输出目录与产出的 manifest 与没有回退时完全一致。
 
+### 没有受管理 Edge 时 `--browser=edge` 会做什么
+
+`edge` 永远不会换成另一个浏览器。Extension.js 按这个顺序解析 Edge 二进制：
+
+1. `EDGE_BINARY` 环境变量中的路径(如果设置了)。
+2. 来自 `npx extension install edge` 的受管理 Edge，或你系统上已安装的 Edge。
+
+当两者都解析不到时，命令会打印安装指引(`npx extension install edge`)并以退出码 `1` 退出。缺失的 Edge 不会被静默替换成 Chromium。
+
+如果一个 Chromium 窗口仍然让你意外，请查看身份卡片。它的 Binary 行指明实际启动的确切二进制，来源标签说明原因。请求的 `chrome` 或 `chromium` 可以借用一个受管理的家族二进制(见上文)，但请求的 `edge` 不行。无论哪种情况，输出契约都成立：只有当 `edge` 是请求的目标时，`dist/edge` 才会存在。
+
 ### 二进制来源标签
 
 身份卡片会标注本次会话的二进制来自哪里：
@@ -138,6 +151,20 @@ safari | webkit-based
 | **Gecko-based**（`firefox-based`） | `npx extension dev --browser=gecko-based --gecko-binary=/path/to/browser`       |
 
 Extension.js 内部把 `firefox-based` 视为 Gecko 引擎目标。
+
+### 引擎目标是干什么用的
+
+`chromium-based` 与 `gecko-based` 针对的是一个引擎家族，而不是某一家厂商。
+
+在 `dev`、`start` 与 `preview` 中，它们运行一个没有具名目标的二进制。比如一个 nightly 分支、一个内部构建，或者内置定位器不认识的某个分支。
+
+在 `build` 中，它们为分发而存在，完全不涉及任何二进制：
+
+- `extension build --browser=chromium-based` 把一个面向整个家族的通用产物写入 `dist/chromium-based`。
+- 该产物会解析 `chromium:` manifest 前缀，读取 `.env.chromium-based`，并设置 `EXTENSION_BROWSER=chromium-based`。
+- 把这一个包发给使用 Chrome、Brave、Edge 或任何其他 Chromium 分支的用户。
+
+当商店构建需要厂商特定的 manifest 字段时，选择具名目标(`chrome`、`edge`)。当一个产物应当服务整个家族时，选择引擎目标。见[引擎目标对 `build` 意味着什么](/docs/commands/build#引擎目标对-build-意味着什么)。
 
 ## Safari 与其他 WebKit 目标
 

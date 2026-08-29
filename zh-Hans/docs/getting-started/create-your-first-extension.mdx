@@ -11,6 +11,11 @@ keywords:
     "playwright",
     "service worker",
     "docs",
+    "project root",
+    "src folder",
+    "scaffold",
+    "yarn dlx",
+    "scripts folder dist",
   ]
 ---
 
@@ -48,6 +53,12 @@ keywords:
 `src/manifest.json` 与 `src/background.js`。接下来的两步会替换这两个文件。
 本教程里你写的所有内容都放在 `src/` 下，因为只要存在 `src/manifest.json`，
 Extension.js 就会优先使用它。
+
+<Note>
+  **在用 Yarn？**`yarn dlx` 命令需要 Yarn 2 或更新版本。Yarn 1 没有
+  `dlx`，会以 "Command not found" 错误失败。在 Yarn 1 上，请改用
+  `npm` 标签页(`npx`)。
+</Note>
 
 <CodeGroup>
 
@@ -90,6 +101,55 @@ deno run -A npm:extension@4.1.3 create github-search
 再运行 `deno task dev`。
 
 </Note>
+
+## create 会生成什么
+
+`create` 会搭建一个完整的项目并初始化一个 git 仓库。默认模板生成这样的目录树：
+
+```text
+github-search/
+├── .extension-create.json
+├── .gitignore
+├── README.md
+├── STORE.md
+├── extension.config.js
+├── package.json
+└── src/
+    ├── manifest.json
+    ├── background.js
+    ├── content/
+    │   ├── ContentApp.js
+    │   ├── scripts.js
+    │   └── styles.css
+    ├── images/
+    │   └── icon.png
+    └── sidebar/
+        ├── SidebarApp.js
+        ├── index.html
+        ├── scripts.js
+        └── styles.css
+```
+
+TypeScript 与 React 模板会额外添加 `tsconfig.json` 和 `extension-env.d.ts`，用于带类型的扩展 API。
+
+两个文件锚定了这个布局：
+
+- `package.json` 标记项目根目录。[特殊文件夹](/docs/features/special-folders)(`pages/`、`scripts/`、`public/`)和 `dist/` 输出都从那个目录解析，永远不从 `src/` 解析。
+- `manifest.json` 标记扩展源码。它可以放在根目录或 `src/` 里。当两处都存在时，`src/manifest.json` 胜出。
+
+改造脚手架时，哪些该编辑、哪些该删除：
+
+| 文件                     | 它是什么                                                        | 编辑还是删除？                                          |
+| ------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| `package.json`           | 项目根目录标记、脚本，以及固定版本的 `extension`。 | 保留。编辑名称和描述。                     |
+| `extension.config.js`    | 按浏览器划分的运行选项，例如配置文件和浏览器 flag。       | 可选。删除它即可恢复默认值。             |
+| `.extension-create.json` | 记录 create 的版本、模板与模板 ref。           | 为溯源保留。构建不会读取它。              |
+| `README.md`、`STORE.md`  | 起步文档和一份商店信息草稿。                           | 替换或删除。                                       |
+| `src/manifest.json`      | 扩展的 manifest。                                           | 就地编辑。不要再加第二份 manifest。             |
+| `src/background.js`      | sidebar 起步模板的后台脚本。                        | 编辑或替换，就像本教程做的那样。                  |
+| `src/content/`           | 起步模板注入到每个页面的 content script。            | 删除它，并移除它的 `content_scripts` 条目。        |
+| `src/sidebar/`           | 起步模板的 sidebar 面板页面。                               | 删除它，并移除它的 `side_panel` 条目。           |
+| `src/images/`            | manifest 引用的图标。                               | 保留。换成你自己的图标。                            |
 
 ## 第 2 步：创建 manifest 文件
 

@@ -135,6 +135,24 @@ Extension.js 通过**浏览器内伴侣进程**进行调试，而不是 Chrome D
 
 （在 Chromium MV3 构建上，`eval --context background` 返回的是一条解释性错误。MV3 的后台是 service worker，而 Chrome 的扩展 CSP 在每个 MV3 构建上都拒绝 `unsafe-eval`，不只是生产环境。在 Chromium MV3 上请在 `page` / `content` 中求值，或者针对 Firefox/MV2 构建调用后台。`extension_list_extensions` 是 MCP 工具而不是 CLI 子命令——它通过 DevTools Protocol 连接，因此仅支持 Chromium。）
 
+## 日志在浏览器里的位置
+
+`extension logs` 把每个上下文合并进同一条终端时间线(见 [logs](/docs/commands/logs))。当你想看某个上下文在浏览器自己的控制台里的输出时，每个上下文都在不同的门后面：
+
+| 上下文               | Chrome / Chromium                                                                          | Firefox                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| 后台            | `chrome://extensions`，你的扩展，"Inspect views" 下的 **service worker** 链接   | `about:debugging#/runtime/this-firefox`，然后在你的扩展上点 **Inspect**              |
+| Content script       | 在它们运行的页面上打开 DevTools                                                      | 在它们运行的页面上打开 DevTools                                                    |
+| Popup、options、sidebar | 在对应界面内右键点击，然后选 **Inspect**                                          | 来自 `about:debugging` 的同一个扩展工具箱                                        |
+
+三个细节能帮你省时间：
+
+- 在 Chrome 上，**service worker** 链接还能唤醒一个空闲的 MV3 worker，当后台看起来没反应时用它。
+- Content script 的日志永远不会出现在扩展自己的检查器里。在页面 DevTools 的控制台中，上下文下拉框可以过滤到你的扩展的隔离世界。
+- 在 Firefox 上，`about:debugging` 工具箱覆盖后台和扩展页面。Content script 的输出留在页面的 DevTools 里。
+
+上面所有内容也都会流经 `extension logs`，按上下文打标签，不需要点开任何一扇门。
+
 ## 安全性
 
 这些门控是有意为之，而不是官僚式的限制：

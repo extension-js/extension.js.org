@@ -1,0 +1,172 @@
+---
+title: "打造一個廣告封鎖器"
+description: "在瀏覽器擴充功能中使用 declarativeNetRequest 的靜態與動態規則封鎖廣告與追蹤器，並加上統計已封鎖請求數的徽章。"
+keywords:
+  [
+    "ad blocker",
+    "adblock",
+    "block requests",
+    "declarativenetrequest",
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+  ]
+---
+
+用 `declarativeNetRequest` API 封鎖廣告與追蹤器。你宣告比對規則，瀏覽器就會在請求離開網路堆疊前原生封鎖它們。
+
+## 你會做出什麼
+
+| 部分            | 用途                                             |
+| --------------- | ------------------------------------------------ |
+| `rules.json`    | 與擴充功能一起發佈的靜態封鎖規則                 |
+| `background.js` | 在執行階段新增與移除動態規則                     |
+| Action 徽章     | 顯示擴充功能在一個頁面上封鎖了多少請求           |
+
+## 為什麼 MV3 取代了阻斷式 webRequest
+
+Manifest V2 的廣告封鎖器註冊阻斷式 `webRequest` 監聽器。每個請求都要暫停，等擴充功能的 JavaScript 決定它的命運。Manifest V3 基於效能與隱私因素移除了這個模型。改用 `declarativeNetRequest` 後，瀏覽器自己評估你的規則。你的程式碼從不佔據請求路徑，也從不為了封鎖而讀取請求內容。
+
+代理式的使用情境，例如把所有流量導向另一台伺服器，請改用 `proxy` API 而不是請求規則。
+
+## Manifest
+
+封鎖與允許規則不需要 host permissions。重新導向規則與標頭規則需要受影響網站的 host permissions。
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "My Ad Blocker",
+  "version": "1.0.0",
+  "permissions": ["declarativeNetRequest"],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ads",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "My Ad Blocker"
+  }
+}
+```
+
+Extension.js 會編譯 `rule_resources` 引用的規則集檔案，並隨建置輸出一起發出。
+
+## 靜態規則
+
+靜態規則放在 `rules.json`，會在擴充功能載入時載入。
+
+```json rules.json
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||ads.example.com^",
+      "resourceTypes": ["script", "image", "sub_frame", "xmlhttprequest"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||tracker.example.net^",
+      "resourceTypes": ["script", "xmlhttprequest"]
+    }
+  }
+]
+```
+
+`||domain^` 過濾語法會比對一個網域及其所有子網域。
+
+## 動態規則
+
+動態規則用於在執行階段變動的過濾條件，例如使用者自行加入的封鎖清單項目。重新加入規則前先移除該規則 id，讓更新保持冪等。
+
+```js background.js
+async function blockDomain(domain, ruleId) {
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [ruleId],
+    addRules: [
+      {
+        id: ruleId,
+        priority: 1,
+        action: { type: 'block' },
+        condition: {
+          urlFilter: `||${domain}^`,
+          resourceTypes: ['script', 'image', 'xmlhttprequest']
+        }
+      }
+    ]
+  })
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  blockDomain('annoying-banners.example', 1001)
+})
+```
+
+Chrome 對靜態與動態規則的數量有上限。在發佈大型過濾清單前，先到 `declarativeNetRequest` 參考文件確認目前的限制。
+
+## 在徽章上統計已封鎖的請求
+
+一個呼叫就能把 action 徽章變成各分頁的規則命中計數器。
+
+```js background.js
+chrome.declarativeNetRequest.setExtensionActionOptions({
+  displayActionCountAsBadgeText: true
+})
+```
+
+要用 `getMatchedRules` 自行讀取命中的規則，需加上 `declarativeNetRequestFeedback` 權限。
+
+## 執行
+
+在編輯 `manifest.json` 之前，先知道 manifest 變更需要重新啟動開發伺服器。參考 [開發更新行為](/docs/workflows/dev-update-behavior)。
+
+```bash
+extension dev ./my-ad-blocker --browser=chromium
+```
+
+開啟一個會請求被封鎖網域的頁面。規則命中時，徽章數字會上升。
+
+## Firefox 注意事項
+
+- Firefox 在 Manifest V3 支援 `declarativeNetRequest`。
+- Firefox 不支援 `setExtensionActionOptions`，因此徽章計數器僅限 Chromium。
+- Firefox 在 Manifest V3 仍允許阻斷式 `webRequest`，Chrome 則把它保留給政策安裝。
+- 當兩個目標出現分歧時，使用 [瀏覽器專屬 manifest 欄位](/docs/features/browser-specific-fields)。
+
+## 從範本開始
+
+`action` 範本附帶一個 background script 加上工具列 popup，是封鎖器 UI 的好基礎。
+
+```bash
+npx extension@latest create my-ad-blocker --template=action
+```
+
+儲存庫：[extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+## 最佳實務
+
+- 靜態規則放在 `rules.json`，動態規則保留給使用者的選擇。
+- 給每個動態規則一個穩定的 id，讓移除保持可預期。
+- 把 `resourceTypes` 限定在你要封鎖的類型，而不是所有類型。
+- 優先使用封鎖與允許規則，它們不需要 host permissions。
+- 在發佈過濾條件更新前，用真實頁面測試規則。
+
+## 後續步驟
+
+- 在 [攔截網路請求](/docs/workflows/intercept-network-requests) 觀察流量而不封鎖它。
+- 用 [安全檢查清單](/docs/workflows/security-checklist) 稽核你的權限面。
+- 在 [Manifest V3 概念](/docs/concepts/manifest-v3) 檢視 background 模型。

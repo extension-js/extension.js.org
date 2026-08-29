@@ -135,6 +135,24 @@ Extension.js 透過**瀏覽器內的伴隨程式**進行除錯，而非 Chrome D
 
 （在 Chromium MV3 建置上，`eval --context background` 回傳的是說明性的錯誤。MV3 的 background 是 service worker，而 Chrome 的擴充功能 CSP 在每個 MV3 建置上都會拒絕 `unsafe-eval`，不只是正式環境。在 Chromium MV3 上請在 `page` / `content` 中執行運算式，或改以 Firefox/MV2 建置為目標呼叫 background。`extension_list_extensions` 是 MCP 工具而非 CLI 動詞 — 它透過 DevTools Protocol 連線，所以僅限 Chromium。）
 
+## 日誌在瀏覽器裡的位置
+
+`extension logs` 會把每個 context 合併成終端機上的單一時間軸（參見 [logs](/docs/commands/logs)）。當你想改看某個 context 在瀏覽器本身的主控台時，每個 context 都藏在不同的門後：
+
+| Context               | Chrome / Chromium                                                                          | Firefox                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Background            | `chrome://extensions`，你的擴充功能，「Inspect views」下的 **service worker** 連結         | `about:debugging#/runtime/this-firefox`，然後在你的擴充功能上點 **Inspect**              |
+| Content scripts       | 在它們執行的頁面上開 DevTools                                                              | 在它們執行的頁面上開 DevTools                                                            |
+| Popup、options、sidebar | 在介面內按右鍵，然後 **Inspect**                                                          | `about:debugging` 的同一個擴充功能 toolbox                                               |
+
+三個能省時間的細節：
+
+- 在 Chrome 上，**service worker** 連結也會喚醒閒置的 MV3 worker，所以 background 看起來像死掉時就用它。
+- Content script 的日誌永遠不會出現在擴充功能自己的檢查器。在頁面 DevTools 的主控台中，context 下拉選單可以過濾到你的擴充功能的 isolated world。
+- 在 Firefox 上，`about:debugging` 的 toolbox 涵蓋 background 與擴充功能頁面。Content script 的輸出留在頁面的 DevTools。
+
+以上一切也都會流入 `extension logs`，依 context 標記，完全不用點開那些門。
+
 ## 安全性
 
 這些限制有其用意，並非繁文縟節：

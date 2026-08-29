@@ -11,12 +11,34 @@ keywords:
     "react",
     "hmr",
     "content script",
+    "project root",
+    "src folder",
+    "scaffold",
+    "yarn dlx",
+    "scripts folder dist",
   ]
 ---
 
 當擴充功能需要無法乾淨放入 `manifest.json` 的 entrypoint 或資產時，使用特殊資料夾。
 
 處理額外頁面、執行階段注入的腳本、需要精確路徑的靜態資產，以及本機開發用的附屬擴充功能，而不破壞專案結構。
+
+## 特殊資料夾的位置
+
+特殊資料夾只會從專案根目錄解析，別無其他位置。規則如下：
+
+- 專案根目錄是包含 `package.json`（或 `deno.json`）的目錄。
+- 把 `pages/`、`scripts/`、`public/` 與 `extensions/` 放在那個目錄，也就是 `package.json` 旁邊。
+- `src/scripts/` 不是特殊資料夾。Extension.js 會忽略巢狀的特殊資料夾副本，因此那裡的檔案永遠不會成為 entrypoint 或被複製的資產。
+- 把 `manifest.json` 移進 `src/` 不會移動專案根目錄。骨架範本出貨時就是 `src/manifest.json` 加上高一層的 `package.json`，而特殊資料夾屬於 `package.json` 那一層。
+
+唯一以 src 為根的例外：一個既沒有 `package.json` 也沒有 `deno.json` 的專案。此時包含 `manifest.json` 的目錄成為專案根目錄。當那份 manifest 位於 `src/` 時，`src/` 就是根目錄，特殊資料夾（與 `dist/`）都位於 `src/` 之內。
+
+<Warning>
+  **我的 `scripts/` 資料夾沒有出現在 `dist/`。** 這幾乎都對應到上面的規則：
+  資料夾位在 `src/` 底下，而不是 `package.json` 旁邊。把它移到專案根目錄。
+  如果它已經在那裡，確認你的專案中有地方[引用了該檔案路徑](#要在某處引用該檔案路徑)。
+</Warning>
 
 ## 範本範例
 

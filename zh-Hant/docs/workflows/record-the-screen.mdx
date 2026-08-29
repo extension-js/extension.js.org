@@ -1,0 +1,160 @@
+---
+title: "錄製螢幕"
+description: "用 getDisplayMedia、tabCapture 與 MediaRecorder 打造螢幕錄製擴充功能，並把擷取結果存成可下載的 WebM 檔案。"
+keywords:
+  [
+    "screen recorder",
+    "screen capture",
+    "record screen",
+    "getdisplaymedia",
+    "tabcapture",
+    "browser",
+    "docs",
+    "workflows",
+  ]
+---
+
+在擴充功能頁面用 `getDisplayMedia` 錄製螢幕，用 `MediaRecorder` 編碼，再用 `downloads` API 儲存結果。
+
+## 選擇擷取 API
+
+| API               | 擷取內容                          | 執行位置                             | 瀏覽器          |
+| ----------------- | --------------------------------- | ------------------------------------ | --------------- |
+| `getDisplayMedia` | 透過選擇器擷取螢幕、視窗或分頁    | 任何擴充功能頁面，需使用者手勢       | Chrome、Firefox |
+| `tabCapture`      | 僅限使用中的分頁                  | 從 background 取得串流 id            | 僅限 Chromium   |
+
+`getDisplayMedia` 不需要 manifest 權限。瀏覽器會顯示來源選擇器，那個提示就是同意本身。`tabCapture` 略過選擇器，但需要 `tabCapture` 權限，以及先前在擴充功能上的使用者手勢，例如點擊 action。
+
+## Manifest
+
+只有從 offscreen document 錄製時，才把 `offscreen` 加入 permissions。
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "Screen Recorder",
+  "version": "1.0.0",
+  "permissions": ["downloads", "tabCapture"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open recorder"
+  }
+}
+```
+
+## 開啟錄製頁面
+
+popup 失去焦點就會關閉，錄製也隨之中止。改把錄製器放在專屬頁面上。把 `recorder.html` 與 `recorder.js` 放進 `pages/` [特殊資料夾](/docs/features/special-folders)，Extension.js 會把它們編譯為 entrypoint。
+
+```js background.js
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({
+    url: chrome.runtime.getURL('pages/recorder.html')
+  })
+})
+```
+
+## 用 getDisplayMedia 錄製
+
+`getDisplayMedia` 需要使用者手勢，因此要在點擊處理器中呼叫，絕不在頁面載入時呼叫。
+
+```js pages/recorder.js
+let recorder
+const chunks = []
+
+document.getElementById('start').addEventListener('click', async () => {
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: true
+  })
+
+  recorder = new MediaRecorder(stream, { mimeType: 'video/webm' })
+  recorder.ondataavailable = (event) => chunks.push(event.data)
+  recorder.onstop = saveRecording
+  recorder.start()
+})
+
+document.getElementById('stop').addEventListener('click', () => {
+  recorder.stop()
+  recorder.stream.getTracks().forEach((track) => track.stop())
+})
+
+function saveRecording() {
+  const blob = new Blob(chunks, { type: 'video/webm' })
+  chunks.length = 0
+  chrome.downloads.download({
+    url: URL.createObjectURL(blob),
+    filename: 'recording.webm',
+    saveAs: true
+  })
+}
+```
+
+blob URL 在這裡可以運作，因為錄製器是一個 document，而不是 service worker。
+
+## 改為擷取使用中的分頁
+
+使用 `tabCapture` 時，background 把串流 id 交給你的頁面，頁面再把它變成串流。不會出現選擇器。
+
+```js pages/recorder.js
+async function captureTab(tabId) {
+  const streamId = await chrome.tabCapture.getMediaStreamId({
+    targetTabId: tabId
+  })
+
+  return navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: {
+      mandatory: {
+        chromeMediaSource: 'tab',
+        chromeMediaSourceId: streamId
+      }
+    }
+  })
+}
+```
+
+把得到的串流餵給與上面相同的 `MediaRecorder` 流程。
+
+## 在背景錄製
+
+要在沒有任何可見擴充功能頁面的情況下持續錄製，Chrome 提供 offscreen document。用 `chrome.offscreen.createDocument` 搭配 `USER_MEDIA` 理由建立一個，然後在那裡執行擷取程式碼。這需要 `offscreen` 權限，而且僅限 Chromium。
+
+## 執行
+
+```bash
+extension dev ./screen-recorder --browser=chromium
+```
+
+點擊 action 圖示開啟錄製頁面。開始擷取，停止之後，WebM 檔案就會出現在你的下載中。
+
+## Firefox 注意事項
+
+- `getDisplayMedia` 與 `MediaRecorder` 在 Firefox 擴充功能頁面可以運作，因此主流程是可移植的。
+- Firefox 不支援 `tabCapture` 與 offscreen document。
+- 使用 [瀏覽器專屬 manifest 欄位](/docs/features/browser-specific-fields)，讓 `tabCapture` 權限不進入 Firefox 建置。
+
+## 從範本開始
+
+`special-folders-pages` 範本展示了承載錄製頁面的 `pages/` 版面。
+
+```bash
+npx extension@latest create screen-recorder --template=special-folders-pages
+```
+
+儲存庫：[extension-js/examples/special-folders-pages](https://github.com/extension-js/examples/tree/main/examples/special-folders-pages)
+
+## 最佳實務
+
+- 錄製結束時停止每個 track，讓瀏覽器移除分享指示器。
+- 依瀏覽器選擇擷取 API：`getDisplayMedia` 到處可用，`tabCapture` 用於 Chromium 的僅限分頁流程。
+- 保持 `saveAs: true`，讓使用者選擇錄影的存放位置。
+- 用 `recorder.start(timeslice)` 把長時間錄製切塊，以限制記憶體用量。
+
+## 後續步驟
+
+- 在 [管理下載](/docs/workflows/manage-downloads) 管理儲存的檔案。
+- 檢視 `pages/` 項目的 [特殊資料夾](/docs/features/special-folders) 合約。
+- 用 [安全檢查清單](/docs/workflows/security-checklist) 稽核擷取權限。

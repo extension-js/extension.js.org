@@ -11,6 +11,8 @@ keywords:
     "browser",
     "manifest",
     "docs",
+    "edge opens chromium",
+    "chrome for testing",
   ]
 ---
 
@@ -87,6 +89,17 @@ safari | webkit-based
 
 發生這種情況時,CLI 會印出一則警告,指出缺少的瀏覽器與修正方式,例如 `npx extension install chromium`。這則警告刻意不寫出替代執行檔的路徑。工作階段的身分卡片已經有一列 Binary 指出實際使用的執行檔,所以這件事只會印一次。輸出資料夾與產出的 manifest 與沒有回退時完全相同。
 
+### 沒有受管理 Edge 時 `--browser=edge` 會做什麼
+
+`edge` 永遠不會換成另一個瀏覽器。Extension.js 依這個順序解析 Edge 執行檔:
+
+1. `EDGE_BINARY` 環境變數中的路徑(有設定時)。
+2. 來自 `npx extension install edge` 的受管理 Edge,或系統上已安裝的 Edge。
+
+兩者都解析不到時,指令會印出安裝指引(`npx extension install edge`)並以代碼 `1` 結束。缺少 Edge 時不會有靜默的 Chromium 替代品。
+
+如果一個 Chromium 視窗仍然讓你意外,檢查身分卡片。它的 Binary 列會指出實際啟動的執行檔,來源標籤會告訴你原因。請求的 `chrome` 或 `chromium` 可以借用受管理的家族執行檔(見上文),但請求的 `edge` 不行。輸出合約兩種情況都成立:只有當 `edge` 是請求的目標時,`dist/edge` 才會存在。
+
 ### 執行檔來源標籤
 
 身分卡片會標示這次工作階段的執行檔來自哪裡:
@@ -138,6 +151,20 @@ safari | webkit-based
 | **Gecko-based**(`firefox-based`) | `npx extension dev --browser=gecko-based --gecko-binary=/path/to/browser`       |
 
 Extension.js 在內部把 `firefox-based` 視為 Gecko 引擎目標。
+
+### 引擎目標的用途
+
+`chromium-based` 與 `gecko-based` 針對的是一個引擎家族,而不是單一廠商。
+
+在 `dev`、`start` 與 `preview` 中,它們用來執行一個沒有具名目標的執行檔。想像一個 nightly 分支、公司內部建置,或內建定位器不認識的分支。
+
+在 `build` 中,它們是為了散布而存在,完全不涉及執行檔:
+
+- `extension build --browser=chromium-based` 會把家族通用的產物寫到 `dist/chromium-based`。
+- 該產物會解析 `chromium:` manifest 前綴、讀取 `.env.chromium-based`,並設定 `EXTENSION_BROWSER=chromium-based`。
+- 把這一個套件發佈給 Chrome、Brave、Edge 或任何其他 Chromium 分支上的使用者。
+
+當商店建置需要廠商專屬的 manifest 欄位時,選擇具名目標(`chrome`、`edge`)。當一份產物要服務整個家族時,選擇引擎目標。參見[引擎目標對 `build` 的意義](/zh-Hant/docs/commands/build#引擎目標對-build-的意義)。
 
 ## Safari 與其他 WebKit 目標
 
