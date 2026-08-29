@@ -11,6 +11,8 @@ keywords:
     "browser",
     "manifest",
     "docs",
+    "edge opens chromium",
+    "chrome for testing",
   ]
 ---
 
@@ -85,6 +87,17 @@ If the requested browser is not installed, Extension.js does not change the targ
 
 When this happens, the CLI prints a warn naming the missing browser and the fix, for example `npx extension install chromium`. The warn deliberately omits the substitute binary path. The session's identity card already carries a Binary row that names the exact binary in use, so the fact is printed once. The output folder and the emitted manifest are exactly what they would be without the fallback.
 
+### What `--browser=edge` does without a managed Edge
+
+`edge` never swaps to another browser. Extension.js resolves the Edge binary in this order:
+
+1. The path in the `EDGE_BINARY` environment variable, when set.
+2. A managed Edge from `npx extension install edge`, or the Edge that is installed on your system.
+
+When neither resolves, the command prints install guidance (`npx extension install edge`) and exits with code `1`. There is no silent Chromium substitute for a missing Edge.
+
+If a Chromium window still surprises you, check the identity card. Its Binary row names the exact binary that launched, and its provenance label tells you why. A requested `chrome` or `chromium` can borrow a managed family binary (see above), but a requested `edge` cannot. The output contract holds either way: `dist/edge` exists only when `edge` was the requested target.
+
 ### Binary provenance labels
 
 The identity card labels where the session's binary came from:
@@ -136,6 +149,20 @@ Engine-based targets (custom binary required):
 | **Gecko-based** (`firefox-based`) | `npx extension dev --browser=gecko-based --gecko-binary=/path/to/browser`       |
 
 Extension.js treats `firefox-based` as a Gecko engine target internally.
+
+### What engine targets are for
+
+`chromium-based` and `gecko-based` target an engine family instead of one vendor.
+
+In `dev`, `start`, and `preview`, they run a binary that has no named target. Think a nightly fork, an in-house build, or a fork that the built-in locators do not know.
+
+In `build`, they exist for distribution, and no binary is involved at all:
+
+- `extension build --browser=chromium-based` writes a family-generic artifact to `dist/chromium-based`.
+- That artifact resolves `chromium:` manifest prefixes, reads `.env.chromium-based`, and sets `EXTENSION_BROWSER=chromium-based`.
+- Ship that one package to users on Chrome, Brave, Edge, or any other Chromium fork.
+
+Choose a named target (`chrome`, `edge`) when a store build needs vendor-specific manifest fields. Choose an engine target when one artifact should serve the whole family. See [What engine targets mean for `build`](/docs/commands/build#what-engine-targets-mean-for-build).
 
 ## Safari and other WebKit targets
 

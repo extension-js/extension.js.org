@@ -11,12 +11,36 @@ keywords:
     "react",
     "hmr",
     "content script",
+    "project root",
+    "src folder",
+    "scaffold",
+    "yarn dlx",
+    "scripts folder dist",
   ]
 ---
 
 Use special folders when your extension needs entrypoints or assets that do not fit cleanly in `manifest.json`.
 
 Handle extra pages, runtime-injected scripts, static assets with exact paths, and companion extensions for local development without splitting your project structure.
+
+## Where special folders live
+
+Special folders resolve from the project root, and only from there. The rule:
+
+- The project root is the directory that contains your `package.json` (or `deno.json`).
+- Put `pages/`, `scripts/`, `public/`, and `extensions/` in that directory, next to `package.json`.
+- `src/scripts/` is not special. Extension.js ignores nested copies of the special folders, so files there never become entrypoints or copied assets.
+- Moving `manifest.json` into `src/` does not move the project root. The scaffolded templates ship `src/manifest.json` with `package.json` one level up, and special folders belong on the `package.json` level.
+
+The one src-rooted exception: a project with no `package.json` and no `deno.json`. There the directory that contains `manifest.json` becomes the project root. When that manifest sits in `src/`, `src/` is the root, and special folders (and `dist/`) live inside `src/`.
+
+<Warning>
+  **My `scripts/` folder does not appear in `dist/`.** This almost always maps
+  to the rule above: the folder sits under `src/` instead of next to
+  `package.json`. Move it to the project root. If it is already there, confirm
+  that something in your project [references the file
+  path](#reference-the-file-path-somewhere).
+</Warning>
 
 ## Template examples
 
