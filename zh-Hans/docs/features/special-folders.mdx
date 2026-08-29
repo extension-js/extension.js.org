@@ -11,12 +11,34 @@ keywords:
     "react",
     "hmr",
     "content script",
+    "project root",
+    "src folder",
+    "scaffold",
+    "yarn dlx",
+    "scripts folder dist",
   ]
 ---
 
 当你的扩展需要在 `manifest.json` 中无法妥善表达的入口或资产时，使用特殊文件夹。
 
 在不拆分项目结构的前提下，处理额外页面、运行时注入的脚本、需要精确路径的静态资产，以及用于本地开发的附属扩展。
+
+## 特殊文件夹放在哪里
+
+特殊文件夹从项目根目录解析，而且只从那里解析。规则是：
+
+- 项目根目录是包含你的 `package.json`(或 `deno.json`)的目录。
+- 把 `pages/`、`scripts/`、`public/` 与 `extensions/` 放在那个目录里，和 `package.json` 并排。
+- `src/scripts/` 不是特殊文件夹。Extension.js 会忽略嵌套的特殊文件夹副本，所以放在那里的文件永远不会成为入口或被复制的资产。
+- 把 `manifest.json` 移进 `src/` 不会移动项目根目录。脚手架模板把 `src/manifest.json` 和上一层的 `package.json` 一起发布，特殊文件夹属于 `package.json` 所在的层级。
+
+唯一一个以 src 为根的例外：一个既没有 `package.json` 也没有 `deno.json` 的项目。此时包含 `manifest.json` 的目录成为项目根目录。当那个 manifest 位于 `src/` 时，`src/` 就是根目录，特殊文件夹(以及 `dist/`)都住在 `src/` 里。
+
+<Warning>
+  **我的 `scripts/` 文件夹没有出现在 `dist/` 里。**这几乎总是对应上面的规则：
+  这个文件夹放在了 `src/` 下面，而不是和 `package.json` 并排。把它移到项目根目录。
+  如果它已经在那里，请确认你的项目里有地方[引用了该文件路径](#需要在某处引用该文件路径)。
+</Warning>
 
 ## 模板示例
 

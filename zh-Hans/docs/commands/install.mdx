@@ -11,6 +11,8 @@ keywords:
     "docs",
     "commands",
     "install",
+    "chrome for testing",
+    "system browser",
   ]
 ---
 
@@ -34,6 +36,32 @@ keywords:
 - 你需要一致、可复现的浏览器二进制，用于持续集成（CI）、自动化或团队一致的本地运行。
 - 你想用 Chrome for Testing，而不是依赖你系统上恰好安装的某个 Chrome 版本。
 - 你正在用受管理的 Firefox 或 Edge 运行时搭建跨浏览器测试。
+
+## 为什么 Extension.js 会下载一个浏览器
+
+运行类命令优先使用受管理的浏览器运行时，而不是你日常使用的那个浏览器。
+
+- 受管理的二进制是版本固定的。`dev`、CI 运行和团队成员启动的都是同一个构建。
+- Chrome for Testing 是为自动化而构建的。较新的品牌版 Chrome 构建(150+)可能会丢弃用来加载你扩展的 `--load-extension` 开关。
+- 受管理的运行时在一个隔离的配置文件中运行。它永远不会碰你的个人浏览器、它的配置文件或它的设置。
+
+你不必提前运行 `install`。当请求的目标没有可用的二进制时，运行类命令会打印出准确的安装命令。
+
+## 跳过受管理下载
+
+你可以直接针对一个已经安装的浏览器开发，无需任何下载：
+
+- 按名称运行一个分支浏览器：`extension dev --browser=brave` 会为你定位已安装的 Brave。见[运行其他浏览器](/docs/browsers/running-other-browsers)。
+- 固定任意二进制：给 `dev`、`start` 或 `preview` 传 `--chromium-binary <path>` 或 `--gecko-binary <path>`。固定值会覆盖所有定位器。
+- 请求 `edge` 时，如果没有受管理的 Edge，会启动你系统上已安装的 Edge。
+- 请求 `chrome` 时会拒绝品牌版的系统 Chrome，并要求改用 Chrome for Testing。
+- 如果无论如何都要运行品牌版 Chrome，用 `--chromium-binary` 固定它。
+
+### 当 Edge 已经安装时
+
+`--browser=edge` 会自己找到系统 Edge，所以你可以跳过 `extension install edge`。只有当你想要一份固定的受管理副本用于自动化时，才运行 `extension install edge`。
+
+在 Linux 上，受管理的 Edge 下载需要一个有 sudo 权限的交互会话。当这次下载失败且系统中存在 Edge 时，安装器会报告系统二进制并以它成功完成。
 
 ## 标准用法
 
