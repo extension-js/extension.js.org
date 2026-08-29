@@ -1,0 +1,158 @@
+---
+title: "管理下載"
+description: "用 downloads API 從瀏覽器擴充功能開始、取消與監控下載，並加上一個列出每個檔案即時進度的 popup。"
+keywords:
+  [
+    "download",
+    "parallel download",
+    "download manager",
+    "downloads api",
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+  ]
+---
+
+用 `downloads` API 打造一個小型下載管理器。background script 開始與取消下載，popup 列出即時進度。
+
+## 你會做出什麼
+
+| 部分            | 用途                                                |
+| --------------- | --------------------------------------------------- |
+| `background.js` | 開始下載並回應狀態變化                              |
+| `popup.html`    | 列出最近下載的工具列 popup                          |
+| `popup.js`      | 從 `search()` 與 `onChanged` 渲染進度               |
+
+## Manifest
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "Download Manager",
+  "version": "1.0.0",
+  "permissions": ["downloads"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Downloads"
+  }
+}
+```
+
+## 開始與取消下載
+
+`filename` 相對於瀏覽器的下載目錄。允許子資料夾，不允許絕對路徑與 `..` 片段。
+
+```js background.js
+async function startDownload(url) {
+  const id = await chrome.downloads.download({
+    url,
+    filename: 'my-extension/report.csv',
+    saveAs: false
+  })
+  console.log('started download', id)
+  return id
+}
+
+function cancelDownload(id) {
+  chrome.downloads.cancel(id)
+}
+
+chrome.downloads.onChanged.addListener((delta) => {
+  if (delta.state?.current === 'complete') {
+    console.log('download', delta.id, 'finished')
+  }
+})
+```
+
+這個 API 還提供 `pause`、`resume` 與 `erase`，可以做出完整的管理器行為。
+
+## 在 popup 顯示進度
+
+`onChanged` 會在狀態轉換時觸發，但不會串流位元組數。輪詢 `search()` 取得進行中的項目，並從結果讀取 `bytesReceived` 與 `totalBytes`。
+
+```html popup.html
+<!doctype html>
+<html>
+  <body>
+    <h1>Downloads</h1>
+    <ul id="list"></ul>
+    <script src="./popup.js"></script>
+  </body>
+</html>
+```
+
+```js popup.js
+async function render() {
+  const items = await chrome.downloads.search({
+    limit: 10,
+    orderBy: ['-startTime']
+  })
+  const list = document.getElementById('list')
+  list.textContent = ''
+
+  for (const item of items) {
+    const row = document.createElement('li')
+    const name = item.filename.split(/[\\/]/).pop() || item.url
+    const percent =
+      item.totalBytes > 0
+        ? Math.round((item.bytesReceived / item.totalBytes) * 100)
+        : 0
+    row.textContent = `${name}: ${item.state} (${percent}%)`
+    list.append(row)
+  }
+}
+
+chrome.downloads.onChanged.addListener(render)
+setInterval(render, 1000)
+render()
+```
+
+## 擴充功能可以平行下載嗎？
+
+網路佇列由瀏覽器擁有，擴充功能無法改變這一點。Chromium 本來就會同時執行多個下載，但會限制每台伺服器的並行連線數，其餘則排入佇列。擴充功能無法提高這些限制，也無法像下載加速器那樣把一個檔案切成多段。
+
+擴充功能能做的是編排：用多個 `download()` 呼叫開始一批下載，監看 `onChanged`，並在一個完成時開始下一個。這給你一個帶進度的有序佇列，而這正是多數「平行下載」需求真正想要的。
+
+## 執行
+
+```bash
+extension dev ./download-manager --browser=chromium
+```
+
+從 background 主控台觸發一個下載，然後開啟 popup 觀看進度。
+
+## Firefox 注意事項
+
+- Firefox 以 `browser.downloads` 搭配 promise 支援相同的 API，`chrome.downloads` 別名也可運作。
+- Firefox 不支援 `chrome.downloads.setUiOptions`，這個 API 用來隱藏 Chrome 的下載 UI。
+- `onChanged` 的 delta 形狀與 `search()` 的查詢形狀在兩個瀏覽器上一致。
+
+共通的 API 面請參考 [跨瀏覽器相容性](/docs/features/cross-browser-compatibility)。
+
+## 從範本開始
+
+`action` 範本附帶這份教學使用的 background 加工具列 popup 版面。
+
+```bash
+npx extension@latest create download-manager --template=action
+```
+
+儲存庫：[extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+## 最佳實務
+
+- 把檔名都放在同一個資料夾下，讓使用者能找到你的檔案。
+- 沒有進行中的下載時，停止 `setInterval` 輪詢。
+- 處理 `interrupted` 狀態，並把 `item.error` 呈現給使用者。
+- 只在使用者明確要求的檔案上保持 `saveAs: false`。
+- 用 `erase` 清理歷史紀錄項目，而不是刪除檔案。
+
+## 後續步驟
+
+- 在 [錄製螢幕](/docs/workflows/record-the-screen) 用這個 API 儲存錄製的媒體。
+- 在 [安全檢查清單](/docs/workflows/security-checklist) 稽核 `downloads` 權限。
+- 在 [開發更新行為](/docs/workflows/dev-update-behavior) 檢視 popup 重新載入規則。

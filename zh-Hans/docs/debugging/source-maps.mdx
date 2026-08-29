@@ -1,0 +1,92 @@
+---
+title: "用于扩展调试的 Source map"
+description: "Extension.js 在 dev 与 build 中默认生成什么、如何在 DevTools 中看到原始 TypeScript，以及哪些 devtool 取值能通过扩展 CSP。"
+keywords:
+  [
+    "source maps",
+    "devtool",
+    "debug typescript chrome extension",
+    "cheap-module-source-map",
+    "unsafe-eval csp",
+    "manifest v3 source maps",
+    "content script source map",
+    "extension.js",
+    "debugging",
+  ]
+---
+
+Source map 把浏览器运行的打包后 JavaScript 关联回你编写的文件。Extension.js 会为你配置好它们，默认值符合扩展 CSP 的要求。本页记录这些默认值以及修改方式。
+
+## 默认值
+
+打包器的 `devtool` 设置控制 source map 的输出。Extension.js 根据命令和 manifest 版本来选择：
+
+| 命令                              | Manifest v3             | Manifest v2                  |
+| ------------------------------------ | ----------------------- | ---------------------------- |
+| `extension dev`                      | `cheap-source-map`      | `eval-cheap-source-map`      |
+| `extension build`                    | 无(`devtool: false`) | 无(`devtool: false`)      |
+| `extension build --mode development` | `cheap-source-map`      | `eval-cheap-source-map`      |
+
+Manifest v3 避开基于 eval 的 map，因为扩展 CSP 在那里禁止 `eval()`。Manifest v2 使用更快的 eval 变体，因为 Extension.js 会给开发期 CSP 打上 `'unsafe-eval'` 补丁，且仅限开发期。
+
+## 看到你的原始 TypeScript
+
+开发期默认值 `cheap-source-map` 只映射行，跳过 loader 的 source map。在 DevTools 里你会落在编译后的 JavaScript 上，而不是你的 TypeScript。要一路映射回去，通过 [`extension.config.js`](/docs/features/rspack-configuration) 的 `config` 钩子切换到一个 `module` 变体：
+
+```js extension.config.js
+export default {
+  config: (config) => {
+    config.devtool = "cheap-module-source-map";
+    return config;
+  },
+};
+```
+
+这个钩子对 `dev` 与 `build` 同样生效，所以覆盖会应用到所有地方。如果你还需要列位置，改用 `source-map`，代价是重建更慢。
+
+然后在各自的检查器中找到每个上下文：
+
+- **后台 service worker**：打开 `chrome://extensions`，选择你的扩展，点击 "Inspect views" 下的 **service worker** 链接。你的原始文件会出现在 Sources 面板中。
+- **Content script**：在页面本身上打开 DevTools。在 Sources 面板中，**Content scripts** 标签页会列出你的扩展。如果独立的 `.map` 文件在那里加载失败，可以用 `inline-cheap-module-source-map` 这样的内联变体把 map 嵌进生成的文件。
+- **Popup、options、sidebar**：在对应界面内右键点击并选择 **Inspect**。
+
+同一会话的终端优先版本，见[调试](/docs/debugging)。
+
+## eval 类 devtool 与扩展 CSP
+
+所有以 `eval` 开头的 `devtool` 取值都会把模块包在 `eval()` 调用里。Manifest v3 的扩展页面和 service worker 在任何构建中都拒绝 CSP 里的 `'unsafe-eval'`，所以这些取值会直接弄坏后台和扩展页面。症状是 CSP 拒绝错误，以及一个永远无法启动的扩展。
+
+在 manifest v3 上，从非 eval 家族中选择：
+
+- `cheap-source-map`(开发期默认值)
+- `cheap-module-source-map`
+- `source-map`
+- `inline-cheap-module-source-map` 以及其他 `inline-*` 变体
+- `hidden-source-map` 与 `nosources-source-map`
+
+在 manifest v2 上，eval 家族在 `extension dev` 期间可用，因为开发期 CSP 打了补丁。生产环境的 manifest v2 构建没有这个补丁，这也是生产环境默认完全不生成 map 的又一个原因。
+
+## 生产构建
+
+`extension build` 默认以生产模式运行，不生成任何 source map。这让商店产物保持小巧，也避免你的原始源码进入发布包。
+
+要在本地调试一个生产形态的包，可以切出一个开发模式的构建：
+
+```bash
+extension build --mode development
+```
+
+或者在 `config` 钩子里设置一个 `devtool`，生产构建同样会遵循它。如果你为一个会离开你机器的构建启用 map，优先选 `hidden-source-map`：它生成 `.map` 文件，但不在包里声明它们。
+
+## 最佳实践
+
+- **正常开发期保持默认值**：它们是扩展 CSP 允许的最快选项。
+- **需要原始 TypeScript 时选 `cheap-module-source-map`**：它是能穿过 loader 链的最便宜的 map。
+- **manifest v3 项目里永远不要发布 eval 类 devtool**：扩展会在你的第一个断点之前就败给 CSP。
+- **商店提交时保持生产 map 关闭**：只在本地诊断时启用。
+
+## 下一步
+
+- 在 [Rspack 配置](/docs/features/rspack-configuration)中修改打包器设置。
+- 在[调试](/docs/debugging)中从终端驱动一次实时会话。
+- 在 [build 命令](/docs/commands/build)中回顾构建输出。

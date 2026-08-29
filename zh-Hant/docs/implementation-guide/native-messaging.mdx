@@ -1,0 +1,193 @@
+---
+title: "與本機應用程式的 native messaging"
+description: "讓擴充功能與本機應用程式透過 stdio 交換訊息。在各作業系統註冊 host manifest，並從 background script 連線。"
+keywords:
+  [
+    "native messaging",
+    "connectNative",
+    "sendNativeMessage",
+    "native messaging host",
+    "allowed_origins",
+    "allowed_extensions",
+    "chrome extension local app",
+    "firefox native messaging",
+    "extension.js",
+    "implementation guide",
+  ]
+---
+
+Native messaging 讓擴充功能與使用者機器上的應用程式交換 JSON 訊息。瀏覽器會把應用程式當成子行程啟動，並透過 stdin 與 stdout 傳遞訊息。把它用在擴充功能平台做不到的工作：讀取本機檔案、與硬體溝通，或呼叫密碼管理器。
+
+三個部分必須彼此一致：
+
+1. 擴充功能宣告 `nativeMessaging` 權限。
+2. 一個 host manifest，也就是向作業系統註冊的小型 JSON 檔案，指定應用程式與可以呼叫它的擴充功能。
+3. 應用程式實作以長度為前綴的 stdio 協定。
+
+## 宣告權限
+
+把 `nativeMessaging` 加入 `manifest.json` 的 permissions：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "Ping",
+  "version": "1.0",
+  "permissions": ["nativeMessaging"],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
+```
+
+Extension.js 會把這個權限原封不動寫進建置後的 manifest。除此之外沒有任何建置階段的處理：host 本身永遠不會被打包。
+
+## 撰寫 host manifest
+
+host manifest 告訴瀏覽器應用程式的位置，以及誰可以啟動它：
+
+```json
+{
+  "name": "com.example.ping",
+  "description": "Echo host for the docs example",
+  "path": "/absolute/path/to/ping-host",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://<your-extension-id>/"]
+}
+```
+
+- `name` 是擴充功能傳給 `connectNative()` 的識別碼。使用小寫字母、數字、底線與句點。
+- `path` 在 macOS 與 Linux 上必須是絕對路徑。在 Windows 上可以相對於 manifest，而且必須指向可執行檔（Node.js 腳本要用 `.bat` 包裝器）。
+- `type` 永遠是 `stdio`。
+- `allowed_origins` 列出可以呼叫這個 host 的擴充功能 ID。開啟開發人員模式後，在 `chrome://extensions` 讀取你的 ID。
+
+### 安裝位置
+
+Chromium 系瀏覽器會在各作業系統的固定位置尋找 manifest，檔名以 host 命名（`com.example.ping.json`）：
+
+| 作業系統 | 每位使用者                                                  | 全系統                                         |
+| ------- | ----------------------------------------------------------- | ---------------------------------------------- |
+| macOS   | `~/Library/Application Support/Google/Chrome/NativeMessagingHosts/` | `/Library/Google/Chrome/NativeMessagingHosts/` |
+| Linux   | `~/.config/google-chrome/NativeMessagingHosts/`             | `/etc/opt/chrome/native-messaging-hosts/`      |
+| Windows | 登錄檔 `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.example.ping`，預設值 = JSON 檔案的路徑 | `HKLM` 下的同一個機碼                          |
+
+Chromium（開源版本）在 macOS 上使用 `Chromium` 而不是 `Google/Chrome`，在 Linux 上使用 `~/.config/chromium/NativeMessagingHosts/` 與 `/etc/chromium/native-messaging-hosts/`。macOS 與 Linux 上的每位使用者目錄位於瀏覽器的使用者資料目錄內，這在 `extension dev` 期間很重要（見下文）。
+
+## 最小的 Node.js host
+
+每則訊息由一個 32 位元無號整數長度（採用原生位元組序，所有支援平台上都是 little-endian）開頭，後面接著該長度的 UTF-8 JSON 位元組。兩個方向都採用相同的封框方式。這個 host 會把每則訊息原樣回傳：
+
+```js ping-host.js
+function send(message) {
+  const json = Buffer.from(JSON.stringify(message));
+  const header = Buffer.alloc(4);
+  header.writeUInt32LE(json.length, 0);
+  process.stdout.write(Buffer.concat([header, json]));
+}
+
+let buffer = Buffer.alloc(0);
+
+process.stdin.on("data", (chunk) => {
+  buffer = Buffer.concat([buffer, chunk]);
+
+  while (buffer.length >= 4) {
+    const length = buffer.readUInt32LE(0);
+    if (buffer.length < 4 + length) break;
+
+    const message = JSON.parse(buffer.subarray(4, 4 + length).toString());
+    buffer = buffer.subarray(4 + length);
+
+    send({ received: message });
+  }
+});
+```
+
+在 macOS 與 Linux 上，把 `path` 指向一個可執行的包裝腳本，並讓它可執行：
+
+```sh ping-host
+#!/bin/sh
+exec node "$(dirname "$0")/ping-host.js"
+```
+
+永遠不要把日誌寫到 stdout：瀏覽器會把該串流上的所有內容都當成訊息框解析。改成記錄到 stderr 或檔案。
+
+## 從 background script 連線
+
+需要持續對話時，使用 port。瀏覽器會在 `connectNative()` 時啟動 host 行程，並在 port 中斷連線時停止它：
+
+```js background.js
+const port = chrome.runtime.connectNative("com.example.ping");
+
+port.onMessage.addListener((message) => {
+  console.log("From host:", message);
+});
+
+port.onDisconnect.addListener(() => {
+  console.log("Disconnected:", chrome.runtime.lastError?.message);
+});
+
+port.postMessage({ ping: Date.now() });
+```
+
+只需要一次請求與回應時，`sendNativeMessage()` 每次呼叫都會啟動一個新的 host 行程：
+
+```js
+chrome.runtime.sendNativeMessage("com.example.ping", { ping: 1 }, (reply) => {
+  console.log(reply);
+});
+```
+
+從 host 傳到擴充功能的訊息上限是 1 MB。從擴充功能傳到 host 的訊息上限是 4 GB。重新載入擴充功能會中斷所有開啟中的 port，因此若連線必須存活，請在啟動路徑中重新連線。
+
+## Firefox 的差異
+
+Firefox 使用相同的權限、相同的 API（`browser.runtime.connectNative`）與相同的 stdio 協定。差異在註冊端：
+
+- 你的擴充功能需要透過 `browser_specific_settings.gecko.id` 指定明確的 ID。使用 `firefox:` [manifest 前綴](/docs/features/multi-platform-builds)，讓這個鍵只進入 Firefox 建置。
+- host manifest 以 `allowed_extensions` 取代 `allowed_origins`，列出該 ID。
+
+```json
+{
+  "name": "com.example.ping",
+  "description": "Echo host for the docs example",
+  "path": "/absolute/path/to/ping-host",
+  "type": "stdio",
+  "allowed_extensions": ["ping@example.com"]
+}
+```
+
+Firefox 在自己的位置尋找，與 Firefox 設定檔無關：
+
+| 作業系統 | 每位使用者                                                      | 全系統                                                  |
+| ------- | --------------------------------------------------------------- | ------------------------------------------------------- |
+| macOS   | `~/Library/Application Support/Mozilla/NativeMessagingHosts/`   | `/Library/Application Support/Mozilla/NativeMessagingHosts/` |
+| Linux   | `~/.mozilla/native-messaging-hosts/`                            | `/usr/lib/mozilla/native-messaging-hosts/`              |
+| Windows | 登錄檔 `HKCU\Software\Mozilla\NativeMessagingHosts\com.example.ping` | `HKLM` 下的同一個機碼                                   |
+
+## extension dev 期間的 native messaging
+
+host 是向作業系統註冊的，不會與你的程式碼一起打包。`extension dev` 不會複製也不會註冊任何東西，因此在開發階段能運作的 host，在商店安裝後行為也相同。
+
+在 Chromium 上有一個設定檔細節需要注意。預設情況下，`extension dev` 會透過 `--user-data-dir` 以全新的[受管理設定檔](/docs/browsers/browser-profile)啟動瀏覽器。Chromium 會在使用中的使用者資料目錄內解析每位使用者的 host manifest，因此你為日常 Chrome 安裝的 manifest，對這個受管理設定檔是不可見的。從下列設置中擇一：
+
+- 以全系統方式安裝 host manifest（在 Windows 上則安裝到登錄檔）。這些位置不依賴設定檔。
+- 改為使用你真實的瀏覽器設定檔執行：
+
+```bash
+extension dev --profile false
+```
+
+Firefox 與 Windows 的查找以作業系統使用者為單位，而不是設定檔，因此受管理的開發設定檔不需要額外步驟就能找到它們。
+
+## 最佳實務
+
+- **驗證每一則訊息**：host 以使用者的完整作業系統權限執行，因此要把擴充功能的輸入視為不可信任，反之亦然。
+- **保持 stdout 乾淨**：host 裡一個多餘的 `console.log` 就會破壞訊息框串流。
+- **處理中斷連線**：在 `onDisconnect` 中檢查 `chrome.runtime.lastError`，以區分 host 不存在與 host 當機。
+- **重複呼叫時優先使用 port**：`sendNativeMessage()` 每則訊息都要付出一次行程啟動的成本。
+
+## 後續步驟
+
+- 在 [Messaging](/docs/implementation-guide/messaging) 檢視擴充功能內部的通道。
+- 在 [權限與 host permissions](/docs/implementation-guide/permissions-and-host-permissions) 了解權限提示。
+- 在 [瀏覽器設定檔](/docs/browsers/browser-profile) 了解開發設定檔如何運作。

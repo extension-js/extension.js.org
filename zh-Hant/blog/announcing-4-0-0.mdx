@@ -1,0 +1,72 @@
+---
+title: "Extension.js 4.0.0 發佈公告"
+description: "Extension.js 4.0.0 改用 Node.js 22、修正開發階段的傳統多檔 content script、加速 Safari 開發，並新增 Brave、Opera、Vivaldi、Yandex、Waterfox 與 LibreWolf 作為瀏覽器目標。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "chrome",
+    "firefox",
+    "safari",
+    "browser",
+    "node",
+    "content script",
+  ]
+---
+
+<Update label="v4.0.0" description="June 30, 2026" tags={["release", "major"]}>
+
+Extension.js 4.0.0 已經推出。
+
+先說一件關於時間點的事：v4 在 2026 年 6 月 30 日發佈，而這篇文章比它晚了大約八週。這段期間版本線持續前進，所以今天 `npx extension@latest` 安裝的是 4.1.5，這裡描述的一切都包含在其中。
+
+## 唯一的破壞性變更是 Node.js
+
+v4 不再支援 Node.js 20。這就是全部的遷移內容。沒有任何 API 變更，所以你升級 Node 之後，專案就能繼續運作。目前的版本線要求 Node.js 22.12 或更新版本，而且 CLI 會在執行任何其他程式碼之前先檢查 runtime，因此過舊的 Node 會以代碼 1 結束，並附上告訴你該怎麼做的訊息，而不是在建置深處某個地方失敗。
+
+## v4 帶來什麼
+
+**Version 4.0.0**
+
+- 傳統的多檔 content script 在開發階段可以運作。當一個 `content_scripts.js` 陣列列出多個一般檔案時，Extension.js 會把它們串接成瀏覽器本來就會給它們的單一共用作用域、把每個檔案都註冊為建置相依，讓任何存檔都會重建，並輸出指向你真實檔案與行號的 source map，而不是一個內嵌的 blob。
+- 更快的 Safari 開發。`extension dev --browser=safari` 在背景重新同步，而不是每次存檔都卡在一次完整的 Xcode 建置上，而且連續多次存檔會合併成針對最新輸出的一次重建。
+- 不再洩漏瀏覽器。自行結束的開發 session 現在會透過共用的收尾路徑把瀏覽器關掉，因此 Chrome 與 Firefox 行程不會在你完成工作後繼續逗留。
+- 六個可以直接點名的瀏覽器：Brave、Opera、Vivaldi、Yandex、Waterfox 與 LibreWolf，加上供自訂執行檔使用的 `chromium-based` 與 `gecko-based` 目標。分支會繼承其引擎家族的 `chrome:` 與 `firefox:` manifest 鍵，因此分支目標不需要自己的前綴。
+- 不啟動瀏覽器也能重新載入。`extension dev --no-browser` 現在也會重新載入 content script，走的是已啟動瀏覽器所使用的同一條 service worker 路徑，讓它成為持續整合（CI）、容器與遠端機器上的真正選項。
+- 靠得住的設定檔控制。`profile: false`、`copyFromProfile` 與 `keepProfileChanges` 從設定一路貫徹到 Chromium 與 Firefox 兩個啟動器，並在 `BrowserConfig` 上有型別，而且保留下來的設定檔不會再被後續執行覆蓋。
+- 兩個開發 session 不再爭搶同一個除錯連接埠，因為 Chrome DevTools Protocol（CDP）與 Remote Debugging Protocol（RDP）連接埠現在按瀏覽器實例解析。
+- 更響亮、更便宜的失敗。導致無法輸出的編譯錯誤會以非零代碼結束、針對 Chromium 目標的 Manifest V2 建置會提出警告、缺少的 CSS `url()` 資產會警告並把 URL 原樣傳遞而不是讓建置失敗，而缺少的選用相依會印出符合套件管理器的安裝提示，而不是一坨原始 JSON。
+- Windows 的 content script 路徑會被正規化，因此 loader 比對與 content script 包裝的行為與 macOS 和 Linux 一致。
+
+## 第一天的流程沒有改變
+
+這是刻意的。v4 是一次 runtime 升級加上一大堆正確性工作，不是新的指令介面：
+
+```bash
+npx extension@latest create my-extension
+cd my-extension
+npm run dev
+```
+
+用 `create` 建立骨架、用 `dev` 迭代、用 `build` 產生產物、用 `start` 或 `preview` 檢查正式輸出。在任何一個指令上用 `--browser` 選擇目標。
+
+## 升級注意事項
+
+如果你已經在使用 3.x：
+
+- 移到 Node.js 22.12 或更新版本，然後把套件更新到 latest，
+- 保持你的 `extension.config.js` 原樣，因為沒有需要跟進的 API 變更，
+- 如果你先前為了繞過多檔 content script 而把它們合併成一個檔案，現在可以把它們拆回來。
+
+## 4.0 之後發生了什麼
+
+因為這篇文章遲到了，值得說清楚版本線目前的位置。從六月起，4.0.x 與 4.1.x 版本都是修正與打磨，而不是新的介面：Safari 建置可以用 `--development-team` 簽署、`doctor` 會說出它選了哪個瀏覽器執行檔以及如何選的，而範本 slug 移到了 `newtab-*`，較舊的 `new-*` 名稱保留為別名。完整清單在 changelog 裡。
+
+## 致謝
+
+謝謝每一位回報 issue、測試 canary，或用它發佈擴充功能並告訴我們哪裡不順的人。上面好幾項修正之所以存在，是因為有人花時間把到底哪裡壞了寫下來。
+
+Cezar Augusto<br/>
+Creator and Lead Developer, Extension.js
+
+</Update>

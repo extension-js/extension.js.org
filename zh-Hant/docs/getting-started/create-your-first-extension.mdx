@@ -11,6 +11,11 @@ keywords:
     "playwright",
     "service worker",
     "docs",
+    "project root",
+    "src folder",
+    "scaffold",
+    "yarn dlx",
+    "scripts folder dist",
   ]
 ---
 
@@ -48,6 +53,12 @@ keywords:
 `src/manifest.json` 與 `src/background.js`。接下來兩個步驟會取代這兩個檔案。
 本教學中你寫的所有內容都放在 `src/` 底下，因為只要 `src/manifest.json` 存在，
 Extension.js 就會優先採用它。
+
+<Note>
+  **正在使用 Yarn？** `yarn dlx` 指令需要 Yarn 2 或更新版本。Yarn 1 沒有
+  `dlx`，會以「Command not found」錯誤失敗。在 Yarn 1 上，請改用
+  `npm` 分頁（`npx`）。
+</Note>
 
 <CodeGroup>
 
@@ -90,6 +101,55 @@ deno run -A npm:extension@4.1.3 create github-search
 再執行 `deno task dev`。
 
 </Note>
+
+## create 會產生什麼
+
+`create` 會建立一個完整的專案，並初始化一個 git 儲存庫。預設範本會產生這棵目錄樹：
+
+```text
+github-search/
+├── .extension-create.json
+├── .gitignore
+├── README.md
+├── STORE.md
+├── extension.config.js
+├── package.json
+└── src/
+    ├── manifest.json
+    ├── background.js
+    ├── content/
+    │   ├── ContentApp.js
+    │   ├── scripts.js
+    │   └── styles.css
+    ├── images/
+    │   └── icon.png
+    └── sidebar/
+        ├── SidebarApp.js
+        ├── index.html
+        ├── scripts.js
+        └── styles.css
+```
+
+TypeScript 與 React 範本會多出 `tsconfig.json` 與 `extension-env.d.ts`，提供型別化的擴充功能 API。
+
+有兩個檔案定住整個版面：
+
+- `package.json` 標記專案根目錄。[特殊資料夾](/docs/features/special-folders)（`pages/`、`scripts/`、`public/`）與 `dist/` 輸出都從那個目錄解析，絕不從 `src/`。
+- `manifest.json` 標記擴充功能原始碼。它可以放在根目錄或 `src/`。兩者都存在時，`src/manifest.json` 獲勝。
+
+改造骨架時，什麼該編輯、什麼該刪除：
+
+| 檔案                     | 這是什麼                                                          | 編輯還是刪除？                                           |
+| ------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| `package.json`           | 專案根目錄標記、腳本，以及固定版本的 `extension`。                | 保留。編輯名稱與描述。                                   |
+| `extension.config.js`    | 各瀏覽器的執行選項，例如設定檔與瀏覽器旗標。                      | 可選。刪除它就恢復預設值。                               |
+| `.extension-create.json` | 記錄 create 版本、範本與範本 ref。                                | 為了溯源保留。建置不會讀取它。                           |
+| `README.md`、`STORE.md`  | 起始文件與商店上架草稿。                                          | 取代或刪除。                                             |
+| `src/manifest.json`      | 擴充功能的 manifest。                                             | 就地編輯。不要再加第二份 manifest。                      |
+| `src/background.js`      | sidebar 起始範本的 background script。                            | 編輯或取代，本教學就是這麼做。                           |
+| `src/content/`           | 起始範本注入到每個頁面的 content script。                         | 刪除它，並移除它的 `content_scripts` 項目。              |
+| `src/sidebar/`           | 起始範本的側邊欄面板頁面。                                        | 刪除它，並移除它的 `side_panel` 項目。                   |
+| `src/images/`            | manifest 引用的圖示。                                             | 保留。換成你自己的圖示。                                 |
 
 ## 步驟 2：建立 manifest 檔案
 

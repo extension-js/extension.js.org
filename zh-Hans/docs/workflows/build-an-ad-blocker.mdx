@@ -1,0 +1,172 @@
+---
+title: "构建一个广告拦截器"
+description: "用 declarativeNetRequest 的静态与动态规则在浏览器扩展中拦截广告和跟踪器，并用徽章统计被拦截的请求数。"
+keywords:
+  [
+    "ad blocker",
+    "adblock",
+    "block requests",
+    "declarativenetrequest",
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+  ]
+---
+
+用 `declarativeNetRequest` API 拦截广告和跟踪器。你声明匹配规则，浏览器在请求离开网络栈之前原生地拦截它们。
+
+## 你要构建什么
+
+| 组成部分           | 作用                                             |
+| --------------- | -------------------------------------------------------- |
+| `rules.json`    | 随扩展一起发布的静态拦截规则          |
+| `background.js` | 在运行时添加和移除动态规则                |
+| Action 徽章    | 显示扩展在一个页面上拦截了多少请求  |
+
+## 为什么 MV3 用它取代了阻塞式 webRequest
+
+Manifest V2 的广告拦截器注册阻塞式 `webRequest` 监听器。每个请求都要暂停，等扩展的 JavaScript 决定它的去留。出于性能和隐私考虑，Manifest V3 移除了这种模型。使用 `declarativeNetRequest` 时，浏览器自己求值你的规则。你的代码从不站在请求路径上，也从不为了拦截而读取请求内容。
+
+对于代理类的用例，比如把所有流量路由到另一台服务器，请改用 `proxy` API 而不是请求规则。
+
+## Manifest
+
+拦截和放行规则不需要 host 权限。重定向规则和 header 规则需要受影响站点的 host 权限。
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "My Ad Blocker",
+  "version": "1.0.0",
+  "permissions": ["declarativeNetRequest"],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ads",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "My Ad Blocker"
+  }
+}
+```
+
+Extension.js 会编译 `rule_resources` 引用的规则集文件，并把它随构建输出一起生成。
+
+## 静态规则
+
+静态规则放在 `rules.json` 中，随扩展加载而加载。
+
+```json rules.json
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||ads.example.com^",
+      "resourceTypes": ["script", "image", "sub_frame", "xmlhttprequest"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "||tracker.example.net^",
+      "resourceTypes": ["script", "xmlhttprequest"]
+    }
+  }
+]
+```
+
+`||domain^` 过滤器语法匹配一个域名及其全部子域名。
+
+## 动态规则
+
+把动态规则用于运行时会变化的过滤器，比如用户手动添加的拦截清单条目。重新添加之前先移除对应的规则 id，让更新保持幂等。
+
+```js background.js
+async function blockDomain(domain, ruleId) {
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [ruleId],
+    addRules: [
+      {
+        id: ruleId,
+        priority: 1,
+        action: { type: 'block' },
+        condition: {
+          urlFilter: `||${domain}^`,
+          resourceTypes: ['script', 'image', 'xmlhttprequest']
+        }
+      }
+    ]
+  })
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  blockDomain('annoying-banners.example', 1001)
+})
+```
+
+Chrome 对静态与动态规则的数量设有上限。在发布大型过滤器清单之前，请在 `declarativeNetRequest` 参考文档中确认当前的限制。
+
+## 在徽章上统计被拦截的请求
+
+一次调用就能把 action 徽章变成每个标签页的规则匹配计数器。
+
+```js background.js
+chrome.declarativeNetRequest.setExtensionActionOptions({
+  displayActionCountAsBadgeText: true
+})
+```
+
+要用 `getMatchedRules` 自己读取匹配到的规则，请添加 `declarativeNetRequestFeedback` 权限。
+
+## 运行
+
+在编辑 `manifest.json` 之前，请注意 manifest 变更需要重启开发服务器。见[开发期更新行为](/docs/workflows/dev-update-behavior)。
+
+```bash
+extension dev ./my-ad-blocker --browser=chromium
+```
+
+打开一个会请求被拦截域名的页面。随着规则匹配，徽章计数会上升。
+
+## Firefox 说明
+
+- Firefox 在 Manifest V3 中支持 `declarativeNetRequest`。
+- Firefox 不支持 `setExtensionActionOptions`，所以徽章计数器只在 Chromium 上可用。
+- Firefox 在 Manifest V3 中仍然允许阻塞式 `webRequest`，而 Chrome 把它保留给策略安装的扩展。
+- 当两个目标出现分歧时，使用[浏览器特定的 manifest 字段](/docs/features/browser-specific-fields)。
+
+## 从模板开始
+
+`action` 模板自带一个后台脚本和一个工具栏 popup，是拦截器 UI 的好起点。
+
+```bash
+npx extension@latest create my-ad-blocker --template=action
+```
+
+代码仓库：[extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+## 最佳实践
+
+- 静态规则放在 `rules.json` 里，动态规则留给用户的选择。
+- 给每条动态规则一个稳定的 id，让移除保持可预期。
+- 把 `resourceTypes` 收窄到你实际拦截的类型，而不是所有类型。
+- 优先使用拦截和放行规则，它们不需要 host 权限。
+- 发布过滤器更新之前，先在真实页面上测试规则。
+
+## 下一步
+
+- 在[拦截网络请求](/docs/workflows/intercept-network-requests)中观察流量而不拦截它。
+- 用[安全检查清单](/docs/workflows/security-checklist)审查你的权限面。
+- 回顾 [Manifest V3 概念](/docs/concepts/manifest-v3)了解后台模型。

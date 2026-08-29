@@ -11,6 +11,10 @@ keywords:
     "running other browsers",
     "running",
     "other",
+    "browser path",
+    "existing browser",
+    "system browser",
+    "stop browser launch",
   ]
 ---
 
@@ -80,6 +84,44 @@ extension dev --browser=firefox --gecko-binary="/path/to/firefox-developer-editi
 ```
 
 它们也可以与 `start` 和 `preview` 搭配使用。
+
+## 按操作系统找到二进制路径
+
+二进制 flag 期望的是一个可执行文件。无效的路径会立即以错误失败，而不会启动。
+
+### macOS
+
+在 macOS 上，`/Applications/Brave Browser.app` 这样的 app 是一个文件夹，不是可执行文件。请传入 bundle 内部 `Contents/MacOS` 下的可执行文件：
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+```
+
+可执行文件的名字可能和 app 名不同。列出该文件夹来找到它：
+
+```bash
+ls "/Applications/Brave Browser.app/Contents/MacOS"
+```
+
+### Windows
+
+给路径加引号并使用正斜杠，所有 shell 都接受这种写法：
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"
+```
+
+反斜杠也可以用，但许多 shell 要求你写成双反斜杠，例如 `C:\\Program Files\\...`。
+
+### Linux
+
+传入你的包管理器安装的可执行文件：
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/usr/bin/brave-browser"
+```
+
+当二进制在你的 `PATH` 上时，运行 `which brave-browser` 打印它的路径。
 
 <Frame>
   <iframe
@@ -161,6 +203,51 @@ EDGE_BINARY="/path/to/msedge" extension dev --browser=edge
 ```
 
 如果该路径不存在，启动会直接失败，而不会静默回退。
+
+## 不启动浏览器运行
+
+有时候正确的浏览器数量是零，比如在容器里、通过 SSH，或者你自己驱动一个浏览器时。
+
+给 `dev`、`start` 或 `preview` 传 `--no-browser`：
+
+```bash
+extension dev --no-browser
+```
+
+开发循环依然完整。服务器监视你的文件，每次重建都会广播一次重载。首次编译成功后，终端会打印一条 `(no-browser mode)` 横幅，指出输出文件夹。
+
+把那个 `dist/<browser>` 文件夹加载进你已经在运行的浏览器。在 Chromium 系浏览器中，开启开发者模式后在 `chrome://extensions` 选择 "Load unpacked"。加载的扩展会随保存持续更新。关于用 `--wait` 做就绪同步，见 [`dev`](/docs/commands/dev)。
+
+要把它设为某个命令的默认行为，在配置中设置 `noBrowser`。CLI flag 优先于配置值：
+
+```js
+export default {
+  commands: {
+    dev: {
+      noBrowser: true,
+    },
+  },
+};
+```
+
+## 退出注入的默认值
+
+`dev`、`start` 与 `preview` 会向每个会话注入启动默认值。一个肉眼可见的默认值是深色外观。Chromium 目标会得到 `--force-dark-mode` 与 `--enable-features=WebUIDarkMode` flag。Gecko 目标会得到对应的深色 preferences。
+
+要保留你的系统外观，把该 flag 列入 `excludeBrowserFlags`：
+
+```js
+export default {
+  browser: {
+    "chromium-based": {
+      chromiumBinary: "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+      excludeBrowserFlags: ["--force-dark-mode"],
+    },
+  },
+};
+```
+
+排除 `--force-dark-mode` 会丢弃整个外观包，包括 Gecko 的 preferences。排除条目也按开关名匹配，所以 `--enable-features` 会移除 `--enable-features=WebUIDarkMode`。默认 flag 清单和完整排除规则见[浏览器 flag](/docs/browsers/browser-flags)。
 
 ## 最佳实践
 
