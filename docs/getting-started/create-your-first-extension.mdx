@@ -11,6 +11,11 @@ keywords:
     "playwright",
     "service worker",
     "docs",
+    "project root",
+    "src folder",
+    "scaffold",
+    "yarn dlx",
+    "scripts folder dist",
   ]
 ---
 
@@ -48,6 +53,12 @@ The default template is a working sidebar starter, so the scaffold already conta
 `src/manifest.json` and `src/background.js`. The next two steps replace those two files.
 Everything you write in this tutorial goes in `src/`, because Extension.js prefers
 `src/manifest.json` when it is present.
+
+<Note>
+  **Using Yarn?** The `yarn dlx` command requires Yarn 2 or later. Yarn 1 does
+  not include `dlx` and fails with a "Command not found" error. On Yarn 1, use
+  the `npm` tab (`npx`) instead.
+</Note>
 
 <CodeGroup>
 
@@ -90,6 +101,55 @@ After `deno install`, confirm the resolved version (`extension` should match
 the latest release) before running `deno task dev`.
 
 </Note>
+
+## What create generates
+
+`create` scaffolds a complete project and initializes a git repository. The default template produces this tree:
+
+```text
+github-search/
+├── .extension-create.json
+├── .gitignore
+├── README.md
+├── STORE.md
+├── extension.config.js
+├── package.json
+└── src/
+    ├── manifest.json
+    ├── background.js
+    ├── content/
+    │   ├── ContentApp.js
+    │   ├── scripts.js
+    │   └── styles.css
+    ├── images/
+    │   └── icon.png
+    └── sidebar/
+        ├── SidebarApp.js
+        ├── index.html
+        ├── scripts.js
+        └── styles.css
+```
+
+The TypeScript and React templates add `tsconfig.json` and `extension-env.d.ts` for typed extension APIs.
+
+Two files anchor the layout:
+
+- `package.json` marks the project root. [Special folders](/docs/features/special-folders) (`pages/`, `scripts/`, `public/`) and the `dist/` output resolve from that directory, never from `src/`.
+- `manifest.json` marks the extension source. It can sit at the root or in `src/`. When both exist, `src/manifest.json` wins.
+
+What to edit and what to delete when you adapt the scaffold:
+
+| File                     | What it is                                                        | Edit or delete?                                          |
+| ------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| `package.json`           | Project root marker, scripts, and the pinned `extension` version. | Keep. Edit the name and description.                     |
+| `extension.config.js`    | Per-browser run options such as profiles and browser flags.       | Optional. Delete it to restore the defaults.             |
+| `.extension-create.json` | Records the create version, template, and template ref.           | Keep for provenance. Builds do not read it.              |
+| `README.md`, `STORE.md`  | Starter docs and a store listing draft.                           | Replace or delete.                                       |
+| `src/manifest.json`      | The extension manifest.                                           | Edit in place. Do not add a second manifest.             |
+| `src/background.js`      | Background script for the sidebar starter.                        | Edit or replace, as this tutorial does.                  |
+| `src/content/`           | Content script that the starter injects on every page.            | Delete it and remove its `content_scripts` entry.        |
+| `src/sidebar/`           | Sidebar panel page for the starter.                               | Delete it and remove its `side_panel` entries.           |
+| `src/images/`            | Icons that the manifest references.                               | Keep. Swap in your own icons.                            |
 
 ## Step 2: create the manifest file
 
