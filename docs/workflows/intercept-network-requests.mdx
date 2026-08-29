@@ -1,0 +1,140 @@
+---
+title: "Intercept network requests"
+description: "Observe HTTP traffic from a browser extension with non-blocking webRequest listeners, understand MV3 blocking limits, and inspect requests in a devtools panel."
+keywords:
+  [
+    "webrequest",
+    "intercept",
+    "http interceptor",
+    "network requests",
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+  ]
+---
+
+Watch every request a page makes with the `webRequest` API. In Manifest V3 the listeners are observational: you can log, measure, and analyze traffic, but not rewrite it in JavaScript.
+
+## What MV3 allows
+
+| Goal                            | Available API                                             |
+| ------------------------------- | --------------------------------------------------------- |
+| Observe requests and responses  | `webRequest` non-blocking listeners                       |
+| Block, redirect, modify headers | `declarativeNetRequest` rules                             |
+| Blocking `webRequest` handlers  | Policy-installed extensions only (`webRequestBlocking`)   |
+| Handle proxy or VPN auth        | `onAuthRequired` with the `webRequestAuthProvider` permission |
+
+Regular Chrome installs cannot use `webRequestBlocking` in Manifest V3. If your goal is to block or rewrite traffic, declare rules instead. See [Build an ad blocker](/docs/workflows/build-an-ad-blocker).
+
+## Manifest
+
+The `webRequest` events only fire for hosts that your extension can access, so pair the permission with host permissions.
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "Request Inspector",
+  "version": "1.0.0",
+  "permissions": ["webRequest"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "devtools_page": "devtools/index.html"
+}
+```
+
+## Observe requests in the background
+
+Register listeners at the top level of the background script, so the service worker re-registers them on every wake.
+
+```js background.js
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    console.log('→', details.method, details.url, details.type)
+  },
+  { urls: ['<all_urls>'] }
+)
+
+chrome.webRequest.onCompleted.addListener(
+  (details) => {
+    console.log('←', details.statusCode, details.url)
+  },
+  { urls: ['<all_urls>'] }
+)
+
+chrome.webRequest.onErrorOccurred.addListener(
+  (details) => {
+    console.warn('✗', details.error, details.url)
+  },
+  { urls: ['<all_urls>'] }
+)
+```
+
+Each `details` object carries the request id, tab id, method, URL, resource type, and timing. Correlate events by `details.requestId` to build a full request timeline.
+
+## Inspect requests in a devtools panel
+
+For request inspection with response bodies, a devtools panel is the better surface. The `chrome.devtools.network` API exposes finished requests as HAR entries, and it needs no `webRequest` permission.
+
+The `devtools_page` registers the panel:
+
+```js devtools/scripts.js
+chrome.devtools.panels.create('Requests', '', 'panel/index.html')
+```
+
+The panel then records traffic for the inspected tab:
+
+```js panel/scripts.js
+chrome.devtools.network.onRequestFinished.addListener((entry) => {
+  console.log(entry.request.method, entry.request.url, entry.response.status)
+
+  entry.getContent((body) => {
+    if (body) console.log('body bytes:', body.length)
+  })
+})
+```
+
+The listener only receives traffic while devtools is open on that tab. Use `chrome.devtools.network.getHAR` to read what loaded before the panel attached.
+
+## Run it
+
+```bash
+extension dev ./request-inspector --browser=chromium
+```
+
+Open any page and watch the background console log traffic. Then open devtools on the page and choose the Requests panel.
+
+## Firefox differences
+
+- Firefox Manifest V3 still supports blocking `webRequest` with the `webRequestBlocking` permission.
+- Firefox treats Manifest V3 host permissions as opt-in. Users grant them from the extensions panel, not at install time.
+- Firefox runs the background as an event page, not a service worker. Top-level listener registration works on both.
+- The devtools APIs above work in Firefox under the same `chrome.devtools.*` names.
+
+See [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the shared API surface.
+
+## Start from a template
+
+The `devtools` template ships a working `devtools_page` plus panel wiring.
+
+```bash
+npx extension@latest create request-inspector --template=devtools
+```
+
+Repository: [extension-js/examples/devtools](https://github.com/extension-js/examples/tree/main/examples/devtools)
+
+## Best practices
+
+- Narrow the `urls` filter on each listener instead of listening to `<all_urls>` in production.
+- Correlate events by `requestId` rather than by URL, since pages repeat URLs.
+- Keep listeners fast, because every observed request invokes them.
+- Request the narrowest host permissions that your feature needs.
+- Use `declarativeNetRequest` for blocking, and keep `webRequest` for observation.
+
+## Next steps
+
+- Block traffic declaratively in [Build an ad blocker](/docs/workflows/build-an-ad-blocker).
+- Review host permission hygiene in the [Security checklist](/docs/workflows/security-checklist).
+- Review [Manifest V3 concepts](/docs/concepts/manifest-v3) for the service-worker lifecycle.

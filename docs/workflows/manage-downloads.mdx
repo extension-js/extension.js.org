@@ -1,0 +1,158 @@
+---
+title: "Manage downloads"
+description: "Start, cancel, and monitor downloads from a browser extension with the downloads API, plus a popup that lists live progress for each file."
+keywords:
+  [
+    "download",
+    "parallel download",
+    "download manager",
+    "downloads api",
+    "browser",
+    "manifest",
+    "docs",
+    "workflows",
+  ]
+---
+
+Build a small download manager with the `downloads` API. The background script starts and cancels downloads, and a popup lists live progress.
+
+## What you build
+
+| Piece           | What it does                                        |
+| --------------- | --------------------------------------------------- |
+| `background.js` | Starts downloads and reacts to state changes        |
+| `popup.html`    | Toolbar popup that lists recent downloads           |
+| `popup.js`      | Renders progress from `search()` and `onChanged`    |
+
+## Manifest
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "Download Manager",
+  "version": "1.0.0",
+  "permissions": ["downloads"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Downloads"
+  }
+}
+```
+
+## Start and cancel downloads
+
+The `filename` is relative to the browser's downloads directory. Subfolders are allowed, absolute paths and `..` segments are not.
+
+```js background.js
+async function startDownload(url) {
+  const id = await chrome.downloads.download({
+    url,
+    filename: 'my-extension/report.csv',
+    saveAs: false
+  })
+  console.log('started download', id)
+  return id
+}
+
+function cancelDownload(id) {
+  chrome.downloads.cancel(id)
+}
+
+chrome.downloads.onChanged.addListener((delta) => {
+  if (delta.state?.current === 'complete') {
+    console.log('download', delta.id, 'finished')
+  }
+})
+```
+
+The API also offers `pause`, `resume`, and `erase` for full manager behavior.
+
+## Show progress in the popup
+
+`onChanged` fires for state transitions, but it does not stream byte counts. Poll `search()` for items in progress and read `bytesReceived` and `totalBytes` from the results.
+
+```html popup.html
+<!doctype html>
+<html>
+  <body>
+    <h1>Downloads</h1>
+    <ul id="list"></ul>
+    <script src="./popup.js"></script>
+  </body>
+</html>
+```
+
+```js popup.js
+async function render() {
+  const items = await chrome.downloads.search({
+    limit: 10,
+    orderBy: ['-startTime']
+  })
+  const list = document.getElementById('list')
+  list.textContent = ''
+
+  for (const item of items) {
+    const row = document.createElement('li')
+    const name = item.filename.split(/[\\/]/).pop() || item.url
+    const percent =
+      item.totalBytes > 0
+        ? Math.round((item.bytesReceived / item.totalBytes) * 100)
+        : 0
+    row.textContent = `${name}: ${item.state} (${percent}%)`
+    list.append(row)
+  }
+}
+
+chrome.downloads.onChanged.addListener(render)
+setInterval(render, 1000)
+render()
+```
+
+## Can an extension download in parallel?
+
+The browser owns the network queue, and an extension cannot change that. Chromium already runs several downloads at once but caps concurrent connections per server, and it queues the rest. An extension cannot raise those limits, and it cannot split one file into segments like a download accelerator.
+
+What an extension can do is orchestrate: start a batch with several `download()` calls, watch `onChanged`, and start the next item when one completes. That gives you an ordered queue with progress, which is what most "parallel download" requests actually need.
+
+## Run it
+
+```bash
+extension dev ./download-manager --browser=chromium
+```
+
+Trigger a download from the background console, and open the popup to watch progress.
+
+## Firefox notes
+
+- Firefox supports the same API as `browser.downloads` with promises, and the `chrome.downloads` alias also works.
+- Firefox does not support `chrome.downloads.setUiOptions`, which hides Chrome's download UI.
+- The `onChanged` delta shape and the `search()` query shape match across both browsers.
+
+See [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the shared API surface.
+
+## Start from a template
+
+The `action` template ships the background plus toolbar-popup layout that this recipe uses.
+
+```bash
+npx extension@latest create download-manager --template=action
+```
+
+Repository: [extension-js/examples/action](https://github.com/extension-js/examples/tree/main/examples/action)
+
+## Best practices
+
+- Namespace filenames under one folder, so users can find your files.
+- Stop the `setInterval` poll when no download is in progress.
+- Handle `interrupted` state and surface `item.error` to the user.
+- Keep `saveAs: false` only for files that the user explicitly requested.
+- Use `erase` to clean history entries, not to delete files.
+
+## Next steps
+
+- Save recorded media with this API in [Record the screen](/docs/workflows/record-the-screen).
+- Audit the `downloads` permission in the [Security checklist](/docs/workflows/security-checklist).
+- Review [Dev update behavior](/docs/workflows/dev-update-behavior) for popup reload rules.

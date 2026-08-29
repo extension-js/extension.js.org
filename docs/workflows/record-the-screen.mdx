@@ -1,0 +1,160 @@
+---
+title: "Record the screen"
+description: "Build a screen recorder extension with getDisplayMedia, tabCapture, and MediaRecorder, then save the capture as a downloadable WebM file."
+keywords:
+  [
+    "screen recorder",
+    "screen capture",
+    "record screen",
+    "getdisplaymedia",
+    "tabcapture",
+    "browser",
+    "docs",
+    "workflows",
+  ]
+---
+
+Record the screen from an extension page with `getDisplayMedia`, encode it with `MediaRecorder`, and save the result with the `downloads` API.
+
+## Choose a capture API
+
+| API               | Captures                          | Where it runs                        | Browsers        |
+| ----------------- | --------------------------------- | ------------------------------------ | --------------- |
+| `getDisplayMedia` | Screen, window, or tab via picker | Any extension page, on user gesture  | Chrome, Firefox |
+| `tabCapture`      | The active tab only               | Stream id from the background        | Chromium only   |
+
+`getDisplayMedia` needs no manifest permission. The browser shows a source picker, and that prompt is the consent. `tabCapture` skips the picker but requires the `tabCapture` permission and a prior user gesture on the extension, such as an action click.
+
+## Manifest
+
+Add `offscreen` to the permissions only when you record from an offscreen document.
+
+```json manifest.json
+{
+  "manifest_version": 3,
+  "name": "Screen Recorder",
+  "version": "1.0.0",
+  "permissions": ["downloads", "tabCapture"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open recorder"
+  }
+}
+```
+
+## Open a recorder page
+
+A popup closes when it loses focus, which kills its recording. Host the recorder on a dedicated page instead. Put `recorder.html` and `recorder.js` in the `pages/` [special folder](/docs/features/special-folders), and Extension.js compiles them as entrypoints.
+
+```js background.js
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({
+    url: chrome.runtime.getURL('pages/recorder.html')
+  })
+})
+```
+
+## Record with getDisplayMedia
+
+`getDisplayMedia` requires a user gesture, so call it from a click handler, never on page load.
+
+```js pages/recorder.js
+let recorder
+const chunks = []
+
+document.getElementById('start').addEventListener('click', async () => {
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: true
+  })
+
+  recorder = new MediaRecorder(stream, { mimeType: 'video/webm' })
+  recorder.ondataavailable = (event) => chunks.push(event.data)
+  recorder.onstop = saveRecording
+  recorder.start()
+})
+
+document.getElementById('stop').addEventListener('click', () => {
+  recorder.stop()
+  recorder.stream.getTracks().forEach((track) => track.stop())
+})
+
+function saveRecording() {
+  const blob = new Blob(chunks, { type: 'video/webm' })
+  chunks.length = 0
+  chrome.downloads.download({
+    url: URL.createObjectURL(blob),
+    filename: 'recording.webm',
+    saveAs: true
+  })
+}
+```
+
+The blob URL works here because the recorder is a document, not a service worker.
+
+## Capture the active tab instead
+
+With `tabCapture`, the background hands a stream id to your page, and the page turns it into a stream. No picker appears.
+
+```js pages/recorder.js
+async function captureTab(tabId) {
+  const streamId = await chrome.tabCapture.getMediaStreamId({
+    targetTabId: tabId
+  })
+
+  return navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: {
+      mandatory: {
+        chromeMediaSource: 'tab',
+        chromeMediaSourceId: streamId
+      }
+    }
+  })
+}
+```
+
+Feed the resulting stream into the same `MediaRecorder` flow as above.
+
+## Record in the background
+
+To keep recording without any visible extension page, Chrome offers offscreen documents. Create one with `chrome.offscreen.createDocument` and the `USER_MEDIA` reason, then run the capture code there. This needs the `offscreen` permission and stays Chromium-only.
+
+## Run it
+
+```bash
+extension dev ./screen-recorder --browser=chromium
+```
+
+Click the action icon to open the recorder page. Start a capture, stop it, and the WebM file lands in your downloads.
+
+## Firefox notes
+
+- `getDisplayMedia` and `MediaRecorder` work in Firefox extension pages, so the main recipe is portable.
+- Firefox does not support `tabCapture` or offscreen documents.
+- Use [browser-specific manifest fields](/docs/features/browser-specific-fields) to keep the `tabCapture` permission out of the Firefox build.
+
+## Start from a template
+
+The `special-folders-pages` template shows the `pages/` layout that hosts the recorder page.
+
+```bash
+npx extension@latest create screen-recorder --template=special-folders-pages
+```
+
+Repository: [extension-js/examples/special-folders-pages](https://github.com/extension-js/examples/tree/main/examples/special-folders-pages)
+
+## Best practices
+
+- Stop every track when recording ends, so the browser removes the sharing indicator.
+- Choose the capture API per browser: `getDisplayMedia` everywhere, `tabCapture` for Chromium tab-only flows.
+- Keep `saveAs: true`, so users choose where recordings go.
+- Chunk long recordings with `recorder.start(timeslice)` to bound memory use.
+
+## Next steps
+
+- Manage the saved files in [Manage downloads](/docs/workflows/manage-downloads).
+- Review the [special folders](/docs/features/special-folders) contract for `pages/` entries.
+- Audit capture permissions with the [Security checklist](/docs/workflows/security-checklist).
