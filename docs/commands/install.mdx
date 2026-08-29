@@ -11,6 +11,8 @@ keywords:
     "docs",
     "commands",
     "install",
+    "chrome for testing",
+    "system browser",
   ]
 ---
 
@@ -34,6 +36,32 @@ This is most useful when you want a consistent browser binary for `dev`, `build`
 - You need a consistent, repeatable browser binary for continuous integration (CI), automation, or team-consistent local runs.
 - You want Chrome for Testing instead of relying on whatever Chrome version your system has installed.
 - You are setting up cross-browser testing with managed Firefox or Edge runtimes.
+
+## Why Extension.js downloads a browser
+
+The run commands prefer a managed browser runtime over the browser that you use every day.
+
+- The managed binary is version-pinned. `dev`, CI runs, and teammates all launch the same build.
+- Chrome for Testing is built for automation. Recent branded Chrome builds (150+) can drop the `--load-extension` switch that loads your extension.
+- The managed runtime runs in an isolated profile. It never touches your personal browser, its profile, or its settings.
+
+You do not have to run `install` up front. When no usable binary exists for the requested target, the run commands print the exact install command.
+
+## Skip the managed download
+
+You can develop against a browser that is already installed, with no download:
+
+- Run a fork by name: `extension dev --browser=brave` locates the installed Brave for you. See [Running other browsers](/docs/browsers/running-other-browsers).
+- Pin any binary: pass `--chromium-binary <path>` or `--gecko-binary <path>` to `dev`, `start`, or `preview`. The pin overrides every locator.
+- Requested `edge` launches the Edge that is installed on your system when no managed Edge exists.
+- Requested `chrome` refuses a branded system Chrome and asks for Chrome for Testing instead.
+- To run branded Chrome anyway, pin it with `--chromium-binary`.
+
+### When Edge is already installed
+
+`--browser=edge` finds the system Edge on its own, so you can skip `extension install edge`. Run `extension install edge` only when you want a pinned managed copy for automation.
+
+On Linux, the managed Edge download needs an interactive session with sudo rights. When that download fails and a system Edge exists, the installer reports the system binary and succeeds with it.
 
 ## Canonical usage
 

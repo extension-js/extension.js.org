@@ -11,6 +11,10 @@ keywords:
     "running other browsers",
     "running",
     "other",
+    "browser path",
+    "existing browser",
+    "system browser",
+    "stop browser launch",
   ]
 ---
 
@@ -80,6 +84,44 @@ extension dev --browser=firefox --gecko-binary="/path/to/firefox-developer-editi
 ```
 
 You can also use them with `start` and `preview`.
+
+## Find the binary path per OS
+
+The binary flags expect an executable file. An invalid path fails fast with an error instead of launching.
+
+### macOS
+
+On macOS, an app such as `/Applications/Brave Browser.app` is a folder, not an executable. Pass the executable inside the bundle, at `Contents/MacOS`:
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+```
+
+The executable name can differ from the app name. List the folder to find it:
+
+```bash
+ls "/Applications/Brave Browser.app/Contents/MacOS"
+```
+
+### Windows
+
+Quote the path and use forward slashes, which every shell accepts:
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe"
+```
+
+Backslashes also work, but many shells require you to double them, as in `C:\\Program Files\\...`.
+
+### Linux
+
+Pass the executable that your package manager installed:
+
+```bash
+extension dev --browser=chromium-based --chromium-binary="/usr/bin/brave-browser"
+```
+
+Run `which brave-browser` to print the path when the binary is on your `PATH`.
 
 <Frame>
   <iframe
@@ -161,6 +203,51 @@ EDGE_BINARY="/path/to/msedge" extension dev --browser=edge
 ```
 
 If the path does not exist, the launch fails instead of silently falling back.
+
+## Run without launching a browser
+
+Sometimes the right browser count is zero, for example in containers, over SSH, or when you drive a browser yourself.
+
+Pass `--no-browser` to `dev`, `start`, or `preview`:
+
+```bash
+extension dev --no-browser
+```
+
+The dev loop stays complete. The server watches your files, and every rebuild broadcasts a reload. After the first successful compile, the terminal prints a `(no-browser mode)` banner that names the output folder.
+
+Load that `dist/<browser>` folder into a browser that you already run. In Chromium browsers, choose "Load unpacked" at `chrome://extensions` with Developer mode on. The loaded extension keeps updating on save. See [`dev`](/docs/commands/dev) for readiness synchronization with `--wait`.
+
+To make this the default for a command, set `noBrowser` in config. The CLI flag wins over the config value:
+
+```js
+export default {
+  commands: {
+    dev: {
+      noBrowser: true,
+    },
+  },
+};
+```
+
+## Opt out of injected defaults
+
+`dev`, `start`, and `preview` inject launch defaults into every session. One visible default is dark appearance. Chromium targets get the `--force-dark-mode` and `--enable-features=WebUIDarkMode` flags. Gecko targets get the matching dark preferences.
+
+To keep your system appearance, list the flag in `excludeBrowserFlags`:
+
+```js
+export default {
+  browser: {
+    "chromium-based": {
+      chromiumBinary: "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+      excludeBrowserFlags: ["--force-dark-mode"],
+    },
+  },
+};
+```
+
+Excluding `--force-dark-mode` drops the whole appearance bundle, including the Gecko preferences. An exclude entry also matches by switch name, so `--enable-features` removes `--enable-features=WebUIDarkMode`. See [Browser flags](/docs/browsers/browser-flags) for the default flag list and the full exclusion rules.
 
 ## Best practices
 

@@ -135,6 +135,24 @@ Extension.js debugs through an **in-browser companion**, not the Chrome DevTools
 
 (`eval --context background` on a Chromium MV3 build returns an explanatory error. The MV3 background is a service worker, and Chrome's extension CSP rejects `unsafe-eval` there on every MV3 build, not only in production. Evaluate in `page`/`content` on Chromium MV3, or target the background on a Firefox/MV2 build. `extension_list_extensions` is an MCP tool rather than a CLI verb: it connects over the DevTools Protocol, so it's Chromium-only.)
 
+## Where logs live in the browser
+
+`extension logs` merges every context into one terminal timeline (see [logs](/docs/commands/logs)). When you want the browser's own console for a context instead, each one lives behind a different door:
+
+| Context               | Chrome / Chromium                                                                          | Firefox                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Background            | `chrome://extensions`, your extension, the **service worker** link under "Inspect views"   | `about:debugging#/runtime/this-firefox`, then **Inspect** on your extension              |
+| Content scripts       | DevTools on the page that they run in                                                      | DevTools on the page that they run in                                                    |
+| Popup, options, sidebar | Right-click inside the surface, then **Inspect**                                          | The same extension toolbox from `about:debugging`                                        |
+
+Three details save time:
+
+- On Chrome, the **service worker** link also revives an idle MV3 worker, so use it when the background seems dead.
+- Content script logs never reach the extension's own inspector. In the page DevTools console, the context dropdown filters to your extension's isolated world.
+- On Firefox, the `about:debugging` toolbox covers the background and extension pages. Content script output stays in the page's DevTools.
+
+Everything above also flows through `extension logs`, tagged by context, without clicking through any of those doors.
+
 ## Safety
 
 The gates are intentional, not bureaucratic:
