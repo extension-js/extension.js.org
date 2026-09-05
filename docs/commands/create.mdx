@@ -75,14 +75,16 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 | Flag                      | Alias | What it does                                                        | Default      |
 | ------------------------- | ----- | ------------------------------------------------------------------- | ------------ |
 | `[path or name]`          | -     | Project folder/name to create.                                      | required     |
-| `--template <name\|url>`  | `-t`  | Catalog name, GitHub URL, or ZIP URL to scaffold from.              | `javascript` |
+| `--template <name\|url>`  | `-t`  | Catalog name, GitHub URL, or ZIP URL to scaffold from.              | `typescript` |
 | `--install [boolean]`     | -     | Installs dependencies after scaffolding.                            | `false`      |
 | `--source <source>`       | -     | Attribution tag for where this create started (for example `cli`). Recorded in anonymous telemetry only. | unset |
 | `--output <pretty\|json>` | -     | Result format. `json` prints a schema-1 envelope on stdout.         | `pretty`     |
 
-When you want the default JavaScript starter, omit `--template` entirely. Add `--template=<slug>` only for another stack from the [official examples](https://github.com/extension-js/examples/tree/main/examples). `--template` also accepts a GitHub URL or a ZIP URL, so you can scaffold from any repository.
+When you want the default TypeScript starter, omit `--template` entirely. Add `--template=<slug>` only for another stack from the [official examples](https://github.com/extension-js/examples/tree/main/examples). `--template` also accepts a GitHub URL or a ZIP URL, so you can scaffold from any repository.
 
-The catalog holds 53 templates in 6 groups: starters, sidebar, content scripts, new tab, toolbar action, and special folders. Run `extension create --help` for the full list. The default `javascript` template ships inside the CLI, so it scaffolds with no network call. Every other template downloads the catalog archive at create time.
+The catalog holds 53 templates in 6 groups: starters, sidebar, content scripts, new tab, toolbar action, and special folders. Run `extension create --help` for the full list. The default `typescript` template downloads the catalog archive like every other name. Only the `javascript` template ships inside the CLI. When you omit `--template` and the download fails, `create` falls back to that bundled `javascript` template and says so, naming the network error, so an offline machine still gets a project. An explicit `--template` that fails to download fails loudly instead.
+
+A scaffold has one package manager. A starter's `packageManager` pin (or a `pnpm-workspace.yaml` it ships) decides it, otherwise the manager that invoked `create` does. The `packageManager` field written to `package.json`, the `--install` run, and the printed next steps all name that same manager.
 
 ## Template corpus pinning
 
@@ -174,18 +176,18 @@ deno run -A npm:extension@latest create my-extension --install
 
 <CardGroup cols={2}>
   <Card
-    title="JavaScript (default)"
+    title="JavaScript"
     icon="js"
     href="https://github.com/extension-js/examples/tree/main/examples/javascript"
   >
-    Minimal starter. Use when you want a clean baseline.
+    Minimal bundled starter. Use when you want a clean baseline or are offline.
   </Card>
   <Card
-    title="TypeScript"
+    title="TypeScript (default)"
     icon="typescript"
-    href="https://github.com/extension-js/examples/tree/main/examples/newtab-typescript"
+    href="https://github.com/extension-js/examples/tree/main/examples/typescript"
   >
-    Typed starter with `tsconfig.json` preconfigured.
+    Typed sidebar starter with `tsconfig.json` preconfigured.
   </Card>
   <Card
     title="React"

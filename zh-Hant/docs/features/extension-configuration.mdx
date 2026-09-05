@@ -36,7 +36,7 @@ keywords:
 | `commands`          | 各指令的預設值（`dev`、`start`、`preview`、`build`）。        |
 | `extensions`        | 跨指令套用的附屬擴充功能（僅載入）。                          |
 | `transpilePackages` | 打包前要先編譯的套件（在 monorepo／workspace 設定中很實用）。 |
-| `perfBudgets`       | 依類別設定的資源大小預算（位元組），可依指令覆寫。            |
+| `perfBudgets`       | 依類別設定的資源體積預算（位元組），可依瀏覽器與指令覆寫。 |
 | `config`            | 用來擴充／覆寫產生出的 Rspack 設定的 hook。                   |
 
 ### 型別安全的設定
@@ -56,7 +56,7 @@ export default {
 
 `extension.config.*` 在 Node 中執行，應該從 `process.env.*` 讀取值。
 
-- Extension.js 在評估 `extension.config.*` 之前，會預先載入 env 檔。
+- Extension.js 在評估 `extension.config.*` 之前，會依由弱到強的順序預先載入 env 檔：`.env.defaults`、`.env`、`.env.local`、`.env.development`。每個存在的檔案都會載入，而 shell 匯出的變數永遠優先。
 - 它會先檢查專案資料夾。
 - 在 monorepo 中，若 Extension.js 找不到專案本地的 `.env*`，會 fallback 到最近的 workspace 根目錄，也就是包含 `pnpm-workspace.yaml` 的資料夾。
 - 比起在設定檔中匯入 `dotenv`，建議優先使用內建的 env 預載。
@@ -108,6 +108,8 @@ export default {
 | `chromiumBinary`      | 使用自訂的 Chromium 系二進位檔路徑。            |
 | `geckoBinary`         | 使用自訂的 Gecko/Firefox 二進位檔路徑。         |
 | `extensions`          | 與主擴充功能一起載入附屬擴充功能。              |
+| `transpilePackages`   | 為此瀏覽器編譯的套件。優先於頂層清單。                 |
+| `perfBudgets`         | 此瀏覽器的資源預算。優先於頂層預算。                   |
 
 ### 指令設定
 
@@ -145,15 +147,15 @@ export default {
 
 注意事項：
 
-- Extension.js 會把頂層的 `extensions` 與 `transpilePackages` 合併進各指令的預設值。
-- 各指令的值會覆寫頂層的值。
+- `extensions`、`transpilePackages` 與 `perfBudgets` 在每個指令上都依由弱到強分層：頂層，接著是 `browser.<vendor>`，接著是 `commands.<cmd>`，最後是 CLI 旗標。
+- `commands.build.browser`、`commands.start.browser` 與 `commands.preview.browser` 決定這些指令的目標瀏覽器。`--browser` 旗標仍然優先。
 - `start` 指令會在內部依序執行 `build` 與 `preview`。Extension.js 會套用 `commands.start` 中的設定，包括 `profile`、`browserFlags` 與 `startingUrl` 等瀏覽器啟動選項。你也可以把建置專屬的設定放在 `commands.build`。
 
 #### 指令共用能力
 
 | 鍵                    | 適用於                             | 作用                                                       |
 | --------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| `browser`             | `dev`、`start`、`preview`、`build` | 設定瀏覽器或瀏覽器家族目標。                               |
+| `browser`             | `dev`、`start`、`preview`、`build` | 設定瀏覽器或瀏覽器家族目標。`--browser` 旗標優先。         |
 | `profile`             | `dev`、`start`、`preview`          | 設定瀏覽器 profile 路徑／行為。                            |
 | `persistProfile`      | `dev`、`start`、`preview`          | 在多次執行間沿用瀏覽器 profile 資料。                      |
 | `chromiumBinary`      | `dev`、`start`、`preview`          | 使用自訂的 Chromium 系二進位檔。                           |
