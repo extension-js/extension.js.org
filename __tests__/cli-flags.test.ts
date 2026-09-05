@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sharedOptionStrings } from "../scripts/generate-cli-flags.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOCS_DIR = resolve(__dirname, "..", "docs");
@@ -84,6 +85,16 @@ function sourceContainsFlag(source: string, flag: string): boolean {
   return source.includes(flag);
 }
 
+/**
+ * The command source plus the flag strings of every shared Option it
+ * registers through a helper factory (`.addOption(helper())`), so a flag
+ * that moved into helpers/cli-options.ts still counts for that command only.
+ */
+function withSharedOptions(sourcePath: string, section?: string): string {
+  const own = section ?? readFileSync(sourcePath, "utf-8");
+  return [own, ...sharedOptionStrings(sourcePath, section)].join("\n");
+}
+
 describe("CLI command flags match source", () => {
   it.skipIf(!HAS_MONOREPO)("source directory should exist", () => {
     expect(
@@ -111,13 +122,14 @@ describe("CLI command flags match source", () => {
         const docContent = readFileSync(docPath, "utf-8");
         const docFlags = extractDocFlags(docContent);
 
-        let sourceContent = readFileSync(sourcePath, "utf-8");
+        let section: string | undefined;
         if (mapping.commandBoundary) {
-          sourceContent = extractCommandSection(
-            sourceContent,
+          section = extractCommandSection(
+            readFileSync(sourcePath, "utf-8"),
             mapping.commandBoundary,
           );
         }
+        const sourceContent = withSharedOptions(sourcePath, section);
 
         for (const flag of docFlags) {
           it(`documented flag ${flag} exists in source`, () => {
@@ -150,14 +162,14 @@ describe("CLI command flags match source", () => {
       const docFlags = extractDocFlags(docContent);
 
       // The page also documents cross-cutting flags that commands register
-      // themselves (e.g. --debug), so search index.ts plus every command file.
-      const sourceContent = [CLI_INDEX]
+      // themselves (e.g. --debug), so search index.ts plus every command file
+      // and the shared options those commands register.
+      const sourceContent = [readFileSync(CLI_INDEX, "utf-8")]
         .concat(
           readdirSync(COMMANDS_DIR)
             .filter((f) => f.endsWith(".ts"))
-            .map((f) => resolve(COMMANDS_DIR, f)),
+            .map((f) => withSharedOptions(resolve(COMMANDS_DIR, f))),
         )
-        .map((f) => readFileSync(f, "utf-8"))
         .join("\n");
 
       for (const flag of docFlags) {

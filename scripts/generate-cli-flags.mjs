@@ -76,16 +76,80 @@ function visibleFlags(helpText) {
   return flags;
 }
 
-// Hidden options are always addOption(new Option(...)); plain .option() cannot
-// be hidden, so scanning `new Option` alone recovers exactly what --help omits.
+function resolveTsModule(base) {
+  for (const candidate of [base, `${base}.ts`, resolve(base, "index.ts")]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+// Local name -> { path, exported } for every relative named import, so an
+// `addOption(helper())` call can be traced back to the file that defines it.
+function importedHelpers(content, fromDir) {
+  const helpers = new Map();
+  const importRe =
+    /import\s*(?:type\s+)?\{([^}]*)\}\s*from\s*['"](\.[^'"]+)['"]/g;
+  for (const m of content.matchAll(importRe)) {
+    const path = resolveTsModule(resolve(fromDir, m[2]));
+    if (!path) continue;
+    for (const spec of m[1].split(",")) {
+      const [exported, local] = spec.trim().split(/\s+as\s+/);
+      if (exported) helpers.set(local || exported, { path, exported });
+    }
+  }
+  return helpers;
+}
+
+// The text of one exported function in a helper module, up to the next
+// top-level export, so only the Option that function builds is read.
+function exportedFunctionText(path, name) {
+  const content = readFileSync(path, "utf-8");
+  const start = content.search(
+    new RegExp(`export\\s+(?:async\\s+)?(?:function|const)\\s+${name}\\b`),
+  );
+  if (start === -1) return "";
+  const rest = content.slice(start + 1);
+  const next = rest.search(/\nexport\s/);
+  return next === -1
+    ? content.slice(start)
+    : content.slice(start, start + 1 + next);
+}
+
+// Commands share options through helper factories (helpers/cli-options.ts),
+// registered as `.addOption(helper())`. Returns the commander flag strings of
+// every Option those helpers build for `section` (default: the whole file),
+// hidden aliases included, so a shared option counts for the verb using it.
+export function sharedOptionStrings(sourcePath, section) {
+  if (!existsSync(sourcePath)) return [];
+  const content = readFileSync(sourcePath, "utf-8");
+  const helpers = importedHelpers(content, dirname(sourcePath));
+  const strings = [];
+  const callRe = /\.addOption\(\s*([A-Za-z_$][\w$]*)\(\s*\)\s*\)/g;
+  for (const m of (section ?? content).matchAll(callRe)) {
+    const helper = helpers.get(m[1]);
+    if (!helper) continue;
+    const body = exportedFunctionText(helper.path, helper.exported);
+    for (const o of body.matchAll(/new Option\(\s*'([^']+)'/g))
+      strings.push(o[1]);
+  }
+  return strings;
+}
+
+// Hidden options are always addOption(new Option(...)) because a plain
+// .option() cannot be hidden, so scanning `new Option` in the command file and
+// in the shared helpers it registers recovers exactly what --help omits.
 function hiddenFlags(sourceFiles) {
   const flags = new Set();
   for (const file of sourceFiles) {
     const path = resolve(COMMANDS_DIR, file);
     if (!existsSync(path)) continue;
     const content = readFileSync(path, "utf-8");
-    for (const m of content.matchAll(/new Option\(\s*'([^']+)'/g)) {
-      for (const name of namesFromFlagString(m[1])) flags.add(name);
+    const strings = [
+      ...[...content.matchAll(/new Option\(\s*'([^']+)'/g)].map((m) => m[1]),
+      ...sharedOptionStrings(path),
+    ];
+    for (const flagString of strings) {
+      for (const name of namesFromFlagString(flagString)) flags.add(name);
     }
   }
   return flags;
