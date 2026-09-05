@@ -126,10 +126,14 @@ deno run -A npm:extension@latest create my-extension --template=content-env
 
 ### `extension.config.*`(Node 中，在你的配置运行之前)
 
-`extension.config.js` / `.mjs` / `.cjs` 在 Node 中运行。在 Extension.js 求值该文件之前，会预先把**一小组**文件加载进 `process.env`，以便配置可以读取它们：
+`extension.config.js` / `.mjs` / `.cjs` 在 Node 中运行。在 Extension.js 求值该文件之前，会预先把**一小组**文件按从弱到强的顺序加载进 `process.env`，以便配置可以读取它们：
 
-1. `.env.defaults`(存在时合并)
-2. 然后是以下文件中**首个**存在的那个：`.env.development`、`.env.local`、`.env`
+1. `.env.defaults`
+2. `.env`
+3. `.env.local`
+4. `.env.development`
+
+每个存在的文件都会加载，后面的文件会覆盖前面文件的值。shell 或 CI 导出的变量始终优先于所有文件。读取 `import.meta.env` 的 `.mjs` 配置看到的胜出值与 `process.env` 相同。
 
 这一预加载步骤**不会**使用浏览器作用域的文件，比如 `.env.chrome` 或 `.env.chrome.development`。需要时，请通过 shell 或持续集成 (CI) 流水线中的普通 `process.env` 设置。
 

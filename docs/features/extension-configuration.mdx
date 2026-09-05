@@ -36,7 +36,7 @@ Top-level keys:
 | `commands`          | Per-command defaults (`dev`, `start`, `preview`, `build`).                  |
 | `extensions`        | Companion extensions applied across commands (load-only).                   |
 | `transpilePackages` | Packages to compile before bundling (useful for monorepo/workspace setups). |
-| `perfBudgets`       | Per-category asset size budgets in bytes, overridable per command.          |
+| `perfBudgets`       | Per-category asset size budgets in bytes, overridable per browser and per command. |
 | `config`            | Hook to extend/override the generated Rspack config.                        |
 
 ### Type-safe configuration
@@ -56,7 +56,7 @@ export default {
 
 `extension.config.*` runs in Node and should read values from `process.env.*`.
 
-- Extension.js preloads env files before evaluating `extension.config.*`.
+- Extension.js preloads env files before evaluating `extension.config.*`: `.env.defaults`, `.env`, `.env.local`, and `.env.development`, weakest to strongest. Every file that exists loads, and a variable your shell exported always wins.
 - It first checks the project folder.
 - In monorepos, if Extension.js finds no project-local `.env*` file, it falls back to the nearest workspace root. The workspace root is the folder containing `pnpm-workspace.yaml`.
 - Prefer built-in env preload over importing `dotenv` in your configuration file.
@@ -108,6 +108,8 @@ Common browser fields:
 | `chromiumBinary`      | Uses a custom Chromium-family binary path.                               |
 | `geckoBinary`         | Uses a custom Gecko/Firefox binary path.                                 |
 | `extensions`          | Loads companion extensions together with the main extension.             |
+| `transpilePackages`   | Packages to compile for this browser. Outranks the top-level list.      |
+| `perfBudgets`         | Asset budgets for this browser. Outranks the top-level budgets.          |
 
 ### Commands configuration
 
@@ -145,15 +147,15 @@ export default {
 
 Notes:
 
-- Extension.js merges top-level `extensions` and `transpilePackages` into command defaults.
-- Per-command values override top-level values.
+- `extensions`, `transpilePackages`, and `perfBudgets` layer from weakest to strongest on every command: top-level, then `browser.<vendor>`, then `commands.<cmd>`, then a CLI flag.
+- `commands.build.browser`, `commands.start.browser`, and `commands.preview.browser` pick the target for those commands. A `--browser` flag still wins.
 - The `start` command runs `build` then `preview` internally. Extension.js applies settings from `commands.start`, including browser-launch options like `profile`, `browserFlags`, and `startingUrl`. You can also put build-specific settings in `commands.build`.
 
 #### Command capabilities (shared)
 
 | Key                   | Applies to                         | What it does                                                   |
 | --------------------- | ---------------------------------- | -------------------------------------------------------------- |
-| `browser`             | `dev`, `start`, `preview`, `build` | Sets browser or browser-family target.                         |
+| `browser`             | `dev`, `start`, `preview`, `build` | Sets browser or browser-family target. A `--browser` flag wins. |
 | `profile`             | `dev`, `start`, `preview`          | Sets browser profile path/behavior.                            |
 | `persistProfile`      | `dev`, `start`, `preview`          | Reuses browser profile data between runs.                      |
 | `chromiumBinary`      | `dev`, `start`, `preview`          | Uses a custom Chromium-family binary.                          |
