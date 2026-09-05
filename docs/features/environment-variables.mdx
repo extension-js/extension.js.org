@@ -126,10 +126,14 @@ If no matching file exists next to the project, Extension.js repeats the same se
 
 ### `extension.config.*` (Node, before your configuration runs)
 
-`extension.config.js` / `.mjs` / `.cjs` runs in Node. Before Extension.js evaluates the file, it preloads a **small** set of files into `process.env` so the configuration can read them:
+`extension.config.js` / `.mjs` / `.cjs` runs in Node. Before Extension.js evaluates the file, it preloads a **small** set of files into `process.env` so the configuration can read them, weakest to strongest:
 
-1. `.env.defaults` (merged when present)
-2. Then the **first** file that exists among: `.env.development`, `.env.local`, `.env`
+1. `.env.defaults`
+2. `.env`
+3. `.env.local`
+4. `.env.development`
+
+Every file that exists loads, and a later file overrides the values of an earlier one. A variable your shell or CI exported always wins over every file. An `.mjs` config that reads `import.meta.env` sees the same winners as `process.env`.
 
 Extension.js does **not** use browser-scoped files such as `.env.chrome` or `.env.chrome.development` for this preload step. Instead, set values through plain `process.env` in your shell or continuous integration (CI) pipeline.
 

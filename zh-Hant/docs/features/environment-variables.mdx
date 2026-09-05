@@ -125,10 +125,14 @@ deno run -A npm:extension@latest create my-extension --template=content-env
 
 ### `extension.config.*`（Node，在你的設定執行前）
 
-`extension.config.js` / `.mjs` / `.cjs` 會在 Node 中執行。Extension.js 在評估該檔案前，會預先載入 **一小組** 檔案到 `process.env`，讓設定檔可以讀取：
+`extension.config.js` / `.mjs` / `.cjs` 會在 Node 中執行。Extension.js 在評估該檔案前，會依由弱到強的順序預先載入 **一小組** 檔案到 `process.env`，讓設定檔可以讀取：
 
-1. `.env.defaults`（存在時會合併）
-2. 接著從 `.env.development`、`.env.local`、`.env` 中載入 **第一個** 存在的檔案
+1. `.env.defaults`
+2. `.env`
+3. `.env.local`
+4. `.env.development`
+
+每個存在的檔案都會載入，後面的檔案會覆寫前面檔案的值。shell 或 CI 匯出的變數永遠優先於所有檔案。讀取 `import.meta.env` 的 `.mjs` 設定檔看到的勝出值與 `process.env` 相同。
 
 此預載步驟 **不會** 使用 `.env.chrome` 或 `.env.chrome.development` 等瀏覽器範圍的檔案。如果有需要，請透過 shell 或持續整合（CI）流水線中的 `process.env` 設定值。
 
