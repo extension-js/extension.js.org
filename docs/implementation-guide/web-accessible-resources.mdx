@@ -1,92 +1,46 @@
 ---
-title: "Web-accessible resources and build-time merging"
-description: "Expose only the extension assets web pages need. Extension.js merges user-declared web_accessible_resources with build-time requirements automatically."
+title: "Make an extension file readable by a web page"
+description: "Declare web_accessible_resources so a page or a content script can load an image, font, script, or stylesheet from your extension, with the glob rules, the runtime.getURL calls, the console errors, and the Extension.js merging behavior."
 keywords:
   [
+    "web_accessible_resources",
+    "use_dynamic_url",
+    "runtime.getURL",
+    "chrome-extension URL",
+    "moz-extension URL",
+    "Denying load of chrome-extension",
+    "web accessible resource glob",
+    "content script asset",
+    "chrome extension image not loading in page",
     "extension.js",
     "chrome",
     "firefox",
-    "browser",
+    "safari",
     "manifest",
-    "hmr",
-    "content script",
-    "docs",
   ]
 ---
 
-Expose only the extension assets that web pages or external extension contexts must access.
+Every file in your extension is private to your extension until you say otherwise. A web page cannot load it, and neither can a content script that runs inside that page. The `web_accessible_resources` manifest key is the allowlist that opens specific files to specific origins. This page explains which callers need an entry, how the object form works, how globs and runtime URLs behave, and which console lines a missing entry prints.
 
-Extension.js merges user-declared `web_accessible_resources` with build-discovered requirements and applies target-specific manifest normalization.
+## Three ways a file gets read, and which one needs a declaration
 
-## Template example
+**From an extension page.** A popup, an options page, a side panel, or a devtools page runs on the extension origin. It reads any file in the bundle, and no `web_accessible_resources` entry is involved.
 
-### `content`
+**From a content script.** The script's own code is already running, but the assets that it pulls in are not covered by that. An `img` element, a `fetch`, a `FontFace`, or a dynamic `import()` that names a `chrome-extension://` URL is a resource load, so the file must be listed.
 
-![content template screenshot](/images/examples/content/screenshot.png)
+**From the page's own code.** Anything in the page's MAIN world, including a script that you injected with `world: "MAIN"`, is web page code. It needs the file listed and it needs the page origin to fall inside `matches`.
 
-Content scripts use web-accessible resources to inject styles and assets into pages.
+| Caller                                     | Needs a `resources` entry | Needs `matches` to cover the page |
+| ------------------------------------------ | ------------------------- | --------------------------------- |
+| Extension page (popup, options, devtools)  | No                        | No                                |
+| Content script, isolated world             | Yes                       | Yes                               |
+| Page code or an injected MAIN world script | Yes                       | Yes                               |
 
-<CodeGroup>
+The rule to remember: the browser decides by who fetches the URL, not by who wrote the code.
 
-```bash npm
-npx extension@latest create my-extension --template=content
-```
+## Manifest snippet
 
-```bash pnpm
-pnpx extension@latest create my-extension --template=content
-```
-
-```bash yarn
-yarn dlx extension@latest create my-extension --template=content
-```
-
-```bash bun
-bunx extension@latest create my-extension --template=content
-```
-
-```bash deno
-deno run -A npm:extension@latest create my-extension --template=content
-```
-
-</CodeGroup>
-
-Repository: [extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
-
-## Web-accessible resource capabilities
-
-| Capability                     | What it gives you                                                                               |
-| ------------------------------ | ----------------------------------------------------------------------------------------------- |
-| Manifest V2/V3 schema handling | Handle both array and object `web_accessible_resources` shapes per manifest version             |
-| Build-aware merging            | Combine declared resources with required build/runtime entries                                  |
-| Path normalization             | Resolve WAR (web-accessible resource) paths to correct output locations for each browser target |
-| Security control surface       | Keep access rules explicit by `resources` and `matches`                                         |
-
-## Manifest schema
-
-### Manifest V3
-
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": ["images/*.png", "fonts/*.woff2"],
-      "matches": ["<all_urls>"]
-    }
-  ]
-}
-```
-
-### Manifest V2
-
-```json
-{
-  "web_accessible_resources": ["images/*.png", "scripts/*.js", "styles/*.css"]
-}
-```
-
-## Sample `manifest.json` file
-
-If you import assets through supported content-script or build paths, Extension.js adds the required WAR entries automatically. If web pages need to access specific assets directly, declare those resources manually.
+Manifest V3 takes an array of objects. Each object pairs a list of `resources` with the `matches` patterns that are allowed to read them:
 
 ```json
 {
@@ -95,105 +49,100 @@ If you import assets through supported content-script or build paths, Extension.
   "version": "1.0.0",
   "web_accessible_resources": [
     {
-      "resources": ["images/*.png", "scripts/*.js", "styles/*.css"],
-      "matches": ["<all_urls>"]
+      "resources": ["images/logo.png", "fonts/*.woff2"],
+      "matches": ["https://example.com/*"],
+      "use_dynamic_url": false
     }
   ],
   "content_scripts": [
     {
       "matches": ["https://example.com/*"],
-      "css": ["styles/content.css"],
-      "js": ["scripts/content.js"]
+      "js": ["content_scripts/content.js"]
     }
   ]
 }
 ```
 
-## What Extension.js adds automatically
+- `resources` lists paths relative to the extension root. A relative path resolves from the folder that holds `manifest.json`.
+- `matches` limits which page origins may read those files. Keep it as narrow as the feature allows.
+- `use_dynamic_url` asks the browser for a URL that rotates per session, so a page cannot fingerprint your extension by a fixed id. Treat it as a Chromium field.
 
-Extension.js can expand WAR entries from build output when the runtime needs those assets to be page-accessible.
+Globs are allowed in `resources`, and Extension.js keeps them as written. It does not expand `fonts/*.woff2` into an explicit file list, so the emitted manifest carries the same pattern that your source carries. An explicit list is still the safer choice when you know the file names.
 
-Common examples include:
+Extension.js drops a Manifest V3 entry that has no `resources` array during normalization, because the browser cannot act on it.
 
-- Assets imported by content scripts.
-- Content-script CSS outputs.
-- Emitted fonts or static assets referenced by those entries.
-- Development-only runtime support needed for reload behavior.
+## Build the URL at runtime
 
-Automatic inclusion is convenient, but you should still review the final set of assets exposed to web pages.
-
-Match patterns that include ports or port wildcards (for example, `http://localhost:3000/*` or `https://example.com:*/*`) are valid: the build accepts every pattern Chrome loads instead of rejecting it.
-
-## Development behavior
-
-- In development, Extension.js patches WAR entries to support reload and hot module replacement (HMR) asset access.
-- Extension.js can auto-include content-script-related assets in WAR when needed.
-- Extension.js normalizes paths by removing the `public/` prefix and leading `/` to produce output-safe paths.
-
-## Output and resolution notes
-
-- Extension.js copies resources in `public/` through the public-asset flow, and you can declare them from extension root paths.
-- Relative WAR resource paths resolve from the manifest folder.
-- You can use globs, but match patterns must be valid for target browser constraints.
-- Extension.js drops Manifest V3 (MV3) entries without `resources` during normalization.
-- Extension.js preserves globs as-is and does not expand them into explicit file lists.
-
-## Runtime usage
-
-Use browser runtime URL helpers instead of constructing extension URLs manually:
+Never write a `chrome-extension://` URL by hand. Ask the runtime for it:
 
 ```ts
 const logoUrl = chrome.runtime.getURL("/images/logo.png");
+document.body.appendChild(Object.assign(new Image(), { src: logoUrl }));
 ```
 
-If a page or content script cannot read an asset you expected to be accessible, check:
+A root-absolute argument such as `/images/logo.png` is the stable form, and it is what [Path resolution](/docs/features/path-resolution) rewrites for you. The same call in a content script is the only correct way to reach the file, because a plain `/images/logo.png` in an injected stylesheet or element resolves against the host page instead. [CSS](/docs/implementation-guide/css) works through that case for a web font.
 
-1. Whether the asset is actually present in the output.
-2. Whether the WAR entry exposes the correct `resources`.
-3. Whether the `matches` scope includes the page that is trying to read it.
-4. Whether the asset should instead stay private to extension pages only.
+On Firefox the helper matters even more. Firefox gives each installation a random UUID in its `moz-extension://` origin, so a URL that you copied from one profile is wrong in every other profile.
 
-## Best practices
+## Per-browser differences
 
-- Keep WAR entries minimal; expose only what external contexts must read.
-- Prefer explicit resource paths over broad globs for better security.
-- Validate WAR match patterns and resource paths across Chromium and Firefox targets.
-- Use `chrome.runtime.getURL()`/`browser.runtime.getURL()` for runtime-safe URL creation.
-- Re-audit WAR after adding content-script imports, fonts, or page-accessible static assets.
+| Capability            | Chromium                                        | Firefox                                                                | Safari                    |
+| --------------------- | ----------------------------------------------- | ----------------------------------------------------------------------- | ------------------------- |
+| Manifest V3 shape     | Array of objects with `resources` and `matches` | Array of objects with `resources` and `matches`                        | Not covered by these docs |
+| Manifest V2 shape     | Flat array of path strings                      | Flat array of path strings, still used by Manifest V2 add-ons          | Not covered by these docs |
+| Extension origin      | `chrome-extension://<id>/`, one id per install  | `moz-extension://<uuid>/`, a random UUID per install                   | Not covered by these docs |
+| Runtime URL helper    | `chrome.runtime.getURL`                         | `browser.runtime.getURL`, and `chrome.runtime.getURL` is also available | Not covered by these docs |
+| `use_dynamic_url`     | Supported                                       | Treat the field as Chromium only                                       | Not covered by these docs |
 
-### Security checklist
+On Safari, enabling the extension is not enough. Until you grant website access, no content script runs on the page, so nothing asks for the resource in the first place. See [Safari](/docs/browsers/safari) for the enable and grant steps.
 
-- Limit `matches` scope to domains that actually require access.
-- Avoid broad wildcard resource globs when a small explicit list is sufficient.
-- Keep WAR entries focused on non-sensitive assets.
-- Re-audit WAR when adding new content script imports or runtime asset lookups.
+If your source is written against `browser.*` and you also build for a Chromium target, pass `--polyfill` so the namespace exists there. See [Cross-browser compatibility](/docs/features/cross-browser-compatibility).
 
-### Scoped vs overly broad examples
+## Console lines you will see
 
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": ["images/logo.png", "fonts/inter.woff2"],
-      "matches": ["https://example.com/*"]
-    }
-  ]
-}
+Copy the line that you see into search. Each one maps to one cause.
+
+`Denying load of chrome-extension://<id>/images/logo.png. Resources must be listed in the web_accessible_resources manifest key.`
+The file is not in any `resources` array, or the page that asked for it is outside `matches`. Add the path, then confirm that the pattern covers the page origin.
+
+`GET chrome-extension://invalid/ net::ERR_FAILED`
+The same denial seen from the network panel. Chromium rewrites a blocked extension URL to `chrome-extension://invalid/`, so the id disappears from the request. Fix the manifest entry, not the fetch.
+
+`Security Error: Content at https://example.com/ may not load or link to moz-extension://<uuid>/images/logo.png.`
+The Firefox form of the same problem. The add-on did not list the file, so the page is not allowed to link to it.
+
+`Failed to load resource: net::ERR_FILE_NOT_FOUND`
+The entry is correct and the file is missing from the output. Check `dist/<browser>/` for the exact path that you declared.
+
+`Uncaught ReferenceError: browser is not defined`
+A `browser.runtime.getURL` call reached a Chromium target with no polyfill. Build with `--polyfill`, or call `chrome.runtime.getURL`.
+
+## The Extension.js way
+
+Extension.js merges what you declare with what the build discovers, then normalizes the result for each target:
+
+- Assets that a content script imports, content-script CSS output, and emitted fonts are added for you when the runtime needs the page to read them.
+- Paths are normalized for output. Extension.js removes a `public/` prefix and a leading slash, so the entry names the file at the location where it lands.
+- Globs stay as written, and match patterns that carry a port or a port wildcard, such as `http://localhost:3000/*`, are accepted rather than rejected.
+- In development, Extension.js patches the entry set so reload and hot module replacement assets stay reachable. That patching is development only. See [Reload and HMR](/docs/features/reload-and-hmr).
+
+Automatic merging is convenient, and it is not a review. Read the emitted `dist/<browser>/manifest.json` before a release and confirm that the exposed set is the set that you meant to expose:
+
+- Keep `matches` on the domains that actually need the file.
+- Prefer an explicit resource list over a broad glob.
+- Keep sensitive files out of the allowlist and serve them from an extension page instead.
+- Audit the list again after you add a content-script import, a font, or a new static asset.
+
+Scaffold a project that loads an extension font into a page, which is the smallest complete example of this key:
+
+```bash
+npx extension@latest create my-extension --template=content-custom-font
 ```
 
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": ["*"],
-      "matches": ["<all_urls>"]
-    }
-  ]
-}
-```
+## See also
 
-## Next steps
-
-- Understand update outcomes in [dev update behavior](/docs/workflows/dev-update-behavior).
-- Learn more about [Special folders](/docs/features/special-folders).
-- Continue with [commands reference](/docs/commands/dev).
+- [Content scripts](/docs/implementation-guide/content-scripts)
+- [Inject scripts at runtime](/docs/implementation-guide/inject-scripts)
+- [CSS](/docs/implementation-guide/css)
+- [Lazy loading](/docs/implementation-guide/lazy-loading)
+- [Special folders](/docs/features/special-folders)
