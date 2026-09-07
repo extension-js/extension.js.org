@@ -1,0 +1,150 @@
+---
+title: "在執行階段注入腳本"
+description: "在 manifest content_scripts、chrome.scripting.executeScript 與 registerContentScripts 之間做選擇，把腳本注入頁面，並了解各自的權限、主控台錯誤與 Extension.js 路徑。"
+keywords:
+  [
+    "executeScript",
+    "registerContentScripts",
+    "insertCSS",
+    "inject script",
+    "dynamic content script",
+    "scripting API",
+    "activeTab",
+    "programmatic injection",
+    "chrome extension inject script into page",
+    "extension.js",
+    "chrome",
+    "firefox",
+    "safari",
+    "scripts folder",
+  ]
+---
+
+瀏覽器擴充功能有三種方式在網頁裡執行程式碼。manifest 的 `content_scripts` 項目會在每個符合樣式的頁面上執行。`chrome.scripting.executeScript` 會在你呼叫時於一個分頁裡執行一次腳本。`chrome.scripting.registerContentScripts` 會在執行階段註冊一個 content script，並讓它保持註冊狀態。本頁說明每種方式何時執行、需要什麼權限，以及各瀏覽器的差異。它也列出注入失敗時主控台會印出的行，以及檔案在 Extension.js 專案中該放在哪裡。
+
+## 在頁面裡執行程式碼的三種方式
+
+**manifest `content_scripts`。** 在 `manifest.json` 中的靜態宣告。瀏覽器會把列出的 `js` 與 `css` 檔案注入到每個符合 `matches` 的頁面，時機由 `run_at` 決定。Extension.js 會編譯每個項目並為 HMR 包裝它，請見 [Content script](/docs/implementation-guide/content-scripts)。
+
+**`chrome.scripting.executeScript`。** 從 service worker 或另一個擴充功能頁面發起的一次性呼叫。它針對一個分頁，執行 `files`（擴充功能內的路徑）或 `func`（序列化到頁面裡的函式，可帶 `args`）。它需要 `scripting` 權限，外加對該分頁的存取權：來自使用者手勢之後的 `activeTab`，或來自相符的 `host_permissions` 樣式。
+
+**`chrome.scripting.registerContentScripts`。** 一種動態註冊，形狀與 manifest 項目相同（`id`、`matches`、`js`、`css`、`runAt`、`world`）。瀏覽器從那一刻起把它注入到相符的頁面，而且註冊預設會在瀏覽器重新啟動後保留。它需要 `scripting` 權限以及涵蓋 `matches` 的 `host_permissions`，因為 `activeTab` 不適用於未來的頁面。
+
+| 屬性                        | manifest `content_scripts`          | `executeScript`                      | `registerContentScripts`                    |
+| --------------------------- | ----------------------------------- | ------------------------------------ | ------------------------------------------- |
+| 何時執行                    | 每個相符頁面，載入時                | 一次，在你呼叫時                     | 每個相符頁面，從註冊起                      |
+| 所需權限                    | manifest 中的 `matches`             | `scripting` 加 `activeTab` 或 host   | `scripting` 加 host 權限                    |
+| 瀏覽器重新啟動後是否保留    | 是                                  | 否，腳本只執行了一次                 | 是，除非 `persistAcrossSessions` 為 false   |
+| 能否指定 `world: "MAIN"`    | 能，Extension.js 中僅限 Chromium    | 能，Extension.js 中僅限 Chromium     | 能，Extension.js 中僅限 Chromium            |
+| Firefox 支援（MV3）         | 是                                  | 是，isolated world                   | 是，isolated world                          |
+
+當功能屬於一組已知網站時，使用 manifest 項目。當使用者觸發功能時，例如點擊工具列按鈕，使用 `executeScript`。當網站集合要在執行階段才決定時，例如來自設定頁，使用 `registerContentScripts`。
+
+## Manifest 片段
+
+`scripting` 權限同時解鎖兩個執行階段 API。`activeTab` 涵蓋使用者點擊的那個分頁，`host_permissions` 涵蓋每個相符的頁面，而動態註冊需要後者：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "Inject on demand",
+  "version": "1.0.0",
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": ["https://example.com/*"],
+  "action": { "default_title": "Inject" },
+  "background": { "service_worker": "background.js" }
+}
+```
+
+Chromium 與 Firefox 都按原樣讀取這個區塊，所以它不需要瀏覽器前綴。只有在 manifest content script 上使用 `world: "MAIN"` 時才用前綴，因為 Firefox 會忽略該欄位。把它宣告為 `chromium:world` 並保留一個 isolated world 後備，寫法請見[瀏覽器專屬欄位](/docs/features/browser-specific-fields)。
+
+與這份 manifest 對應的執行階段呼叫：
+
+```ts
+// One-off, after the user clicks the action (activeTab).
+chrome.action.onClicked.addListener(async (tab) => {
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ["scripts/highlight.js"],
+  });
+});
+
+// Persistent, covered by host_permissions.
+await chrome.scripting.registerContentScripts([
+  {
+    id: "highlight",
+    matches: ["https://example.com/*"],
+    js: ["scripts/highlight.js"],
+    runAt: "document_idle",
+  },
+]);
+```
+
+## 各瀏覽器差異
+
+| 能力                      | Chromium                          | Firefox                                        | Safari                                       |
+| ------------------------- | --------------------------------- | ---------------------------------------------- | -------------------------------------------- |
+| `executeScript` `world`   | `ISOLATED`（預設）或 `MAIN`       | isolated world。把 `world` 視為僅限 Chromium。 | 本文件未涵蓋                                 |
+| `registerContentScripts`  | 支援                              | MV3 中支援                                     | 本文件未涵蓋                                 |
+| `insertCSS` `origin`      | `AUTHOR`（預設）或 `USER`         | `AUTHOR`（預設）或 `USER`                      | 本文件未涵蓋                                 |
+| 任何腳本執行之前          | 存取權依 manifest 決定            | 存取權依 manifest 決定                         | 啟用擴充功能後，你需要逐網站授予網站存取權   |
+
+在 Safari 上，只啟用擴充功能並不夠。在你授予網站存取權之前，沒有任何 content script 會執行，執行階段注入的腳本也一樣。啟用與授權步驟請見 [Safari](/docs/browsers/safari)。
+
+## 你會看到的主控台輸出
+
+把你看到的那一行複製到搜尋裡。每一行對應一個原因。
+
+`Cannot access contents of url "https://example.com/". Extension manifest must request permission to access this host.`
+該分頁不在你的 host 權限之內，而且 `activeTab` 沒有為它授予。把該 host 加入 `host_permissions`，或是在分頁上發生使用者手勢之後的處理函式裡呼叫 `executeScript`。
+
+`Could not load file: 'scripts/highlight.ts'.`
+`executeScript` 或 `registerContentScripts` 呼叫寫的是原始檔路徑。Extension.js 會把 `scripts/highlight.ts` 編譯為 `scripts/highlight.js`，所以請注入產出的 `.js` 路徑。
+
+`Failed to load resource: net::ERR_FILE_NOT_FOUND`
+一個以 `.ts` 結尾的 `chrome-extension://` URL（或其他從未到達 `dist/` 的路徑）。修法相同：引用產出的 `.js` 檔案，然後確認它存在於 `dist/<browser>/scripts/` 之下。
+
+`NS_ERROR_CONTENT_BLOCKED`
+同一個檔案遺失錯誤在 Firefox 的 `moz-extension://` URL 上的表現形式。注入產出的 `.js` 路徑。
+
+`Cannot access a chrome:// URL`
+瀏覽器內建頁面不能被腳本化。在一般的 `https://` 頁面上測試。
+
+`The extensions gallery cannot be scripted.`
+Chrome Web Store 對所有擴充功能都禁止腳本化。換一個頁面測試。
+
+`This page cannot be scripted due to an ExtensionsSettings policy.`
+受管理的瀏覽器在這個 host 上封鎖了你的擴充功能。在原則允許的 host 上測試，或是換一個不受該原則管理的設定檔。
+
+## Extension.js 的做法
+
+把執行階段注入的檔案放進 `scripts/` 特殊資料夾。規則很短：
+
+- `scripts/` 位於專案根目錄、和 `package.json` 並排，而不是在 `src/` 裡。巢狀的 `src/scripts/` 只是普通資料夾。
+- 那裡的每個檔案都會編譯成 `.js`，並落在 `dist/<browser>/scripts/<name>.js`。
+- 在 `files` 或 `js` 陣列裡引用產出的路徑。`.ts` 路徑能正常建置，但在瀏覽器裡會 404。
+- 當執行階段字面值寫的是 `.ts` 原始檔時，建置會印出一則警告，給出應使用的產出路徑。
+- 該檔案遵循 content script 契約：`export default` 一個同步函式，並回傳可選的清理函式。
+
+完整的資料夾契約請見[特殊資料夾](/docs/features/special-folders)。
+
+在 `extension dev` 期間，你用 `executeScript` 從 `scripts/` 注入的腳本會在編輯時被重播，因此注入的程式碼會像宣告式 `content_scripts` 一樣即時更新。請見[重新載入與 HMR](/docs/features/reload-and-hmr)。
+
+建立一個在執行階段注入 `scripts/` 項目的專案：
+
+```bash
+npx extension@latest create my-extension --template=special-folders-scripts
+```
+
+如果走靜態路徑，請改從 `content` 範本開始：
+
+```bash
+npx extension@latest create my-extension --template=content
+```
+
+## 另請參閱
+
+- [Content script](/docs/implementation-guide/content-scripts)
+- [權限與 host 權限](/docs/implementation-guide/permissions-and-host-permissions)
+- [特殊資料夾](/docs/features/special-folders)
+- [Web 可存取資源](/docs/implementation-guide/web-accessible-resources)
