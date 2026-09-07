@@ -11,6 +11,9 @@ keywords:
     "icons",
     "template",
     "example",
+    "image",
+    "png",
+    "svg",
   ]
 ---
 
@@ -63,19 +66,21 @@ Repository: [extension-js/examples/action](https://github.com/extension-js/examp
 
 ## Supported icon fields
 
-| Manifest field                | File type expected    |
-| ----------------------------- | --------------------- |
-| `action.default_icon`         | .png, .jpg, .svg      |
-| `browser_action.default_icon` | .png, .jpg, .svg      |
-| `icons`                       | .png, .jpg, .svg      |
-| `page_action.default_icon`    | .png, .jpg, .svg      |
-| `sidebar_action.default_icon` | .png, .jpg, .svg (\*) |
-| `browser_action.theme_icons`  | .png, .jpg, .svg      |
+| Manifest field                | Chromium (Chrome, Edge, Brave, Opera) | Firefox               |
+| ----------------------------- | ------------------------------------- | --------------------- |
+| `action.default_icon`         | .png, .jpg                            | .png, .jpg, .svg      |
+| `browser_action.default_icon` | .png, .jpg                            | .png, .jpg, .svg      |
+| `icons`                       | .png, .jpg                            | .png, .jpg, .svg      |
+| `page_action.default_icon`    | .png, .jpg                            | .png, .jpg, .svg      |
+| `sidebar_action.default_icon` | Not supported                         | .png, .jpg, .svg (\*) |
+| `browser_action.theme_icons`  | Not supported                         | .png, .jpg, .svg      |
 
 <Note>
-  Support for `.svg` is currently partial in some browsers for
-  `sidebar_action.default_icon`. Review browser compatibility before using SVGs
-  in this context.
+  Chromium does not accept `.svg` (or `.webp`) for `icons` and action icons. A
+  manifest that points these fields at an SVG loads in Firefox and fails in
+  Chrome, Edge, Brave, and Opera. Ship PNG files for every Chromium target.
+  `sidebar_action` and `browser_action.theme_icons` are Firefox fields, and
+  `.svg` support for `sidebar_action.default_icon` is partial there (\*).
 </Note>
 
 ## Sample icon declaration in `manifest.json`
@@ -95,6 +100,16 @@ Repository: [extension-js/examples/action](https://github.com/extension-js/examp
   }
 }
 ```
+
+## Generate PNG sizes from an SVG
+
+Keep the SVG as the design source and export the PNG sizes that every browser accepts. This one-liner uses `rsvg-convert` from librsvg (`brew install librsvg` on macOS, `apt install librsvg2-bin` on Debian and Ubuntu):
+
+```bash
+for size in 16 32 48 128; do rsvg-convert -w $size -h $size icon.svg -o icons/icon-$size.png; done
+```
+
+Then point `icons` and `action.default_icon` at the PNG files, as in the sample above.
 
 ## Output path
 

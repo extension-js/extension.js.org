@@ -2,7 +2,7 @@
 title: "排查 Extension.js 的常见问题"
 description: "用实用的分诊路径修复 Extension.js 常见问题，涵盖重启诊断、依赖安装、浏览器启动与 manifest 错误。"
 keywords:
-  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows"]
+  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows", "content-0.css", "ERR_FILE_NOT_FOUND"]
 ---
 
 通过先检查最常见的失败来快速解锁本地开发。在更深入调试之前，把本页当作实用的分诊路径。
@@ -98,6 +98,16 @@ extension dev --host 0.0.0.0 --port 0
 如果构建失败并提示 `scripts/ is a reserved folder in Extension.js`，说明你在 `scripts/` 特殊文件夹中放了 Node.js 文件。Extension.js 会用浏览器 content-script 运行时包装 `scripts/` 中的每个文件，仅 Node.js 的文件在这种上下文中无法运行。
 
 把文件移到项目根下的其他文件夹(例如 `bin/`、`tools/` 或 `ci-scripts/`)。详情请参见[特殊文件夹](/docs/features/special-folders#scripts-中不允许放-nodejs-脚本)。
+
+### `content_scripts/content-0.css` 报 `net::ERR_FILE_NOT_FOUND`
+
+控制台里出现一条红色请求：`chrome-extension://<id>/content_scripts/content-0.css`，状态是 `net::ERR_FILE_NOT_FOUND`，但扩展仍然正常工作。
+
+在 Extension.js 4.1.10 之前，没有样式表的 content script 仍会请求一个同级的 `content-0.css`，而构建从未输出这个文件。这个请求无害，但会在控制台里保持红色。修复已随 4.1.10 发布，请升级：
+
+- 运行 `npx extension@latest dev` 使用最新 CLI，或者提升 `package.json` 中 `extension` 依赖的版本。
+
+如果你的 content script 导入了 CSS 文件，或者 manifest 条目声明了 `css`，那么这个文件是真实存在的，必须出现在 `dist/<browser>/content_scripts/` 中。这种情况下文件缺失是构建问题，而不是这个幻影请求。
 
 ### 修复后仍被卡住
 

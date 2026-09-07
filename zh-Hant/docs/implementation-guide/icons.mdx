@@ -11,6 +11,10 @@ keywords:
     "icons",
     "template",
     "example",
+    "image",
+    "png",
+    "svg",
+    "圖片",
   ]
 ---
 
@@ -63,18 +67,21 @@ deno run -A npm:extension@latest create my-extension --template=action
 
 ## 支援的圖示欄位
 
-| Manifest 欄位                 | 預期檔案類型          |
-| ----------------------------- | --------------------- |
-| `action.default_icon`         | .png, .jpg, .svg      |
-| `browser_action.default_icon` | .png, .jpg, .svg      |
-| `icons`                       | .png, .jpg, .svg      |
-| `page_action.default_icon`    | .png, .jpg, .svg      |
-| `sidebar_action.default_icon` | .png, .jpg, .svg (\*) |
-| `browser_action.theme_icons`  | .png, .jpg, .svg      |
+| Manifest 欄位                 | Chromium（Chrome、Edge、Brave、Opera） | Firefox               |
+| ----------------------------- | -------------------------------------- | --------------------- |
+| `action.default_icon`         | .png, .jpg                             | .png, .jpg, .svg      |
+| `browser_action.default_icon` | .png, .jpg                             | .png, .jpg, .svg      |
+| `icons`                       | .png, .jpg                             | .png, .jpg, .svg      |
+| `page_action.default_icon`    | .png, .jpg                             | .png, .jpg, .svg      |
+| `sidebar_action.default_icon` | 不支援                                 | .png, .jpg, .svg (\*) |
+| `browser_action.theme_icons`  | 不支援                                 | .png, .jpg, .svg      |
 
 <Note>
-  在某些瀏覽器中，`sidebar_action.default_icon` 對 `.svg`
-  的支援目前仍不完整。在此情境使用 SVG 之前請先確認瀏覽器相容性。
+  Chromium 不接受 `.svg`（或 `.webp`）作為 `icons` 與 action 圖示。把這些欄位指向
+  SVG 的 manifest 能在 Firefox 中載入，但在 Chrome、Edge、Brave 與 Opera 中會失敗。
+  針對所有 Chromium 目標請提供 PNG 檔案。`sidebar_action` 與
+  `browser_action.theme_icons` 是 Firefox 欄位，而且 `sidebar_action.default_icon`
+  對 `.svg` 的支援在那裡也只是部分的（\*）。
 </Note>
 
 ## 在 `manifest.json` 中宣告圖示的範例
@@ -94,6 +101,16 @@ deno run -A npm:extension@latest create my-extension --template=action
   }
 }
 ```
+
+## 從 SVG 產生各尺寸 PNG
+
+把 SVG 保留為設計原始檔，匯出所有瀏覽器都接受的 PNG 尺寸。下面這條命令使用 librsvg 提供的 `rsvg-convert`（macOS 上 `brew install librsvg`，Debian 與 Ubuntu 上 `apt install librsvg2-bin`）：
+
+```bash
+for size in 16 32 48 128; do rsvg-convert -w $size -h $size icon.svg -o icons/icon-$size.png; done
+```
+
+然後像上面的範例那樣，把 `icons` 與 `action.default_icon` 指向這些 PNG 檔案。
 
 ## 輸出路徑
 

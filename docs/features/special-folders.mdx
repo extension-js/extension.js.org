@@ -16,6 +16,9 @@ keywords:
     "scaffold",
     "yarn dlx",
     "scripts folder dist",
+    "registerContentScripts",
+    "executeScript files",
+    "scripts folder src",
   ]
 ---
 
@@ -136,6 +139,28 @@ For a sandboxed iframe example, see the [Chrome Sandbox Sample](https://github.c
 Use `scripts/` for executable scripts that you load dynamically and that do not tie to an HTML page entry.
 
 Extension.js compiles files in `scripts/` as entrypoints using the same extension resolution pipeline as the rest of your project.
+
+### Root location and emitted path
+
+Two facts trip up most `scripts/` setups.
+
+**Location.** `scripts/` lives beside `package.json` (or `deno.json`), at the project root, not inside `src/`. This holds even when `manifest.json` lives in `src/`. The one exception is a project with no `package.json` and no `deno.json`, where the manifest directory is the root. See [where special folders live](#where-special-folders-live).
+
+**Emitted path.** Inject the compiled file. A `scripts/foo.ts` source is compiled to `scripts/foo.js`, so `chrome.scripting.executeScript({ files })` and `chrome.scripting.registerContentScripts({ js })` must name the `.js` file. A `.ts` path builds fine and then fails with a 404 in the browser. Extension.js warns about a compiled source literal at build time. The warning names the emitted path to use.
+
+```ts background.ts
+// Source: scripts/foo.ts
+// Emitted: scripts/foo.js
+
+chrome.scripting.executeScript({
+  target: { tabId },
+  files: ["scripts/foo.js"],
+});
+
+chrome.scripting.registerContentScripts([
+  { id: "foo", matches: ["<all_urls>"], js: ["scripts/foo.js"] },
+]);
+```
 
 ### Reference the file path somewhere
 

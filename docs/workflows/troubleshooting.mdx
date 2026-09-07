@@ -2,7 +2,7 @@
 title: "Troubleshooting Extension.js issues"
 description: "Fix common Extension.js issues with a practical triage path. Covers restart diagnostics, dependency setup, browser launch, and manifest errors."
 keywords:
-  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows"]
+  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows", "content-0.css", "ERR_FILE_NOT_FOUND"]
 ---
 
 Unblock local development quickly by checking the most common failures first. Use this page as a practical triage path before deeper debugging.
@@ -98,6 +98,16 @@ extension dev --host 0.0.0.0 --port 0
 If the build fails with `scripts/ is a reserved folder in Extension.js`, you have a Node.js file inside the `scripts/` special folder. Extension.js wraps every file in `scripts/` with a browser content-script runtime. Node.js-only files fail in this context.
 
 Move the file to a different folder at the project root (for example, `bin/`, `tools/`, or `ci-scripts/`). See [special folders](/docs/features/special-folders#nodejs-scripts-are-not-allowed-in-scripts) for details.
+
+### `content_scripts/content-0.css` fails with `net::ERR_FILE_NOT_FOUND`
+
+The console shows a red request for `chrome-extension://<id>/content_scripts/content-0.css` with `net::ERR_FILE_NOT_FOUND`, and the extension still works.
+
+Before Extension.js 4.1.10, a content script with no stylesheet still requested a sibling `content-0.css` that the build never emitted. The request is harmless, but it stays red in the console. The fix shipped in 4.1.10, so upgrade:
+
+- Run `npx extension@latest dev` to use the latest CLI, or bump the `extension` dependency in `package.json`.
+
+If your content script imports a CSS file, or the manifest entry declares `css`, the file is real and must exist in `dist/<browser>/content_scripts/`. A missing file in that case is a build problem, not this phantom request.
 
 ### Still blocked after fixes
 
