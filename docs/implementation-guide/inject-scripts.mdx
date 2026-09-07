@@ -1,0 +1,150 @@
+---
+title: "Inject scripts at runtime"
+description: "Choose between manifest content_scripts, chrome.scripting.executeScript, and registerContentScripts to inject a script into a page, with the permissions, console errors, and Extension.js paths for each."
+keywords:
+  [
+    "executeScript",
+    "registerContentScripts",
+    "insertCSS",
+    "inject script",
+    "dynamic content script",
+    "scripting API",
+    "activeTab",
+    "programmatic injection",
+    "chrome extension inject script into page",
+    "extension.js",
+    "chrome",
+    "firefox",
+    "safari",
+    "scripts folder",
+  ]
+---
+
+A browser extension can run code inside a web page in three ways. A manifest `content_scripts` entry runs on every page that matches a pattern. `chrome.scripting.executeScript` runs one script in one tab when you call it. `chrome.scripting.registerContentScripts` registers a content script at runtime and keeps it registered. This page explains when each one runs, which permission it needs, and how the browsers differ. It also lists the console lines that injection failures print and where the file goes in an Extension.js project.
+
+## The three ways to run code in a page
+
+**Manifest `content_scripts`.** A static declaration in `manifest.json`. The browser injects the listed `js` and `css` files into every page that matches `matches`, at the time set by `run_at`. Extension.js compiles each entry and wraps it for HMR, see [Content scripts](/docs/implementation-guide/content-scripts).
+
+**`chrome.scripting.executeScript`.** A one-off call from the service worker or another extension page. It targets one tab and runs either `files` (paths inside the extension) or `func` (a function serialized into the page, with optional `args`). It needs the `scripting` permission plus access to the tab, from `activeTab` after a user gesture or from a matching `host_permissions` pattern.
+
+**`chrome.scripting.registerContentScripts`.** A dynamic registration with the same shape as a manifest entry (`id`, `matches`, `js`, `css`, `runAt`, `world`). The browser injects it into pages that match from that moment on, and the registration persists across browser restarts by default. It needs the `scripting` permission and `host_permissions` that cover `matches`, because `activeTab` does not apply to future pages.
+
+| Property                    | Manifest `content_scripts`          | `executeScript`                       | `registerContentScripts`                |
+| --------------------------- | ----------------------------------- | ------------------------------------- | --------------------------------------- |
+| When it runs                | Every matching page, on load        | Once, when you call it                | Every matching page, from registration  |
+| Permission needed           | `matches` in the manifest           | `scripting` plus `activeTab` or host  | `scripting` plus host permissions       |
+| Survives a browser restart  | Yes                                 | No, the script ran once               | Yes, unless `persistAcrossSessions` is false |
+| Can target `world: "MAIN"`  | Yes, Chromium only in Extension.js  | Yes, Chromium only in Extension.js    | Yes, Chromium only in Extension.js      |
+| Firefox support (MV3)       | Yes                                 | Yes, isolated world                   | Yes, isolated world                     |
+
+Use the manifest entry when the feature belongs on a known set of sites. Use `executeScript` when the user triggers the feature, for example from a toolbar click. Use `registerContentScripts` when the set of sites is decided at runtime, for example from a settings page.
+
+## Manifest snippet
+
+The `scripting` permission unlocks both runtime APIs. `activeTab` covers the tab the user clicked in, and `host_permissions` covers every page that matches, which dynamic registration requires:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "Inject on demand",
+  "version": "1.0.0",
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": ["https://example.com/*"],
+  "action": { "default_title": "Inject" },
+  "background": { "service_worker": "background.js" }
+}
+```
+
+Chromium and Firefox both read this block as written, so it needs no browser prefix. Use a prefix only for `world: "MAIN"` on a manifest content script, because Firefox ignores the field. Declare it as `chromium:world` and keep an isolated-world fallback, as shown in [browser-specific fields](/docs/features/browser-specific-fields).
+
+The runtime calls that match this manifest:
+
+```ts
+// One-off, after the user clicks the action (activeTab).
+chrome.action.onClicked.addListener(async (tab) => {
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    files: ["scripts/highlight.js"],
+  });
+});
+
+// Persistent, covered by host_permissions.
+await chrome.scripting.registerContentScripts([
+  {
+    id: "highlight",
+    matches: ["https://example.com/*"],
+    js: ["scripts/highlight.js"],
+    runAt: "document_idle",
+  },
+]);
+```
+
+## Per-browser differences
+
+| Capability                 | Chromium                                             | Firefox                                               | Safari                                                  |
+| -------------------------- | ---------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| `executeScript` `world`    | `ISOLATED` (default) or `MAIN`                       | Isolated world. Treat `world` as Chromium only.       | Not covered by these docs                               |
+| `registerContentScripts`   | Supported                                            | Supported in MV3                                      | Not covered by these docs                               |
+| `insertCSS` `origin`       | `AUTHOR` (default) or `USER`                         | `AUTHOR` (default) or `USER`                          | Not covered by these docs                               |
+| Before any script runs     | Access follows the manifest                          | Access follows the manifest                           | You grant website access per site after you enable the extension |
+
+On Safari, enabling the extension is not enough. Until you grant website access, no content script runs, and the same applies to scripts you inject at runtime. See [Safari](/docs/browsers/safari) for the enable and grant steps.
+
+## Console lines you will see
+
+Copy the line that you see into search. Each one maps to one cause.
+
+`Cannot access contents of url "https://example.com/". Extension manifest must request permission to access this host.`
+The tab is outside your host permissions and `activeTab` was not granted for it. Add the host to `host_permissions`, or call `executeScript` from a handler that runs after a user gesture on the tab.
+
+`Could not load file: 'scripts/highlight.ts'.`
+The `executeScript` or `registerContentScripts` call names a source path. Extension.js compiles `scripts/highlight.ts` to `scripts/highlight.js`, so inject the emitted `.js` path.
+
+`Failed to load resource: net::ERR_FILE_NOT_FOUND`
+A `chrome-extension://` URL that ends in `.ts` (or another path that never reached `dist/`). Same fix: reference the emitted `.js` file, then confirm it exists under `dist/<browser>/scripts/`.
+
+`NS_ERROR_CONTENT_BLOCKED`
+The Firefox form of the same missing-file error on a `moz-extension://` URL. Inject the emitted `.js` path.
+
+`Cannot access a chrome:// URL`
+Browser pages cannot be scripted. Test on a normal `https://` page.
+
+`The extensions gallery cannot be scripted.`
+The Chrome Web Store is off limits to every extension. Test on another page.
+
+`This page cannot be scripted due to an ExtensionsSettings policy.`
+A managed browser blocks your extension on this host. Test on a host that the policy allows, or on a profile that the policy does not manage.
+
+## The Extension.js way
+
+Put runtime-injected files in the `scripts/` special folder. The rules are short:
+
+- `scripts/` lives beside `package.json` at the project root, not inside `src/`. A nested `src/scripts/` is a plain folder.
+- Every file there compiles to `.js` and lands at `dist/<browser>/scripts/<name>.js`.
+- Reference the emitted path in your `files` or `js` array. A `.ts` path builds fine but 404s in the browser.
+- When a runtime literal names a `.ts` source, the build prints a warning with the emitted path to use.
+- The file follows the content script contract: `export default` a synchronous function that returns an optional cleanup.
+
+See [Special folders](/docs/features/special-folders) for the full folder contract.
+
+During `extension dev`, scripts that you inject with `executeScript` from `scripts/` are replayed on edit, so the injected code updates live the way declarative `content_scripts` do. See [Reload and HMR](/docs/features/reload-and-hmr).
+
+Scaffold a project that injects a `scripts/` entry at runtime:
+
+```bash
+npx extension@latest create my-extension --template=special-folders-scripts
+```
+
+For the static path, start from the `content` template instead:
+
+```bash
+npx extension@latest create my-extension --template=content
+```
+
+## See also
+
+- [Content scripts](/docs/implementation-guide/content-scripts)
+- [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions)
+- [Special folders](/docs/features/special-folders)
+- [Web-accessible resources](/docs/implementation-guide/web-accessible-resources)
