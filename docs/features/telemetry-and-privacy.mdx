@@ -19,7 +19,7 @@ Extension.js collects a tiny amount of anonymous telemetry to understand which c
 The privacy bar is strict by design:
 
 - Two events total: `command_executed` and `command_failed`
-- Three properties per event: `command`, `success`, `version`
+- Three properties on every event: `command`, `success`, `version`
 - Opt-out with an environment variable, a CLI flag, or a persistent consent command
 - Extension.js samples and caps events to stay well inside the [PostHog](https://posthog.com/) (open-source analytics) free tier
 
@@ -30,7 +30,11 @@ Per CLI run, at most one of:
 | Event              | Sampled                                    | Properties                             |
 | ------------------ | ------------------------------------------ | -------------------------------------- |
 | `command_executed` | 20 % (configurable, see below)             | `command`, `success: true`, `version`  |
-| `command_failed`   | 100 % (Extension.js always sends failures) | `command`, `success: false`, `version` |
+| `command_failed`   | 100 % (Extension.js always sends failures) | `command`, `success: false`, `version`, `code`, `exit_code` |
+
+A failure adds two more properties so a failure count reads as a cause rather than a number. `code` is one name from the CLI's fixed error catalog, for example `E_MANIFEST_NOT_FOUND`, and `exit_code` is the process exit code as an integer from 0 to 255. `code` is checked against the catalog before it is sent, so a Node errno, an error message, or any value that is not a catalog name is dropped and the event reports `E_INTERNAL` instead. No error text ever travels.
+
+When a run offers to download a managed browser on a first run, the command's own event carries the outcome, so an offer someone accepted can be told apart from one that ended the session. `browser_install` is one of `offered`, `accepted`, `declined` or `failed`, `browser_install_browser` names the managed browser, for example `chrome`, and `browser_install_seconds` is the whole number of seconds a download took. There is no separate install event, the counts stay on the two events above.
 
 The `create` command adds two more properties so a broken advertised starter shows up in its failure counts: `template` (the starter name as listed by `extension create --help`, or absent) and `source` (`cli`, or the surface that started the create, for example `templates`). `template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path, or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. The `create` command is also exempt from sampling, so template usage numbers stay accurate.
 
