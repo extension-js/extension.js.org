@@ -11,6 +11,8 @@ keywords:
     "rspack configuration",
     "configuration",
     "via",
+    "webpack",
+    "webpack config",
   ]
 ---
 
@@ -93,6 +95,31 @@ export default {
   },
 };
 ```
+
+## Share a module between entries
+
+Extension.js sets `optimization.splitChunks` to `false` on purpose. The manifest and each HTML page name one file per entry, so a module that three entries import is copied into three bundles. To keep one copy, load the module with `import()` from the pages that need it. Rspack emits one chunk for it, and every page fetches that chunk on demand from the extension origin. A cache group gives the chunk a stable name:
+
+```js
+export default {
+  config: (config) => {
+    config.optimization.splitChunks = {
+      chunks: "async",
+      cacheGroups: {
+        shared: {
+          name: "shared",
+          test: /[\\/]src[\\/]shared[\\/]/,
+          minChunks: 1,
+          enforce: true,
+        },
+      },
+    };
+    return config;
+  },
+};
+```
+
+With this in place, `await import("../shared/big")` from the popup and from the options page both resolve to one emitted `shared.js`. Keep `chunks` at `"async"`. A sync split moves code out of an entry file. The emitted HTML and the manifest reference only that entry file, so the page never loads the split chunk. The service worker cannot use dynamic `import()` and keeps its own copy of the module. A content script can share the chunk too, but it must expose the file through `web_accessible_resources` and import it through `chrome.runtime.getURL`. See [Lazy loading](/docs/implementation-guide/lazy-loading) for both rules.
 
 ## When to use this
 

@@ -16,6 +16,9 @@ keywords:
     "scaffold",
     "yarn dlx",
     "scripts folder dist",
+    "registerContentScripts",
+    "executeScript files",
+    "scripts folder src",
   ]
 ---
 
@@ -134,6 +137,28 @@ Extension.js 會把 `pages/` 中的每個 `.html` 視為 entrypoint，並像 man
 `scripts/` 用來放置動態載入、不綁定特定 HTML 頁面 entry 的可執行腳本。
 
 Extension.js 會把 `scripts/` 中的檔案編譯為 entrypoint，並使用與專案其他部分相同的副檔名解析流程。
+
+### 根目錄位置與輸出路徑
+
+大多數 `scripts/` 設定問題都出在這兩點。
+
+**位置。**`scripts/` 放在 `package.json`（或 `deno.json`）旁邊，也就是專案根目錄，而不是 `src/` 裡。即使 `manifest.json` 位於 `src/`，這條規則仍然成立。唯一的例外是既沒有 `package.json` 也沒有 `deno.json` 的專案，此時 manifest 所在目錄就是根目錄。請見[特殊資料夾的位置](#特殊資料夾的位置)。
+
+**輸出路徑。**注入編譯後的檔案。`scripts/foo.ts` 原始檔會被編譯為 `scripts/foo.js`，所以 `chrome.scripting.executeScript({ files })` 與 `chrome.scripting.registerContentScripts({ js })` 必須寫 `.js` 檔案。寫 `.ts` 路徑時建置正常，但在瀏覽器裡會 404。Extension.js 會在建置時對編譯原始路徑字面值發出警告，並指出應使用的輸出路徑。
+
+```ts background.ts
+// 原始檔：scripts/foo.ts
+// 輸出檔：scripts/foo.js
+
+chrome.scripting.executeScript({
+  target: { tabId },
+  files: ["scripts/foo.js"],
+});
+
+chrome.scripting.registerContentScripts([
+  { id: "foo", matches: ["<all_urls>"], js: ["scripts/foo.js"] },
+]);
+```
 
 ### 要在某處引用該檔案路徑
 
