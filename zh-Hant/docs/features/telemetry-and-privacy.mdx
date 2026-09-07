@@ -30,7 +30,11 @@ Extension.js 會收集極少量的匿名遙測資料，用來了解你執行了�
 | 事件               | 取樣                              | 屬性                                   |
 | ------------------ | --------------------------------- | -------------------------------------- |
 | `command_executed` | 20%（可調整，見下）               | `command`、`success: true`、`version`  |
-| `command_failed`   | 100%（Extension.js 一定回報失敗） | `command`、`success: false`、`version` |
+| `command_failed`   | 100%（Extension.js 一定回報失敗） | `command`、`success: false`、`version`、`code`、`exit_code` |
+
+失敗會附加兩個屬性，讓失敗計數能讀出原因，而不只是一個數字。`code` 取自 CLI 固定的錯誤目錄，例如 `E_MANIFEST_NOT_FOUND`，`exit_code` 是行程結束碼，為 0 到 255 的整數。`code` 在送出前會與目錄核對，因此 Node 的 errno、錯誤訊息或任何不在目錄中的值都會被丟棄，事件改為回報 `E_INTERNAL`。錯誤文字永遠不會送出。
+
+當某次執行在初次啟動時詢問是否下載受管瀏覽器，該命令自身的事件會帶上結果，這樣「使用者接受了下載」就能與「工作階段到此結束」區分開。`browser_install` 為 `offered`、`accepted`、`declined` 或 `failed`，`browser_install_browser` 是受管瀏覽器的名稱，例如 `chrome`，`browser_install_seconds` 是下載所花的整數秒。沒有獨立的安裝事件，計數仍然只在上面兩個事件上。
 
 `create` 指令會多帶兩個屬性，讓損壞的官方起始範本能出現在失敗統計中：`template`（`extension create --help` 列出的起始範本名稱，否則不帶）與 `source`（`cli`，或發起 create 的介面，例如 `templates`）。`template` 在送出前會與已發布的起始範本清單核對。GitHub URL、本地資料夾路徑或任何不是官方名稱的值都會被整個丟棄而不是截斷，因此私有儲存庫或目錄名稱永遠不會離開你的機器。`create` 指令也不參與取樣，因此範本使用量的數字能保持準確。
 
