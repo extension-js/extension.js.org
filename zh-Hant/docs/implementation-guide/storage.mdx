@@ -1,47 +1,80 @@
 ---
-title: "擴充功能的瀏覽器 storage API"
-description: "用瀏覽器 storage API 持久化設定與執行階段狀態。涵蓋 local、sync 與 session storage，以及它們對 service worker 可靠性的影響。"
+title: "擴充功能儲存：local、sync、session 與 managed"
+description: "在 chrome.storage.local、sync、session 與 managed 之間做選擇。配額、更新或解除安裝後哪些資料留存、哪些情境能讀取每個區域，以及配額超限的主控台錯誤。"
 keywords:
   [
+    "chrome.storage",
+    "storage.local",
+    "storage.sync",
+    "storage.session",
+    "storage.managed",
+    "QUOTA_BYTES quota exceeded",
+    "QUOTA_BYTES_PER_ITEM",
+    "MAX_WRITE_OPERATIONS_PER_MINUTE",
+    "setAccessLevel",
+    "managed_schema",
+    "chrome extension storage limit",
     "extension.js",
     "chrome",
-    "browser",
-    "manifest",
-    "service worker",
-    "docs",
-    "implementation guide",
-    "storage",
+    "firefox",
+    "safari",
   ]
 ---
 
-Extension.js 並不會取代或包裝瀏覽器的 storage API，它只會編譯呼叫這些 API 的程式碼。Storage area 的選擇仍然重要，因為它會影響 service worker 的可靠性、跨瀏覽器一致性以及未來的資料結構變更。
+一個擴充功能有四個儲存區域，而且它們不能互相替代。`local` 保存裝置上的資料，`sync` 在已登入的設定檔之間攜帶少量偏好，`session` 只要瀏覽器在執行就留在記憶體裡，`managed` 則是唯讀的政策資料。本頁給出每個區域的配額與可讀方，說明讓 `storage.session` 遠離 content script 的規則，以及區域寫滿或被限流時印出的主控台行。
 
-## 選擇正確的 storage area
+## 保存狀態的三種方式，以及為什麼 storage 勝出
 
-| Storage area      | 適用於                             | 備註                                 |
-| ----------------- | ---------------------------------- | ------------------------------------ |
-| `storage.local`   | 在單一裝置上持久的擴充功能狀態     | 大多數擴充功能資料的最佳預設         |
-| `storage.sync`    | 跨已登入瀏覽器同步的少量使用者偏好 | 對配額敏感，且比 local 慢            |
-| `storage.session` | 短暫的工作階段狀態                 | 適合短時的執行階段協調               |
-| `storage.managed` | 企業管理的政策值                   | 由 schema 驅動，對擴充功能而言為唯讀 |
+**service worker 裡的變數。** Manifest V3 的背景 service worker 會在閒置時停止，並在下一個事件到來時重新啟動。你放在記憶體裡的一切都消失了，而且沒有任何錯誤來提醒你。
 
-## 建議的預設
+**擴充功能頁面裡的 `localStorage` 或 IndexedDB。** 兩者都以頁面來源為範圍。service worker 根本不能使用 `localStorage`，而 content script 看到的是宿主頁面的儲存，不是你的。
 
-- 把 `storage.local` 用在功能狀態、快取與持久設定。
-- 只把 `storage.sync` 用在少量、對使用者有意義的偏好。
-- 把 `storage.session` 用在不該在瀏覽器完整重啟後仍保留的狀態。
-- 把 `storage.managed` 當成獨立的企業路徑，而不是你一般的設定機制。
+**一個 `chrome.storage` 區域。** 非同步，任何擁有 `storage` 權限的擴充功能情境都能讀取，也不受 worker 重新啟動影響。這是擴充功能狀態的預設答案。
 
-## 友善 service worker 的模式
+| 狀態存放在哪裡                  | 是否撐過 service worker 重新啟動  | 其他情境能否讀取   | API 形態          |
+| ------------------------------- | --------------------------------- | ------------------ | ----------------- |
+| service worker 變數             | 否                                | 否                 | 同步              |
+| 擴充功能頁面的 `localStorage`   | 不適用，以頁面為範圍              | 否                 | 同步              |
+| `chrome.storage` 區域           | 是，瀏覽器重新啟動時的 `session` 除外 | 是             | Promise 或回呼    |
 
-Manifest V3（MV3）的 background service worker 可能在事件之間停止與重新啟動，因此不要只依賴記憶體中的狀態。
+## 四個儲存區域
 
-- 在需要時從 storage 還原關鍵狀態。
-- 把記憶體快取當成最佳化手段使用。
-- 讓啟動工作小巧，使事件處理保持即時。
-- 持久化已版本化的設定變更，而不是假設 background script 會無限期執行。
+下面的配額是 Chromium 的預設值。
 
-## Settings 模組範例
+| 區域      | 配額                                              | 是否撐過瀏覽器重新啟動      | 更新或解除安裝後是否留存                  | 哪些情境能讀                                          |
+| --------- | ------------------------------------------------- | --------------------------- | ------------------------------------------ | ------------------------------------------------------ |
+| `local`   | 約 10 MB，`unlimitedStorage` 可解除上限           | 是                          | 更新後留存，解除安裝時移除                 | 每個擴充功能情境，含 content script                    |
+| `sync`    | 合計 100 KB，單項 8 KB，最多 512 項               | 是，並跟隨設定檔            | 更新後留存，解除安裝時移除                 | 每個擴充功能情境，含 content script                    |
+| `session` | 約 10 MB，保存在記憶體中                          | 否，瀏覽器關閉時清空        | 擴充功能重新載入或更新時清空               | 僅受信任情境，直到 `setAccessLevel` 放開               |
+| `managed` | 由政策設定，你的程式碼無法寫入                    | 是，由政策提供              | 來自政策，而不是來自你的資料               | 每個擴充功能情境，唯讀                                  |
+
+`sync` 還會限流寫入：大約每分鐘 120 次、每小時 1,800 次。放在按鍵處理常式裡的寫入會很快撞到這個上限，所以請做去抖動，只寫一次。
+
+依資料回答的問題來選擇：
+
+- 功能狀態、快取與持久設定放在 `local`。
+- 使用者期望在第二台電腦上看到的少量偏好放在 `sync`。
+- 不該活過瀏覽器的單次執行協調資料放在 `session`。
+- 企業政策值從 `managed` 讀取，絕不與使用者可編輯的設定混在一起。
+
+## Manifest 片段
+
+`storage` 權限涵蓋全部四個區域。`unlimitedStorage` 提高 `local` 的上限，`managed` 需要一個 schema 檔案：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "permissions": ["storage", "unlimitedStorage"],
+  "storage": {
+    "managed_schema": "schema.json"
+  },
+  "background": { "service_worker": "background.js" }
+}
+```
+
+一個從儲存還原、而不是信任記憶體的設定模組：
 
 ```ts
 const SETTINGS_KEY = "settings";
@@ -58,31 +91,65 @@ export async function setSettings(nextSettings: {
 }
 ```
 
-## Storage 設計檢查清單
+## 從 content script 讀取 `storage.session`
 
-1. 決定哪些值必須在瀏覽器重新啟動後仍然保留。
-2. 決定哪些值（如果有的話）需要在多裝置間同步。
-3. 在首次發佈前為儲存的資料結構建立版本。
-4. 為改名的鍵或變更的結構保留遷移路徑。
-5. 不要在可被使用者端讀取的擴充功能 storage 中存放機密，除非你完全接受任何擴充功能程式碼都能讀取它。
+`storage.session` 一開始對不受信任的情境是關閉的，而 content script 正是這種情境。從那裡讀取會擲出錯誤，而不是回傳一個空物件。請在 content script 發出請求之前，從 service worker 裡開放一次這個區域：
 
-## Managed storage
+```ts
+// 在 service worker 中。
+chrome.storage.session.setAccessLevel({
+  accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS",
+});
+```
 
-如果你使用 `storage.managed`，請在 `manifest.json` 中搭配有效的 `storage.managed_schema` 檔案。Extension.js 會驗證該 schema 檔案，並輸出到對應路徑。
+當值是敏感的時候，讓區域保持關閉。改為透過一則送往 service worker 的訊息來完成讀取，做法請見 [訊息傳遞](/docs/implementation-guide/messaging)。
 
-schema 路徑必須解析到擴充功能目錄內部的檔案。在瀏覽器啟動之前，Extension.js 會把落在該目錄之外的 `storage.managed_schema` 路徑標記為載入阻擋項。缺少 managed schema 時，Chrome 會拒絕整個擴充功能。
+## 各瀏覽器差異
 
-關於 JSON 資源細節，請見 [JSON](/docs/implementation-guide/json)。
+| 能力                    | Chromium                                                     | Firefox                                                             | Safari             |
+| ----------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- | ------------------ |
+| 命名空間                | `chrome.storage`，Promise 或回呼                             | `browser.storage` 回傳 Promise，同時也可用 `chrome.storage`          | 本文件不涉及       |
+| `storage.sync`          | 已登入的 Chrome 設定檔                                       | 需要 `browser_specific_settings.gecko.id` 之下的附加元件 id          | 本文件不涉及       |
+| `storage.session`       | 存在，在 `setAccessLevel` 執行前僅限受信任情境               | 存在                                                                  | 本文件不涉及       |
+| `storage.managed`       | 企業政策加上 `storage.managed_schema` 鍵                     | 企業政策或原生 manifest，沒有 `managed_schema` 鍵                    | 本文件不涉及       |
 
-## 常見錯誤
+Firefox 實作了全部四個區域。請把配額表裡的數字當作 Chromium 的，並在發布前對著 Firefox 建置核對你的功能所依賴的那個上限。
 
-- 對大型資料集或快取使用 `storage.sync`。
-- 在 MV3 中假設 background 的記憶體變數是持久的。
-- 在沒有版本策略下儲存多個彼此無關的鍵。
-- 把企業管理的 storage 與使用者可編輯的設定混在一起，而沒有分開它們的存取模式。
+如果你的原始碼呼叫 `browser.storage`，同時也要建置 Chromium 目標，請傳入 `--polyfill`。請見 [跨瀏覽器相容](/docs/features/cross-browser-compatibility)。
 
-## 後續步驟
+## 你會看到的主控台錯誤
 
-- 在 [manifest.json](/docs/implementation-guide/manifest-json) 中宣告由 schema 支持的企業 storage。
-- 在 [JSON](/docs/implementation-guide/json) 中檢視資源處理。
-- 透過 [Messaging](/docs/implementation-guide/messaging) 在情境之間搬移狀態。
+把你看到的那一行複製去搜尋。每一行對應一個原因。
+
+`QUOTA_BYTES_PER_ITEM quota exceeded`
+一個 `sync` 鍵之下的單一值大於 8 KB。把這個值拆到多個鍵，或者把該鍵移到 `local`。
+
+`QUOTA_BYTES quota exceeded`
+區域滿了：`sync` 是所有鍵合計 100 KB，`local` 是裝置上限。存少一點，或者為 `local` 這種情況加上 `unlimitedStorage`。
+
+`MAX_WRITE_OPERATIONS_PER_MINUTE quota exceeded`
+一分鐘內的 `sync` 寫入過多，通常是每次按鍵或每次捲動都寫一次。給處理常式做去抖動，只寫一次穩定後的值。
+
+`Access to storage is not allowed from this context.`
+content script 在區域仍然僅限受信任情境時讀取了 `storage.session`。請從 service worker 呼叫 `setAccessLevel`，或者把讀取放到一則訊息之後。
+
+回呼風格的呼叫透過 `chrome.runtime.lastError` 回報這些錯誤，而在你去讀它之前它是靜默的。Promise 形式會 reject，因此在 `try` 區塊裡 `await`，你會看到同樣的文字作為被捕捉的錯誤。
+
+## Extension.js 的做法
+
+Extension.js 不包裝也不取代儲存 API。它只編譯呼叫這些 API 的程式碼，因此上面的平台規則就是全部約定。有兩個建置行為值得知道：
+
+- `storage.managed_schema` 路徑會被驗證，schema 檔案會被產出到輸出目錄。該路徑必須解析到擴充功能目錄內的檔案。Extension.js 會在瀏覽器啟動前把指向目錄之外的路徑標記為載入阻斷，因為 Chrome 會因為缺少 managed schema 而拒絕整個擴充功能。請見 [JSON](/docs/implementation-guide/json)。
+- `--polyfill` 會把 `browser.*` 橋接到 Chromium 目標上，因此同一份原始碼可以為兩個家族呼叫 `browser.storage`。
+
+因為背景 service worker 會重新啟動，請寫下重要的狀態並按需讀回。把記憶體裡的副本當作最佳化，永遠不要當作事實來源。[背景腳本](/docs/implementation-guide/background) 說明了這個重新啟動模型。
+
+在第一個版本之前就為你儲存的資料形狀定好版本，並為重新命名的鍵保留移轉路徑。存下來的物件會比寫下它的程式碼活得更久。
+
+## 參見
+
+- [訊息傳遞](/docs/implementation-guide/messaging)
+- [背景腳本 / service worker](/docs/implementation-guide/background)
+- [JSON](/docs/implementation-guide/json)
+- [manifest.json](/docs/implementation-guide/manifest-json)
+- [權限與主機權限](/docs/implementation-guide/permissions-and-host-permissions)

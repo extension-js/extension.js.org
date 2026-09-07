@@ -1,92 +1,46 @@
 ---
-title: "Web-accessible resources 與建置期合併"
-description: "只開放網頁需要的擴充功能資產。Extension.js 會自動把使用者宣告的 web_accessible_resources 與建置時的需求合併。"
+title: "讓網頁可以讀取擴充功能中的檔案"
+description: "宣告 web_accessible_resources，讓頁面或 content script 能載入擴充功能裡的圖片、字型、腳本或樣式表，並了解 glob 規則、runtime.getURL 呼叫、主控台錯誤以及 Extension.js 的合併行為。"
 keywords:
   [
+    "web_accessible_resources",
+    "use_dynamic_url",
+    "runtime.getURL",
+    "chrome-extension URL",
+    "moz-extension URL",
+    "Denying load of chrome-extension",
+    "web accessible resource glob",
+    "content script asset",
+    "chrome extension image not loading in page",
     "extension.js",
     "chrome",
     "firefox",
-    "browser",
+    "safari",
     "manifest",
-    "hmr",
-    "content script",
-    "docs",
   ]
 ---
 
-只開放網頁或外部擴充功能情境必須存取的擴充功能資產。
+在你另行宣告之前，擴充功能裡的每個檔案都只屬於你的擴充功能。網頁無法載入它，執行在該頁面裡的 content script 也不行。`web_accessible_resources` 這個 manifest 鍵就是把特定檔案開放給特定來源的白名單。本頁說明哪些呼叫端需要項目、物件形式如何運作、glob 與執行階段 URL 的行為，以及缺少項目時主控台會印出哪些行。
 
-Extension.js 會把使用者宣告的 `web_accessible_resources` 與建置時發現的需求合併，並套用對應目標的 manifest 標準化。
+## 檔案被讀取的三種方式，以及哪一種需要宣告
 
-## 範本範例
+**來自擴充功能頁面。** popup、options 頁面、side panel 或 devtools 頁面執行在擴充功能來源上。它可以讀取套件裡的任何檔案，完全不涉及 `web_accessible_resources` 項目。
 
-### `content`
+**來自 content script。** 腳本本身的程式碼已經在執行，但它引入的資源並不因此被涵蓋。指向 `chrome-extension://` URL 的 `img` 元素、`fetch`、`FontFace` 或動態 `import()` 都是資源載入，因此該檔案必須被列出。
 
-![content template screenshot](/images/examples/content/screenshot.png)
+**來自頁面自己的程式碼。** 頁面 MAIN world 中的任何東西，包括你用 `world: "MAIN"` 注入的腳本，都屬於網頁程式碼。它需要該檔案被列出，也需要頁面來源落在 `matches` 之內。
 
-Content script 使用 web-accessible resources 把樣式與資產注入頁面。
+| 呼叫端                                 | 需要 `resources` 項目 | 需要 `matches` 涵蓋該頁面 |
+| -------------------------------------- | --------------------- | ------------------------- |
+| 擴充功能頁面（popup、options、devtools） | 否                    | 否                        |
+| Content script，isolated world         | 是                    | 是                        |
+| 頁面程式碼或注入的 MAIN world 腳本     | 是                    | 是                        |
 
-<CodeGroup>
+要記住的規則是：瀏覽器依誰去取這個 URL 來判斷，而不是依誰寫了這段程式碼。
 
-```bash npm
-npx extension@latest create my-extension --template=content
-```
+## Manifest 片段
 
-```bash pnpm
-pnpx extension@latest create my-extension --template=content
-```
-
-```bash yarn
-yarn dlx extension@latest create my-extension --template=content
-```
-
-```bash bun
-bunx extension@latest create my-extension --template=content
-```
-
-```bash deno
-deno run -A npm:extension@latest create my-extension --template=content
-```
-
-</CodeGroup>
-
-儲存庫：[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
-
-## Web-accessible resource 能力
-
-| 能力                       | 你會獲得的成果                                                          |
-| -------------------------- | ----------------------------------------------------------------------- |
-| Manifest V2/V3 schema 處理 | 依 manifest 版本處理陣列與物件兩種 `web_accessible_resources` 形態      |
-| 具備建置感知的合併         | 把宣告的資源與建置／執行階段必要的進入點合併                            |
-| 路徑標準化                 | 把 WAR（web-accessible resource）路徑解析到對應瀏覽器目標的正確輸出位置 |
-| 安全控制面                 | 以 `resources` 與 `matches` 明確管理存取規則                            |
-
-## Manifest schema
-
-### Manifest V3
-
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": ["images/*.png", "fonts/*.woff2"],
-      "matches": ["<all_urls>"]
-    }
-  ]
-}
-```
-
-### Manifest V2
-
-```json
-{
-  "web_accessible_resources": ["images/*.png", "scripts/*.js", "styles/*.css"]
-}
-```
-
-## `manifest.json` 範例
-
-如果你透過受支援的 content script 或建置路徑 import 資產，Extension.js 會自動加入必要的 WAR 進入點。如果網頁需要直接存取特定資產，請手動宣告這些資源。
+Manifest V3 接受一個物件陣列。每個物件把一組 `resources` 與允許讀取它們的 `matches` 樣式配對：
 
 ```json
 {
@@ -95,105 +49,100 @@ deno run -A npm:extension@latest create my-extension --template=content
   "version": "1.0.0",
   "web_accessible_resources": [
     {
-      "resources": ["images/*.png", "scripts/*.js", "styles/*.css"],
-      "matches": ["<all_urls>"]
+      "resources": ["images/logo.png", "fonts/*.woff2"],
+      "matches": ["https://example.com/*"],
+      "use_dynamic_url": false
     }
   ],
   "content_scripts": [
     {
       "matches": ["https://example.com/*"],
-      "css": ["styles/content.css"],
-      "js": ["scripts/content.js"]
+      "js": ["content_scripts/content.js"]
     }
   ]
 }
 ```
 
-## Extension.js 會自動加上什麼
+- `resources` 列出相對於擴充功能根目錄的路徑。相對路徑會從存放 `manifest.json` 的資料夾開始解析。
+- `matches` 限定哪些頁面來源可以讀取這些檔案。在功能允許的範圍內把它寫得盡量窄。
+- `use_dynamic_url` 會要求瀏覽器給出一個按工作階段輪換的 URL，讓頁面無法用固定 id 為你的擴充功能建立指紋。請把它當作 Chromium 欄位。
 
-當執行階段需要某些資產被頁面存取時，Extension.js 可以從建置輸出擴充 WAR 進入點。
+`resources` 裡允許使用 glob，Extension.js 會原樣保留它們。它不會把 `fonts/*.woff2` 展開成明確的檔案清單，因此產出的 manifest 與你的原始碼帶著同一個樣式。當你已經知道檔名時，明確列出仍然比較安全。
 
-常見例子包含：
+在正規化過程中，Extension.js 會丟棄沒有 `resources` 陣列的 Manifest V3 項目，因為瀏覽器無法據此運作。
 
-- 被 content script import 的資產。
-- Content script 的 CSS 輸出。
-- 上述進入點所引用的字型或靜態資產。
-- 重新載入行為所需的開發期執行階段支援。
+## 在執行階段建立 URL
 
-自動納入很方便，但你仍應檢視最終開放給網頁的資產集合。
-
-包含連接埠或連接埠萬用字元的比對模式（例如 `http://localhost:3000/*` 或 `https://example.com:*/*`）是有效的：建置會接受 Chrome 能載入的每一種模式，而不會拒絕它們。
-
-## 開發行為
-
-- 在開發期，Extension.js 會修補 WAR 進入點以支援重新載入與 hot module replacement（HMR）的資產存取。
-- Extension.js 可在需要時自動把與 content script 相關的資產納入 WAR。
-- Extension.js 會把路徑標準化，移除 `public/` 前綴與開頭的 `/`，以產生輸出安全的路徑。
-
-## 輸出與解析注意事項
-
-- Extension.js 會透過 public 資產流程複製 `public/` 中的資源，你也可以從擴充功能根路徑宣告它們。
-- 相對的 WAR 資源路徑會從 manifest 資料夾解析。
-- 你可以使用 glob，但 match pattern 必須對目標瀏覽器有效。
-- Extension.js 會在標準化時捨棄沒有 `resources` 的 Manifest V3（MV3）進入點。
-- Extension.js 會原樣保留 glob，不會展開成明確的檔案列表。
-
-## 執行階段使用
-
-使用瀏覽器執行階段的 URL 輔助函式，而不要手動建立擴充功能 URL：
+不要手寫 `chrome-extension://` URL。向執行階段索取：
 
 ```ts
 const logoUrl = chrome.runtime.getURL("/images/logo.png");
+document.body.appendChild(Object.assign(new Image(), { src: logoUrl }));
 ```
 
-如果頁面或 content script 無法讀取你預期可存取的資產，請檢查：
+像 `/images/logo.png` 這樣的根絕對路徑是穩定寫法，也是 [路徑解析](/docs/features/path-resolution) 會為你改寫的形式。在 content script 裡，同樣的呼叫是到達該檔案的唯一正確方式，因為注入的樣式表或元素中的裸 `/images/logo.png` 會相對於宿主頁面解析。[CSS](/docs/implementation-guide/css) 用一個網頁字型走完了這個情境。
 
-1. 該資產是否真的存在於輸出中。
-2. WAR 進入點是否暴露了正確的 `resources`。
-3. `matches` 範圍是否包含正在嘗試讀取它的頁面。
-4. 該資產是否其實應該只保留給擴充功能頁面私用。
+在 Firefox 上這個輔助函式更重要。Firefox 為每次安裝在 `moz-extension://` 來源裡產生隨機 UUID，因此你從某個設定檔複製來的 URL 在其他設定檔裡都是錯的。
 
-## 最佳實務
+## 各瀏覽器差異
 
-- 把 WAR 進入點保持最少；只開放外部情境必須讀取的內容。
-- 為了更好的安全性，優先使用明確的資源路徑，而不是寬鬆的 glob。
-- 在 Chromium 與 Firefox 目標間驗證 WAR 的 match pattern 與資源路徑。
-- 使用 `chrome.runtime.getURL()`／`browser.runtime.getURL()` 建立執行階段安全的 URL。
-- 在加入 content script import、字型或頁面可存取的靜態資產後，重新審視 WAR。
+| 能力               | Chromium                                        | Firefox                                                    | Safari             |
+| ------------------ | ----------------------------------------------- | ------------------------------------------------------------ | ------------------ |
+| Manifest V3 形狀   | 帶 `resources` 與 `matches` 的物件陣列          | 帶 `resources` 與 `matches` 的物件陣列                     | 本文件不涉及       |
+| Manifest V2 形狀   | 扁平的路徑字串陣列                              | 扁平的路徑字串陣列，Manifest V2 附加元件仍在使用            | 本文件不涉及       |
+| 擴充功能來源       | `chrome-extension://<id>/`，每次安裝一個 id     | `moz-extension://<uuid>/`，每次安裝一個隨機 UUID           | 本文件不涉及       |
+| 執行階段 URL 輔助函式 | `chrome.runtime.getURL`                      | `browser.runtime.getURL`，同時也可用 `chrome.runtime.getURL` | 本文件不涉及       |
+| `use_dynamic_url`  | 支援                                            | 請把該欄位當作僅限 Chromium                                | 本文件不涉及       |
 
-### 安全檢查清單
+在 Safari 上，只啟用擴充功能還不夠。在你授予網站存取權之前，頁面上不會執行 content script，因此根本不會有人來請求這個資源。啟用與授權步驟請見 [Safari](/docs/browsers/safari)。
 
-- 把 `matches` 範圍限制在實際需要存取的網域。
-- 當小型明確列表足夠時，避免使用寬鬆的萬用字元資源 glob。
-- 讓 WAR 進入點聚焦在不敏感的資產。
-- 在新增 content script import 或執行階段資產查找時，重新審視 WAR。
+如果你的原始碼是以 `browser.*` 撰寫，同時也要建置 Chromium 目標，請傳入 `--polyfill`，讓該命名空間在那裡存在。請見 [跨瀏覽器相容](/docs/features/cross-browser-compatibility)。
 
-### 範圍恰當 vs 過於寬鬆的範例
+## 你會看到的主控台錯誤
 
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": ["images/logo.png", "fonts/inter.woff2"],
-      "matches": ["https://example.com/*"]
-    }
-  ]
-}
+把你看到的那一行複製去搜尋。每一行對應一個原因。
+
+`Denying load of chrome-extension://<id>/images/logo.png. Resources must be listed in the web_accessible_resources manifest key.`
+該檔案不在任何 `resources` 陣列裡，或者請求它的頁面在 `matches` 之外。加上這個路徑，然後確認樣式涵蓋了該頁面來源。
+
+`GET chrome-extension://invalid/ net::ERR_FAILED`
+同一次拒絕在網路面板中的樣子。Chromium 會把被封鎖的擴充功能 URL 改寫成 `chrome-extension://invalid/`，因此請求裡看不到 id。要修的是 manifest 項目，而不是這次 fetch。
+
+`Security Error: Content at https://example.com/ may not load or link to moz-extension://<uuid>/images/logo.png.`
+同一個問題在 Firefox 上的形式。附加元件沒有列出該檔案，因此頁面不被允許連結到它。
+
+`Failed to load resource: net::ERR_FILE_NOT_FOUND`
+項目是對的，但產物裡沒有這個檔案。到 `dist/<browser>/` 檢查你宣告的那個確切路徑。
+
+`Uncaught ReferenceError: browser is not defined`
+一次 `browser.runtime.getURL` 呼叫落到了沒有 polyfill 的 Chromium 目標上。請用 `--polyfill` 建置，或者改呼叫 `chrome.runtime.getURL`。
+
+## Extension.js 的做法
+
+Extension.js 會把你宣告的內容與建置發現的內容合併，然後為每個目標正規化結果：
+
+- 當執行階段需要頁面讀取這些資源時，content script 匯入的資源、content script 的 CSS 產物以及產出的字型會被自動加入。
+- 路徑會為產物正規化。Extension.js 會去掉 `public/` 前綴和開頭的斜線，因此項目指向檔案真正落地的位置。
+- glob 保持原樣，帶連接埠或連接埠萬用字元的比對樣式（例如 `http://localhost:3000/*`）會被接受而不是被拒絕。
+- 在開發中，Extension.js 會為項目集合打補丁，讓重新載入與熱模組替換所需的資源保持可達。該補丁僅用於開發。請見 [重新載入與 HMR](/docs/features/reload-and-hmr)。
+
+自動合併很方便，但它不是審閱。發布前請讀一遍產出的 `dist/<browser>/manifest.json`，確認公開出去的集合正是你打算公開的集合：
+
+- 把 `matches` 限定在確實需要該檔案的網域上。
+- 優先使用明確的資源清單，而不是寬鬆的 glob。
+- 讓敏感檔案留在白名單之外，改從擴充功能頁面提供它們。
+- 每次新增 content script 匯入、字型或新的靜態資源後，重新審閱這份清單。
+
+建立一個把擴充功能字型載入頁面的專案，這是這個鍵最小的完整範例：
+
+```bash
+npx extension@latest create my-extension --template=content-custom-font
 ```
 
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": ["*"],
-      "matches": ["<all_urls>"]
-    }
-  ]
-}
-```
+## 參見
 
-## 後續步驟
-
-- 在 [dev 更新行為](/docs/workflows/dev-update-behavior)中了解更新結果。
-- 進一步了解 [Special folders](/docs/features/special-folders)。
-- 繼續閱讀[指令參考](/docs/commands/dev)。
+- [Content script](/docs/implementation-guide/content-scripts)
+- [在執行階段注入腳本](/docs/implementation-guide/inject-scripts)
+- [CSS](/docs/implementation-guide/css)
+- [延遲載入](/docs/implementation-guide/lazy-loading)
+- [特殊資料夾](/docs/features/special-folders)

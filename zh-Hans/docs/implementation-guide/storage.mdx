@@ -1,47 +1,80 @@
 ---
-title: "扩展的浏览器存储 API"
-description: "用浏览器存储 API 持久化设置与运行时状态。涵盖 local、sync 与 session 存储以及它们对 service worker 可靠性的影响。"
+title: "扩展存储：local、sync、session 与 managed"
+description: "在 chrome.storage.local、sync、session 与 managed 之间做选择。配额、更新或卸载后哪些数据留存、哪些上下文能读取每个区域，以及配额超限的控制台报错。"
 keywords:
   [
+    "chrome.storage",
+    "storage.local",
+    "storage.sync",
+    "storage.session",
+    "storage.managed",
+    "QUOTA_BYTES quota exceeded",
+    "QUOTA_BYTES_PER_ITEM",
+    "MAX_WRITE_OPERATIONS_PER_MINUTE",
+    "setAccessLevel",
+    "managed_schema",
+    "chrome extension storage limit",
     "extension.js",
     "chrome",
-    "browser",
-    "manifest",
-    "service worker",
-    "docs",
-    "implementation guide",
-    "storage",
+    "firefox",
+    "safari",
   ]
 ---
 
-Extension.js 不会替换或包装浏览器存储 API；它只编译你调用这些 API 的代码。但存储区域的选择仍然重要。它会影响 service worker 的可靠性、跨浏览器的一致性，以及未来的数据结构变化。
+一个扩展有四个存储区域，而且它们不能互相替代。`local` 保存设备上的数据，`sync` 在已登录的配置文件之间携带少量偏好，`session` 只要浏览器在运行就留在内存里，`managed` 则是只读的策略数据。本页给出每个区域的配额与可读方，说明让 `storage.session` 远离 content script 的规则，以及区域写满或被限流时打印的控制台行。
 
-## 选择合适的存储区域
+## 保存状态的三种方式，以及为什么 storage 胜出
 
-| 存储区域          | 在何时使用                           | 备注                        |
-| ----------------- | ------------------------------------ | --------------------------- |
-| `storage.local`   | 单设备上的持久扩展状态               | 大多数扩展数据的最佳默认值  |
-| `storage.sync`    | 在已登录浏览器之间同步的小型用户偏好 | 受配额限制，速度比 local 慢 |
-| `storage.session` | 短暂的会话状态                       | 适合短暂的运行时协调        |
-| `storage.managed` | 企业管理的策略值                     | 由 schema 驱动，对扩展只读  |
+**service worker 里的变量。** Manifest V3 的后台 service worker 会在空闲时停止，并在下一个事件到来时重新启动。你放在内存里的一切都消失了，而且没有任何报错来提醒你。
 
-## 推荐的默认设置
+**扩展页面里的 `localStorage` 或 IndexedDB。** 两者都以页面来源为作用域。service worker 根本不能使用 `localStorage`，而 content script 看到的是宿主页面的存储，不是你的。
 
-- 用 `storage.local` 存放功能状态、缓存以及持久设置。
-- 仅在小型、用户层面有意义的偏好上使用 `storage.sync`。
-- 用 `storage.session` 存放不应在完整浏览器重启后保留的状态。
-- 把 `storage.managed` 当作一条独立的企业路径，而不是通用设置机制。
+**一个 `chrome.storage` 区域。** 异步，任何拥有 `storage` 权限的扩展上下文都能读取，也不受 worker 重启影响。这是扩展状态的默认答案。
 
-## 对 service worker 友好的模式
+| 状态存放在哪里                  | 是否挺过 service worker 重启      | 其他上下文能否读取 | API 形态          |
+| ------------------------------- | --------------------------------- | ------------------ | ----------------- |
+| service worker 变量             | 否                                | 否                 | 同步              |
+| 扩展页面的 `localStorage`       | 不适用，以页面为作用域            | 否                 | 同步              |
+| `chrome.storage` 区域           | 是，浏览器重启时的 `session` 除外  | 是                 | Promise 或回调    |
 
-Manifest V3（MV3）的后台 service worker 可能在事件之间停止并重新启动，所以不要仅依赖内存状态。
+## 四个存储区域
 
-- 按需从存储中恢复关键状态。
-- 把内存缓存当作一种优化，而非依赖。
-- 保持启动开销小，让事件处理保持响应。
-- 持久化带版本的设置变更，而不是假设 background 脚本始终运行。
+下面的配额是 Chromium 的默认值。
 
-## 设置模块示例
+| 区域      | 配额                                              | 是否挺过浏览器重启          | 更新或卸载后是否留存                      | 哪些上下文能读                                        |
+| --------- | ------------------------------------------------- | --------------------------- | ------------------------------------------ | ------------------------------------------------------ |
+| `local`   | 约 10 MB，`unlimitedStorage` 可解除上限           | 是                          | 更新后留存，卸载时移除                     | 每个扩展上下文，含 content script                      |
+| `sync`    | 总计 100 KB，单项 8 KB，最多 512 项               | 是，并跟随配置文件          | 更新后留存，卸载时移除                     | 每个扩展上下文，含 content script                      |
+| `session` | 约 10 MB，保存在内存中                            | 否，浏览器关闭时清空        | 扩展重载或更新时清空                       | 仅受信任上下文，直到 `setAccessLevel` 放开             |
+| `managed` | 由策略设定，你的代码无法写入                      | 是，由策略提供              | 来自策略，而不是来自你的数据               | 每个扩展上下文，只读                                    |
+
+`sync` 还会限流写入：大约每分钟 120 次、每小时 1,800 次。放在按键处理器里的写入会很快撞到这个上限，所以请做防抖，只写一次。
+
+按数据回答的问题来选择：
+
+- 功能状态、缓存与持久设置放在 `local`。
+- 用户期望在第二台电脑上看到的少量偏好放在 `sync`。
+- 不该活过浏览器的单次运行协调数据放在 `session`。
+- 企业策略值从 `managed` 读取，绝不与用户可编辑的设置混在一起。
+
+## Manifest 片段
+
+`storage` 权限覆盖全部四个区域。`unlimitedStorage` 提高 `local` 的上限，`managed` 需要一个 schema 文件：
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "permissions": ["storage", "unlimitedStorage"],
+  "storage": {
+    "managed_schema": "schema.json"
+  },
+  "background": { "service_worker": "background.js" }
+}
+```
+
+一个从存储恢复、而不是信任内存的设置模块：
 
 ```ts
 const SETTINGS_KEY = "settings";
@@ -58,31 +91,65 @@ export async function setSettings(nextSettings: {
 }
 ```
 
-## 存储设计清单
+## 从 content script 读取 `storage.session`
 
-1. 决定哪些值必须在浏览器重启后仍然存在。
-2. 决定（如果有）哪些值应在设备间同步。
-3. 在首次发布前为存储的数据结构定义版本。
-4. 为被重命名的键或结构变更准备迁移路径。
-5. 不要在客户端可读的扩展存储中保存密钥，除非你完全接受任何扩展代码都能读取它们。
+`storage.session` 一开始对不受信任的上下文是关闭的，而 content script 正是这种上下文。从那里读取会抛错，而不是返回一个空对象。请在 content script 发起请求之前，从 service worker 里开放一次这个区域：
 
-## Managed 存储
+```ts
+// 在 service worker 中。
+chrome.storage.session.setAccessLevel({
+  accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS",
+});
+```
 
-如果你使用 `storage.managed`，请把运行时代码与 `manifest.json` 中合法的 `storage.managed_schema` 文件搭配使用。Extension.js 会校验并把该 schema 文件输出到对应路径。
+当值是敏感的时候，让区域保持关闭。改为通过一条发往 service worker 的消息来完成读取，做法见 [消息传递](/docs/implementation-guide/messaging)。
 
-schema 路径必须解析到扩展目录内部的一个文件。在浏览器启动之前，Extension.js 会把落在该目录之外的 `storage.managed_schema` 路径标记为加载阻断项。缺少 managed schema 时，Chrome 会拒绝整个扩展。
+## 各浏览器差异
 
-关于 JSON 资源的详情，参见 [JSON](/docs/implementation-guide/json)。
+| 能力                    | Chromium                                                     | Firefox                                                             | Safari             |
+| ----------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- | ------------------ |
+| 命名空间                | `chrome.storage`，Promise 或回调                             | `browser.storage` 返回 Promise，同时也可用 `chrome.storage`          | 本文档不涉及       |
+| `storage.sync`          | 已登录的 Chrome 配置文件                                     | 需要 `browser_specific_settings.gecko.id` 下的附加组件 id            | 本文档不涉及       |
+| `storage.session`       | 存在，在 `setAccessLevel` 运行前仅限受信任上下文             | 存在                                                                  | 本文档不涉及       |
+| `storage.managed`       | 企业策略加上 `storage.managed_schema` 键                     | 企业策略或原生 manifest，没有 `managed_schema` 键                    | 本文档不涉及       |
 
-## 常见错误
+Firefox 实现了全部四个区域。请把配额表里的数字当作 Chromium 的，并在发布前对着 Firefox 构建核对你的功能所依赖的那个上限。
 
-- 把 `storage.sync` 用于大型数据集或缓存。
-- 在 MV3 中假设 background 内存变量是持久的。
-- 在没有版本化策略的情况下存储多个互不关联的键。
-- 把企业管理的存储与用户可编辑的设置混在一起，而不区分它们的访问模式。
+如果你的源码调用 `browser.storage`，同时也要构建 Chromium 目标，请传入 `--polyfill`。参见 [跨浏览器兼容](/docs/features/cross-browser-compatibility)。
 
-## 下一步
+## 你会看到的控制台报错
 
-- 在 [manifest.json](/docs/implementation-guide/manifest-json) 中声明由 schema 支撑的企业存储。
-- 在 [JSON](/docs/implementation-guide/json) 中回顾资源处理。
-- 用 [消息通信](/docs/implementation-guide/messaging) 在上下文之间移动状态。
+把你看到的那一行复制去搜索。每一行对应一个原因。
+
+`QUOTA_BYTES_PER_ITEM quota exceeded`
+一个 `sync` 键下的单个值大于 8 KB。把这个值拆到多个键，或者把该键移到 `local`。
+
+`QUOTA_BYTES quota exceeded`
+区域满了：`sync` 是所有键合计 100 KB，`local` 是设备上限。存少一点，或者为 `local` 这种情况加上 `unlimitedStorage`。
+
+`MAX_WRITE_OPERATIONS_PER_MINUTE quota exceeded`
+一分钟内的 `sync` 写入过多，通常是每次按键或每次滚动都写一次。给处理器做防抖，只写一次稳定后的值。
+
+`Access to storage is not allowed from this context.`
+content script 在区域仍然仅限受信任上下文时读取了 `storage.session`。请从 service worker 调用 `setAccessLevel`，或者把读取放到一条消息之后。
+
+回调风格的调用通过 `chrome.runtime.lastError` 报告这些错误，而在你去读它之前它是静默的。Promise 形式会 reject，因此在 `try` 块里 `await`，你会看到同样的文本作为被捕获的错误。
+
+## Extension.js 的做法
+
+Extension.js 不包装也不替换存储 API。它只编译调用这些 API 的代码，因此上面的平台规则就是全部约定。有两个构建行为值得知道：
+
+- `storage.managed_schema` 路径会被校验，schema 文件会被产出到输出目录。该路径必须解析到扩展目录内的文件。Extension.js 会在浏览器启动前把指向目录之外的路径标记为加载阻断，因为 Chrome 会因为缺少 managed schema 而拒绝整个扩展。参见 [JSON](/docs/implementation-guide/json)。
+- `--polyfill` 会把 `browser.*` 桥接到 Chromium 目标上，因此同一份源码可以为两个家族调用 `browser.storage`。
+
+因为后台 service worker 会重启，请写下重要的状态并按需读回。把内存里的副本当作优化，永远不要当作事实来源。[后台脚本](/docs/implementation-guide/background) 讲解了这个重启模型。
+
+在首个版本之前就为你存储的数据形状定好版本，并为重命名的键保留迁移路径。存下来的对象会比写下它的代码活得更久。
+
+## 参见
+
+- [消息传递](/docs/implementation-guide/messaging)
+- [后台脚本 / service worker](/docs/implementation-guide/background)
+- [JSON](/docs/implementation-guide/json)
+- [manifest.json](/docs/implementation-guide/manifest-json)
+- [权限与主机权限](/docs/implementation-guide/permissions-and-host-permissions)
