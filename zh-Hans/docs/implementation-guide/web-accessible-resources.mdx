@@ -1,92 +1,46 @@
 ---
-title: "Web-accessible 资源与构建期合并"
-description: "只暴露网页确实需要的扩展资源。Extension.js 会自动把用户声明的 web_accessible_resources 与构建期的需求合并起来。"
+title: "让网页可以读取扩展中的文件"
+description: "声明 web_accessible_resources，让页面或 content script 能加载扩展里的图片、字体、脚本或样式表，并了解 glob 规则、runtime.getURL 调用、控制台报错以及 Extension.js 的合并行为。"
 keywords:
   [
+    "web_accessible_resources",
+    "use_dynamic_url",
+    "runtime.getURL",
+    "chrome-extension URL",
+    "moz-extension URL",
+    "Denying load of chrome-extension",
+    "web accessible resource glob",
+    "content script asset",
+    "chrome extension image not loading in page",
     "extension.js",
     "chrome",
     "firefox",
-    "browser",
+    "safari",
     "manifest",
-    "hmr",
-    "content script",
-    "docs",
   ]
 ---
 
-只暴露网页或外部扩展上下文必须访问的扩展资源。
+在你另行声明之前，扩展里的每个文件都只属于你的扩展。网页无法加载它，运行在该页面里的 content script 也不行。`web_accessible_resources` 这个 manifest 键就是把特定文件开放给特定来源的白名单。本页说明哪些调用方需要条目、对象形式如何工作、glob 与运行时 URL 的行为，以及缺少条目时控制台会打印哪些行。
 
-Extension.js 会把用户声明的 `web_accessible_resources` 与构建期发现的需求合并起来，并应用针对目标的 manifest 归一化。
+## 文件被读取的三种方式，以及哪一种需要声明
 
-## 模板示例
+**来自扩展页面。** popup、options 页面、side panel 或 devtools 页面运行在扩展来源上。它可以读取包里的任何文件，完全不涉及 `web_accessible_resources` 条目。
 
-### `content`
+**来自 content script。** 脚本自身的代码已经在运行，但它引入的资源并不因此被覆盖。指向 `chrome-extension://` URL 的 `img` 元素、`fetch`、`FontFace` 或动态 `import()` 都是资源加载，因此该文件必须被列出。
 
-![content template screenshot](/images/examples/content/screenshot.png)
+**来自页面自身的代码。** 页面 MAIN world 中的任何东西，包括你用 `world: "MAIN"` 注入的脚本，都属于网页代码。它需要该文件被列出，也需要页面来源落在 `matches` 之内。
 
-Content script 使用 web-accessible 资源把样式和资源注入页面。
+| 调用方                                 | 需要 `resources` 条目 | 需要 `matches` 覆盖该页面 |
+| -------------------------------------- | --------------------- | ------------------------- |
+| 扩展页面（popup、options、devtools）   | 否                    | 否                        |
+| Content script，isolated world         | 是                    | 是                        |
+| 页面代码或注入的 MAIN world 脚本       | 是                    | 是                        |
 
-<CodeGroup>
+要记住的规则是：浏览器按谁去取这个 URL 来判断，而不是按谁写了这段代码。
 
-```bash npm
-npx extension@latest create my-extension --template=content
-```
+## Manifest 片段
 
-```bash pnpm
-pnpx extension@latest create my-extension --template=content
-```
-
-```bash yarn
-yarn dlx extension@latest create my-extension --template=content
-```
-
-```bash bun
-bunx extension@latest create my-extension --template=content
-```
-
-```bash deno
-deno run -A npm:extension@latest create my-extension --template=content
-```
-
-</CodeGroup>
-
-仓库：[extension-js/examples/content](https://github.com/extension-js/examples/tree/main/examples/content)
-
-## Web-accessible 资源能力
-
-| 能力                       | 你会得到什么                                                              |
-| -------------------------- | ------------------------------------------------------------------------- |
-| Manifest V2/V3 schema 处理 | 按 manifest 版本分别处理数组形式与对象形式的 `web_accessible_resources`   |
-| 构建感知的合并             | 把声明的资源与构建/运行时所需的入口结合起来                               |
-| 路径归一                   | 为每个浏览器目标把 WAR（web-accessible resource）路径解析到正确的输出位置 |
-| 安全控制面                 | 通过 `resources` 与 `matches` 让访问规则保持显式                          |
-
-## Manifest schema
-
-### Manifest V3
-
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": ["images/*.png", "fonts/*.woff2"],
-      "matches": ["<all_urls>"]
-    }
-  ]
-}
-```
-
-### Manifest V2
-
-```json
-{
-  "web_accessible_resources": ["images/*.png", "scripts/*.js", "styles/*.css"]
-}
-```
-
-## `manifest.json` 文件示例
-
-如果你通过受支持的 content script 或构建路径导入资源，Extension.js 会自动添加所需的 WAR 条目。如果网页需要直接访问特定资源，请手动声明这些资源。
+Manifest V3 接受一个对象数组。每个对象把一组 `resources` 与允许读取它们的 `matches` 模式配对：
 
 ```json
 {
@@ -95,105 +49,100 @@ deno run -A npm:extension@latest create my-extension --template=content
   "version": "1.0.0",
   "web_accessible_resources": [
     {
-      "resources": ["images/*.png", "scripts/*.js", "styles/*.css"],
-      "matches": ["<all_urls>"]
+      "resources": ["images/logo.png", "fonts/*.woff2"],
+      "matches": ["https://example.com/*"],
+      "use_dynamic_url": false
     }
   ],
   "content_scripts": [
     {
       "matches": ["https://example.com/*"],
-      "css": ["styles/content.css"],
-      "js": ["scripts/content.js"]
+      "js": ["content_scripts/content.js"]
     }
   ]
 }
 ```
 
-## Extension.js 自动添加的内容
+- `resources` 列出相对于扩展根目录的路径。相对路径从存放 `manifest.json` 的文件夹开始解析。
+- `matches` 限定哪些页面来源可以读取这些文件。在功能允许的范围内把它写得尽量窄。
+- `use_dynamic_url` 要求浏览器给出一个按会话轮换的 URL，让页面无法通过固定 id 给你的扩展打指纹。请把它当作 Chromium 字段。
 
-当运行时需要某些构建产物对页面可访问时，Extension.js 可以根据构建输出扩展 WAR 条目。
+`resources` 里允许使用 glob，Extension.js 会原样保留它们。它不会把 `fonts/*.woff2` 展开成明确的文件列表，因此产出的 manifest 与你的源文件带着同一个模式。当你已经知道文件名时，明确列出仍然更安全。
 
-常见示例包括：
+在规范化过程中，Extension.js 会丢弃没有 `resources` 数组的 Manifest V3 条目，因为浏览器无法据此工作。
 
-- 由 content script 导入的资源。
-- Content script 的 CSS 产物。
-- 由这些入口引用的输出字体或静态资源。
-- 仅开发期使用、用于支持重载行为的运行时辅助资源。
+## 在运行时构建 URL
 
-自动包含很方便，但你仍然应当审视最终暴露给网页的资源集合。
-
-包含端口或端口通配符的匹配模式（例如 `http://localhost:3000/*` 或 `https://example.com:*/*`）是合法的：构建会接受 Chrome 能加载的每一种模式，而不会拒绝它们。
-
-## 开发期行为
-
-- 在开发期，Extension.js 会修补 WAR 条目，以支持重载和热模块替换（HMR）的资源访问。
-- 在需要时，Extension.js 可以自动把与 content script 相关的资源加入 WAR。
-- Extension.js 会通过移除 `public/` 前缀和开头的 `/` 来归一化路径，生成输出安全的路径。
-
-## 输出与解析说明
-
-- Extension.js 通过 public 资源流复制 `public/` 中的资源，你可以从扩展根路径声明它们。
-- 相对 WAR 资源路径会从 manifest 所在目录解析。
-- 你可以使用 glob，但匹配模式必须满足目标浏览器的约束。
-- Extension.js 在归一化时会丢弃没有 `resources` 的 Manifest V3（MV3）条目。
-- Extension.js 会保留原样的 glob，不会把它们展开为显式的文件列表。
-
-## 运行时用法
-
-请使用浏览器运行时 URL 辅助方法，而不要手动拼接扩展 URL：
+不要手写 `chrome-extension://` URL。向运行时索取：
 
 ```ts
 const logoUrl = chrome.runtime.getURL("/images/logo.png");
+document.body.appendChild(Object.assign(new Image(), { src: logoUrl }));
 ```
 
-如果某个页面或 content script 无法读取你以为可访问的资源，请检查：
+像 `/images/logo.png` 这样的根绝对路径是稳定写法，也是 [路径解析](/docs/features/path-resolution) 会为你改写的形式。在 content script 里，同样的调用是到达该文件的唯一正确方式，因为注入的样式表或元素中的裸 `/images/logo.png` 会相对宿主页面解析。[CSS](/docs/implementation-guide/css) 用一个网页字体走通了这个场景。
 
-1. 该资源是否实际存在于产物中。
-2. WAR 条目是否暴露了正确的 `resources`。
-3. `matches` 范围是否包含正在尝试读取它的页面。
-4. 该资源是否应当只保留给扩展页面访问。
+在 Firefox 上这个助手更重要。Firefox 为每次安装在 `moz-extension://` 来源里生成随机 UUID，因此你从某个配置文件复制来的 URL 在其他配置文件里都是错的。
 
-## 最佳实践
+## 各浏览器差异
 
-- 让 WAR 条目最小化；只暴露外部上下文必须读取的资源。
-- 出于安全考虑，优先使用显式的资源路径，而不是宽泛的 glob。
-- 在 Chromium 与 Firefox 目标之间校验 WAR 匹配模式与资源路径。
-- 使用 `chrome.runtime.getURL()`/`browser.runtime.getURL()` 创建运行时安全的 URL。
-- 每当新增 content script 导入、字体或可被页面访问的静态资源时，重新审视 WAR。
+| 能力               | Chromium                                        | Firefox                                                    | Safari             |
+| ------------------ | ----------------------------------------------- | ------------------------------------------------------------ | ------------------ |
+| Manifest V3 形状   | 带 `resources` 与 `matches` 的对象数组          | 带 `resources` 与 `matches` 的对象数组                     | 本文档不涉及       |
+| Manifest V2 形状   | 扁平的路径字符串数组                            | 扁平的路径字符串数组，Manifest V2 附加组件仍在使用          | 本文档不涉及       |
+| 扩展来源           | `chrome-extension://<id>/`，每次安装一个 id     | `moz-extension://<uuid>/`，每次安装一个随机 UUID           | 本文档不涉及       |
+| 运行时 URL 助手    | `chrome.runtime.getURL`                         | `browser.runtime.getURL`，同时也可用 `chrome.runtime.getURL` | 本文档不涉及       |
+| `use_dynamic_url`  | 支持                                            | 请把该字段当作仅限 Chromium                                | 本文档不涉及       |
 
-### 安全清单
+在 Safari 上，仅启用扩展还不够。在你授予网站访问权限之前，页面上不会运行 content script，因此根本不会有人来请求这个资源。启用与授权步骤见 [Safari](/docs/browsers/safari)。
 
-- 把 `matches` 范围限定到确实需要访问的域名。
-- 当一个小而显式的列表足够时，避免使用宽泛的通配资源 glob。
-- 让 WAR 条目聚焦于非敏感资源。
-- 当新增 content script 导入或运行时资源查找时，重新审视 WAR。
+如果你的源码基于 `browser.*` 编写，同时也要构建 Chromium 目标，请传入 `--polyfill`，让该命名空间在那里存在。参见 [跨浏览器兼容](/docs/features/cross-browser-compatibility)。
 
-### 收敛与过宽的示例
+## 你会看到的控制台报错
 
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": ["images/logo.png", "fonts/inter.woff2"],
-      "matches": ["https://example.com/*"]
-    }
-  ]
-}
+把你看到的那一行复制去搜索。每一行对应一个原因。
+
+`Denying load of chrome-extension://<id>/images/logo.png. Resources must be listed in the web_accessible_resources manifest key.`
+该文件不在任何 `resources` 数组里，或者请求它的页面在 `matches` 之外。加上这个路径，然后确认模式覆盖了该页面来源。
+
+`GET chrome-extension://invalid/ net::ERR_FAILED`
+同一次拒绝在网络面板中的样子。Chromium 会把被阻止的扩展 URL 改写为 `chrome-extension://invalid/`，因此请求里看不到 id。要修的是 manifest 条目，而不是这次 fetch。
+
+`Security Error: Content at https://example.com/ may not load or link to moz-extension://<uuid>/images/logo.png.`
+同一问题在 Firefox 上的形式。附加组件没有列出该文件，因此页面不被允许链接到它。
+
+`Failed to load resource: net::ERR_FILE_NOT_FOUND`
+条目是对的，但产物里没有这个文件。到 `dist/<browser>/` 检查你声明的那个确切路径。
+
+`Uncaught ReferenceError: browser is not defined`
+一次 `browser.runtime.getURL` 调用落到了没有 polyfill 的 Chromium 目标上。请用 `--polyfill` 构建，或者改调 `chrome.runtime.getURL`。
+
+## Extension.js 的做法
+
+Extension.js 会把你声明的内容与构建发现的内容合并，然后为每个目标规范化结果：
+
+- 当运行时需要页面读取这些资源时，content script 导入的资源、content script 的 CSS 产物以及产出的字体会被自动加入。
+- 路径会为产物规范化。Extension.js 会去掉 `public/` 前缀和开头的斜杠，因此条目指向文件真正落地的位置。
+- glob 保持原样，带端口或端口通配符的匹配模式（例如 `http://localhost:3000/*`）会被接受而不是被拒绝。
+- 在开发中，Extension.js 会给条目集合打补丁，让重载与热模块替换所需的资源保持可达。该补丁仅用于开发。参见 [重载与 HMR](/docs/features/reload-and-hmr)。
+
+自动合并很方便，但它不是审阅。发布前请读一遍产出的 `dist/<browser>/manifest.json`，确认暴露出去的集合正是你打算暴露的集合：
+
+- 把 `matches` 限定在确实需要该文件的域名上。
+- 优先使用明确的资源列表，而不是宽泛的 glob。
+- 让敏感文件留在白名单之外，改从扩展页面提供它们。
+- 每次新增 content script 导入、字体或新的静态资源后，重新审阅这份列表。
+
+创建一个把扩展字体加载进页面的项目，这是这个键最小的完整示例：
+
+```bash
+npx extension@latest create my-extension --template=content-custom-font
 ```
 
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": ["*"],
-      "matches": ["<all_urls>"]
-    }
-  ]
-}
-```
+## 参见
 
-## 下一步
-
-- 在 [dev 更新行为](/docs/workflows/dev-update-behavior) 中了解更新结果。
-- 进一步了解 [特殊文件夹](/docs/features/special-folders)。
-- 继续阅读 [命令参考](/docs/commands/dev)。
+- [Content script](/docs/implementation-guide/content-scripts)
+- [在运行时注入脚本](/docs/implementation-guide/inject-scripts)
+- [CSS](/docs/implementation-guide/css)
+- [懒加载](/docs/implementation-guide/lazy-loading)
+- [特殊文件夹](/docs/features/special-folders)
