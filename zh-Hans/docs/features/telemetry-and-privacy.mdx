@@ -30,7 +30,11 @@ Extension.js 会收集极少量的匿名遥测，用于了解你运行了哪些�
 | 事件               | 是否采样                        | 属性                                   |
 | ------------------ | ------------------------------- | -------------------------------------- |
 | `command_executed` | 20%(可配置，见下文)             | `command`、`success: true`、`version`  |
-| `command_failed`   | 100%(Extension.js 总是上报失败) | `command`、`success: false`、`version` |
+| `command_failed`   | 100%(Extension.js 总是上报失败) | `command`、`success: false`、`version`、`code`、`exit_code` |
+
+失败会附加 两个属性，让失败计数可以读出原因，而不只是一个数字。`code` 取自 CLI 固定的错误目录，例如 `E_MANIFEST_NOT_FOUND`，`exit_code` 是进程退出码，取值为 0 到 255 的整数。`code` 在发送前会与目录核对，因此 Node 的 errno、错误信息或任何不在目录中的值都会被丢弃，事件改为上报 `E_INTERNAL`。错误文本永远不会被发送。
+
+当某次运行在首次启动时询问是否下载受管浏览器，该命令自身的事件会带上结果，这样"用户接受了下载"就能与"会话到此结束"区分开。`browser_install` 取值为 `offered`、`accepted`、`declined` 或 `failed`，`browser_install_browser` 是受管浏览器的名称，例如 `chrome`，`browser_install_seconds` 是下载所用的整数秒。没有单独的安装事件，计数仍然只在上面两个事件上。
 
 `create` 命令会多带两个属性，让损坏的官方起步模板能出现在失败统计里：`template`（`extension create --help` 列出的起步模板名，否则不带）与 `source`（`cli`，或发起 create 的界面，例如 `templates`）。`template` 在发送前会与已发布的起步模板列表核对。GitHub URL、本地文件夹路径或任何不是官方名称的值都会被整个丢弃而不是截断，因此私有仓库或目录名永远不会离开你的机器。`create` 命令还不参与采样，因此模板使用量的统计保持准确。
 
