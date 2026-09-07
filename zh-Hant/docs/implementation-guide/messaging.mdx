@@ -1,115 +1,146 @@
 ---
-title: "跨情境的擴充功能 messaging"
-description: "用瀏覽器 messaging API 在擴充功能情境之間搬移資料。維持 background、content script 與頁面之間清楚的特權邊界。"
+title: "擴充功能情境之間的訊息傳遞"
+description: "用 runtime.sendMessage、tabs.sendMessage 與長連線 port 在 service worker、content script 和擴充功能頁面之間傳送訊息，並了解非同步回應規則以及由它引發的連線錯誤。"
 keywords:
   [
+    "runtime.sendMessage",
+    "tabs.sendMessage",
+    "runtime.onMessage",
+    "onmessage",
+    "runtime.connect",
+    "port.postMessage",
+    "sendResponse return true",
+    "Could not establish connection",
+    "The message port closed before a response was received",
+    "Extension context invalidated",
     "extension.js",
     "chrome",
-    "browser",
-    "content script",
-    "service worker",
-    "popup",
-    "docs",
-    "implementation guide",
+    "firefox",
+    "safari",
   ]
 ---
 
-明確地在擴充功能情境之間搬移資料，並驗證每一個特權邊界。
+一個擴充功能執行在多個彼此隔離的情境裡。service worker 持有特權程式碼，content script 看得見頁面，popup 或 options 頁面承載介面。它們不共用記憶體，因此每個跨越邊界的值都是以訊息的形式跨越的。本頁說明每個方向該用哪個呼叫、決定非同步回覆能否送達的規則，以及一次失敗的交換會印出哪些主控台行。
 
-Extension.js 會把 background script、content script 與擴充功能頁面打包在一起。但你的擴充功能情境仍透過瀏覽器擴充功能 messaging API 通訊。良好的 messaging 結構讓每個情境的職責保持清楚，並讓除錯更可靠。
+## 傳遞訊息的三種方式
 
-## 情境邊界
+**`chrome.runtime.sendMessage`。** 一次性。它會送達每一個帶有 `runtime.onMessage` 監聽器的擴充功能情境，也就是 service worker、popup、options 頁面，以及任何其他已開啟的擴充功能頁面。它不會送達 content script。
 
-| 從                        | 到                                     | 典型 API                                       |
-| ------------------------- | -------------------------------------- | ---------------------------------------------- |
-| Popup 或 options 頁面     | Background service worker              | `runtime.sendMessage()`                        |
-| Content script            | Background service worker              | `runtime.sendMessage()` 或 `runtime.connect()` |
-| Background service worker | Content script                         | `tabs.sendMessage()`                           |
-| 長時間串流或狀態同步      | Background service worker 與另一個情境 | `runtime.connect()`                            |
+**`chrome.tabs.sendMessage`。** 一次性，瞄準一個分頁。從 service worker 或另一個擴充功能頁面呼叫它，去送達那個分頁裡的 content script，還可以透過 `frameId` 只送達一個 frame。content script 必須已經在那裡執行。
 
-## 建議的合約
+**`chrome.runtime.connect` 與 `chrome.tabs.connect`。** 一個保持開啟的具名 port。兩端可以隨時投遞訊息，兩端也都透過 `port.onDisconnect` 得知拆除。
 
-把訊息視為一套有型別的協定：
+| 屬性                  | `runtime.sendMessage`                    | `tabs.sendMessage`               | `connect` port                     |
+| --------------------- | ----------------------------------------- | -------------------------------- | ---------------------------------- |
+| 方向                  | 任一擴充功能情境到其他情境               | 擴充功能情境到一個分頁           | 雙向，只要 port 還開著             |
+| 能否送達 content script | 否                                      | 能，在那個分頁裡                 | 能，透過 `tabs.connect`            |
+| 生命週期              | 一次請求與一次回應                       | 一次請求與一次回應               | 直到任一端斷線                     |
+| 回覆方式              | `sendResponse`，或回傳的 Promise         | `sendResponse`                   | 另一次 `postMessage`               |
+| 適用於                | 單一問題                                 | 送達你注入的頁面程式碼           | 一連串更新或一個訂閱               |
 
-- 包含明確的 `type`。
-- 在執行動作前驗證 payload 結構。
-- 對特權操作驗證寄件者情境。
-- 回傳結構化的成功與錯誤回應。
+在你自己的情境之間傳訊息不需要額外權限。它需要的是對面有一個活著的監聽器。
+
+## 非同步回應規則
+
+`runtime.onMessage` 監聽器預設是同步回覆的。它一回傳，通道就關閉，之後再呼叫 `sendResponse` 會被丟棄。回傳 `true` 才是讓通道保持開啟的做法：
+
+```ts
+// 錯誤：監聽器在 await 落定前就回傳了，通道因此關閉。
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  fetchSettings().then((settings) => sendResponse({ ok: true, settings }));
+});
+
+// 正確：回傳 true 會讓通道保持開啟，直到 sendResponse 執行。
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  fetchSettings().then((settings) => sendResponse({ ok: true, settings }));
+  return true;
+});
+```
+
+由這條規則可以推出兩點。一個 `async` 監聽器函式回傳的是 Promise，而 Promise 不是 `true`，因此在 Chromium 上，一個稍後才呼叫 `sendResponse` 的 `async` 監聽器仍然會關閉通道。請像上面那樣在監聽器內部做非同步工作並回傳 `true`。在呼叫端這一側，省略回呼時 `chrome.runtime.sendMessage` 會回傳 Promise，所以那裡直接 `await` 即可，與以上這些無關。
+
+給每則訊息一個明確的 `type`，在處理之前驗證酬載，並在做特權工作之前檢查 `sender`。content script 是你的程式碼，但它轉發的資料來自你無法控制的頁面。
 
 ```ts
 type Message =
   | { type: "settings:get" }
   | { type: "settings:set"; payload: { theme: "light" | "dark" } };
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (
-    !message ||
-    typeof message !== "object" ||
-    typeof message.type !== "string"
-  ) {
+chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
+  if (!message || typeof message.type !== "string") {
     sendResponse({ ok: false, error: "invalid_message" });
     return;
   }
 
   if (message.type === "settings:get") {
-    sendResponse({ ok: true, data: { theme: "dark" } });
-    return;
-  }
-
-  if (message.type === "settings:set") {
-    sendResponse({ ok: true });
-    return;
+    getSettings().then((settings) => sendResponse({ ok: true, settings }));
+    return true;
   }
 
   sendResponse({ ok: false, error: "unknown_message" });
 });
 ```
 
-## 何時使用 `sendMessage` 與 `connect`
+長時間的交換改用 port，port 帶有名字，因此一個監聽器可以分辨它的呼叫端：
 
-| 使用情境                         | 優先選擇                |
-| -------------------------------- | ----------------------- |
-| 單一請求與單一回應               | `runtime.sendMessage()` |
-| 長時間串流或多次更新             | `runtime.connect()`     |
-| 與特定分頁的 content script 通訊 | `tabs.sendMessage()`    |
+```ts
+// Content script。
+const port = chrome.runtime.connect({ name: "highlights" });
+port.postMessage({ type: "subscribe" });
+port.onMessage.addListener((update) => render(update));
 
-## 良好的架構
+// Service worker。
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "highlights") return;
+  port.onMessage.addListener((message) => port.postMessage({ ok: true }));
+  port.onDisconnect.addListener(() => stopWatching(port));
+});
+```
 
-- 為每個功能領域建立一個訊息處理模組，而不是用單一大檔案處理所有訊息類型。
-- 把特權工作集中在 background service worker。
-- 用 content script 收集頁面資料，然後只轉送最低必要的 payload。
-- 讓 popup 與 options 頁面保持精簡，把瀏覽器 API 呼叫委派給 background 程式碼。
+## 各瀏覽器差異
 
-## 安全規則
+| 能力                                   | Chromium                                             | Firefox                                                  | Safari             |
+| -------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------- | ------------------ |
+| 命名空間                               | `chrome.*`                                            | `browser.*` 回傳 Promise，同時也可用 `chrome.*`             | 本文件不涉及       |
+| `onMessage` 監聽器回傳的 Promise       | 不被採納，請回傳 `true` 並呼叫 `sendResponse`         | 在 `browser.runtime.onMessage` 上被採納                     | 本文件不涉及       |
+| 接收方的背景情境                       | service worker，按需重新啟動                          | 透過 `background.scripts` 宣告的 event page                  | 本文件不涉及       |
+| 對背景生命週期的影響                   | 收到訊息和保持開啟的 port 會讓 worker 保持喚醒，所以不要把 port 當計時器用 | event page 同理                       | 本文件不涉及       |
 
-- 不要僅僅因為訊息來自 content script 就信任頁面衍生的內容。
-- 在執行特權動作前驗證寄件者身分。
-- 明確拒絕未知的訊息類型。
-- 避免透過 messaging 開放泛用的「執行任意程式」或「抓任意網址」的指令。
+在 Safari 上，在你授予擴充功能網站存取權之前 content script 不會執行，因此在那之前 `tabs.sendMessage` 沒有接收方。請見 [Safari](/docs/browsers/safari)。
 
-## 常見錯誤
+如果你的原始碼是以 `browser.*` 撰寫，同時也要建置 Chromium 目標，請傳入 `--polyfill`。請見 [跨瀏覽器相容](/docs/features/cross-browser-compatibility)。
 
-- 讓 UI 頁面在很多地方直接呼叫特權 API，而不是統一透過 background 路由。
-- 在小型結構化 payload 就夠用時，傳送大型任意頁面快照。
-- 把 content script 當成可信任的，只因為它們是你自己的程式碼，但它們其實會接觸到不受信任的頁面資料。
-- 在多個情境一起演進時，忘記為訊息形狀做版本化或遷移。
+## 你會看到的主控台錯誤
 
-## 實用模式
+把你看到的那一行複製去搜尋。每一行對應一個原因。
 
-### Popup 請求目前狀態
+`Unchecked runtime.lastError: Could not establish connection. Receiving end does not exist.`
+沒有任何一方在監聽。要嘛目標情境沒有 `runtime.onMessage` 監聽器，要嘛對 `tabs.sendMessage` 而言，還沒有 content script 被注入那個分頁。在擴充功能載入之前就已開啟的分頁在重新載入前沒有 content script，而像 `chrome://` 或擴充功能商店這樣的受限頁面永遠不會有。請先用 `chrome.scripting.executeScript` 注入，或者處理這次失敗，做法請見 [在執行階段注入腳本](/docs/implementation-guide/inject-scripts)。
 
-使用一個從 popup 到 background 的「請求—回應」訊息。
+`Unchecked runtime.lastError: The message port closed before a response was received.`
+監聽器收到了訊息，卻在沒有讓通道保持開啟的情況下回傳了。請從監聽器回傳 `true`，或者同步作答。
 
-### Content script 請求特權工作
+`Uncaught Error: Extension context invalidated.`
+擴充功能重新載入時，舊的 content script 還在頁面裡執行。那段程式碼現在指向一個不再存在的執行階段，它發出的每個 `chrome.*` 呼叫都會擲出錯誤。請重新載入分頁。在 `extension dev` 期間，這發生在一次被歸類為完整重新載入的變更之後，[重新載入與 HMR](/docs/features/reload-and-hmr) 對此有說明。
 
-收集最小可能的頁面 payload，傳到 background，由 background 決定是否允許該動作。
+`Attempting to use a disconnected port object`
+在 `onDisconnect` 觸發之後，仍有人向這個 port 投遞訊息。請在 `onDisconnect` 處理常式裡清掉你的參照，需要時再開啟一個新的 port。
 
-### 即時訂閱
+## Extension.js 的做法
 
-只有在真的需要持續更新時才使用 `runtime.connect()`，不要用在簡單的請求—回應流程。
+Extension.js 編譯呼叫這些 API 的程式碼，並不包裝它們。協定是你自己的。工具鏈改變的是開發循環：
 
-## 後續步驟
+- 一次被歸類為 `content-scripts` 的變更會重新注入受影響的項目並拆除上一次的掛載，因此監聽器是被取代而不是被疊加。一次被歸類為 `full` 的變更會重新載入擴充功能，而重新載入前就留在頁面上的 content script 會變成上面那種 `Extension context invalidated` 情況。請重新載入分頁。
+- 在 `extension dev` 之下，從 `scripts/` 資料夾注入的腳本會在編輯後被重播，因此你在被注入腳本裡開啟的 port 會由新的副本重新開啟。請見 [特殊資料夾](/docs/features/special-folders)。
+- service worker 與 content script 的主控台輸出會被轉發到同一個通道，因此跨越邊界的訊息更容易在單一串流裡追蹤。
 
-- 用 [Storage](/docs/implementation-guide/storage) 持久化資料。
-- 在 [Background script／service worker](/docs/implementation-guide/background) 中設計事件驅動邏輯。
-- 在[安全檢查清單](/docs/workflows/security-checklist)中檢視邊界安全。
+把特權工作留在 service worker 裡，讓 content script 保持狹窄，讓酬載保持小。轉發整頁快照的 content script 比只轉發功能所需三個欄位的那個更慢，攻擊面也更大。
+
+## 參見
+
+- [儲存](/docs/implementation-guide/storage)
+- [背景腳本 / service worker](/docs/implementation-guide/background)
+- [Content script](/docs/implementation-guide/content-scripts)
+- [在執行階段注入腳本](/docs/implementation-guide/inject-scripts)
+- [原生訊息傳遞](/docs/implementation-guide/native-messaging)
+- [重新載入與 HMR](/docs/features/reload-and-hmr)

@@ -1,47 +1,80 @@
 ---
-title: "Browser storage APIs for extensions"
-description: "Persist settings and runtime state with browser storage APIs. Covers local, sync, and session storage and their impact on service worker reliability."
+title: "Extension storage: local, sync, session, and managed"
+description: "Choose between chrome.storage.local, sync, session, and managed. Quotas, what survives an update or an uninstall, which contexts can read each area, and the quota exceeded console errors."
 keywords:
   [
+    "chrome.storage",
+    "storage.local",
+    "storage.sync",
+    "storage.session",
+    "storage.managed",
+    "QUOTA_BYTES quota exceeded",
+    "QUOTA_BYTES_PER_ITEM",
+    "MAX_WRITE_OPERATIONS_PER_MINUTE",
+    "setAccessLevel",
+    "managed_schema",
+    "chrome extension storage limit",
     "extension.js",
     "chrome",
-    "browser",
-    "manifest",
-    "service worker",
-    "docs",
-    "implementation guide",
-    "storage",
+    "firefox",
+    "safari",
   ]
 ---
 
-Extension.js does not replace or wrap browser storage APIs; it only compiles your code that calls them. The choice of storage area still matters. It shapes service-worker reliability, cross-browser consistency, and future data-structure changes.
+An extension has four storage areas, and they are not interchangeable. `local` holds device data, `sync` carries small preferences between signed-in profiles, `session` lives in memory for as long as the browser runs, and `managed` is read-only policy data. This page gives the quota and the reader set for each area, the rule that keeps `storage.session` away from content scripts, and the console lines that a full or throttled area prints.
 
-## Choose the right storage area
+## Three ways to keep state, and why storage wins
 
-| Storage area      | Use when                                         | Notes                                     |
-| ----------------- | ------------------------------------------------ | ----------------------------------------- |
-| `storage.local`   | durable extension state on one device            | best default for most extension data      |
-| `storage.sync`    | small user preferences across signed-in browsers | quota-sensitive and slower than local     |
-| `storage.session` | short-lived session state                        | useful for ephemeral runtime coordination |
-| `storage.managed` | enterprise-managed policy values                 | schema-driven, read-only to the extension |
+**A variable in the service worker.** A Manifest V3 background service worker stops when it goes idle and starts again on the next event. Everything that you held in memory is gone, and no error announces it.
 
-## Recommended defaults
+**`localStorage` or IndexedDB in an extension page.** Both are scoped to the page origin. The service worker cannot use `localStorage` at all, and a content script sees the host page's storage, not yours.
 
-- Use `storage.local` for feature state, caches, and durable settings.
-- Use `storage.sync` only for small, user-meaningful preferences.
-- Use `storage.session` for state that should not survive a full browser restart.
-- Treat `storage.managed` as a separate enterprise path, not your general settings mechanism.
+**A `chrome.storage` area.** Asynchronous, readable from every extension context that has the `storage` permission, and unaffected by a worker restart. This is the default answer for extension state.
 
-## Service-worker-friendly patterns
+| Where the state lives          | Survives a service worker restart | Readable from another context | API shape       |
+| ------------------------------ | --------------------------------- | ----------------------------- | --------------- |
+| Service worker variable        | No                                | No                            | Synchronous     |
+| Extension page `localStorage`  | Not applicable, page scoped       | No                            | Synchronous     |
+| `chrome.storage` area          | Yes, except `session` on restart  | Yes                           | Promise or callback |
 
-Manifest V3 (MV3) background service workers can stop and restart between events, so do not rely on in-memory state alone.
+## The four storage areas
 
-- Restore critical state from storage on demand.
-- Cache in memory only as an optimization.
-- Keep startup work small so event handling stays responsive.
-- Persist versioned settings changes rather than assuming the background script stays running indefinitely.
+Quotas below are Chromium's defaults.
 
-## Example settings module
+| Area      | Quota                                                   | Survives a browser restart      | Survives an update or an uninstall                      | Which contexts read it                                      |
+| --------- | ------------------------------------------------------- | ------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------ |
+| `local`   | About 10 MB, and `unlimitedStorage` lifts the cap       | Yes                             | Survives an update, removed on uninstall                  | Every extension context, content scripts included            |
+| `sync`    | 100 KB total, 8 KB per item, 512 items                  | Yes, and it follows the profile | Survives an update, removed on uninstall                  | Every extension context, content scripts included            |
+| `session` | About 10 MB, held in memory                             | No, it clears when the browser closes | Cleared when the extension reloads or updates       | Trusted contexts only, until `setAccessLevel` opens it        |
+| `managed` | Set by policy, your code cannot write to it             | Yes, the policy supplies it     | Comes from the policy, not from your data                 | Every extension context, read only                            |
+
+`sync` also throttles writes: about 120 writes a minute and about 1,800 an hour. A write inside a keystroke handler reaches that ceiling quickly, so debounce and write once.
+
+Choose by the question that the data answers:
+
+- Feature state, caches, and durable settings go in `local`.
+- Small preferences that a user expects on a second computer go in `sync`.
+- Per-run coordination that must not outlive the browser goes in `session`.
+- Enterprise policy values are read from `managed`, and never mixed with user-editable settings.
+
+## Manifest snippet
+
+The `storage` permission covers all four areas. `unlimitedStorage` raises the `local` cap, and `managed` needs a schema file:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "permissions": ["storage", "unlimitedStorage"],
+  "storage": {
+    "managed_schema": "schema.json"
+  },
+  "background": { "service_worker": "background.js" }
+}
+```
+
+A settings module that restores from storage instead of trusting memory:
 
 ```ts
 const SETTINGS_KEY = "settings";
@@ -58,31 +91,65 @@ export async function setSettings(nextSettings: {
 }
 ```
 
-## Storage design checklist
+## Reading `storage.session` from a content script
 
-1. Decide which values must survive browser restarts.
-2. Decide which values should sync across devices, if any.
-3. Version your stored data shape before the first release.
-4. Keep a migration path for renamed keys or changed structures.
-5. Avoid storing secrets in client-readable extension storage unless you fully accept that any extension code can read them.
+`storage.session` starts closed to untrusted contexts, which is what a content script is. A read from there throws instead of returning an empty object. Open the area from the service worker, once, before the content script asks:
 
-## Managed storage
+```ts
+// In the service worker.
+chrome.storage.session.setAccessLevel({
+  accessLevel: "TRUSTED_AND_UNTRUSTED_CONTEXTS",
+});
+```
 
-If you use `storage.managed`, pair your runtime code with a valid `storage.managed_schema` file in `manifest.json`. Extension.js validates and emits that schema file to the output path.
+Leave the area closed when the values are sensitive. Route the read through a message to the service worker instead, as [Messaging](/docs/implementation-guide/messaging) describes.
 
-The schema path must resolve to a file inside the extension directory. Before the browser launches, Extension.js flags a `storage.managed_schema` path outside it as a load blocker. Chrome refuses the whole extension over a missing managed schema.
+## Per-browser differences
 
-For the JSON resource details, see [JSON](/docs/implementation-guide/json).
+| Capability              | Chromium                                                       | Firefox                                                              | Safari                    |
+| ----------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------- |
+| Namespace               | `chrome.storage`, promise or callback                          | `browser.storage` with promises, and `chrome.storage` is also available | Not covered by these docs |
+| `storage.sync`          | Signed-in Chrome profile                                        | Needs an add-on id under `browser_specific_settings.gecko.id`         | Not covered by these docs |
+| `storage.session`       | Present, trusted contexts only until `setAccessLevel` runs     | Present                                                                 | Not covered by these docs |
+| `storage.managed`       | Enterprise policy plus the `storage.managed_schema` key        | Enterprise policy or a native manifest, no `managed_schema` key       | Not covered by these docs |
 
-## Common mistakes
+Firefox implements all four areas. Treat the numbers in the quota table as Chromium's, and check the limit that your feature depends on against a Firefox build before you ship it.
 
-- Using `storage.sync` for large data sets or caches.
-- Assuming background in-memory variables are durable in MV3.
-- Storing multiple disconnected keys without a versioning strategy.
-- Mixing enterprise-managed storage with user-editable settings without separating their access patterns.
+If your source calls `browser.storage` and you also build for a Chromium target, pass `--polyfill`. See [Cross-browser compatibility](/docs/features/cross-browser-compatibility).
 
-## Next steps
+## Console lines you will see
 
-- Declare schema-backed enterprise storage in [manifest.json](/docs/implementation-guide/manifest-json).
-- Review resource handling in [JSON](/docs/implementation-guide/json).
-- Move state between contexts with [Messaging](/docs/implementation-guide/messaging).
+Copy the line that you see into search. Each one maps to one cause.
+
+`QUOTA_BYTES_PER_ITEM quota exceeded`
+One value under one `sync` key is larger than 8 KB. Split the value across keys, or move that key to `local`.
+
+`QUOTA_BYTES quota exceeded`
+The area is full: 100 KB across all keys for `sync`, the device cap for `local`. Store less, or add `unlimitedStorage` for the `local` case.
+
+`MAX_WRITE_OPERATIONS_PER_MINUTE quota exceeded`
+Too many `sync` writes in one minute, usually one write per keystroke or per scroll event. Debounce the handler and write the settled value once.
+
+`Access to storage is not allowed from this context.`
+A content script read `storage.session` while the area is still trusted contexts only. Call `setAccessLevel` from the service worker, or move the read behind a message.
+
+A callback-style call reports these through `chrome.runtime.lastError`, which is silent until you read it. The promise form rejects, so `await` inside a `try` block and you see the same text as a caught error.
+
+## The Extension.js way
+
+Extension.js does not wrap or replace the storage APIs. It compiles the code that calls them, so the platform rules above are the whole contract. Two build behaviors are worth knowing:
+
+- The `storage.managed_schema` path is validated and the schema file is emitted to the output. The path must resolve to a file inside the extension directory. Extension.js flags a path outside it as a load blocker before the browser launches, because Chrome refuses the whole extension over a missing managed schema. See [JSON](/docs/implementation-guide/json).
+- `--polyfill` bridges `browser.*` onto Chromium targets, so one source can call `browser.storage` for both families.
+
+Because the background service worker restarts, write the state that matters and read it back on demand. Keep the in-memory copy as an optimization, never as the source of truth. [Background scripts](/docs/implementation-guide/background) covers the restart model.
+
+Version the shape of your stored data before the first release, and keep a migration path for a renamed key. A stored object outlives the code that wrote it.
+
+## See also
+
+- [Messaging](/docs/implementation-guide/messaging)
+- [Background scripts / service worker](/docs/implementation-guide/background)
+- [JSON](/docs/implementation-guide/json)
+- [manifest.json](/docs/implementation-guide/manifest-json)
+- [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions)

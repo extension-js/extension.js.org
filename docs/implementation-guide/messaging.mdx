@@ -1,119 +1,146 @@
 ---
-title: "Extension messaging across contexts"
-description: "Move data across extension contexts with browser messaging APIs. Keep privilege boundaries clear between background, content scripts, and pages."
+title: "Message passing between extension contexts"
+description: "Send messages between the service worker, content scripts, and extension pages with runtime.sendMessage, tabs.sendMessage, and long-lived ports, including the async response rule and the connection errors it causes."
 keywords:
   [
+    "runtime.sendMessage",
+    "tabs.sendMessage",
+    "runtime.onMessage",
+    "onmessage",
+    "runtime.connect",
+    "port.postMessage",
+    "sendResponse return true",
+    "Could not establish connection",
+    "The message port closed before a response was received",
+    "Extension context invalidated",
     "extension.js",
     "chrome",
-    "browser",
-    "content script",
-    "service worker",
-    "popup",
-    "docs",
-    "implementation guide",
-    "onmessage",
-    "sendmessage",
-    "runtime message",
-    "port",
+    "firefox",
+    "safari",
   ]
 ---
 
-Move data across extension contexts explicitly and validate every privileged boundary.
+An extension runs in several isolated contexts. The service worker holds the privileged code, content scripts see the page, and the popup or options page holds the interface. None of them share memory, so every value that crosses a boundary crosses as a message. This page explains which call to use for each direction, the rule that decides whether an async answer arrives, and the console lines that a broken exchange prints.
 
-Extension.js bundles background scripts, content scripts, and extension pages together. Your extension contexts still communicate through browser-extension messaging APIs. Good messaging structure keeps each context's responsibilities clear and makes debugging more reliable.
+## Three ways to move a message
 
-## Context boundaries
+**`chrome.runtime.sendMessage`.** One shot. It reaches every extension context that has a `runtime.onMessage` listener, which means the service worker, the popup, the options page, and any other extension page that is open. It does not reach a content script.
 
-| From                               | To                                            | Typical API                                    |
-| ---------------------------------- | --------------------------------------------- | ---------------------------------------------- |
-| Popup or options page              | Background service worker                     | `runtime.sendMessage()`                        |
-| Content script                     | Background service worker                     | `runtime.sendMessage()` or `runtime.connect()` |
-| Background service worker          | Content script                                | `tabs.sendMessage()`                           |
-| Long-lived streaming or state sync | Background service worker and another context | `runtime.connect()`                            |
+**`chrome.tabs.sendMessage`.** One shot, aimed at one tab. Call it from the service worker or another extension page to reach the content script in that tab, optionally in one frame through `frameId`. The content script must already be running there.
 
-## Recommended contract
+**`chrome.runtime.connect` and `chrome.tabs.connect`.** A named port that stays open. Both sides post messages whenever they want, and both sides learn about a teardown through `port.onDisconnect`.
 
-Treat messages as a typed protocol:
+| Property        | `runtime.sendMessage`                    | `tabs.sendMessage`               | `connect` port                          |
+| --------------- | ----------------------------------------- | -------------------------------- | ---------------------------------------- |
+| Direction       | Any extension context to the others      | Extension context to one tab     | Two-way, for as long as the port is open |
+| Reaches a content script | No                              | Yes, in that tab                 | Yes, through `tabs.connect`              |
+| Lifetime        | One request and one response             | One request and one response     | Until either side disconnects            |
+| Answer          | `sendResponse`, or the returned promise  | `sendResponse`                   | Another `postMessage`                    |
+| Use it for      | A single question                        | Reaching page code you injected  | A stream of updates or a subscription    |
 
-- Include an explicit `type`.
-- Validate payload shape before acting.
-- Validate sender context for privileged operations.
-- Return structured success and error responses.
+Messaging between your own contexts needs no extra permission. What it needs is a live listener on the other side.
+
+## The async response rule
+
+A `runtime.onMessage` listener answers synchronously by default. The moment it returns, the channel closes, and a `sendResponse` call made later is discarded. Returning `true` is what keeps the channel open:
+
+```ts
+// Wrong: the listener returns before the await settles, so the channel closes.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  fetchSettings().then((settings) => sendResponse({ ok: true, settings }));
+});
+
+// Right: returning true keeps the channel open until sendResponse runs.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  fetchSettings().then((settings) => sendResponse({ ok: true, settings }));
+  return true;
+});
+```
+
+Two details follow from that rule. An `async` listener function returns a promise, and a promise is not `true`, so an `async` listener that calls `sendResponse` later still closes the channel on Chromium. Do the async work inside the listener and return `true`, as above. On the caller side, `chrome.runtime.sendMessage` returns a promise when you omit the callback, so `await` works there without any of this.
+
+Give every message an explicit `type`, validate the payload before you act on it, and check `sender` before you do privileged work. A content script is your code, and the data that it forwards came from a page you do not control.
 
 ```ts
 type Message =
   | { type: "settings:get" }
   | { type: "settings:set"; payload: { theme: "light" | "dark" } };
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (
-    !message ||
-    typeof message !== "object" ||
-    typeof message.type !== "string"
-  ) {
+chrome.runtime.onMessage.addListener((message: Message, sender, sendResponse) => {
+  if (!message || typeof message.type !== "string") {
     sendResponse({ ok: false, error: "invalid_message" });
     return;
   }
 
   if (message.type === "settings:get") {
-    sendResponse({ ok: true, data: { theme: "dark" } });
-    return;
-  }
-
-  if (message.type === "settings:set") {
-    sendResponse({ ok: true });
-    return;
+    getSettings().then((settings) => sendResponse({ ok: true, settings }));
+    return true;
   }
 
   sendResponse({ ok: false, error: "unknown_message" });
 });
 ```
 
-## When to use `sendMessage` vs `connect`
+A long-lived exchange uses a port instead, and the port carries a name so one listener can tell its callers apart:
 
-| Use case                                           | Prefer                  |
-| -------------------------------------------------- | ----------------------- |
-| One request and one response                       | `runtime.sendMessage()` |
-| Long-lived stream or multiple updates              | `runtime.connect()`     |
-| Communicating with a specific tab's content script | `tabs.sendMessage()`    |
+```ts
+// Content script.
+const port = chrome.runtime.connect({ name: "highlights" });
+port.postMessage({ type: "subscribe" });
+port.onMessage.addListener((update) => render(update));
 
-## Good architecture
+// Service worker.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "highlights") return;
+  port.onMessage.addListener((message) => port.postMessage({ ok: true }));
+  port.onDisconnect.addListener(() => stopWatching(port));
+});
+```
 
-- Keep one message handler module per feature area instead of one large file handling all message types.
-- Centralize privileged work in the background service worker.
-- Use content scripts to collect page data, then forward only the minimum required payload.
-- Keep popup and options pages thin by delegating browser API calls to background code.
+## Per-browser differences
 
-## Security rules
+| Capability                             | Chromium                                             | Firefox                                                  | Safari                    |
+| -------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------- | ------------------------- |
+| Namespace                              | `chrome.*`                                            | `browser.*` with promises, and `chrome.*` is also available  | Not covered by these docs |
+| Promise returned from an `onMessage` listener | Not honored, return `true` and call `sendResponse` | Honored on `browser.runtime.onMessage`                      | Not covered by these docs |
+| Background context that receives       | Service worker, restarted on demand                   | Event page declared through `background.scripts`             | Not covered by these docs |
+| Effect on background lifetime          | A received message and an open port keep the worker awake, so do not use a port as a timer | Event page, same reasoning applies         | Not covered by these docs |
 
-- Never trust page-derived content just because it came from a content script.
-- Validate sender identity before performing privileged actions.
-- Reject unknown message types explicitly.
-- Avoid exposing generic "run anything" or "fetch anything" commands through messaging.
+On Safari, a content script does not run until you grant website access to the extension, so `tabs.sendMessage` has no receiver before that. See [Safari](/docs/browsers/safari).
 
-## Common mistakes
+If your source is written against `browser.*` and you also build for a Chromium target, pass `--polyfill`. See [Cross-browser compatibility](/docs/features/cross-browser-compatibility).
 
-- Letting UI pages call privileged APIs directly in many places instead of routing through background.
-- Sending large arbitrary page snapshots when a small structured payload would be enough.
-- Treating content scripts as trusted because they are your code, even though they see untrusted page data.
-- Forgetting to version or migrate message shapes when multiple contexts evolve together.
+## Console lines you will see
 
-## Practical patterns
+Copy the line that you see into search. Each one maps to one cause.
 
-### Popup requests current state
+`Unchecked runtime.lastError: Could not establish connection. Receiving end does not exist.`
+Nothing was listening. Either the target context has no `runtime.onMessage` listener, or, for `tabs.sendMessage`, no content script has been injected into that tab yet. A tab that was open before the extension loaded has no content script until it reloads, and a restricted page such as `chrome://` or the extensions gallery never gets one. Inject first with `chrome.scripting.executeScript`, or handle the failure, as [Inject scripts at runtime](/docs/implementation-guide/inject-scripts) shows.
 
-Use a single request-response message from popup to background.
+`Unchecked runtime.lastError: The message port closed before a response was received.`
+A listener received the message and returned without keeping the channel open. Return `true` from the listener, or answer synchronously.
 
-### Content script requests privileged work
+`Uncaught Error: Extension context invalidated.`
+The extension reloaded while an old content script kept running in the page. That code now points at a runtime that no longer exists, and every `chrome.*` call from it throws. Reload the tab. During `extension dev` this follows a change that classifies as a full reload, which [Reload and HMR](/docs/features/reload-and-hmr) describes.
 
-Collect the smallest possible page payload, send it to background, and let background decide whether to allow the action.
+`Attempting to use a disconnected port object`
+Something posted to a port after `onDisconnect` fired. Clear your reference in the `onDisconnect` handler and open a new port when you need one.
 
-### Live subscription
+## The Extension.js way
 
-Use `runtime.connect()` only when you truly need continuous updates, not for simple request-response flows.
+Extension.js compiles the code that calls these APIs and does not wrap them. Your protocol is yours. What the toolchain changes is the development loop:
 
-## Next steps
+- A change that classifies as `content-scripts` re-injects the affected entries and tears down the previous mount, so listeners are replaced instead of duplicated. A change that classifies as `full` reloads the extension, and any content script still on the page from before the reload becomes the `Extension context invalidated` case above. Reload the tab.
+- Scripts injected from the `scripts/` folder are replayed on edit under `extension dev`, so a port that you open from an injected script is reopened by the new copy. See [Special folders](/docs/features/special-folders).
+- Console output from the service worker and from content scripts is forwarded to one channel, so a message that crosses a boundary is easier to follow in a single stream.
 
-- Persist data with [Storage](/docs/implementation-guide/storage).
-- Design event-driven logic in [Background scripts / service worker](/docs/implementation-guide/background).
-- Review boundary safety in [Security checklist](/docs/workflows/security-checklist).
+Keep the privileged work in the service worker, keep the content script narrow, and keep the payload small. A content script that forwards a whole page snapshot is a slower and larger attack surface than one that forwards the three fields the feature needs.
+
+## See also
+
+- [Storage](/docs/implementation-guide/storage)
+- [Background scripts / service worker](/docs/implementation-guide/background)
+- [Content scripts](/docs/implementation-guide/content-scripts)
+- [Inject scripts at runtime](/docs/implementation-guide/inject-scripts)
+- [Native messaging](/docs/implementation-guide/native-messaging)
+- [Reload and HMR](/docs/features/reload-and-hmr)
