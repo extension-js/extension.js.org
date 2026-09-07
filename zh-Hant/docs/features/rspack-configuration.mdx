@@ -11,6 +11,8 @@ keywords:
     "rspack configuration",
     "configuration",
     "via",
+    "webpack",
+    "webpack config",
   ]
 ---
 
@@ -93,6 +95,31 @@ export default {
   },
 };
 ```
+
+## 在多個 entry 之間共享模組
+
+Extension.js 刻意把 `optimization.splitChunks` 設為 `false`。manifest 和每個 HTML 頁面都只指向一個 entry 檔案，所以被三個 entry 匯入的模組會被複製進三個 bundle。若只想保留一份，請在需要它的頁面裡用 `import()` 載入該模組。Rspack 會為它輸出一個 chunk，每個頁面按需從擴充功能自身的 origin 取得這個 chunk。cacheGroup 可以給這個 chunk 一個穩定的名稱：
+
+```js
+export default {
+  config: (config) => {
+    config.optimization.splitChunks = {
+      chunks: "async",
+      cacheGroups: {
+        shared: {
+          name: "shared",
+          test: /[\\/]src[\\/]shared[\\/]/,
+          minChunks: 1,
+          enforce: true,
+        },
+      },
+    };
+    return config;
+  },
+};
+```
+
+這樣設定後，從彈出視窗和選項頁分別執行 `await import("../shared/big")` 都會解析到同一個輸出檔 `shared.js`。請把 `chunks` 保持為 `"async"`。同步拆分會把程式碼移出 entry 檔案，但輸出的 HTML 和 manifest 只引用該 entry 檔案，頁面永遠不會載入被拆出的 chunk。service worker 不能使用動態 `import()`，會保留自己的一份模組副本。content script 也可以共享這個 chunk，但必須透過 `web_accessible_resources` 公開該檔案，並透過 `chrome.runtime.getURL` 匯入。這兩條規則請見[延遲載入](/docs/implementation-guide/lazy-loading)。
 
 ## 何時使用
 
