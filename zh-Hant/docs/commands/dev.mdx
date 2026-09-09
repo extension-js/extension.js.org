@@ -101,8 +101,8 @@ extension dev [path-or-url] [options]
 | `--port <port>`                | -                  | 請求的開發伺服器埠號。設 `0` 讓作業系統指定。參見[埠號如何決定](#埠號如何決定)。                                   | `8080`                  |
 | `--host <host>`                | -                  | 開發伺服器要綁定的主機。Docker/dev container 請用 `0.0.0.0`。                                                      | `127.0.0.1`             |
 | `--public-host <host>`         | -                  | 當可連線的主機與綁定用的 `--host` 不同時(遠端/dev container),瀏覽器為 HMR 與重新載入橋接所撥號的主機。            | 綁定主機(綁到 `0.0.0.0` 時為 `127.0.0.1`) |
-| `--no-open`                    | -                  | 不要自動啟動瀏覽器。                                                                                               | 預設會啟動瀏覽器        |
-| `--no-browser`                 | -                  | 不啟動瀏覽器。                                                                                                     | 預設啟動瀏覽器          |
+| `--no-open`                    | -                  | 啟動瀏覽器,但不為你的擴充功能開啟分頁。瀏覽器仍會啟動並載入擴充功能。見[阻止瀏覽器啟動](#阻止瀏覽器啟動)。 | 啟動時會開啟分頁 |
+| `--no-browser`                 | -                  | 不啟動瀏覽器。開發伺服器仍會啟動並持續重新建置。見[阻止瀏覽器啟動](#阻止瀏覽器啟動)。 | 預設啟動瀏覽器 |
 | `--no-reload`                  | -                  | 略過 content script 的重新載入執行階段與重建時的 reload dispatch。需手動重新整理分頁才能看到變更。                 | 預設啟用 reload runtime |
 | `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 後結束。需要本地專案路徑。                                           | 停用                    |
 | `--wait-timeout <ms>`          | -                  | `--wait` 模式的逾時時間。                                                                                          | `60000`                 |
@@ -171,6 +171,27 @@ extension dev [path-or-url] [options]
 `events.ndjson` 只屬於目前這次執行:新一次執行開始時檔案會重設,且每筆記錄都蓋上本次執行的 `runId`(與 `ready.json` 一致),消費端不會看到上一個工作階段的事件與目前的交錯。
 
 工作階段行為異常時,執行 [`extension doctor`](/docs/commands/doctor)——它依序檢查契約、控制通道、權杖、執行器與瀏覽器,並指出第一個失敗的環節與修復方式。
+
+### 阻止瀏覽器啟動
+
+兩個旗標聽起來很像,作用卻不同:
+
+| 你想要                           | 旗標           | 會發生什麼                                                       |
+| -------------------------------- | -------------- | ---------------------------------------------------------------- |
+| 完全不要瀏覽器                   | `--no-browser` | 不會啟動任何瀏覽器程序。開發伺服器照常執行,並在存檔時重新建置。 |
+| 要瀏覽器,但不為擴充功能開啟分頁 | `--no-open`    | 瀏覽器會啟動並載入你的擴充功能。不會為它開啟分頁。               |
+
+```bash
+# 阻止瀏覽器啟動。開發伺服器繼續執行。
+extension dev --no-browser
+
+# 啟動瀏覽器,但不為擴充功能開啟分頁。
+extension dev --no-open
+```
+
+`--no-browser` 是無頭、CI 與遠端工作的執行模式,也是 [Playwright E2E](/docs/workflows/playwright-e2e) 工作流程所依賴的旗標。它還有設定寫法 `commands.dev.noBrowser: true`,以及環境變數寫法 `EXTENSION_CLI_NO_BROWSER=1`。
+
+`--no-open` 只是啟動時的一個細節。當你希望瀏覽器停在它原本顯示的頁面上,而不讓 Extension.js 在上面為你的擴充功能開啟分頁時,就用它。`dev`、`start` 與 `preview` 都接受這兩個旗標。
 
 ### `--no-browser` 與就緒同步
 

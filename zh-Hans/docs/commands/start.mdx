@@ -80,7 +80,8 @@ extension start [path-or-url] [options]
 | `--polyfill [boolean]`         | -                  | 为 Chromium 目标启用 `browser.*` API 兼容 polyfill。                     | `true`             |
 | `--no-polyfill`                | -                  | 关闭跨浏览器 polyfill。                                                  | 默认启用 polyfill  |
 | `--starting-url <url>`         | -                  | 启动浏览器时的起始 URL。                                                 | 未设置             |
-| `--no-browser`                 | -                  | 构建但跳过浏览器启动。                                                   | 默认启用浏览器启动 |
+| `--no-open`                    | -                  | 启动浏览器，但不为你的扩展打开标签页。浏览器仍会启动并加载扩展。见[阻止浏览器启动](#阻止浏览器启动)。 | 启动时会打开标签页 |
+| `--no-browser`                 | -                  | 不启动浏览器。构建仍会执行。见[阻止浏览器启动](#阻止浏览器启动)。 | 默认启用浏览器启动 |
 | `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 并退出。                   | 关闭               |
 | `--wait-timeout <ms>`          | -                  | `--wait` 模式的超时时间。                                                | `60000`            |
 | `--output <pretty\|json>`      | -                  | 结果格式。`json` 会在 stdout 上打印 schema-1 信封。                      | `pretty`           |
@@ -111,6 +112,25 @@ extension start [path-or-url] [options]
 - 在启动外部 runner 之前等待 `status: "ready"`。
 - 把 `status: "error"` 当作确定性的失败信号处理。
 - 用 `runId` 与 `startedAt` 关联某次具体的运行时会话。
+
+### 阻止浏览器启动
+
+两个 flag 听起来很像，作用却不同：
+
+| 你想要                         | Flag           | 会发生什么                                       |
+| ------------------------------ | -------------- | ------------------------------------------------ |
+| 完全不要浏览器                 | `--no-browser` | 不会启动任何浏览器进程。生产构建照常执行。       |
+| 要浏览器，但不为扩展打开标签页 | `--no-open`    | 浏览器会启动并加载你的扩展。不会为它打开标签页。 |
+
+```bash
+# 阻止浏览器启动。生产构建仍会执行。
+extension start --no-browser
+
+# 启动浏览器，但不为扩展打开标签页。
+extension start --no-open
+```
+
+`--no-browser` 还有配置写法 `commands.start.noBrowser: true`，以及环境变量写法 `EXTENSION_CLI_NO_BROWSER=1`。`dev`、`start` 和 `preview` 都接受这两个 flag。
 
 ### `--no-browser` 与就绪同步
 
