@@ -1,0 +1,45 @@
+---
+title: "修复：Content script fileName is undefined（CRXJS + Vite 8）"
+description: "CRXJS 构建错误 [crx:manifest-post] Content script fileName is undefined 是什么意思，以及在当前的 @crxjs/vite-plugin 与 Vite 8 上如何修复它。"
+keywords:
+  [
+    "crxjs content script filename is undefined",
+    "crx:manifest-post",
+    "@crxjs/vite-plugin vite 8",
+    "crxjs rolldown",
+    "vite 8 chrome extension",
+    "crxjs build error",
+  ]
+---
+
+你在一个 CRXJS 扩展项目上运行 `vite build`，得到了：
+
+```text
+[crx:manifest-post] Content script fileName is undefined: "src/content.ts"
+```
+
+构建在 manifest 被写出之前就失败了，而错误里的路径正是项目里确实存在的文件。下面解释它意味着什么，以及如何修复。
+
+## 这个错误到底意味着什么
+
+`@crxjs/vite-plugin` 在 `crx:manifest-post` 步骤（位于 `generateBundle`）里把每个 content script 解析到它输出的文件。如果插件无法把你的 content script 源文件匹配到某个输出 chunk（原因通常是那个 chunk 的命名或键值方式），文件名就是 `undefined`，插件随即抛出错误。这并不是“你的文件不存在”。这是插件和打包器对你 content script 输出 chunk 的理解产生了分歧。
+
+## 这是 Vite 8 或 Rolldown 的问题吗
+
+大部分已成为历史。Vite 8 把默认打包器从 Rollup 换成了 [Rolldown](https://vite.dev/blog/announcing-vite8)，CRXJS 为这次迁移做了兼容性工作（参见 [#1042](https://github.com/crxjs/chrome-extension-tools/pull/1042) 与 [#1067](https://github.com/crxjs/chrome-extension-tools/issues/1067)）。那部分工作已经完成：`@crxjs/vite-plugin` 现在支持 Vite 8（[#1132](https://github.com/crxjs/chrome-extension-tools/issues/1132)）。
+
+在当前版本上（`@crxjs/vite-plugin@2.7.0` 搭配 Vite 8），这个错误在常见配置下不会复现，包括同时以 `?script` 导入的 content script。最初的报告（[#883](https://github.com/crxjs/chrome-extension-tools/issues/883)）发生在 Vite 5 加 SolidStart/vinxi 的组合上，与 Rolldown 无关。
+
+## 如何修复
+
+1. **把 `@crxjs/vite-plugin` 升级到最新版本**（2.7.0 或更新），它支持 Vite 8 与 Rolldown：
+
+   ```bash
+   npm install @crxjs/vite-plugin@latest --save-dev
+   ```
+
+2. **检查 manifest 如何引用该脚本。** 使用与你项目一致的、相对于项目根的路径，并确认同一个文件没有在别处以 `?script` 后缀被导入（重复注册是目前最常见的边缘情况）。
+
+3. **如果你暂时无法升级，** 锁定 `vite@^7`（仍然基于 Rollup）可以先解除阻塞，直到你能换到当前版本的 `@crxjs/vite-plugin`。
+
+如果在当前版本上你仍然遇到这个问题，维护者响应很积极，可以带一个最小复现到 [crxjs/chrome-extension-tools](https://github.com/crxjs/chrome-extension-tools/issues) 提 issue。
