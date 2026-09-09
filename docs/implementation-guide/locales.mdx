@@ -1,6 +1,6 @@
 ---
 title: "Locales and internationalization"
-description: "Ship localized extension metadata and UI strings with _locales handling. Extension.js discovers, validates, and emits locale JSON for each build."
+description: "Add i18n to a browser extension with _locales and chrome.i18n. Extension.js discovers, validates, and emits locale JSON for each build."
 keywords:
   [
     "extension.js",
@@ -13,10 +13,14 @@ keywords:
     "example",
     "i18n",
     "internationalization",
+    "chrome.i18n",
+    "getMessage",
     "translation",
     "locale",
   ]
 ---
+
+Internationalization, usually shortened to i18n, works through two pieces: a `_locales` folder that holds your translations, and the `chrome.i18n` API that reads them at runtime.
 
 Extension.js reads the `_locales` folder at your project root and validates that each declared locale has a `messages.json`. It emits locale JSON assets into the browser-specific build. During development, it picks up edits to any locale file without a full restart.
 
@@ -116,6 +120,68 @@ Example `messages.json` file for translations:
   }
 }
 ```
+
+## Read strings at runtime with chrome.i18n
+
+`__MSG_*__` placeholders are a manifest feature. The browser expands them in
+`manifest.json` and in CSS files that the manifest declares. Nowhere else.
+
+For every string in your own code, call the API:
+
+```js
+const title = chrome.i18n.getMessage("extension_name");
+document.title = title;
+```
+
+Substitutions come from the second argument:
+
+```json _locales/en/messages.json
+{
+  "greeting": {
+    "message": "Hello, $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  }
+}
+```
+
+```js
+chrome.i18n.getMessage("greeting", ["Ada"]);
+```
+
+Two more calls are useful:
+
+- `chrome.i18n.getUILanguage()` returns the browser's language.
+- `chrome.i18n.getAcceptLanguages()` returns the user's accepted languages.
+
+### Extension.js does not substitute placeholders for you
+
+Extension.js reads `__MSG_*__` references. It never rewrites them.
+
+- In `manifest.json`, it checks each reference against the default locale and reports the ones that are missing.
+- At packaging time, it resolves a `__MSG_*__` name so the zip filename carries the translated name.
+- In HTML, JavaScript, and JSON files, it leaves the text untouched.
+
+So a placeholder that you write into an HTML file ships as literal text. Set the string from script instead:
+
+```html pages/popup.html
+<h1 data-i18n="extension_name"></h1>
+```
+
+```js
+for (const node of document.querySelectorAll("[data-i18n]")) {
+  node.textContent = chrome.i18n.getMessage(node.dataset.i18n);
+}
+```
+
+The same limit applies to CSS that a content script inserts as `<style>` text. `__MSG_@@extension_id__` does not expand there. Extension.js already rewrites `url()` references in that CSS to the extension root, so you do not need the placeholder.
+
+### The browser.i18n spelling
+
+Firefox and Safari ship `browser.i18n` natively. On Chromium, Extension.js provides the `browser` namespace through `webextension-polyfill`, so `browser.i18n.getMessage` works on every target. Read [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the details.
 
 ## Output path
 

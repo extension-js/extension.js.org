@@ -3,6 +3,9 @@ title: "Offscreen documents in Manifest V3"
 description: "Create, reuse, and close chrome.offscreen documents from a service worker. Bundle the offscreen page with the pages/ folder and message it reliably."
 keywords:
   [
+    "clipboard",
+    "clipboardWrite",
+    "copy to clipboard",
     "offscreen document",
     "chrome.offscreen",
     "offscreen api",
@@ -90,6 +93,76 @@ The `reasons` array tells Chrome why the document exists. Common values:
 | `USER_MEDIA`     | Access getUserMedia for recording |
 
 One behavior worth knowing: with `AUDIO_PLAYBACK`, Chrome closes the document automatically about 30 seconds after audio stops playing. For other reasons the document lives until you close it or the extension unloads.
+
+## Clipboard access from the background
+
+Writing to the clipboard is the most common reason to reach for an offscreen
+document. `navigator.clipboard` lives on `window`, and a manifest v3 service
+worker has no `window`, so the write has to happen on a real page.
+
+Ask for the permission and the reason:
+
+```json manifest.json
+{
+  "permissions": ["offscreen", "clipboardWrite"]
+}
+```
+
+Build the offscreen page with a textarea that the copy command can use:
+
+```html pages/offscreen.html
+<!doctype html>
+<html>
+  <body>
+    <textarea id="clipboard-buffer"></textarea>
+    <script src="./offscreen.ts" type="module"></script>
+  </body>
+</html>
+```
+
+```ts pages/offscreen.ts
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.target !== "offscreen" || message.type !== "copy") return;
+
+  const buffer = document.getElementById("clipboard-buffer") as HTMLTextAreaElement;
+  buffer.value = message.text;
+  buffer.select();
+  document.execCommand("copy");
+  sendResponse({ ok: true });
+});
+```
+
+Then send the text from the service worker:
+
+```ts background.ts
+async function copyToClipboard(text: string) {
+  await ensureOffscreen();
+  await chrome.runtime.sendMessage({ target: "offscreen", type: "copy", text });
+}
+```
+
+Pass `chrome.offscreen.Reason.CLIPBOARD` to `createDocument` for this case.
+
+`document.execCommand("copy")` is the call that works here. The newer
+`navigator.clipboard.writeText` needs a focused document, and an offscreen
+document is never focused.
+
+Reading the clipboard needs the `clipboardRead` permission and the same
+document.
+
+A content script or an extension page that the user opened does not need any of
+this. Both have a real `window`, so `navigator.clipboard.writeText` works after
+a user gesture.
+
+### Extension.js ships the page for you
+
+`chrome.offscreen.createDocument` takes a URL string, not an import. Extension.js
+reads that string during the build and adds the HTML page, plus everything that
+the page loads, to the output. A page that only the service worker names still
+reaches `dist/`.
+
+The string has to be a plain literal for that to work. A URL that you build at
+runtime is invisible to the build, and the page is left out.
 
 ## Talking to the document
 

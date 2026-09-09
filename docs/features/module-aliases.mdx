@@ -1,0 +1,124 @@
+---
+title: "Module aliases and import resolution"
+description: "Write short import specifiers such as @lib/badge instead of long relative paths. Extension.js reads tsconfig paths and accepts custom aliases through the config hook."
+keywords:
+  [
+    "extension.js",
+    "alias",
+    "module alias",
+    "path alias",
+    "tsconfig paths",
+    "baseUrl",
+    "resolve alias",
+    "import",
+    "docs",
+    "features",
+  ]
+---
+
+An alias maps an import specifier onto a folder in your project. It replaces `../../../lib/badge` with `@lib/badge`. Extension.js supports two ways to declare one.
+
+This page is about module specifiers in `import` statements. For asset paths in `manifest.json` and in extension API calls, read [Predictable path resolution](/docs/features/path-resolution).
+
+## Declare aliases in tsconfig.json
+
+Extension.js hands your `tsconfig.json` to the bundler resolver. Anything that you put in `compilerOptions.paths` applies to the build:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@lib/*": ["src/lib/*"]
+    }
+  }
+}
+```
+
+```js src/content/scripts.js
+import { BADGE_TEXT } from "@lib/badge.js";
+```
+
+`baseUrl` is optional. Without it, write the targets relative to the folder that holds `tsconfig.json`:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "paths": {
+      "@lib/*": ["./src/lib/*"]
+    }
+  }
+}
+```
+
+Extension.js looks for `tsconfig.json` beside the nearest `package.json` first, then in the project folder.
+
+### This works in JavaScript projects too
+
+A `tsconfig.json` file is the alias source even when every file that you import is plain JavaScript. You do not have to convert the project to TypeScript, and you do not have to install the `typescript` package for the alias to resolve.
+
+### jsconfig.json is not read
+
+Extension.js does not read `jsconfig.json`. A `paths` block in that file has no effect, and the build fails on the alias:
+
+```plaintext
+Module not found: Can't resolve '@lib/badge.js'
+```
+
+Rename the file to `tsconfig.json` to fix it.
+
+## Declare aliases in extension.config.js
+
+The `config` hook receives the full bundler configuration. Add `resolve.alias` there when you prefer to keep the alias out of `tsconfig.json`:
+
+```js extension.config.js
+import path from "node:path";
+
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      "@lib": path.resolve(process.cwd(), "src/lib"),
+    };
+    return config;
+  },
+};
+```
+
+The hook runs for `dev` and for `build`, so one declaration covers both. Read [Rspack configuration](/docs/features/rspack-configuration) for the rest of the hook.
+
+## Aliases that Extension.js sets for you
+
+Extension.js defines no folder aliases of its own. There is no built-in `@/`, `~/`, or `src/` prefix. Every alias that the toolchain injects pins a package to one copy:
+
+| Area                  | Aliased specifiers                                                  |
+| --------------------- | ------------------------------------------------------------------- |
+| Polyfill              | `webextension-polyfill`                                             |
+| React                 | `react`, `react-dom`, `react-dom/client`, the JSX runtimes          |
+| Preact                | `preact`, plus the `react` and `react-dom` names mapped onto Preact |
+| Vue                   | `vue`, `@vue/runtime-dom`, `@vue/runtime-core`, `@vue/shared`       |
+| Svelte                | `svelte`, `svelte/store`                                            |
+| WebAssembly packages  | `@ffmpeg/core`, `@imagemagick/magick-wasm`, `tesseract-wasm` assets |
+
+Framework aliases lose to yours. Extension.js merges your `resolve.alias` last, so an alias that names `react` in the `config` hook wins.
+
+One key is the exception. The polyfill alias `webextension-polyfill$` is applied after yours, so an alias on that exact specifier does not take effect.
+
+## File extensions in specifiers
+
+Extension.js resolves these extensions without you naming them: `.js`, `.cjs`, `.mjs`, `.jsx`, `.ts`, `.mts`, `.tsx`, `.json`, `.svelte`.
+
+It also maps output-style specifiers back onto sources. An import of `./badge.js` resolves against `badge.ts` or `badge.tsx` when the JavaScript file does not exist.
+
+## Best practices
+
+- Keep one alias source. Two declarations of the same prefix are hard to trace.
+- Prefer `tsconfig.json` when your editor should follow the alias too. The `config` hook is invisible to editors.
+- Point an alias at a folder inside the project. An alias that reaches outside the root breaks the packaged output.
+
+## Next steps
+
+- Learn how asset paths resolve in [Predictable path resolution](/docs/features/path-resolution).
+- Change bundler settings in [Rspack configuration](/docs/features/rspack-configuration).
+- Read about [TypeScript support](/docs/languages-and-frameworks/typescript).

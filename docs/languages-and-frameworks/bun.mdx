@@ -1,0 +1,115 @@
+---
+title: "Bun projects with Extension.js"
+description: "Use Bun as the package manager and script runner for a browser extension. Extension.js detects Bun, pins it in package.json, and builds from bun.lock."
+keywords:
+  [
+    "extension.js",
+    "bun",
+    "bunx",
+    "bun.lock",
+    "can i use bun instead of node",
+    "package manager",
+    "javascript runtime",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Bun works as the package manager and the script runner for an Extension.js project. Extension.js detects Bun, records it in `package.json`, and prints Bun commands in its own output.
+
+The Extension.js CLI itself runs on Node. That split is the whole answer to the question below.
+
+## Can I use Bun instead of Node?
+
+For your project, yes. For the CLI process, no.
+
+| What you want                              | Works with Bun    |
+| ------------------------------------------ | ----------------- |
+| Install dependencies (`bun install`)       | Yes               |
+| Run the scaffolder (`bunx extension`)      | Yes               |
+| Run scripts (`bun run dev`, `bun run build`) | Yes             |
+| Execute the CLI on the Bun runtime         | No, Node is required |
+
+Bun stays your interface. Node stays the runtime that executes the CLI. You need both installed.
+
+## Create a project with Bun
+
+```bash
+bunx extension@latest create my-extension --template=content
+```
+
+Extension.js sees that Bun invoked it. The next steps that it prints name Bun:
+
+```plaintext
+Next steps:
+  1. cd my-extension
+  2. bun install
+  3. bun dev
+     Run the extension in a fresh browser profile.
+```
+
+The generated `package.json` pins the manager that you used:
+
+```json package.json
+{
+  "packageManager": "bun@1.2.13"
+}
+```
+
+## Install and build
+
+```bash
+bun install
+```
+
+That writes a `bun.lock` file. Extension.js reads the lockfile on later runs to keep choosing Bun.
+
+```bash
+bun run build
+```
+
+The scripts that the scaffolder writes are manager-agnostic. Each one calls the `extension` binary, so `bun run dev`, `bun run build`, and `bun run preview` all work.
+
+## Why the CLI needs Node
+
+The published packages declare `"engines": {"node": ">=22.12"}`. The CLI checks `process.versions.node` at startup and stops when the version is too low.
+
+Bun reports a Node compatibility version that is lower than that floor. Forcing the Bun runtime therefore trips the guard:
+
+```bash
+bunx --bun extension@latest --version
+```
+
+```plaintext
+[Extension.js] Requires Node.js >= 22.12 (you are on 22.6.0). Upgrade Node.js to run the extension CLI.
+```
+
+The version in that message is the Node compatibility version that Bun reports, not the Node that you installed.
+
+Drop `--bun` and the same command works. Plain `bunx` respects the `#!/usr/bin/env node` shebang on the CLI binary, so the process runs on Node while Bun handles resolution and caching.
+
+## How Extension.js detects Bun
+
+Detection reads the project, not the command that you typed. Three signals feed it:
+
+- A `bun.lock` or `bun.lockb` lockfile at the project root.
+- A `packageManager` field in `package.json` that names `bun`.
+- The `npm_config_user_agent` environment variable that Bun sets when it runs a script.
+
+Extension.js supports `npm`, `pnpm`, `yarn`, `bun`, and `deno`. When no signal is present, it probes your `PATH` in the order `pnpm`, `yarn`, `bun`.
+
+## Automatic dependency installs
+
+`extension dev` and `extension build` install missing dependencies before they compile. The install runs through the manager that was detected, and it passes `--ignore-scripts`. A postinstall script in a dependency therefore does not run during that step.
+
+## Caveats
+
+- Bun-specific runtime APIs such as `Bun.file` do not belong in extension code. That code runs in the browser.
+- Extension.js writes no Bun-specific scripts. The `dev`, `build`, and `preview` scripts are the same for every manager.
+- A template that you import through `extension create` ships without a lockfile. Extension.js strips `bun.lock` and `bun.lockb` from it. Your own install then decides the tree.
+
+## Next steps
+
+- Compare with the [Deno setup](/docs/languages-and-frameworks/deno).
+- Learn how Extension.js handles [Node APIs](/docs/languages-and-frameworks/node).
+- Learn how to manage [Extension configuration](/docs/features/extension-configuration).
