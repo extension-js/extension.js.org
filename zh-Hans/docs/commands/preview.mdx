@@ -83,7 +83,8 @@ extension preview [project-path] [options]
 | `--chromium-binary <path>`  | -                  | [自定义的 Chromium 家族二进制路径](/docs/browsers/running-other-browsers)。 | 系统默认           |
 | `--gecko-binary <path>`     | `--firefox-binary` | [自定义的 Gecko 家族二进制路径](/docs/browsers/running-other-browsers)。    | 系统默认           |
 | `--starting-url <url>`      | -                  | 启动浏览器时的起始 URL。                                                    | 未设置             |
-| `--no-browser`              | -                  | 跳过浏览器启动。                                                            | 默认启用浏览器启动 |
+| `--no-open`                 | -                  | 启动浏览器，但不为你的扩展打开标签页。浏览器仍会启动并加载扩展。见[阻止浏览器启动](#阻止浏览器启动)。 | 启动时会打开标签页 |
+| `--no-browser`              | -                  | 不启动浏览器。见[阻止浏览器启动](#阻止浏览器启动)。 | 默认启用浏览器启动 |
 | `--port <port>`             | -                  | 启用 runner 时使用的 runner / devtools 端口。用 `0` 让 OS 自动分配端口。    | `8080`             |
 | `--extensions <list>`       | -                  | 用逗号分隔的协同扩展或商店 URL。                                            | 未设置             |
 | `--output-path <dir>`       | -                  | 要运行的、已存在的未打包扩展目录。                                          | 可用时为 `dist/<browser>` |
@@ -99,6 +100,25 @@ extension preview [project-path] [options]
 ## 远程 URL 与 light 模式
 
 当路径参数是一个远程 `http(s)` URL 时，`preview` 会自动设置 `EXTJS_LIGHT=1`。这会让下载下来的扩展以 light 模式启动。如果你事先自己设置了 `EXTJS_LIGHT`，则会覆盖这一行为。
+
+## 阻止浏览器启动
+
+两个 flag 听起来很像，作用却不同：
+
+| 你想要                         | Flag           | 会发生什么                                       |
+| ------------------------------ | -------------- | ------------------------------------------------ |
+| 完全不要浏览器                 | `--no-browser` | 不会启动任何浏览器进程。`preview` 仍会写入就绪元数据。 |
+| 要浏览器，但不为扩展打开标签页 | `--no-open`    | 浏览器会启动并加载你的扩展。不会为它打开标签页。 |
+
+```bash
+# 阻止浏览器启动。
+extension preview --no-browser
+
+# 启动浏览器，但不为扩展打开标签页。
+extension preview --no-open
+```
+
+`--no-browser` 还有配置写法 `commands.preview.noBrowser: true`，以及环境变量写法 `EXTENSION_CLI_NO_BROWSER=1`。`dev`、`start` 和 `preview` 都接受这两个 flag。
 
 ## 自动化元数据
 

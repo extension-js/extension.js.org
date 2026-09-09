@@ -101,8 +101,8 @@ extension dev [path-or-url] [options]
 | `--port <port>`                | -                  | 请求的 dev 服务器端口。用 `0` 让 OS 自动分配端口。见[端口如何确定](#端口如何确定)。                                              | `8080`             |
 | `--host <host>`                | -                  | 绑定 dev 服务器的主机。Docker / dev container 中可用 `0.0.0.0`。                                                                 | `127.0.0.1`        |
 | `--public-host <host>`         | -                  | 当浏览器可连接的主机与绑定用的 `--host` 不同时（远程 / dev container），浏览器为 HMR 与重载桥拨号的主机。                        | 绑定主机（绑定到 `0.0.0.0` 时为 `127.0.0.1`） |
-| `--no-open`                    | -                  | 不自动启动浏览器。                                                                                                               | 默认会启动浏览器   |
-| `--no-browser`                 | -                  | 不启动浏览器。                                                                                                                   | 默认会启动浏览器   |
+| `--no-open`                    | -                  | 启动浏览器，但不为你的扩展打开标签页。浏览器仍会启动并加载扩展。见[阻止浏览器启动](#阻止浏览器启动)。 | 启动时会打开标签页 |
+| `--no-browser`                 | -                  | 不启动浏览器。dev 服务器仍会启动并持续重新构建。见[阻止浏览器启动](#阻止浏览器启动)。 | 默认会启动浏览器   |
 | `--no-reload`                  | -                  | 跳过 content script 重载运行时与重建时的重载派发。需要手动重载标签页才能看到改动。                                               | 默认启用重载运行时 |
 | `--wait [boolean]`             | -                  | 等待 `dist/extension-js/<browser>/ready.json` 并退出。需要本地项目路径。                                                         | 关闭               |
 | `--wait-timeout <ms>`          | -                  | `--wait` 模式的超时时间。                                                                                                        | `60000`            |
@@ -171,6 +171,27 @@ extension dev [path-or-url] [options]
 `events.ndjson` 只属于当前这次运行：新一次运行开始时文件会重置，且每条记录都盖有本次运行的 `runId`（与 `ready.json` 一致），消费者不会看到上一个会话的事件与当前会话交错。
 
 会话行为异常时，运行 [`extension doctor`](/docs/commands/doctor)——它按顺序检查契约、控制通道、令牌、执行器与浏览器，并指出第一个失败的环节和修复方法。
+
+### 阻止浏览器启动
+
+两个 flag 听起来很像，作用却不同：
+
+| 你想要                         | Flag           | 会发生什么                                                    |
+| ------------------------------ | -------------- | ------------------------------------------------------------- |
+| 完全不要浏览器                 | `--no-browser` | 不会启动任何浏览器进程。dev 服务器照常运行，并在保存时重新构建。 |
+| 要浏览器，但不为扩展打开标签页 | `--no-open`    | 浏览器会启动并加载你的扩展。不会为它打开标签页。              |
+
+```bash
+# 阻止浏览器启动。dev 服务器继续运行。
+extension dev --no-browser
+
+# 启动浏览器，但不为扩展打开标签页。
+extension dev --no-open
+```
+
+`--no-browser` 是无头、CI 与远程工作的运行模式，也是 [Playwright E2E](/docs/workflows/playwright-e2e) 工作流所依赖的 flag。它还有配置写法 `commands.dev.noBrowser: true`，以及环境变量写法 `EXTENSION_CLI_NO_BROWSER=1`。
+
+`--no-open` 只是启动时的一个细节。当你希望浏览器停在它原本显示的页面上，而不让 Extension.js 在上面为你的扩展打开一个标签页时，就用它。`dev`、`start` 和 `preview` 都接受这两个 flag。
 
 ### `--no-browser` 与就绪同步
 
