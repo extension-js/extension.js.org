@@ -1,0 +1,173 @@
+---
+title: "The tabs API in development and production"
+description: "Use chrome.tabs in an Extension.js project. Development injects the tabs permission, production does not, and the CLI targets one tab with --tab."
+keywords:
+  [
+    "tabs api",
+    "chrome.tabs",
+    "browser.tabs",
+    "tabs permission",
+    "activeTab",
+    "extension.js",
+    "--tab",
+    "list-tabs",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+The tabs API needs no bundler support. Extension.js compiles `chrome.tabs` calls like any other code. What it does change is the manifest that you run against during development, and that difference has a trap in it.
+
+## Development injects the tabs permission
+
+The dev loop reloads content scripts by injecting them into tabs that are already open. That needs permissions your extension may not declare, so Extension.js adds them to the manifest that it writes into `dist/`.
+
+For a manifest v3 project, development adds these to `permissions`:
+
+```json
+["scripting", "tabs", "management", "storage"]
+```
+
+It also unions every content script match pattern into `host_permissions`.
+
+For a manifest v2 project, development adds `tabs` and `storage`, plus the match patterns, because manifest v2 has no `host_permissions` key.
+
+None of this reaches production. `extension build` emits exactly the permissions that you declared.
+
+You can see the difference yourself. Declare only `storage` in `manifest.json`, then compare the two builds:
+
+```bash
+extension build
+```
+
+```json dist/chromium/manifest.json
+{
+  "permissions": ["storage"]
+}
+```
+
+```bash
+extension dev
+```
+
+```json dist/chromium/manifest.json
+{
+  "permissions": ["scripting", "tabs", "management", "storage"]
+}
+```
+
+## The trap, and how to avoid it
+
+Because development injects `tabs`, a call to `chrome.tabs.query` succeeds in `extension dev` even when `manifest.json` never asked for the permission. The same call fails after `extension build`.
+
+Extension.js warns about this for some APIs. Use `chrome.management` without declaring it and the build says so:
+
+```plaintext
+manifest.json does not declare the "management" permission, but background.js uses
+chrome.management. It works in development only because the dev instrumentation
+injects "management": the production build will fail at runtime.
+```
+
+The warning covers `storage`, `scripting`, and `management`. **It does not cover `tabs`.** A project that calls `chrome.tabs` without declaring the permission compiles clean, runs clean in development, and breaks in the packaged extension.
+
+Declare what you use:
+
+```json manifest.json
+{
+  "permissions": ["tabs", "storage"]
+}
+```
+
+Then confirm against a production build before you ship:
+
+```bash
+extension build
+```
+
+Load `dist/chromium` as an unpacked extension and exercise the feature.
+
+## Do you need the tabs permission at all?
+
+Many extensions do not. The `tabs` permission exists to read privileged fields, not to call the API.
+
+| What you do                                 | Permission needed                  |
+| ------------------------------------------- | ---------------------------------- |
+| Call `chrome.tabs.query` for tab ids        | None                               |
+| Read `tab.url`, `tab.title`, `tab.favIconUrl` | `tabs`, or a matching host permission |
+| Filter a query by `url`                     | `tabs`, or a matching host permission |
+| Act on the current tab after a user click   | `activeTab`                        |
+| Inject a script into a tab                  | `scripting` plus a host permission |
+
+`activeTab` is the smaller request. It grants access to the tab that the user acted on, for as long as that visit lasts. Stores review it more kindly than `tabs` plus `<all_urls>`.
+
+Read [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions) for the full set.
+
+## Cross-browser naming
+
+Firefox and Safari ship a promise-based `browser.tabs`. Chromium ships a callback-based `chrome.tabs`. Extension.js provides the `browser` namespace on Chromium through `webextension-polyfill`, so one spelling works everywhere:
+
+```js
+const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+```
+
+Read [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for how that is wired.
+
+## Targeting one tab from the terminal
+
+Several CLI verbs act on a single tab. List the open tabs first:
+
+```bash
+extension inspect --list-tabs
+```
+
+Each row carries an id, a URL, a title, an active flag, and a window id. Pass the id:
+
+```bash
+extension inspect --tab 412
+```
+
+`--tab` takes a numeric tab id and nothing else. To match on address instead, use `--url`, which accepts a match pattern or a plain substring:
+
+```bash
+extension eval "document.title" --context content --url "https://example.com/*"
+```
+
+With neither flag, the active tab in the last focused window is used.
+
+Other verbs that take a tab:
+
+```bash
+extension reload --context content --tab 412
+```
+
+```bash
+extension logs --tab 412
+```
+
+The two mean different things. On `reload`, `--tab` chooses what to act on. On `logs`, it filters events that were already recorded.
+
+`extension storage` has no `--tab` option. Choose a surface with `--context` instead.
+
+## Failure messages
+
+| Message                                      | What it means                                       |
+| -------------------------------------------- | --------------------------------------------------- |
+| `no active tab to target`                    | No tab was focused and no `--tab` or `--url` was given |
+| `no open tab matches url: ...`               | The `--url` value matched nothing                   |
+| `needs a --tab id, a --url to match, or an active tab` | The context requires a tab and none resolved |
+| `restricted page, or outside host_permissions` | The tab exists but cannot be scripted             |
+
+The last one is common on `chrome://` pages and on the Web Store, which no extension may touch.
+
+## Best practices
+
+- Declare `tabs` when you read tab URLs. Development will not remind you.
+- Prefer `activeTab` when a user gesture starts the work.
+- Verify permissions against a production build, not against the dev build.
+- Never assume a tab id survives a browser restart. Query for it again.
+
+## Next steps
+
+- Review [permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions).
+- Drive the browser from the terminal with the [eval command](/docs/commands/eval).
+- Read about [content scripts](/docs/implementation-guide/content-scripts).

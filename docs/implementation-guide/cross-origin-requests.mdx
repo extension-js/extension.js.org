@@ -1,0 +1,169 @@
+---
+title: "CORS and cross-origin requests"
+description: "Why fetch from a content script hits CORS and fetch from the background does not. Host permissions, the dev server headers, and the dev-only CSP patch."
+keywords:
+  [
+    "cors",
+    "cross-origin",
+    "content script fetch",
+    "host_permissions",
+    "access-control-allow-origin",
+    "preflight",
+    "extension.js",
+    "chrome extension",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+CORS trips up extension authors because the rules change with the context that runs the request. The same `fetch` call behaves differently in a content script and in the background.
+
+Extension.js does not change any of these rules. It does set headers on its own dev server, and it does patch the CSP during development. Both are covered below.
+
+## Where the request runs decides the rules
+
+| Context                       | Origin of the request       | Subject to CORS                        |
+| ----------------------------- | --------------------------- | -------------------------------------- |
+| Background service worker     | The extension origin        | No, when a host permission covers the URL |
+| Extension page such as popup  | The extension origin        | No, when a host permission covers the URL |
+| Content script, isolated world | The host page's origin     | Yes, since Chrome 85                   |
+| Content script, MAIN world    | The host page's origin      | Yes                                    |
+
+A content script shares the page's origin for network purposes. Host permissions do not lift CORS there. This is the single most common surprise.
+
+## Move the request to the background
+
+The reliable pattern is to ask the background to fetch, then send the result back:
+
+```js src/content/scripts.js
+export default function initial() {
+  chrome.runtime.sendMessage(
+    { type: "fetch-report", url: "https://api.example.com/report" },
+    (response) => {
+      if (response?.ok) render(response.data);
+    },
+  );
+
+  return () => {};
+}
+```
+
+```js src/background.js
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type !== "fetch-report") return;
+
+  fetch(message.url)
+    .then((response) => response.json())
+    .then((data) => sendResponse({ ok: true, data }))
+    .catch((error) => sendResponse({ ok: false, error: String(error) }));
+
+  // Keep the message channel open for the async reply.
+  return true;
+});
+```
+
+Read [Messaging](/docs/implementation-guide/messaging) for the rest of that channel.
+
+## Declare the host permission
+
+The background is exempt from CORS only for origins that the manifest names:
+
+```json manifest.json
+{
+  "host_permissions": ["https://api.example.com/*"]
+}
+```
+
+Without a matching entry, the request is an ordinary cross-origin request and the server's headers decide.
+
+Extension.js does not validate host permissions against the URLs in your code. A missing entry shows up at runtime, as a failed request, not at build time.
+
+Prefer a narrow pattern. `<all_urls>` works, and store reviewers ask about it.
+
+## Preflight requests still happen
+
+A host permission removes the origin check on the response. It does not remove the preflight.
+
+A request that carries a custom header, or that uses a method beyond `GET`, `HEAD`, or `POST`, still sends an `OPTIONS` request first. The server must answer it. When you control the server, allow the method and the headers that you send. When you do not, keep the request simple.
+
+## The Extension.js dev server
+
+During `extension dev`, Extension.js runs a local server that serves the reload client and the hot updates. Content scripts on any page dial it, which is itself a cross-origin request, so the server answers with:
+
+```http
+Access-Control-Allow-Origin: *
+```
+
+It also accepts any `Host` header. This is a development server on your own machine. It never runs in a packaged extension, and nothing that it serves reaches production.
+
+### The dev-only CSP patch
+
+Manifest v3 leaves `connect-src` unrestricted unless you set it. A project that declares no `content_security_policy` therefore needs no patch, and the dev manifest carries the ordinary policy:
+
+```json dist/chromium/manifest.json
+{
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; "
+  }
+}
+```
+
+Declare a `connect-src` of your own and the dev build appends the local origins to it, so your pages can still reach the socket:
+
+```json dist/chromium/manifest.json
+{
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:* http://127.0.0.1:* http://localhost:*; "
+  }
+}
+```
+
+The appended entries are removed for `extension build`. Your own `connect-src` survives, so a tight policy that forgets your API origin fails in production and passes in development. Read [Manifest refusals](/docs/debugging/manifest-refusals) when a CSP error survives into production.
+
+### Binding to another host
+
+Bind the server somewhere else when you develop inside a container:
+
+```bash
+extension dev --host 0.0.0.0
+```
+
+The browser cannot dial `0.0.0.0`, so Extension.js resolves a connectable address for the client. It falls back to `127.0.0.1`. Override that when the browser lives on another machine:
+
+```bash
+extension dev --host 0.0.0.0 --public-host 192.168.1.20
+```
+
+The dev CSP patch follows the resolved host, so the socket URL stays allowed.
+
+## Remote scripts and stylesheets
+
+Extension CSP forbids loading a script from a remote origin into an extension page. That is not CORS, and no header fixes it. Bundle the code instead.
+
+Extension.js reports this case during the build:
+
+```plaintext
+A remote script or stylesheet is blocked by extension CSP.
+```
+
+## Symptoms and fixes
+
+| Symptom                                                   | Cause                                | Fix                                    |
+| --------------------------------------------------------- | ------------------------------------ | -------------------------------------- |
+| `No 'Access-Control-Allow-Origin' header` in a content script | The request ran at the page's origin | Move the fetch to the background       |
+| The same call works in the popup but not in the content script | Different origins, same code      | Move the fetch to the background       |
+| The background call fails too                             | No matching host permission          | Add the origin to `host_permissions`   |
+| An `OPTIONS` request fails                                | The server rejects the preflight     | Simplify the request or fix the server |
+| It works in `dev` and fails after `build`                 | A dev-only CSP or permission         | Compare the two `dist/` manifests      |
+
+## Best practices
+
+- Put every third-party request in the background, even the ones that work today.
+- Name each origin in `host_permissions` rather than reaching for `<all_urls>`.
+- Test against a production build before you ship. Development is more permissive on purpose.
+
+## Next steps
+
+- Learn how to pass data between contexts in [Messaging](/docs/implementation-guide/messaging).
+- Review [permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions).
+- Observe traffic with [Intercept network requests](/docs/workflows/intercept-network-requests).

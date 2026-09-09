@@ -1,0 +1,201 @@
+---
+title: "Shadow DOM in content scripts"
+description: "Mount content script UI inside a shadow root so page CSS cannot reach it. Extension.js recognizes the host element, hydrates bundle CSS, and cleans up on reload."
+keywords:
+  [
+    "shadow dom",
+    "shadow root",
+    "attachShadow",
+    "content script ui",
+    "style isolation",
+    "data-extension-root",
+    "extension.js",
+    "chrome extension",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+A content script shares the page's document. Page CSS reaches your markup, and your CSS reaches the page. A shadow root ends both directions.
+
+Extension.js does not create the shadow root for you. You create it, and the toolchain recognizes the host that you created. This page covers the contract between the two.
+
+## The pattern
+
+Every content template uses the same shape:
+
+```js src/content/scripts.js
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
+
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "content_script";
+  shadowRoot.appendChild(contentDiv);
+
+  return () => {
+    rootDiv.remove();
+  };
+}
+```
+
+Three parts carry weight:
+
+- **`data-extension-root`** marks the host so Extension.js can find it.
+- **`all: initial !important`** protects the host element itself. A shadow root shields its descendants, not the host. Without that line, a page rule such as `div { opacity: .8 }` fades the widget.
+- **The returned function** removes the host. Extension.js calls it before it mounts the next version.
+
+## The host element that Extension.js looks for
+
+Extension.js finds your host with one selector:
+
+```plaintext
+#extension-root, [data-extension-root]
+```
+
+Use the `data-extension-root` attribute or the `extension-root` id. There is no class-based form. The value of the attribute is free, so `"true"` is a convention, not a requirement.
+
+The value `extension-js-devtools` is reserved. The bundled developer overlay claims it, and the selector excludes it so the two never adopt each other's roots.
+
+While you develop, Extension.js stamps bookkeeping attributes onto your host:
+
+| Attribute                    | What it records                                             |
+| ---------------------------- | ----------------------------------------------------------- |
+| `data-extjs-reinject-owner`  | The script that owns the host, qualified by extension id    |
+| `data-extjs-reinject-key`    | The entry that mounted it                                   |
+| `data-extjs-reinject-build`  | The build that mounted it                                   |
+| `data-extjs-reinject-status` | `mounted`, `executed`, `cleaned`, or `mount-error`          |
+
+Those attributes are removed from production builds. Do not write selectors against them.
+
+## Getting CSS into the shadow root
+
+A shadow root ignores stylesheets that live outside it. That single rule explains every case below.
+
+### CSS that you import into the script
+
+Import a stylesheet from a content script and Extension.js inlines it as a `data:` URL rather than emitting a link. Fetch it and put the text into a `<style>` element inside the shadow root:
+
+```js src/content/scripts.js
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
+
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+  const styleElement = document.createElement("style");
+  shadowRoot.appendChild(styleElement);
+
+  fetchCSS().then((css) => (styleElement.textContent = css));
+
+  return () => rootDiv.remove();
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL("./styles.css", import.meta.url);
+  const response = await fetch(cssUrl);
+  const text = await response.text();
+  return response.ok ? text : Promise.reject(text);
+}
+```
+
+Any `url()` inside that stylesheet is rewritten at build time so it resolves against the extension, not against the page.
+
+### CSS that you never insert
+
+When a stylesheet ends up in the bundle and no code inserts it, Extension.js hydrates it into your shadow root for you. It inserts a `<style data-extjs-bundle-css="true">` element as the first child of the root.
+
+That help is conditional. As soon as the shadow root holds a `<style>` element of your own with text in it, Extension.js removes its element and steps back. Your own stylesheet wins.
+
+### CSS declared in manifest.json
+
+A stylesheet listed under `content_scripts[].css` is injected by the browser, into the page document. It never reaches a shadow root.
+
+Use manifest CSS to style the page itself. Use imported CSS for anything inside your shadow root.
+
+### Web fonts
+
+A `@font-face` rule inside a shadow root never applies. Font faces resolve against the document, not the shadow tree. Register the face on `document.fonts` instead. Read the worked example in [CSS, Sass, and Less](/docs/implementation-guide/css#web-fonts-in-a-content-script).
+
+## Reload behavior
+
+Extension.js reloads a content script by injecting the whole bundle again. It does not swap modules inside a live page.
+
+The sequence on each save is:
+
+1. Extension.js calls the cleanup function that your previous mount returned.
+2. It removes hosts that carry this script's owner token from an older build.
+3. It runs your default export again, which builds a new host.
+4. It refreshes any stylesheet that it had hydrated.
+
+That is why the cleanup function matters. Without it, every save leaves the previous host on the page, and the widgets stack up.
+
+Extension.js only removes hosts that it can prove belong to this script and to an older build. A host that predates the mount is never adopted, and a second extension's host is never touched.
+
+## Multiple entries on one page
+
+Each file in a `content_scripts` block gets its own reinject key. One script's cleanup therefore disposes its own host, never a sibling's.
+
+Give each entry its own host element. Two entries that share one host fight over cleanup.
+
+## Templates
+
+Every template in the Content scripts group mounts into a shadow root:
+
+`content`, `content-css-modules`, `content-custom-font`, `content-env`, `content-less`, `content-less-modules`, `content-main-world`, `content-multi-one-entry`, `content-multi-three-entries`, `content-preact`, `content-react`, `content-sass`, `content-sass-modules`, `content-svelte`, `content-typescript`, `content-vue`
+
+Scaffold the React one to see a framework root inside a shadow root:
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-react
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-react
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-react
+```
+
+</CodeGroup>
+
+Repository: [extension-js/examples/content-react](https://github.com/extension-js/examples/tree/main/examples/content-react)
+
+A framework root needs its own teardown in the cleanup function:
+
+```jsx src/content/scripts.jsx
+return () => {
+  mountingPoint.unmount();
+  rootDiv.remove();
+};
+```
+
+## Best practices
+
+- Always return a cleanup function that removes the host.
+- Keep `all: initial !important` on the host element.
+- Choose `mode: "open"` unless you have a reason to hide the tree. Closed roots are harder to debug.
+- Query inside `shadowRoot`, never inside `document`, for your own nodes.
+- Do not depend on `data-extjs-*` attributes. They exist for the dev loop only.
+
+## Next steps
+
+- Read the full [content script contract](/docs/implementation-guide/content-scripts#authoring-contract).
+- Learn how styles are routed in [CSS, Sass, and Less](/docs/implementation-guide/css).
+- Review [reload and HMR](/docs/features/reload-and-hmr) behavior.

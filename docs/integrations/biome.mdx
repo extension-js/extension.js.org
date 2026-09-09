@@ -1,0 +1,166 @@
+---
+title: "Biome for browser extensions"
+description: "Run Biome as the linter and formatter for an Extension.js project. Biome runs beside the build, replaces ESLint and Prettier, and needs no bundler setup."
+keywords:
+  [
+    "biome for browser extensions",
+    "biome",
+    "biomejs",
+    "biome.json",
+    "linter",
+    "formatter",
+    "eslint",
+    "prettier",
+    "extension.js",
+    "docs",
+    "integrations",
+  ]
+---
+
+Biome is a linter and formatter in one binary. It covers the ground that ESLint and Prettier cover together, with one configuration file and one dependency.
+
+Biome runs beside the Extension.js build, never inside it. Extension.js does not read `biome.json`, does not run Biome, and does not copy the configuration into the packaged output.
+
+## When Biome is a good fit
+
+- You want one tool and one config file instead of a linter plus a formatter.
+- You are starting a project and have no ESLint rule set to carry over.
+- You want checks that finish fast enough to run on every save.
+
+## Biome capabilities
+
+| Capability             | What it gives you                                          |
+| ---------------------- | ---------------------------------------------------------- |
+| Linting and formatting | One binary for both, with one shared ignore list           |
+| Import sorting         | An assist action that orders imports on write              |
+| Editor integration     | A language server that formats on save                     |
+| Migration path         | `biome migrate eslint` and `biome migrate prettier`        |
+
+## There is no Biome template
+
+Extension.js ships configuration templates for ESLint, Prettier, and Stylelint. It ships none for Biome. Scaffold any template and add Biome yourself with the steps below.
+
+## Add Biome to an extension
+
+Install the package:
+
+<CodeGroup>
+
+```bash npm
+npm install -D @biomejs/biome
+```
+
+```bash pnpm
+pnpm add -D @biomejs/biome
+```
+
+```bash yarn
+yarn add -D @biomejs/biome
+```
+
+```bash bun
+bun add -d @biomejs/biome
+```
+
+```bash deno
+deno add -D npm:@biomejs/biome
+```
+
+</CodeGroup>
+
+Create the configuration file:
+
+```bash
+npx biome init
+```
+
+That writes a `biome.json` at the project root. The generated file already keeps Biome out of the build output:
+
+```json biome.json
+{
+  "files": {
+    "includes": ["**", "!!**/dist"]
+  },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  }
+}
+```
+
+Run the checks:
+
+```bash
+npx biome check
+```
+
+Apply the fixes that Biome can make on its own:
+
+```bash
+npx biome check --write
+```
+
+## Add the scripts
+
+Biome writes no scripts into `package.json`. Add them next to the Extension.js scripts:
+
+```json package.json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "lint:ci": "biome ci"
+  }
+}
+```
+
+`biome ci` is the continuous integration form. It reports the same findings as `check` and never edits a file.
+
+## Ignore the generated type file
+
+A TypeScript project carries an `extension-env.d.ts` file that Extension.js rewrites on every `dev` and `build` run. Formatting it is wasted work, because the next run replaces it. Exclude it:
+
+```json biome.json
+{
+  "files": {
+    "includes": ["**", "!!**/dist", "!extension-env.d.ts"]
+  }
+}
+```
+
+Read [Types for the chrome and browser APIs](/docs/languages-and-frameworks/extension-api-types) for what that file does.
+
+## Migrating from ESLint or Prettier
+
+Biome reads an existing configuration and converts what it can:
+
+```bash
+npx biome migrate eslint --write
+```
+
+```bash
+npx biome migrate prettier --write
+```
+
+Remove the old dependencies once the output satisfies you. Nothing in the Extension.js build depends on either tool.
+
+## What the build does with biome.json
+
+Nothing. The build reads a closed set of root files: `manifest.json`, `package.json`, `extension.config.js`, `tsconfig.json`, the PostCSS and Tailwind configs, and the `.env` family. A `biome.json` file is never read, never watched, and never emitted into `dist/`.
+
+One packaging detail is worth knowing. `extension build --zip-source` archives the whole project folder, so `biome.json` lands in the source archive. That is usually what you want for a store review that asks for sources.
+
+## Best practices
+
+- Choose Biome or the ESLint and Prettier pair. Running both formats the same files twice, with different results.
+- Keep `dist` excluded. The generated bundle is not yours to format.
+- Run `biome ci` in continuous integration, not `biome check --write`. A CI job should report, not rewrite.
+
+## Next steps
+
+- Compare with the [ESLint integration](/docs/integrations/eslint).
+- Compare with the [Prettier integration](/docs/integrations/prettier).
+- Review the [security checklist](/docs/workflows/security-checklist) before you publish.
