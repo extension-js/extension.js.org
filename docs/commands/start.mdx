@@ -80,7 +80,8 @@ If you omit the path, the command uses the current working folder.
 | `--polyfill [boolean]`         | -                  | Enable `browser.*` API compatibility polyfill for Chromium targets.                               | `true`                                          |
 | `--no-polyfill`                | -                  | Disable the cross-browser polyfill.                                                               | polyfill enabled                                |
 | `--starting-url <url>`         | -                  | Starting URL in launched browser.                                                                 | unset                                           |
-| `--no-browser`                 | -                  | Build but skip browser launch.                                                                    | browser launch enabled                          |
+| `--no-open`                    | -                  | Launch the browser, but do not open a tab for your extension. The browser still starts and loads it. See [stop the browser from launching](#stop-the-browser-from-launching). | a tab opens on launch                           |
+| `--no-browser`                 | -                  | Stop the browser from launching. The build still runs. See [stop the browser from launching](#stop-the-browser-from-launching). | browser launch enabled                          |
 | `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit.                                       | disabled                                        |
 | `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                                                        | `60000`                                         |
 | `--output <pretty\|json>`      | -                  | Result format. `json` prints a schema-1 envelope on stdout.                                       | `pretty`                                        |
@@ -111,6 +112,25 @@ This is useful for automation when using `--no-browser`:
 - Wait for `status: "ready"` before launching external runners.
 - Handle `status: "error"` as a deterministic failure signal.
 - Use `runId` and `startedAt` to correlate a specific runtime session.
+
+### Stop the browser from launching
+
+Two flags sound alike and do different things:
+
+| You want                                        | Flag           | What happens                                                              |
+| ----------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
+| No browser at all                               | `--no-browser` | No browser process starts. The production build still runs.               |
+| A browser, but no tab opened for your extension | `--no-open`    | The browser starts and loads your extension. No tab is opened for it.     |
+
+```bash
+# Stop the browser launch. The production build still runs.
+extension start --no-browser
+
+# Launch the browser without opening a tab for the extension.
+extension start --no-open
+```
+
+`--no-browser` also has a config form, `commands.start.noBrowser: true`, and an environment form, `EXTENSION_CLI_NO_BROWSER=1`. `dev`, `start`, and `preview` all accept both flags.
 
 ### `--no-browser` and readiness synchronization
 

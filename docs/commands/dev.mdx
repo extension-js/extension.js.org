@@ -105,8 +105,8 @@ These cover the 80% case. Skip to the [full reference](#arguments-and-flags) for
 | `--port <port>`                | -                  | Requested dev server port. Use `0` for an OS-assigned port. See [how the port resolves](#how-the-port-resolves).                                 | `8080`                                          |
 | `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/dev containers.                                                                         | `127.0.0.1`                                     |
 | `--public-host <host>`         | -                  | Connectable host the browser dials for HMR and the reload bridge, when it differs from the bind `--host` (remote/dev container).                 | bind host (`127.0.0.1` when bound to `0.0.0.0`) |
-| `--no-open`                    | -                  | Do not automatically launch browser.                                                                                                             | browser launches by default                     |
-| `--no-browser`                 | -                  | Do not launch browser.                                                                                                                           | browser launch enabled                          |
+| `--no-open`                    | -                  | Launch the browser, but do not open a tab for your extension. The browser still starts and loads it. See [stop the browser from launching](#stop-the-browser-from-launching). | a tab opens on launch                           |
+| `--no-browser`                 | -                  | Stop the browser from launching. The dev server still starts and keeps rebuilding. See [stop the browser from launching](#stop-the-browser-from-launching). | browser launch enabled                          |
 | `--no-reload`                  | -                  | Skip the content-script reload runtime and on-rebuild reload dispatch. Reload tabs manually to see changes.                                      | reload runtime enabled                          |
 | `--wait [boolean]`             | -                  | Wait for `dist/extension-js/<browser>/ready.json` and exit. Requires a local project path.                                                       | disabled                                        |
 | `--wait-timeout <ms>`          | -                  | Timeout for `--wait` mode.                                                                                                                       | `60000`                                         |
@@ -175,6 +175,27 @@ The full schema, error states, and two-phase readiness rules live in [the ready.
 `events.ndjson` is scoped to the current run: starting a new run resets the file, and every entry is stamped with the run's `runId` (matching `ready.json`), so consumers never see events from a previous session interleaved with the live one.
 
 When a session misbehaves, run [`extension doctor`](/docs/commands/doctor): it walks the contract, control channel, token, executor, and browser in order and names the first failing leg with a fix.
+
+### Stop the browser from launching
+
+Two flags sound alike and do different things:
+
+| You want                                        | Flag           | What happens                                                                 |
+| ----------------------------------------------- | -------------- | ---------------------------------------------------------------------------- |
+| No browser at all                               | `--no-browser` | No browser process starts. The dev server runs and keeps rebuilding on save. |
+| A browser, but no tab opened for your extension | `--no-open`    | The browser starts and loads your extension. No tab is opened for it.        |
+
+```bash
+# Stop the browser launch. The dev server keeps running.
+extension dev --no-browser
+
+# Launch the browser without opening a tab for the extension.
+extension dev --no-open
+```
+
+`--no-browser` is the run mode for headless, CI, and remote work, and it is the flag the [Playwright end-to-end workflow](/docs/workflows/playwright-e2e) is built on. It also has a config form, `commands.dev.noBrowser: true`, and an environment form, `EXTENSION_CLI_NO_BROWSER=1`.
+
+`--no-open` is a launch detail. Reach for it when you want the browser open on whatever it already shows, without Extension.js opening a tab for your extension over it. `dev`, `start`, and `preview` all accept both flags.
 
 ### `--no-browser` and readiness synchronization
 
