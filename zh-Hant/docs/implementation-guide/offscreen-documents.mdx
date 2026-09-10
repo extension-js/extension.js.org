@@ -3,6 +3,9 @@ title: "Manifest V3 中的 offscreen documents"
 description: "在 service worker 中建立、重複使用、關閉 chrome.offscreen 文件。透過 pages/ 資料夾打包 offscreen 頁面，並可靠地與它進行訊息通訊。"
 keywords:
   [
+    "clipboard",
+    "clipboardWrite",
+    "copy to clipboard",
     "offscreen document",
     "chrome.offscreen",
     "offscreen api",
@@ -90,6 +93,69 @@ await chrome.offscreen.closeDocument();
 | `USER_MEDIA`     | 存取 getUserMedia 進行錄製 |
 
 有一個行為值得留意：使用 `AUDIO_PLAYBACK` 時，Chrome 會在音訊停止播放後約 30 秒自動關閉該文件。其他 reason 下，文件會一直存在，直到你關閉它或擴充功能卸載為止。
+
+## 從背景存取剪貼簿
+
+寫入剪貼簿是需要 offscreen document 最常見的理由。`navigator.clipboard` 位於 `window` 上，
+而 Manifest V3 的 service worker 沒有 `window`，因此寫入必須發生在一個真正的頁面上。
+
+請求權限並給出對應的 reason：
+
+```json manifest.json
+{
+  "permissions": ["offscreen", "clipboardWrite"]
+}
+```
+
+建立 offscreen 頁面時，加上一個給 copy 指令使用的 textarea：
+
+```html pages/offscreen.html
+<!doctype html>
+<html>
+  <body>
+    <textarea id="clipboard-buffer"></textarea>
+    <script src="./offscreen.ts" type="module"></script>
+  </body>
+</html>
+```
+
+```ts pages/offscreen.ts
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.target !== "offscreen" || message.type !== "copy") return;
+
+  const buffer = document.getElementById("clipboard-buffer") as HTMLTextAreaElement;
+  buffer.value = message.text;
+  buffer.select();
+  document.execCommand("copy");
+  sendResponse({ ok: true });
+});
+```
+
+接著從 service worker 把文字送出去：
+
+```ts background.ts
+async function copyToClipboard(text: string) {
+  await ensureOffscreen();
+  await chrome.runtime.sendMessage({ target: "offscreen", type: "copy", text });
+}
+```
+
+這種情境下，請把 `chrome.offscreen.Reason.CLIPBOARD` 傳給 `createDocument`。
+
+`document.execCommand("copy")` 才是這裡可行的呼叫。較新的
+`navigator.clipboard.writeText` 需要一個取得焦點的文件，而 offscreen document 永遠不會取得焦點。
+
+讀取剪貼簿需要 `clipboardRead` 權限，以及同一份文件。
+
+內容腳本，或使用者自己開啟的擴充功能頁面，都不需要這一套。兩者都有真正的 `window`，因此在一次使用者手勢之後，`navigator.clipboard.writeText` 就能運作。
+
+### Extension.js 會幫你打包這個頁面
+
+`chrome.offscreen.createDocument` 接收的是一個 URL 字串，而不是 import。Extension.js
+會在建置期間讀取這個字串，並把該 HTML 頁面以及頁面載入的一切都加進輸出。就算只有 service worker
+提到過這個頁面，它一樣會進到 `dist/`。
+
+這個字串必須是純字面值才行。在執行階段組出來的 URL 對建置是不可見的，頁面就會被漏掉。
 
 ## 與文件通訊
 
