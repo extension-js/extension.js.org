@@ -3,6 +3,9 @@ title: "Manifest V3 中的 offscreen 文档"
 description: "在 service worker 中创建、复用并关闭 chrome.offscreen 文档。借助 pages/ 文件夹打包 offscreen 页面，并可靠地与它通信。"
 keywords:
   [
+    "clipboard",
+    "clipboardWrite",
+    "copy to clipboard",
     "offscreen document",
     "chrome.offscreen",
     "offscreen api",
@@ -90,6 +93,69 @@ await chrome.offscreen.closeDocument();
 | `USER_MEDIA`     | 通过 getUserMedia 进行录制 |
 
 有一个行为值得了解：使用 `AUDIO_PLAYBACK` 时，Chrome 会在音频停止播放约 30 秒后自动关闭该文档。其他 reason 下，文档会一直存在，直到你主动关闭它或扩展被卸载。
+
+## 在后台访问剪贴板
+
+写入剪贴板是使用 offscreen 文档最常见的理由。`navigator.clipboard` 挂在 `window` 上，而
+Manifest V3 的 service worker 没有 `window`，所以写入必须发生在一个真实页面里。
+
+申请权限并给出对应的 reason：
+
+```json manifest.json
+{
+  "permissions": ["offscreen", "clipboardWrite"]
+}
+```
+
+构建 offscreen 页面时，加上一个供 copy 命令使用的 textarea：
+
+```html pages/offscreen.html
+<!doctype html>
+<html>
+  <body>
+    <textarea id="clipboard-buffer"></textarea>
+    <script src="./offscreen.ts" type="module"></script>
+  </body>
+</html>
+```
+
+```ts pages/offscreen.ts
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.target !== "offscreen" || message.type !== "copy") return;
+
+  const buffer = document.getElementById("clipboard-buffer") as HTMLTextAreaElement;
+  buffer.value = message.text;
+  buffer.select();
+  document.execCommand("copy");
+  sendResponse({ ok: true });
+});
+```
+
+然后从 service worker 把文本发过去：
+
+```ts background.ts
+async function copyToClipboard(text: string) {
+  await ensureOffscreen();
+  await chrome.runtime.sendMessage({ target: "offscreen", type: "copy", text });
+}
+```
+
+这种场景下，给 `createDocument` 传入 `chrome.offscreen.Reason.CLIPBOARD`。
+
+`document.execCommand("copy")` 才是这里能用的调用。更新的
+`navigator.clipboard.writeText` 需要一个获得焦点的文档，而 offscreen 文档永远不会获得焦点。
+
+读取剪贴板需要 `clipboardRead` 权限，以及同一个文档。
+
+内容脚本，或者用户自己打开的扩展页面，都不需要这一套。它们都有真实的 `window`，所以在一次用户手势之后，`navigator.clipboard.writeText` 就能工作。
+
+### Extension.js 会帮你打包这个页面
+
+`chrome.offscreen.createDocument` 接收的是一个 URL 字符串，而不是 import。Extension.js
+会在构建期读取这个字符串，把该 HTML 页面以及页面加载的一切都加入产物。哪怕只有 service worker
+提到过这个页面，它同样会出现在 `dist/` 里。
+
+这个字符串必须是纯字面量才行。在运行时拼出来的 URL 对构建不可见，页面会被漏掉。
 
 ## 与 offscreen 文档通信
 
