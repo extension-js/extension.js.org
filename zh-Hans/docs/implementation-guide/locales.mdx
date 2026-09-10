@@ -1,6 +1,6 @@
 ---
 title: "语言区域与国际化"
-description: "通过对 _locales 的处理，发布本地化的扩展元数据与 UI 字符串。Extension.js 会为每次构建发现、校验并输出 locale JSON。"
+description: "用 _locales 和 chrome.i18n 为浏览器扩展添加 i18n。Extension.js 会为每次构建发现、校验并输出 locale JSON。"
 keywords:
   [
     "extension.js",
@@ -13,9 +13,14 @@ keywords:
     "example",
     "i18n",
     "internationalization",
-    "国际化",
+    "chrome.i18n",
+    "getMessage",
+    "translation",
+    "locale",
   ]
 ---
+
+国际化（通常简写为 i18n）通过两部分实现：一个存放你翻译内容的 `_locales` 文件夹，以及在运行时读取它们的 `chrome.i18n` API。
 
 Extension.js 会读取项目根目录下的 `_locales` 文件夹，并校验每个声明的 locale 都有一份 `messages.json`。它会把 locale JSON 资源输出到针对每个浏览器的构建产物中。在开发期，它会捕获任意 locale 文件的编辑，而无需完全重启。
 
@@ -115,6 +120,68 @@ _locales/
   }
 }
 ```
+
+## 在运行时用 chrome.i18n 读取字符串
+
+`__MSG_*__` 占位符是 manifest 的能力。浏览器只会在 `manifest.json` 里，以及 manifest
+声明的 CSS 文件里展开它们。其他地方都不会。
+
+你自己代码中的每个字符串，都要调用这个 API：
+
+```js
+const title = chrome.i18n.getMessage("extension_name");
+document.title = title;
+```
+
+替换内容来自第二个参数：
+
+```json _locales/en/messages.json
+{
+  "greeting": {
+    "message": "Hello, $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  }
+}
+```
+
+```js
+chrome.i18n.getMessage("greeting", ["Ada"]);
+```
+
+还有两个调用很有用：
+
+- `chrome.i18n.getUILanguage()` 返回浏览器的语言。
+- `chrome.i18n.getAcceptLanguages()` 返回用户接受的语言列表。
+
+### Extension.js 不会替你替换占位符
+
+Extension.js 会读取 `__MSG_*__` 引用，但从不改写它们。
+
+- 在 `manifest.json` 中，它会把每个引用与默认 locale 比对，并报告缺失的那些。
+- 在打包时，它会解析 `__MSG_*__` 名称，让 zip 文件名带上翻译后的名字。
+- 在 HTML、JavaScript 和 JSON 文件中，它不会改动文本。
+
+所以你写进 HTML 文件的占位符，会作为字面文本发布。请改为在脚本里设置这个字符串：
+
+```html pages/popup.html
+<h1 data-i18n="extension_name"></h1>
+```
+
+```js
+for (const node of document.querySelectorAll("[data-i18n]")) {
+  node.textContent = chrome.i18n.getMessage(node.dataset.i18n);
+}
+```
+
+同样的限制也适用于内容脚本以 `<style>` 文本形式插入的 CSS。`__MSG_@@extension_id__` 在那里不会展开。Extension.js 已经会把那段 CSS 里的 `url()` 引用改写到扩展根目录，所以你并不需要这个占位符。
+
+### `browser.i18n` 写法
+
+Firefox 和 Safari 原生提供 `browser.i18n`。在 Chromium 上，Extension.js 通过 `webextension-polyfill` 提供 `browser` 命名空间，所以 `browser.i18n.getMessage` 在每个目标上都能用。细节请阅读[跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
 
 ## 输出路径
 

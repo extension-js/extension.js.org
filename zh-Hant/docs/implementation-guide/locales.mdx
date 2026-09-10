@@ -1,6 +1,6 @@
 ---
 title: "Locale 與國際化"
-description: "用 _locales 處理出貨已在地化的擴充功能中繼資料與 UI 字串。Extension.js 會在每次建置時探索、驗證並輸出 locale JSON。"
+description: "用 _locales 與 chrome.i18n 為瀏覽器擴充功能加入 i18n。Extension.js 會在每次建置時探索、驗證並輸出 locale JSON。"
 keywords:
   [
     "extension.js",
@@ -13,9 +13,14 @@ keywords:
     "example",
     "i18n",
     "internationalization",
-    "國際化",
+    "chrome.i18n",
+    "getMessage",
+    "translation",
+    "locale",
   ]
 ---
+
+國際化（通常簡寫為 i18n）由兩個部分組成：一個存放你翻譯內容的 `_locales` 資料夾，以及在執行階段讀取它們的 `chrome.i18n` API。
 
 Extension.js 會讀取你專案根目錄的 `_locales` 資料夾，並驗證每個被宣告的 locale 都有 `messages.json`。它會把 locale JSON 資產輸出到對應瀏覽器的 build。在開發期間，它能在不重新啟動的情況下捕捉任何 locale 檔案的編輯。
 
@@ -115,6 +120,68 @@ _locales/
   }
 }
 ```
+
+## 在執行階段用 chrome.i18n 讀取字串
+
+`__MSG_*__` 佔位符是 manifest 的能力。瀏覽器只會在 `manifest.json`，以及 manifest
+宣告的 CSS 檔案中展開它們。其他地方都不會。
+
+你自己程式碼中的每個字串，都要呼叫這個 API：
+
+```js
+const title = chrome.i18n.getMessage("extension_name");
+document.title = title;
+```
+
+替換內容來自第二個參數：
+
+```json _locales/en/messages.json
+{
+  "greeting": {
+    "message": "Hello, $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  }
+}
+```
+
+```js
+chrome.i18n.getMessage("greeting", ["Ada"]);
+```
+
+另外兩個呼叫也很有用：
+
+- `chrome.i18n.getUILanguage()` 會回傳瀏覽器的語言。
+- `chrome.i18n.getAcceptLanguages()` 會回傳使用者接受的語言。
+
+### Extension.js 不會替你替換佔位符
+
+Extension.js 會讀取 `__MSG_*__` 參照，但從不改寫它們。
+
+- 在 `manifest.json` 中，它會把每個參照與預設 locale 比對，並回報缺少的項目。
+- 在打包時，它會解析 `__MSG_*__` 名稱，讓 zip 檔名帶上翻譯後的名稱。
+- 在 HTML、JavaScript 與 JSON 檔案中，它不會更動文字。
+
+所以你寫進 HTML 檔案的佔位符，會以字面文字出貨。請改為在腳本中設定這個字串：
+
+```html pages/popup.html
+<h1 data-i18n="extension_name"></h1>
+```
+
+```js
+for (const node of document.querySelectorAll("[data-i18n]")) {
+  node.textContent = chrome.i18n.getMessage(node.dataset.i18n);
+}
+```
+
+同樣的限制也適用於內容腳本以 `<style>` 文字形式插入的 CSS。`__MSG_@@extension_id__` 在那裡不會展開。Extension.js 已經會把那段 CSS 中的 `url()` 參照改寫到擴充功能根目錄，因此你不需要這個佔位符。
+
+### `browser.i18n` 寫法
+
+Firefox 與 Safari 原生提供 `browser.i18n`。在 Chromium 上，Extension.js 透過 `webextension-polyfill` 提供 `browser` 命名空間，因此 `browser.i18n.getMessage` 在每個目標上都能運作。細節請閱讀[跨瀏覽器相容性](/zh-Hant/docs/features/cross-browser-compatibility)。
 
 ## 輸出路徑
 
