@@ -21,7 +21,9 @@ describe("docs review coverage", () => {
   });
 
   it("gives every page a lane B review record", () => {
-    const missing = ledger.pages.filter((page) => !page.laneB).map((page) => page.page);
+    const missing = ledger.pages
+      .filter((page) => !page.laneB)
+      .map((page) => page.page);
     expect(
       missing,
       `pages with no lane B review record (run the docs review sweep, then commit docs-review/lane-b/*.json):\n${missing.slice(0, 25).join("\n")}`,
@@ -30,7 +32,9 @@ describe("docs review coverage", () => {
 
   it("keeps every known limitation documented on its page", () => {
     const violations = ledger.laneAFindings.filter(
-      (finding) => finding.kind === "omitted-caveat" || finding.kind === "caveat-page-missing",
+      (finding) =>
+        finding.kind === "omitted-caveat" ||
+        finding.kind === "caveat-page-missing",
     );
     expect(
       violations,
@@ -43,9 +47,18 @@ describe("docs review coverage", () => {
     const { caveats } = JSON.parse(readFileSync(CAVEATS_PATH, "utf-8"));
     expect(caveats.length).toBeGreaterThan(0);
     for (const caveat of caveats) {
-      expect(caveat.verifiedBy, `caveat ${caveat.id} has no verifiedBy citation`).toBeTruthy();
-      expect(caveat.mustAppearOn.length, `caveat ${caveat.id} targets no page`).toBeGreaterThan(0);
-      expect(caveat.anyOf.length, `caveat ${caveat.id} has no match patterns`).toBeGreaterThan(0);
+      expect(
+        caveat.verifiedBy,
+        `caveat ${caveat.id} has no verifiedBy citation`,
+      ).toBeTruthy();
+      expect(
+        caveat.mustAppearOn.length,
+        `caveat ${caveat.id} targets no page`,
+      ).toBeGreaterThan(0);
+      expect(
+        caveat.anyOf.length,
+        `caveat ${caveat.id} has no match patterns`,
+      ).toBeGreaterThan(0);
     }
   });
 });

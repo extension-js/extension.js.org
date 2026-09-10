@@ -14,16 +14,16 @@ prove coverage on its own, because journeys never traverse every page.
 Runs on every page, every time, no agents involved. This is the vitest suite in
 `__tests__/` plus `scripts/docs-coverage.mjs`:
 
-| Check | Where |
-| --- | --- |
-| Fenced commands and flags exist in the real CLI | `__tests__/fenced-commands.test.ts` against `__tests__/fixtures/cli-flags.json` |
-| Command pages match the CLI source | `__tests__/cli-flags.test.ts` |
-| Internal links resolve | `__tests__/internal-links.test.ts` |
-| Template references exist in the examples repo | `__tests__/template-references.test.ts` |
-| Supported browsers, package managers, frameworks | `__tests__/supported-surface.test.ts` |
-| Known limitations still documented | `docs-review/caveats.json` via `__tests__/docs-coverage.test.ts` |
-| Every page carries a review record | `__tests__/docs-coverage.test.ts` |
-| Locale twins, stale version pins | `scripts/docs-coverage.mjs` |
+| Check                                            | Where                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Fenced commands and flags exist in the real CLI  | `__tests__/fenced-commands.test.ts` against `__tests__/fixtures/cli-flags.json` |
+| Command pages match the CLI source               | `__tests__/cli-flags.test.ts`                                                   |
+| Internal links resolve                           | `__tests__/internal-links.test.ts`                                              |
+| Template references exist in the examples repo   | `__tests__/template-references.test.ts`                                         |
+| Supported browsers, package managers, frameworks | `__tests__/supported-surface.test.ts`                                           |
+| Known limitations still documented               | `docs-review/caveats.json` via `__tests__/docs-coverage.test.ts`                |
+| Every page carries a review record               | `__tests__/docs-coverage.test.ts`                                               |
+| Locale twins, stale version pins                 | `scripts/docs-coverage.mjs`                                                     |
 
 Regenerate the ledger:
 
@@ -49,7 +49,16 @@ Verifying truth requires reality, so this lane is deliberately not sealed.
 Output lands in `lane-b/<batchId>.json`:
 
 ```json
-{ "pages": [{ "page": "docs/commands/build.mdx", "claimsChecked": 9, "findings": 0, "verdict": "accurate" }] }
+{
+  "pages": [
+    {
+      "page": "docs/commands/build.mdx",
+      "claimsChecked": 9,
+      "findings": 0,
+      "verdict": "accurate"
+    }
+  ]
+}
 ```
 
 Every assigned page gets a record, including pages with nothing wrong. A page of pure
