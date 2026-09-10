@@ -65,7 +65,10 @@ const FLAG_RE = /(?<![\w-])--[a-z][a-z0-9-]+/g;
 const MDX_LINK_RE = /\]\((\/docs\/[^)#]+|\.[^)]+\.mdx)/g;
 const VERSION_PIN_RE = /\bextension@(\d+\.\d+\.\d+(?:-[\w.]+)?)/g;
 
-export function analyzePage(source) {
+export function analyzePage(rawSource) {
+  // A {/* ... */} block is a production note that never reaches the reader, so
+  // a command or flag written inside one is not a claim the page makes.
+  const source = rawSource.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
   const shellFences = [];
   for (const match of source.matchAll(FENCE_RE)) {
     const lang = (match[1] || "").trim().split(/\s+/)[0].toLowerCase();

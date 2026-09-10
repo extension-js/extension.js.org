@@ -144,7 +144,8 @@ for (const key of enKeys) {
       });
     }
     // more than a day behind means the English edit was not mirrored in the same commit
-    if (t.en - t[loc] > 86400) {
+    // A page with no commit yet is uncommitted, not decades behind.
+    if (t.en && t[loc] && t.en - t[loc] > 86400) {
       report.stale.push({
         page: key,
         locale: loc,
@@ -190,5 +191,5 @@ for (const [page, days] of Object.entries(byPage)
 
 h("Navigation");
 console.log(
-  `  entries in docs.json with no file on disk: ${report.navGaps.length}`,
+  `  pages on disk that no docs.json navigation lists: ${report.navGaps.length}`,
 );
