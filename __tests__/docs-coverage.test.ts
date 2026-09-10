@@ -2,7 +2,11 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildLedger, collectPages } from "../scripts/docs-coverage.mjs";
+import {
+  analyzePage,
+  buildLedger,
+  collectPages,
+} from "../scripts/docs-coverage.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -40,6 +44,24 @@ describe("docs review coverage", () => {
       violations,
       `caveat ledger violations:\n${violations.map((v) => `  ${v.page}: ${v.caveat}`).join("\n")}`,
     ).toEqual([]);
+  });
+
+  // A recording script in a JSX comment used to read as a claim the page made,
+  // which then showed up as flag drift on every translation that omits it.
+  it("ignores commands and flags inside JSX comments", () => {
+    const page = [
+      "{/* run: node video/record.mjs migrate-crxjs --mock */}",
+      "",
+      "Run the dev server.",
+      "",
+      "```bash",
+      "extension dev --profile ./run",
+      "```",
+    ].join("\n");
+    const analysis = analyzePage(page);
+    expect(analysis.flags).toContain("--profile");
+    expect(analysis.flags).not.toContain("--mock");
+    expect(analysis.commands).toEqual(["dev"]);
   });
 
   it("requires every caveat to cite how the limitation was verified", () => {
