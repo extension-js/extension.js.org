@@ -56,13 +56,31 @@ for (const langBlock of docsJson.navigation.languages) {
   navPages[langBlock.language] = pages;
 }
 
+const IGNORE_REVS = (() => {
+  const file = path.join(ROOT, ".locale-drift-ignore-revs");
+  if (!existsSync(file)) return new Set();
+  return new Set(
+    readFileSync(file, "utf8")
+      .split("\n")
+      .map((line) => line.split("#")[0].trim())
+      .filter(Boolean),
+  );
+})();
+
+// A sweep that rewrites every translation at once would date them all to today
+// and hide the real drift, so those commits are skipped by SHA.
 const gitTime = (abs) => {
   try {
     const rel = path.relative(ROOT, abs);
-    const out = execSync(`git log -1 --format=%at -- "${rel}"`, { cwd: ROOT })
+    const out = execSync(`git log --format="%at %H" -- "${rel}"`, { cwd: ROOT })
       .toString()
       .trim();
-    return out ? parseInt(out, 10) : 0;
+    if (!out) return 0;
+    for (const line of out.split("\n")) {
+      const [at, sha] = line.split(" ");
+      if (!IGNORE_REVS.has(sha)) return parseInt(at, 10);
+    }
+    return 0;
   } catch {
     return 0;
   }
