@@ -106,22 +106,22 @@ chrome.runtime.onConnect.addListener((port) => {
 | 接收方的背景情境                       | service worker，按需重新啟動                          | 透過 `background.scripts` 宣告的 event page                  | 本文件不涉及       |
 | 對背景生命週期的影響                   | 收到訊息和保持開啟的 port 會讓 worker 保持喚醒，所以不要把 port 當計時器用 | event page 同理                       | 本文件不涉及       |
 
-在 Safari 上，在你授予擴充功能網站存取權之前 content script 不會執行，因此在那之前 `tabs.sendMessage` 沒有接收方。請見 [Safari](/docs/browsers/safari)。
+在 Safari 上，在你授予擴充功能網站存取權之前 content script 不會執行，因此在那之前 `tabs.sendMessage` 沒有接收方。請見 [Safari](/zh-Hant/docs/browsers/safari)。
 
-如果你的原始碼是以 `browser.*` 撰寫，同時也要建置 Chromium 目標，請傳入 `--polyfill`。請見 [跨瀏覽器相容](/docs/features/cross-browser-compatibility)。
+如果你的原始碼是以 `browser.*` 撰寫，同時也要建置 Chromium 目標，請傳入 `--polyfill`。請見 [跨瀏覽器相容](/zh-Hant/docs/features/cross-browser-compatibility)。
 
 ## 你會看到的主控台錯誤
 
 把你看到的那一行複製去搜尋。每一行對應一個原因。
 
 `Unchecked runtime.lastError: Could not establish connection. Receiving end does not exist.`
-沒有任何一方在監聽。要嘛目標情境沒有 `runtime.onMessage` 監聽器，要嘛對 `tabs.sendMessage` 而言，還沒有 content script 被注入那個分頁。在擴充功能載入之前就已開啟的分頁在重新載入前沒有 content script，而像 `chrome://` 或擴充功能商店這樣的受限頁面永遠不會有。請先用 `chrome.scripting.executeScript` 注入，或者處理這次失敗，做法請見 [在執行階段注入腳本](/docs/implementation-guide/inject-scripts)。
+沒有任何一方在監聽。要嘛目標情境沒有 `runtime.onMessage` 監聽器，要嘛對 `tabs.sendMessage` 而言，還沒有 content script 被注入那個分頁。在擴充功能載入之前就已開啟的分頁在重新載入前沒有 content script，而像 `chrome://` 或擴充功能商店這樣的受限頁面永遠不會有。請先用 `chrome.scripting.executeScript` 注入，或者處理這次失敗，做法請見 [在執行階段注入腳本](/zh-Hant/docs/implementation-guide/inject-scripts)。
 
 `Unchecked runtime.lastError: The message port closed before a response was received.`
 監聽器收到了訊息，卻在沒有讓通道保持開啟的情況下回傳了。請從監聽器回傳 `true`，或者同步作答。
 
 `Uncaught Error: Extension context invalidated.`
-擴充功能重新載入時，舊的 content script 還在頁面裡執行。那段程式碼現在指向一個不再存在的執行階段，它發出的每個 `chrome.*` 呼叫都會擲出錯誤。請重新載入分頁。在 `extension dev` 期間，這發生在一次被歸類為完整重新載入的變更之後，[重新載入與 HMR](/docs/features/reload-and-hmr) 對此有說明。
+擴充功能重新載入時，舊的 content script 還在頁面裡執行。那段程式碼現在指向一個不再存在的執行階段，它發出的每個 `chrome.*` 呼叫都會擲出錯誤。請重新載入分頁。在 `extension dev` 期間，這發生在一次被歸類為完整重新載入的變更之後，[重新載入與 HMR](/zh-Hant/docs/features/reload-and-hmr) 對此有說明。
 
 `Attempting to use a disconnected port object`
 在 `onDisconnect` 觸發之後，仍有人向這個 port 投遞訊息。請在 `onDisconnect` 處理常式裡清掉你的參照，需要時再開啟一個新的 port。
@@ -131,16 +131,16 @@ chrome.runtime.onConnect.addListener((port) => {
 Extension.js 編譯呼叫這些 API 的程式碼，並不包裝它們。協定是你自己的。工具鏈改變的是開發循環：
 
 - 一次被歸類為 `content-scripts` 的變更會重新注入受影響的項目並拆除上一次的掛載，因此監聽器是被取代而不是被疊加。一次被歸類為 `full` 的變更會重新載入擴充功能，而重新載入前就留在頁面上的 content script 會變成上面那種 `Extension context invalidated` 情況。請重新載入分頁。
-- 在 `extension dev` 之下，從 `scripts/` 資料夾注入的腳本會在編輯後被重播，因此你在被注入腳本裡開啟的 port 會由新的副本重新開啟。請見 [特殊資料夾](/docs/features/special-folders)。
+- 在 `extension dev` 之下，從 `scripts/` 資料夾注入的腳本會在編輯後被重播，因此你在被注入腳本裡開啟的 port 會由新的副本重新開啟。請見 [特殊資料夾](/zh-Hant/docs/features/special-folders)。
 - service worker 與 content script 的主控台輸出會被轉發到同一個通道，因此跨越邊界的訊息更容易在單一串流裡追蹤。
 
 把特權工作留在 service worker 裡，讓 content script 保持狹窄，讓酬載保持小。轉發整頁快照的 content script 比只轉發功能所需三個欄位的那個更慢，攻擊面也更大。
 
 ## 參見
 
-- [儲存](/docs/implementation-guide/storage)
-- [背景腳本 / service worker](/docs/implementation-guide/background)
-- [Content script](/docs/implementation-guide/content-scripts)
-- [在執行階段注入腳本](/docs/implementation-guide/inject-scripts)
-- [原生訊息傳遞](/docs/implementation-guide/native-messaging)
-- [重新載入與 HMR](/docs/features/reload-and-hmr)
+- [儲存](/zh-Hant/docs/implementation-guide/storage)
+- [背景腳本 / service worker](/zh-Hant/docs/implementation-guide/background)
+- [Content script](/zh-Hant/docs/implementation-guide/content-scripts)
+- [在執行階段注入腳本](/zh-Hant/docs/implementation-guide/inject-scripts)
+- [原生訊息傳遞](/zh-Hant/docs/implementation-guide/native-messaging)
+- [重新載入與 HMR](/zh-Hant/docs/features/reload-and-hmr)
