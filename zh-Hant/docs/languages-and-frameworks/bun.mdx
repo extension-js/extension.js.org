@@ -1,0 +1,113 @@
+---
+title: "用 Extension.js 開發 Bun 專案"
+description: "把 Bun 當成瀏覽器擴充功能的套件管理器與 script 執行器。Extension.js 會偵測到 Bun，把它固定在 package.json 裡，並從 bun.lock 開始建置。"
+keywords:
+  [
+    "extension.js",
+    "bun",
+    "bunx",
+    "bun.lock",
+    "can i use bun instead of node",
+    "package manager",
+    "javascript runtime",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Bun 可以擔任 Extension.js 專案的套件管理器與 script 執行器。Extension.js 會偵測到 Bun，把它記錄進 `package.json`，並在自己的輸出裡印出 Bun 指令。
+
+Extension.js CLI 本身跑在 Node 上。這個分工就是下面那個問題的全部答案。
+
+## 我可以用 Bun 取代 Node 嗎？
+
+對你的專案而言，可以。對 CLI 行程而言，不行。
+
+| 你想做的事                                   | 是否能用 Bun      |
+| -------------------------------------------- | ----------------- |
+| 安裝相依套件（`bun install`）                | 可以              |
+| 執行建立專案的工具（`bunx extension`）       | 可以              |
+| 執行 scripts（`bun run dev`、`bun run build`） | 可以            |
+| 在 Bun 執行階段上執行 CLI                    | 不行，必須用 Node |
+
+Bun 仍然是你的操作介面，Node 仍然是執行 CLI 的執行階段。兩者都要安裝。
+
+## 用 Bun 建立專案
+
+```bash
+bunx extension@latest create my-extension --template=content
+```
+
+Extension.js 看得出是 Bun 呼叫了它。它印出來的後續步驟會點名 Bun：
+
+```plaintext
+Next steps:
+  1. cd my-extension
+  2. bun install
+  3. bun dev
+     Run the extension in a fresh browser profile.
+```
+
+產生出來的 `package.json` 會固定住你所使用的管理器：
+
+```json package.json
+{
+  "packageManager": "bun@1.2.13"
+}
+```
+
+## 安裝與建置
+
+```bash
+bun install
+```
+
+這會寫下一個 `bun.lock` 檔案。之後每次執行，Extension.js 都會讀取這份 lockfile，以便繼續選擇 Bun。
+
+```bash
+bun run build
+```
+
+建立專案時寫下的 scripts 與管理器無關。每一條都呼叫 `extension` 這個執行檔，所以 `bun run dev`、`bun run build` 與 `bun run preview` 都能用。
+
+## CLI 為什麼需要 Node
+
+發佈出去的套件宣告了 `"engines": {"node": ">=22.12"}`。CLI 在啟動時檢查 `process.versions.node`，版本太低就停下來。
+
+Bun 回報的 Node 相容版本低於這個下限。因此強行採用 Bun 執行階段會觸發這道防護：
+
+```bash
+bunx --bun extension@latest --version
+```
+
+```plaintext
+[Extension.js] The extension CLI runs on Node.js, not on the Bun runtime. Bun 1.2.13 emulates Node.js 22.6.0, below the required 22.12, so the Node.js you have installed is not the problem. Re-run without the --bun flag, plain bunx runs the extension CLI on Node.js.
+```
+
+拿掉 `--bun`，同一條指令就能用。單純的 `bunx` 會尊重 CLI 執行檔上的 `#!/usr/bin/env node` shebang，所以行程跑在 Node 上，而解析與快取交給 Bun。
+
+## Extension.js 如何偵測 Bun
+
+偵測讀的是專案，而不是你敲下的那條指令。有三個訊號餵給它：
+
+- 專案根目錄下的 `bun.lock` 或 `bun.lockb` lockfile。
+- `package.json` 裡點名 `bun` 的 `packageManager` 欄位。
+- Bun 執行 script 時所設定的 `npm_config_user_agent` 環境變數。
+
+Extension.js 支援 `npm`、`pnpm`、`yarn`、`bun` 與 `deno`。當一個訊號都沒有時，它會依 `pnpm`、`yarn`、`bun` 的順序探測你的 `PATH`。
+
+## 自動安裝相依套件
+
+`extension dev` 與 `extension build` 會在編譯之前先裝上缺少的相依套件。這次安裝走的是被偵測到的那個管理器，而且會傳入 `--ignore-scripts`。因此相依套件裡的 postinstall script 不會在這一步執行。
+
+## 注意事項
+
+- `Bun.file` 這類 Bun 專有的執行階段 API 不屬於擴充功能程式碼。那些程式碼是跑在瀏覽器裡的。
+- Extension.js 不會寫任何 Bun 專有的 scripts。`dev`、`build` 與 `preview` scripts 對每個管理器都一樣。
+- 你透過 `extension create` 引入的範本不帶 lockfile。Extension.js 會從中剝掉 `bun.lock` 與 `bun.lockb`。之後由你自己那次安裝決定相依樹。
+
+## 下一步
+
+- 與 [Deno 設定](/zh-Hant/docs/languages-and-frameworks/deno)做個比較。
+- 了解 Extension.js 如何處理 [Node API](/zh-Hant/docs/languages-and-frameworks/node)。
+- 進一步了解如何管理 [extension 設定](/zh-Hant/docs/features/extension-configuration)。

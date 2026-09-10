@@ -1,0 +1,166 @@
+---
+title: "为浏览器扩展使用 Biome"
+description: "把 Biome 作为 Extension.js 项目的 linter 和格式化工具。Biome 跑在构建旁边，取代 ESLint 与 Prettier，不需要任何打包器配置。"
+keywords:
+  [
+    "biome for browser extensions",
+    "biome",
+    "biomejs",
+    "biome.json",
+    "linter",
+    "formatter",
+    "eslint",
+    "prettier",
+    "extension.js",
+    "docs",
+    "integrations",
+  ]
+---
+
+Biome 把 linter 和格式化工具装进了同一个二进制文件。它覆盖了 ESLint 和 Prettier 合起来覆盖的范围，而你只需要一个配置文件和一个依赖。
+
+Biome 跑在 Extension.js 构建的旁边，从不跑在里面。Extension.js 不读 `biome.json`，不运行 Biome，也不会把这份配置复制进打包产物。
+
+## 什么场景适合用 Biome
+
+- 你想要一个工具、一份配置，而不是一个 linter 加一个格式化工具。
+- 你正在开一个新项目，没有旧的 ESLint 规则集要迁移。
+- 你希望检查跑得足够快，快到每次保存都能跑一遍。
+
+## Biome 的能力
+
+| 能力            | 它能带来什么                                        |
+| --------------- | --------------------------------------------------- |
+| Lint 与格式化   | 两件事一个二进制文件，共用一份忽略清单              |
+| 导入排序        | 一个在写入时整理 import 顺序的 assist 动作          |
+| 编辑器集成      | 一个保存即格式化的语言服务器                        |
+| 迁移路径        | `biome migrate eslint` 与 `biome migrate prettier`  |
+
+## 没有 Biome 模板
+
+Extension.js 为 ESLint、Prettier 和 Stylelint 提供了配置模板，却没有为 Biome 提供任何模板。用任意模板生成脚手架，再按下面的步骤自己加上 Biome。
+
+## 在扩展中加入 Biome
+
+安装这个包：
+
+<CodeGroup>
+
+```bash npm
+npm install -D @biomejs/biome
+```
+
+```bash pnpm
+pnpm add -D @biomejs/biome
+```
+
+```bash yarn
+yarn add -D @biomejs/biome
+```
+
+```bash bun
+bun add -d @biomejs/biome
+```
+
+```bash deno
+deno add -D npm:@biomejs/biome
+```
+
+</CodeGroup>
+
+创建配置文件：
+
+```bash
+npx biome init
+```
+
+这会在项目根目录写下一份 `biome.json`。生成的文件已经把 Biome 挡在构建产物之外：
+
+```json biome.json
+{
+  "files": {
+    "includes": ["**", "!!**/dist"]
+  },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  }
+}
+```
+
+运行检查：
+
+```bash
+npx biome check
+```
+
+应用 Biome 自己就能做的修复：
+
+```bash
+npx biome check --write
+```
+
+## 加上脚本
+
+Biome 不会往 `package.json` 里写任何脚本。请把它们加在 Extension.js 的脚本旁边：
+
+```json package.json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "lint:ci": "biome ci"
+  }
+}
+```
+
+`biome ci` 是持续集成用的形式。它报告的结果与 `check` 相同，并且从不改动任何文件。
+
+## 忽略生成的类型文件
+
+TypeScript 项目会带一个 `extension-env.d.ts` 文件，Extension.js 在每次 `dev` 和 `build` 时都会重写它。格式化它是白费力气，因为下一次运行就会把它替换掉。把它排除出去：
+
+```json biome.json
+{
+  "files": {
+    "includes": ["**", "!!**/dist", "!extension-env.d.ts"]
+  }
+}
+```
+
+关于这个文件的作用，请阅读 [chrome 与 browser API 的类型](/zh-Hans/docs/languages-and-frameworks/extension-api-types)。
+
+## 从 ESLint 或 Prettier 迁移
+
+Biome 会读取已有的配置，并把它能转换的部分转换过来：
+
+```bash
+npx biome migrate eslint --write
+```
+
+```bash
+npx biome migrate prettier --write
+```
+
+对结果满意之后，就可以移除旧的依赖。Extension.js 的构建不依赖这两个工具中的任何一个。
+
+## 构建会拿 biome.json 做什么
+
+什么都不做。构建只读一组固定的根文件：`manifest.json`、`package.json`、`extension.config.js`、`tsconfig.json`、PostCSS 与 Tailwind 的配置，以及 `.env` 家族。`biome.json` 永远不会被读取、被监听，也不会被输出到 `dist/`。
+
+有一个打包细节值得知道。`extension build --zip-source` 会归档整个项目目录，所以 `biome.json` 会落进源码压缩包。对于要求提供源码的商店审核来说，这通常正是你想要的。
+
+## 最佳实践
+
+- 在 Biome 与 ESLint 加 Prettier 这对组合之间选一个。两边都跑会把同一批文件格式化两遍，而且结果不同。
+- 保持排除 `dist`。生成的产物不归你来格式化。
+- 在持续集成中跑 `biome ci`，而不是 `biome check --write`。CI 任务该做的是报告，不是重写。
+
+## 下一步
+
+- 与 [ESLint 集成](/zh-Hans/docs/integrations/eslint) 做个对比。
+- 与 [Prettier 集成](/zh-Hans/docs/integrations/prettier) 做个对比。
+- 发布之前先过一遍[安全检查清单](/zh-Hans/docs/workflows/security-checklist)。

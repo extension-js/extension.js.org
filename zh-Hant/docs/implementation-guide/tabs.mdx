@@ -1,0 +1,173 @@
+---
+title: "開發與正式環境中的 tabs API"
+description: "在 Extension.js 專案中使用 chrome.tabs。開發期會注入 tabs 權限，正式建置不會，而 CLI 以 --tab 指定單一分頁。"
+keywords:
+  [
+    "tabs api",
+    "chrome.tabs",
+    "browser.tabs",
+    "tabs permission",
+    "activeTab",
+    "extension.js",
+    "--tab",
+    "list-tabs",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+tabs API 不需要打包工具做任何事。Extension.js 編譯 `chrome.tabs` 呼叫的方式和其他程式碼沒有兩樣。它真正改變的，是你在開發期間實際執行的那份 manifest，而這個差異裡藏著一個陷阱。
+
+## 開發期會注入 tabs 權限
+
+開發循環重新載入 content script 的方式，是把它們注入到已經開啟的分頁裡。這需要你的擴充功能可能沒有宣告的權限，所以 Extension.js 會把它們加進寫入 `dist/` 的那份 manifest。
+
+對於 manifest v3 專案，開發期會在 `permissions` 中加上：
+
+```json
+["scripting", "tabs", "management", "storage"]
+```
+
+它也會把所有 content script 的 match 樣式合併進 `host_permissions`。
+
+對於 manifest v2 專案，開發期加的是 `tabs` 與 `storage`，再加上那些 match 樣式，因為 manifest v2 沒有 `host_permissions` 這個鍵。
+
+這些都不會進到正式環境。`extension build` 輸出的，剛好就是你宣告過的那些權限。
+
+這個差異你可以自己看到。在 `manifest.json` 中只宣告 `storage`，然後比較兩次建置：
+
+```bash
+extension build
+```
+
+```json dist/chromium/manifest.json
+{
+  "permissions": ["storage"]
+}
+```
+
+```bash
+extension dev
+```
+
+```json dist/chromium/manifest.json
+{
+  "permissions": ["scripting", "tabs", "management", "storage"]
+}
+```
+
+## 這個陷阱，以及如何避開
+
+因為開發期注入了 `tabs`，即使 `manifest.json` 從未申請過這個權限，`chrome.tabs.query` 在 `extension dev` 中依然會成功。同一個呼叫在 `extension build` 之後就會失敗。
+
+對某些 API，Extension.js 會為此發出警告。用了 `chrome.management` 卻沒有宣告它，建置就會告訴你：
+
+```plaintext
+manifest.json does not declare the "management" permission, but background.js uses
+chrome.management. It works in development only because the dev instrumentation
+injects "management": the production build will fail at runtime.
+```
+
+這個警告涵蓋 `storage`、`scripting` 與 `management`。**它不涵蓋 `tabs`。** 一個呼叫 `chrome.tabs` 卻沒宣告權限的專案，編譯乾淨、開發期執行乾淨，然後在打包後的擴充功能裡壞掉。
+
+用了什麼就宣告什麼：
+
+```json manifest.json
+{
+  "permissions": ["tabs", "storage"]
+}
+```
+
+接著在出貨前對著正式建置確認一次：
+
+```bash
+extension build
+```
+
+把 `dist/chromium` 以未封裝擴充功能的方式載入，再把功能實際跑一遍。
+
+## 你真的需要 tabs 權限嗎？
+
+很多擴充功能並不需要。`tabs` 權限的存在是為了讀取受保護的欄位，而不是為了呼叫這個 API。
+
+| 你要做的事                                    | 需要的權限                     |
+| --------------------------------------------- | ------------------------------ |
+| 呼叫 `chrome.tabs.query` 取得分頁 id          | 不需要                         |
+| 讀取 `tab.url`、`tab.title`、`tab.favIconUrl` | `tabs`，或一個相符的主機權限   |
+| 以 `url` 過濾查詢                             | `tabs`，或一個相符的主機權限   |
+| 在使用者點擊後對目前分頁動作                  | `activeTab`                    |
+| 把 script 注入分頁                            | `scripting` 加上一個主機權限   |
+
+`activeTab` 是比較小的請求。它授予的是使用者操作過的那個分頁的存取權，有效期就是那一次造訪。商店審核它的態度，比 `tabs` 加 `<all_urls>` 寬厚得多。
+
+完整清單請閱讀[權限與主機權限](/zh-Hant/docs/implementation-guide/permissions-and-host-permissions)。
+
+## 跨瀏覽器命名
+
+Firefox 與 Safari 提供以 Promise 為基礎的 `browser.tabs`。Chromium 提供以 callback 為基礎的 `chrome.tabs`。Extension.js 透過 `webextension-polyfill` 在 Chromium 上提供 `browser` 命名空間，因此一種寫法到處都能用：
+
+```js
+const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+```
+
+這是怎麼接上的，請閱讀[跨瀏覽器相容性](/zh-Hant/docs/features/cross-browser-compatibility)。
+
+## 從終端機指定單一分頁
+
+有幾個 CLI 動詞作用於單一分頁。先列出開啟中的分頁：
+
+```bash
+extension inspect --list-tabs
+```
+
+每一列都帶有 id、URL、標題、是否作用中，以及視窗 id。把 id 傳進去：
+
+```bash
+extension inspect --tab 412
+```
+
+`--tab` 只接受數字形式的分頁 id，其他都不行。若想改用網址來比對，請用 `--url`，它接受一個 match 樣式或一段單純的子字串：
+
+```bash
+extension eval "document.title" --context content --url "https://example.com/*"
+```
+
+兩個旗標都不給時，會使用最後取得焦點的視窗中的作用中分頁。
+
+其他接受分頁的動詞：
+
+```bash
+extension reload --context content --tab 412
+```
+
+```bash
+extension logs --tab 412
+```
+
+這兩者的意思並不相同。在 `reload` 上，`--tab` 選的是動作對象。在 `logs` 上，它過濾的是已經記錄下來的事件。
+
+`extension storage` 沒有 `--tab` 選項。請改用 `--context` 選擇介面。
+
+## 失敗訊息
+
+| 訊息                                                   | 它代表什麼                                       |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| `no active tab to target`                              | 沒有取得焦點的分頁，也沒有給 `--tab` 或 `--url`  |
+| `no open tab matches url: ...`                         | `--url` 的值沒有比對到任何東西                   |
+| `needs a --tab id, a --url to match, or an active tab` | 該情境需要一個分頁，但沒有解析出來               |
+| `restricted page, or outside host_permissions`         | 分頁存在，但無法對它執行 script                  |
+
+最後一條在 `chrome://` 頁面與 Web Store 上很常見，任何擴充功能都碰不得那些頁面。
+
+## 最佳實務
+
+- 要讀取分頁 URL 時就宣告 `tabs`。開發期不會提醒你。
+- 當工作由使用者手勢啟動時，優先選用 `activeTab`。
+- 對著正式建置驗證權限，而不是開發建置。
+- 永遠不要假設分頁 id 能撐過瀏覽器重新啟動。請重新查詢一次。
+
+## 後續步驟
+
+- 回顧[權限與主機權限](/zh-Hant/docs/implementation-guide/permissions-and-host-permissions)。
+- 用 [eval 指令](/zh-Hant/docs/commands/eval)從終端機驅動瀏覽器。
+- 閱讀 [content script](/zh-Hant/docs/implementation-guide/content-scripts) 的相關說明。

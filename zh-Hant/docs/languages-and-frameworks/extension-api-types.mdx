@@ -1,0 +1,155 @@
+---
+title: "chrome 與 browser API 的型別"
+description: "安裝 @types/chrome，讓 tsc 在 TypeScript 擴充功能裡解析得到 chrome.*。Extension.js 會產生 extension-env.d.ts 並引用這些型別，但不會替你安裝它們。"
+keywords:
+  [
+    "@types/chrome",
+    "types chrome",
+    "chrome types",
+    "webextension-polyfill types",
+    "extension-env.d.ts",
+    "cannot find name chrome",
+    "typescript",
+    "extension.js",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Extension.js 用 SWC 編譯 TypeScript，它只抹除型別，從不檢查型別。型別檢查是你用 `tsc` 另外執行的一步。本頁說明這一步需要哪些套件，才能解析 `chrome.*` 與 `browser.*`。
+
+## Extension.js 會產生什麼
+
+當專案使用 TypeScript 時，`extension dev` 與 `extension build` 會在 `package.json` 旁邊寫下一個 `extension-env.d.ts` 檔案。它在每次執行時都會重新產生，所以不要編輯它。
+
+這個檔案會引入 `extension` 套件所發佈的環境型別：
+
+```ts extension-env.d.ts
+/// <reference types="extension/types" />
+/// <reference types="extension/types/polyfill" />
+```
+
+這些引用會給你：
+
+| 引用                       | 它宣告了什麼                                                |
+| -------------------------- | ----------------------------------------------------------- |
+| `extension/types`          | `browser` 全域變數、`process.env` 鍵、`import.meta.env` 鍵   |
+| `extension/types/polyfill` | 來自 `webextension-polyfill` 的 `browser.*` namespace 形狀   |
+| 萬用字元模組               | 對 `.css`、`.module.css`、`.png`、`.svg` 等資源的 `import`   |
+
+`EXTENSION_*` 環境變數鍵也在這裡取得型別。這就是 `process.env.EXTENSION_MODE` 不需要額外設定就能解析的原因。
+
+## 為 chrome namespace 安裝 @types/chrome
+
+`extension/types` 自己宣告了 `browser` 全域變數，但它是透過一條引用去搆到 `chrome` namespace 的：
+
+```ts
+/// <reference types="chrome" />
+```
+
+只有當你的專案裡裝了 `@types/chrome`，這條引用才解析得到。Extension.js 不會安裝它，範本也不會宣告它。
+
+因此，一個呼叫 `chrome.storage` 的範本 TypeScript 專案跑 `tsc` 會失敗：
+
+```plaintext
+src/background.ts(19,1): error TS2304: Cannot find name 'chrome'.
+src/content/scripts.ts(87,30): error TS2503: Cannot find namespace 'chrome'.
+```
+
+安裝套件就能清掉它：
+
+<CodeGroup>
+
+```bash npm
+npm install -D @types/chrome
+```
+
+```bash pnpm
+pnpm add -D @types/chrome
+```
+
+```bash yarn
+yarn add -D @types/chrome
+```
+
+```bash bun
+bun add -d @types/chrome
+```
+
+```bash deno
+deno add -D npm:@types/chrome
+```
+
+</CodeGroup>
+
+再跑一次檢查，錯誤就不見了：
+
+```bash
+npx tsc --noEmit
+```
+
+其他什麼都沒變。在安裝之前建置就已經成功了，因為 SWC 從來不讀型別。
+
+## 當你改寫 browser.\* 時
+
+`browser` 全域變數由 `extension/types` 賦予型別，它把這個變數對應到 `webextension-polyfill` 上。想要完整的 namespace 形狀，請再裝上對應的型別套件：
+
+<CodeGroup>
+
+```bash npm
+npm install -D @types/webextension-polyfill
+```
+
+```bash pnpm
+pnpm add -D @types/webextension-polyfill
+```
+
+```bash yarn
+yarn add -D @types/webextension-polyfill
+```
+
+```bash bun
+bun add -d @types/webextension-polyfill
+```
+
+```bash deno
+deno add -D npm:@types/webextension-polyfill
+```
+
+</CodeGroup>
+
+同一個選擇在執行階段那一側的樣子，請閱讀 [跨瀏覽器相容](/zh-Hant/docs/features/cross-browser-compatibility)。
+
+## 讓 extension-env.d.ts 留在 include 清單裡
+
+只有當 TypeScript 讀得到它時，這個產生出來的檔案才有用。範本產生的 `tsconfig.json` 會點名它：
+
+```json tsconfig.json
+{
+  "include": ["./", "extension-env.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+當 Extension.js 為一個還沒有 `tsconfig.json` 的專案寫下這份檔案時，那份檔案不帶 `include` 陣列。TypeScript 於是會讀取專案資料夾底下的每一個檔案，所以照樣找得到 `extension-env.d.ts`。而一個你自己寫、卻漏掉這個檔案的 `include` 陣列，會讓資源匯入與 `browser` 全域變數一起失效。
+
+## 症狀與修正
+
+| 症狀                                | 原因                                     | 修正                          |
+| ----------------------------------- | ---------------------------------------- | ----------------------------- |
+| `Cannot find name 'chrome'`         | 沒有安裝 `@types/chrome`                 | 安裝 `@types/chrome`          |
+| `Cannot find namespace 'chrome'`    | 同樣的原因，只是出現在型別位置           | 安裝 `@types/chrome`          |
+| `Cannot find module './styles.css'` | `extension-env.d.ts` 落在 `include` 之外 | 把這個檔案加進 `include`      |
+| `Cannot find name 'browser'`        | 專案從來沒跑過 `dev` 或 `build`          | 跑一次任一指令來產生型別      |
+
+## 最佳實務
+
+- 把 `extension-env.d.ts` 當成建置產物看待。你想提交它也可以，但絕不要編輯它。
+- 任何會呼叫 `chrome.*` 的 TypeScript 專案都該加上 `@types/chrome`，包括你從範本建立的那些。
+- 在持續整合中執行 `tsc --noEmit`。Extension.js 的建置不會因為型別錯誤而失敗。
+
+## 下一步
+
+- 閱讀 [TypeScript 設定](/zh-Hant/docs/languages-and-frameworks/typescript)的其餘部分。
+- 了解這些型別所宣告的[環境變數](/zh-Hant/docs/features/environment-variables)。
+- 檢視[跨瀏覽器相容](/zh-Hant/docs/features/cross-browser-compatibility)。

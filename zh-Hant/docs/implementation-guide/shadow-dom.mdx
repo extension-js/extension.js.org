@@ -1,0 +1,201 @@
+---
+title: "content script 中的 Shadow DOM"
+description: "把 content script 的 UI 掛載到 shadow root 中，讓頁面 CSS 碰不到它。Extension.js 會辨識宿主元素、補上 bundle 中的 CSS，並在重新載入時清理乾淨。"
+keywords:
+  [
+    "shadow dom",
+    "shadow root",
+    "attachShadow",
+    "content script ui",
+    "style isolation",
+    "data-extension-root",
+    "extension.js",
+    "chrome extension",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+content script 與頁面共用同一份 document。頁面的 CSS 會影響你的標記，你的 CSS 也會影響頁面。shadow root 同時切斷這兩個方向。
+
+Extension.js 不會替你建立 shadow root。由你建立，工具鏈只負責辨識你建立出來的宿主元素。本頁講的就是兩者之間的合約。
+
+## 基本模式
+
+每個 content 範本都採用同一種寫法：
+
+```js src/content/scripts.js
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
+
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "content_script";
+  shadowRoot.appendChild(contentDiv);
+
+  return () => {
+    rootDiv.remove();
+  };
+}
+```
+
+其中有三處是有分量的：
+
+- **`data-extension-root`** 標記宿主元素，Extension.js 靠它找到你的根。
+- **`all: initial !important`** 保護宿主元素本身。shadow root 屏蔽的是它的後代，而不是宿主。少了這一行，頁面上一條 `div { opacity: .8 }` 就會讓整個元件變淡。
+- **回傳的那個函式** 負責移除宿主元素。Extension.js 會在掛載下一個版本之前呼叫它。
+
+## Extension.js 尋找的宿主元素
+
+Extension.js 用一個選擇器找到你的宿主：
+
+```plaintext
+#extension-root, [data-extension-root]
+```
+
+請使用 `data-extension-root` 屬性或 `extension-root` 這個 id。沒有以 class 為基礎的寫法。屬性的值可以自由決定，`"true"` 只是慣例，不是要求。
+
+`extension-js-devtools` 這個值是保留的。內建的開發者浮層會佔用它，而選擇器會把它排除在外，這樣兩者永遠不會互相認領對方的根。
+
+在開發期間，Extension.js 會在你的宿主元素上蓋上一些記帳用的屬性：
+
+| 屬性                         | 它記錄了什麼                                       |
+| ---------------------------- | -------------------------------------------------- |
+| `data-extjs-reinject-owner`  | 擁有該宿主的 script，以擴充功能 id 限定            |
+| `data-extjs-reinject-key`    | 掛載它的那個進入點                                 |
+| `data-extjs-reinject-build`  | 掛載它的那次建置                                   |
+| `data-extjs-reinject-status` | `mounted`、`executed`、`cleaned` 或 `mount-error`  |
+
+這些屬性會從正式建置中移除。不要針對它們撰寫選擇器。
+
+## 把 CSS 送進 shadow root
+
+shadow root 會忽略活在它外面的樣式表。下面每一種情況，都由這一條規則解釋。
+
+### 你在 script 中 import 的 CSS
+
+從 content script import 樣式表時，Extension.js 會把它內嵌成 `data:` URL，而不是輸出一個 link。請把它取回來，再把文字放進 shadow root 內部的 `<style>` 元素中：
+
+```js src/content/scripts.js
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
+
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+  const styleElement = document.createElement("style");
+  shadowRoot.appendChild(styleElement);
+
+  fetchCSS().then((css) => (styleElement.textContent = css));
+
+  return () => rootDiv.remove();
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL("./styles.css", import.meta.url);
+  const response = await fetch(cssUrl);
+  const text = await response.text();
+  return response.ok ? text : Promise.reject(text);
+}
+```
+
+該樣式表中的任何 `url()` 都會在建置時被改寫，因此它解析到的是擴充功能本身，而不是頁面。
+
+### 你從來不插入的 CSS
+
+當一份樣式表進了 bundle，卻沒有任何程式碼去插入它時，Extension.js 會替你把它補進你的 shadow root。它會插入一個 `<style data-extjs-bundle-css="true">` 元素，作為根的第一個子節點。
+
+這份幫忙是有條件的。只要 shadow root 裡出現了你自己的、帶有文字的 `<style>` 元素，Extension.js 就會移除它插入的那個元素並退開。你自己的樣式表說了算。
+
+### 在 manifest.json 中宣告的 CSS
+
+列在 `content_scripts[].css` 之下的樣式表由瀏覽器注入，注入到頁面的 document。它永遠進不了 shadow root。
+
+用 manifest CSS 為頁面本身設定樣式。shadow root 內部的一切，請用 import 進來的 CSS。
+
+### 網頁字型
+
+shadow root 內部的 `@font-face` 規則不會生效。字型族的解析對象是 document，而不是 shadow tree。請改為把字型族註冊到 `document.fonts` 上。完整範例請見 [CSS、Sass 與 Less](/zh-Hant/docs/implementation-guide/css#內容腳本中的網頁字型)。
+
+## 重新載入行為
+
+Extension.js 重新載入 content script 的方式，是把整個 bundle 重新注入一次。它不會在活著的頁面裡做模組熱抽換。
+
+每次存檔時的流程是：
+
+1. Extension.js 呼叫你上一次掛載所回傳的清理函式。
+2. 它移除帶有這個 script 的 owner token、且來自較舊建置的宿主元素。
+3. 它再次執行你的 default export，藉此建出新的宿主元素。
+4. 它重新整理先前由它補進去的樣式表。
+
+這就是清理函式為什麼重要。少了它，每次存檔都會在頁面上留下前一個宿主元素，元件就會越疊越多。
+
+Extension.js 只會移除它能證明屬於這個 script、且屬於較舊建置的宿主元素。比這次掛載更早存在的宿主永遠不會被認領，另一個擴充功能的宿主也絕不會被動到。
+
+## 同一頁面上的多個進入點
+
+一個 `content_scripts` 區塊中的每個檔案都有自己的重新注入索引鍵。因此某個 script 的清理只會處置它自己的宿主，絕不會動到同伴的。
+
+請給每個進入點各自的宿主元素。兩個進入點共用一個宿主，就會在清理時互相打架。
+
+## 範本
+
+Content scripts 分組中的每個範本都掛載到 shadow root：
+
+`content`、`content-css-modules`、`content-custom-font`、`content-env`、`content-less`、`content-less-modules`、`content-main-world`、`content-multi-one-entry`、`content-multi-three-entries`、`content-preact`、`content-react`、`content-sass`、`content-sass-modules`、`content-svelte`、`content-typescript`、`content-vue`
+
+產生 React 那個範本，看看 shadow root 裡面的框架根長什麼樣：
+
+<CodeGroup>
+
+```bash npm
+npx extension@latest create my-extension --template=content-react
+```
+
+```bash pnpm
+pnpx extension@latest create my-extension --template=content-react
+```
+
+```bash yarn
+yarn dlx extension@latest create my-extension --template=content-react
+```
+
+```bash bun
+bunx extension@latest create my-extension --template=content-react
+```
+
+```bash deno
+deno run -A npm:extension@latest create my-extension --template=content-react
+```
+
+</CodeGroup>
+
+儲存庫：[extension-js/examples/content-react](https://github.com/extension-js/examples/tree/main/examples/content-react)
+
+框架根需要在清理函式中做屬於它自己的拆卸：
+
+```jsx src/content/scripts.jsx
+return () => {
+  mountingPoint.unmount();
+  rootDiv.remove();
+};
+```
+
+## 最佳實務
+
+- 永遠回傳一個會移除宿主元素的清理函式。
+- 宿主元素上的 `all: initial !important` 要一直留著。
+- 除非你有理由隱藏這棵樹，否則請選 `mode: "open"`。closed 的根比較難除錯。
+- 查詢你自己的節點時，請在 `shadowRoot` 內部查，絕不要在 `document` 裡查。
+- 不要依賴 `data-extjs-*` 屬性。它們只為開發循環而存在。
+
+## 後續步驟
+
+- 閱讀完整的 [content script 撰寫合約](/zh-Hant/docs/implementation-guide/content-scripts#撰寫合約)。
+- 在 [CSS、Sass 與 Less](/zh-Hant/docs/implementation-guide/css) 中了解樣式是怎麼路由的。
+- 回顧[重新載入與 HMR](/zh-Hant/docs/features/reload-and-hmr) 的行為。
