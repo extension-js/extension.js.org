@@ -106,22 +106,22 @@ chrome.runtime.onConnect.addListener((port) => {
 | 接收方的后台上下文                     | service worker，按需重启                              | 通过 `background.scripts` 声明的 event page                  | 本文档不涉及       |
 | 对后台生命周期的影响                   | 收到消息和保持打开的 port 会让 worker 保持唤醒，所以不要把 port 当计时器用 | event page 同理                         | 本文档不涉及       |
 
-在 Safari 上，在你授予扩展网站访问权限之前 content script 不会运行，因此在那之前 `tabs.sendMessage` 没有接收方。参见 [Safari](/docs/browsers/safari)。
+在 Safari 上，在你授予扩展网站访问权限之前 content script 不会运行，因此在那之前 `tabs.sendMessage` 没有接收方。参见 [Safari](/zh-Hans/docs/browsers/safari)。
 
-如果你的源码基于 `browser.*` 编写，同时也要构建 Chromium 目标，请传入 `--polyfill`。参见 [跨浏览器兼容](/docs/features/cross-browser-compatibility)。
+如果你的源码基于 `browser.*` 编写，同时也要构建 Chromium 目标，请传入 `--polyfill`。参见 [跨浏览器兼容](/zh-Hans/docs/features/cross-browser-compatibility)。
 
 ## 你会看到的控制台报错
 
 把你看到的那一行复制去搜索。每一行对应一个原因。
 
 `Unchecked runtime.lastError: Could not establish connection. Receiving end does not exist.`
-没有任何一方在监听。要么目标上下文没有 `runtime.onMessage` 监听器，要么对 `tabs.sendMessage` 而言，还没有 content script 被注入那个标签页。在扩展加载之前就已打开的标签页在重新加载前没有 content script，而像 `chrome://` 或扩展商店这样的受限页面永远不会有。请先用 `chrome.scripting.executeScript` 注入，或者处理这次失败，做法见 [在运行时注入脚本](/docs/implementation-guide/inject-scripts)。
+没有任何一方在监听。要么目标上下文没有 `runtime.onMessage` 监听器，要么对 `tabs.sendMessage` 而言，还没有 content script 被注入那个标签页。在扩展加载之前就已打开的标签页在重新加载前没有 content script，而像 `chrome://` 或扩展商店这样的受限页面永远不会有。请先用 `chrome.scripting.executeScript` 注入，或者处理这次失败，做法见 [在运行时注入脚本](/zh-Hans/docs/implementation-guide/inject-scripts)。
 
 `Unchecked runtime.lastError: The message port closed before a response was received.`
 监听器收到了消息，却在没有让通道保持打开的情况下返回了。请从监听器返回 `true`，或者同步作答。
 
 `Uncaught Error: Extension context invalidated.`
-扩展重新加载时，旧的 content script 还在页面里运行。那段代码现在指向一个不复存在的运行时，它发出的每个 `chrome.*` 调用都会抛错。请重新加载标签页。在 `extension dev` 期间，这发生在一次被归类为完整重载的改动之后，[重载与 HMR](/docs/features/reload-and-hmr) 对此有说明。
+扩展重新加载时，旧的 content script 还在页面里运行。那段代码现在指向一个不复存在的运行时，它发出的每个 `chrome.*` 调用都会抛错。请重新加载标签页。在 `extension dev` 期间，这发生在一次被归类为完整重载的改动之后，[重载与 HMR](/zh-Hans/docs/features/reload-and-hmr) 对此有说明。
 
 `Attempting to use a disconnected port object`
 在 `onDisconnect` 触发之后，仍有人向这个 port 投递消息。请在 `onDisconnect` 处理器里清掉你的引用，需要时再打开一个新 port。
@@ -131,16 +131,16 @@ chrome.runtime.onConnect.addListener((port) => {
 Extension.js 编译调用这些 API 的代码，并不包装它们。协议是你自己的。工具链改变的是开发循环：
 
 - 一次被归类为 `content-scripts` 的改动会重新注入受影响的条目并拆除上一次的挂载，因此监听器是被替换而不是被叠加。一次被归类为 `full` 的改动会重载扩展，而重载前就留在页面上的 content script 会变成上面那种 `Extension context invalidated` 情况。请重新加载标签页。
-- 在 `extension dev` 下，从 `scripts/` 文件夹注入的脚本会在编辑后被重放，因此你在被注入脚本里打开的 port 会由新的副本重新打开。参见 [特殊文件夹](/docs/features/special-folders)。
+- 在 `extension dev` 下，从 `scripts/` 文件夹注入的脚本会在编辑后被重放，因此你在被注入脚本里打开的 port 会由新的副本重新打开。参见 [特殊文件夹](/zh-Hans/docs/features/special-folders)。
 - service worker 与 content script 的控制台输出会被转发到同一个通道，因此跨越边界的消息更容易在单一流里跟踪。
 
 把特权工作留在 service worker 里，让 content script 保持狭窄，让载荷保持小。转发整页快照的 content script 比只转发功能所需三个字段的那个更慢，攻击面也更大。
 
 ## 参见
 
-- [存储](/docs/implementation-guide/storage)
-- [后台脚本 / service worker](/docs/implementation-guide/background)
-- [Content script](/docs/implementation-guide/content-scripts)
-- [在运行时注入脚本](/docs/implementation-guide/inject-scripts)
-- [原生消息传递](/docs/implementation-guide/native-messaging)
-- [重载与 HMR](/docs/features/reload-and-hmr)
+- [存储](/zh-Hans/docs/implementation-guide/storage)
+- [后台脚本 / service worker](/zh-Hans/docs/implementation-guide/background)
+- [Content script](/zh-Hans/docs/implementation-guide/content-scripts)
+- [在运行时注入脚本](/zh-Hans/docs/implementation-guide/inject-scripts)
+- [原生消息传递](/zh-Hans/docs/implementation-guide/native-messaging)
+- [重载与 HMR](/zh-Hans/docs/features/reload-and-hmr)
