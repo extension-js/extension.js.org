@@ -1,0 +1,155 @@
+---
+title: "chrome 与 browser API 的类型"
+description: "安装 @types/chrome，让 tsc 在 TypeScript 扩展里解析得到 chrome.*。Extension.js 会生成 extension-env.d.ts 并引用这些类型，但不会替你安装它们。"
+keywords:
+  [
+    "@types/chrome",
+    "types chrome",
+    "chrome types",
+    "webextension-polyfill types",
+    "extension-env.d.ts",
+    "cannot find name chrome",
+    "typescript",
+    "extension.js",
+    "docs",
+    "languages and frameworks",
+  ]
+---
+
+Extension.js 用 SWC 编译 TypeScript，它只擦除类型，从不检查类型。类型检查是你用 `tsc` 单独运行的一步。本页说明这一步需要哪些包，才能解析 `chrome.*` 和 `browser.*`。
+
+## Extension.js 会生成什么
+
+当项目使用 TypeScript 时，`extension dev` 和 `extension build` 会在 `package.json` 旁边写下一个 `extension-env.d.ts` 文件。它在每次运行时都会被重新生成，所以不要编辑它。
+
+这个文件会引入 `extension` 包发布的环境类型：
+
+```ts extension-env.d.ts
+/// <reference types="extension/types" />
+/// <reference types="extension/types/polyfill" />
+```
+
+这些引用会给你：
+
+| 引用                       | 它声明了什么                                              |
+| -------------------------- | --------------------------------------------------------- |
+| `extension/types`          | `browser` 全局变量、`process.env` 键、`import.meta.env` 键 |
+| `extension/types/polyfill` | 来自 `webextension-polyfill` 的 `browser.*` 命名空间形状   |
+| 通配符模块                 | 对 `.css`、`.module.css`、`.png`、`.svg` 等资源的 `import` |
+
+`EXTENSION_*` 环境变量键也在这里被赋予类型。这就是 `process.env.EXTENSION_MODE` 不需要额外配置就能解析的原因。
+
+## 为 chrome 命名空间安装 @types/chrome
+
+`extension/types` 自己声明了 `browser` 全局变量，但它是通过一条引用去够到 `chrome` 命名空间的：
+
+```ts
+/// <reference types="chrome" />
+```
+
+只有当你的项目里装了 `@types/chrome`，这条引用才解析得到。Extension.js 不会安装它，模板也不会声明它。
+
+因此，一个调用了 `chrome.storage` 的脚手架 TypeScript 项目跑 `tsc` 会失败：
+
+```plaintext
+src/background.ts(19,1): error TS2304: Cannot find name 'chrome'.
+src/content/scripts.ts(87,30): error TS2503: Cannot find namespace 'chrome'.
+```
+
+安装这个包就能清掉它：
+
+<CodeGroup>
+
+```bash npm
+npm install -D @types/chrome
+```
+
+```bash pnpm
+pnpm add -D @types/chrome
+```
+
+```bash yarn
+yarn add -D @types/chrome
+```
+
+```bash bun
+bun add -d @types/chrome
+```
+
+```bash deno
+deno add -D npm:@types/chrome
+```
+
+</CodeGroup>
+
+再跑一次检查，错误就没了：
+
+```bash
+npx tsc --noEmit
+```
+
+别的什么都没变。在安装之前构建就已经成功了，因为 SWC 从来不读类型。
+
+## 当你改写 browser.\* 时
+
+`browser` 全局变量由 `extension/types` 赋予类型，它把这个变量映射到 `webextension-polyfill` 上。想要完整的命名空间形状，请再装上配套的类型包：
+
+<CodeGroup>
+
+```bash npm
+npm install -D @types/webextension-polyfill
+```
+
+```bash pnpm
+pnpm add -D @types/webextension-polyfill
+```
+
+```bash yarn
+yarn add -D @types/webextension-polyfill
+```
+
+```bash bun
+bun add -d @types/webextension-polyfill
+```
+
+```bash deno
+deno add -D npm:@types/webextension-polyfill
+```
+
+</CodeGroup>
+
+同一个选择在运行时那一侧的样子，请阅读 [跨浏览器兼容](/zh-Hans/docs/features/cross-browser-compatibility)。
+
+## 让 extension-env.d.ts 留在 include 列表里
+
+只有当 TypeScript 读到它时，这个生成的文件才有用。脚手架生成的 `tsconfig.json` 会点名它：
+
+```json tsconfig.json
+{
+  "include": ["./", "extension-env.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+当 Extension.js 为一个还没有 `tsconfig.json` 的项目写下这份文件时，那份文件里不带 `include` 数组。TypeScript 于是会读取项目目录下的每一个文件，所以照样能找到 `extension-env.d.ts`。而一个你自己写的、漏掉了这个文件的 `include` 数组，会让资源导入和 `browser` 全局变量一起失效。
+
+## 症状与修复
+
+| 症状                                | 原因                              | 修复                          |
+| ----------------------------------- | --------------------------------- | ----------------------------- |
+| `Cannot find name 'chrome'`         | 没有安装 `@types/chrome`          | 安装 `@types/chrome`          |
+| `Cannot find namespace 'chrome'`    | 同样的原因，只是出现在类型位置    | 安装 `@types/chrome`          |
+| `Cannot find module './styles.css'` | `extension-env.d.ts` 落在 `include` 之外 | 把这个文件加进 `include` |
+| `Cannot find name 'browser'`        | 项目从来没跑过 `dev` 或 `build`   | 跑一次任意一条命令来生成类型  |
+
+## 最佳实践
+
+- 把 `extension-env.d.ts` 当作构建产物看待。愿意的话可以提交它，但绝不要编辑它。
+- 任何调用 `chrome.*` 的 TypeScript 项目都该加上 `@types/chrome`，包括你从模板生成的那些。
+- 在持续集成中跑 `tsc --noEmit`。Extension.js 的构建不会因为类型错误而失败。
+
+## 下一步
+
+- 阅读 [TypeScript 配置](/zh-Hans/docs/languages-and-frameworks/typescript)的其余部分。
+- 了解这些类型所声明的[环境变量](/zh-Hans/docs/features/environment-variables)。
+- 回顾[跨浏览器兼容](/zh-Hans/docs/features/cross-browser-compatibility)。

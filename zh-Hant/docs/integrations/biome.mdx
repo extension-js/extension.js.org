@@ -1,0 +1,166 @@
+---
+title: "在瀏覽器擴充功能中使用 Biome"
+description: "把 Biome 當成 Extension.js 專案的 linter 與格式化工具。Biome 在建置旁邊執行，取代 ESLint 與 Prettier，不需要任何 bundler 設定。"
+keywords:
+  [
+    "biome for browser extensions",
+    "biome",
+    "biomejs",
+    "biome.json",
+    "linter",
+    "formatter",
+    "eslint",
+    "prettier",
+    "extension.js",
+    "docs",
+    "integrations",
+  ]
+---
+
+Biome 把 linter 與格式化工具裝進同一個執行檔。它涵蓋了 ESLint 與 Prettier 合起來涵蓋的範圍，而你只需要一個設定檔與一個相依套件。
+
+Biome 在 Extension.js 建置旁邊執行，從不在它裡面執行。Extension.js 不會讀 `biome.json`，不會執行 Biome，也不會把這份設定複製進打包後的輸出。
+
+## 什麼情況下適合使用 Biome
+
+- 你想要一個工具與一份設定檔，而不是一個 linter 加一個格式化工具。
+- 你正要開一個新專案，沒有既有的 ESLint 規則集要沿用。
+- 你希望檢查跑得夠快，快到每次儲存都能跑一次。
+
+## Biome 能做到的事
+
+| 能力          | 帶來什麼好處                                       |
+| ------------- | -------------------------------------------------- |
+| Lint 與格式化 | 兩件事一個執行檔，共用同一份忽略清單               |
+| Import 排序   | 一個在寫入時整理 import 順序的 assist 動作         |
+| 編輯器整合    | 一個儲存時自動格式化的 language server             |
+| 遷移路徑      | `biome migrate eslint` 與 `biome migrate prettier` |
+
+## 沒有 Biome 範本
+
+Extension.js 為 ESLint、Prettier 與 Stylelint 提供了設定範本，卻沒有為 Biome 提供任何範本。用任一個範本建立專案，再照下面的步驟自己加上 Biome。
+
+## 在擴充功能中加入 Biome
+
+安裝套件：
+
+<CodeGroup>
+
+```bash npm
+npm install -D @biomejs/biome
+```
+
+```bash pnpm
+pnpm add -D @biomejs/biome
+```
+
+```bash yarn
+yarn add -D @biomejs/biome
+```
+
+```bash bun
+bun add -d @biomejs/biome
+```
+
+```bash deno
+deno add -D npm:@biomejs/biome
+```
+
+</CodeGroup>
+
+建立設定檔：
+
+```bash
+npx biome init
+```
+
+這會在專案根目錄寫下一份 `biome.json`。產生出來的檔案已經把 Biome 擋在建置輸出之外：
+
+```json biome.json
+{
+  "files": {
+    "includes": ["**", "!!**/dist"]
+  },
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  }
+}
+```
+
+執行檢查：
+
+```bash
+npx biome check
+```
+
+套用 Biome 自己就能做的修正：
+
+```bash
+npx biome check --write
+```
+
+## 加上 scripts
+
+Biome 不會往 `package.json` 裡寫任何 script。請把它們加在 Extension.js 的 scripts 旁邊：
+
+```json package.json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "lint:ci": "biome ci"
+  }
+}
+```
+
+`biome ci` 是持續整合用的形式。它回報的結果與 `check` 相同，而且從不改動任何檔案。
+
+## 忽略產生出來的型別檔
+
+TypeScript 專案會帶一個 `extension-env.d.ts` 檔案，Extension.js 在每次 `dev` 與 `build` 時都會重寫它。格式化它是白費工夫，因為下一次執行就會把它換掉。請把它排除：
+
+```json biome.json
+{
+  "files": {
+    "includes": ["**", "!!**/dist", "!extension-env.d.ts"]
+  }
+}
+```
+
+關於這個檔案的用途，請閱讀 [chrome 與 browser API 的型別](/zh-Hant/docs/languages-and-frameworks/extension-api-types)。
+
+## 從 ESLint 或 Prettier 遷移
+
+Biome 會讀取既有的設定，並把它能轉換的部分轉換過來：
+
+```bash
+npx biome migrate eslint --write
+```
+
+```bash
+npx biome migrate prettier --write
+```
+
+對結果滿意之後，就可以移除舊的相依套件。Extension.js 的建置不依賴這兩個工具中的任何一個。
+
+## 建置會拿 biome.json 做什麼
+
+什麼都不做。建置只讀一組固定的根目錄檔案：`manifest.json`、`package.json`、`extension.config.js`、`tsconfig.json`、PostCSS 與 Tailwind 設定，以及 `.env` 家族。`biome.json` 永遠不會被讀取、被監看，也不會被輸出到 `dist/`。
+
+有一個打包細節值得知道。`extension build --zip-source` 會封存整個專案資料夾，所以 `biome.json` 會落進原始碼封存檔。對於要求附上原始碼的商店審核來說，這通常正是你要的。
+
+## 最佳實務
+
+- 在 Biome 與 ESLint 加 Prettier 這組搭配之間擇一。兩邊都跑會把同一批檔案格式化兩次，而且結果不同。
+- 保持排除 `dist`。產生出來的 bundle 不歸你格式化。
+- 在持續整合中執行 `biome ci`，而不是 `biome check --write`。CI 工作該做的是回報，不是重寫。
+
+## 下一步
+
+- 與 [ESLint 整合](/zh-Hant/docs/integrations/eslint) 做個比較。
+- 與 [Prettier 整合](/zh-Hant/docs/integrations/prettier) 做個比較。
+- 發佈之前先過一遍[安全檢查清單](/zh-Hant/docs/workflows/security-checklist)。

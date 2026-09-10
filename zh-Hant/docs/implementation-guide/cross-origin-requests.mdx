@@ -1,0 +1,169 @@
+---
+title: "CORS 與跨來源請求"
+description: "為什麼在 content script 裡 fetch 會撞上 CORS，在 background 裡卻不會。host 權限、開發伺服器的標頭，以及只在開發期生效的 CSP 修補。"
+keywords:
+  [
+    "cors",
+    "cross-origin",
+    "content script fetch",
+    "host_permissions",
+    "access-control-allow-origin",
+    "preflight",
+    "extension.js",
+    "chrome extension",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+CORS 之所以絆住擴充功能作者，是因為規則會隨著執行這次請求的情境而變。同一個 `fetch` 呼叫，在 content script 裡和在 background 裡表現並不相同。
+
+Extension.js 不會改動這些規則中的任何一條。它確實會為自己的開發伺服器設定標頭，也確實會在開發期修補 CSP。這兩件事都在下面說明。
+
+## 請求在哪裡執行，就由哪一套規則決定
+
+| 情境                        | 請求的 origin     | 是否受 CORS 約束             |
+| --------------------------- | ----------------- | ---------------------------- |
+| Background service worker   | 擴充功能的 origin | 否，只要有 host 權限涵蓋該 URL |
+| 像 popup 這樣的擴充功能頁面 | 擴充功能的 origin | 否，只要有 host 權限涵蓋該 URL |
+| Content script，isolated world | 宿主頁面的 origin | 是，自 Chrome 85 起        |
+| Content script，MAIN world  | 宿主頁面的 origin | 是                           |
+
+就網路而言，content script 與頁面共用同一個 origin。host 權限在那裡並不能解除 CORS。這是最常見的一個意外。
+
+## 把請求移到 background
+
+可靠的做法是讓 background 去 fetch，再把結果送回來：
+
+```js src/content/scripts.js
+export default function initial() {
+  chrome.runtime.sendMessage(
+    { type: "fetch-report", url: "https://api.example.com/report" },
+    (response) => {
+      if (response?.ok) render(response.data);
+    },
+  );
+
+  return () => {};
+}
+```
+
+```js src/background.js
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type !== "fetch-report") return;
+
+  fetch(message.url)
+    .then((response) => response.json())
+    .then((data) => sendResponse({ ok: true, data }))
+    .catch((error) => sendResponse({ ok: false, error: String(error) }));
+
+  // 讓訊息通道保持開啟，等待這次非同步回覆。
+  return true;
+});
+```
+
+這條通道的其餘部分，請閱讀 [Messaging](/zh-Hant/docs/implementation-guide/messaging)。
+
+## 宣告 host 權限
+
+background 只有對 manifest 點名的 origin 才豁免 CORS：
+
+```json manifest.json
+{
+  "host_permissions": ["https://api.example.com/*"]
+}
+```
+
+沒有相符的項目時，這次請求就是一次普通的跨來源請求，由伺服器的標頭說了算。
+
+Extension.js 不會拿你程式碼裡的 URL 去驗證 host 權限。缺少的項目要到執行階段才會以一次失敗的請求現形，而不是在建置時。
+
+優先採用更窄的 pattern。`<all_urls>` 能用，但商店審核者會追問它。
+
+## Preflight 請求依然會發生
+
+host 權限拿掉的是對回應的 origin 檢查，它拿不掉 preflight。
+
+帶自訂標頭的請求，或是用了 `GET`、`HEAD`、`POST` 以外方法的請求，仍然會先送出一個 `OPTIONS` 請求。伺服器必須回應它。伺服器在你手上時，就放行你送出的方法與標頭。不在你手上時，就把請求保持簡單。
+
+## Extension.js 開發伺服器
+
+在 `extension dev` 期間，Extension.js 會執行一個本機伺服器，用來提供重新載入的用戶端與熱更新。任何頁面上的 content script 都會撥向它，這本身就是一次跨來源請求，所以伺服器回以：
+
+```http
+Access-Control-Allow-Origin: *
+```
+
+它也接受任何 `Host` 標頭。這是一個跑在你自己機器上的開發伺服器。它永遠不會出現在打包後的擴充功能裡，它提供的任何東西也不會進入正式環境。
+
+### 只在開發期生效的 CSP 修補
+
+除非你自己設定，否則 Manifest v3 不會限制 `connect-src`。因此一個沒有宣告 `content_security_policy` 的專案不需要任何修補，開發用的 manifest 帶的就是一般政策：
+
+```json dist/chromium/manifest.json
+{
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; "
+  }
+}
+```
+
+一旦你宣告了自己的 `connect-src`，開發建置就會把本機 origin 附加進去，這樣你的頁面仍然連得上那個 socket：
+
+```json dist/chromium/manifest.json
+{
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:* http://127.0.0.1:* http://localhost:*; "
+  }
+}
+```
+
+這些附加的項目會在 `extension build` 時移除，你自己的 `connect-src` 則會保留。所以一份漏掉你 API origin 的嚴格政策，會在開發期通過、在正式環境失敗。當一個 CSP 錯誤一路活到正式環境時，請閱讀 [Manifest 拒絕](/zh-Hant/docs/debugging/manifest-refusals)。
+
+### 綁定到另一個主機
+
+在容器裡開發時，把伺服器綁到別處：
+
+```bash
+extension dev --host 0.0.0.0
+```
+
+瀏覽器撥不通 `0.0.0.0`，所以 Extension.js 會為用戶端解析出一個連得上的位址，退回值是 `127.0.0.1`。當瀏覽器在另一台機器上時，請覆寫它：
+
+```bash
+extension dev --host 0.0.0.0 --public-host 192.168.1.20
+```
+
+開發期的 CSP 修補會跟著解析出來的主機走，所以那個 socket URL 始終在放行之列。
+
+## 遠端腳本與樣式表
+
+擴充功能的 CSP 禁止把遠端 origin 上的腳本載入擴充功能頁面。那不是 CORS，任何標頭都修不好它。請改為把程式碼打包進來。
+
+Extension.js 會在建置期回報這種情況：
+
+```plaintext
+A remote script or stylesheet is blocked by extension CSP.
+```
+
+## 症狀與修正
+
+| 症狀                                                    | 原因                        | 修正                                |
+| ------------------------------------------------------- | --------------------------- | ----------------------------------- |
+| content script 裡出現 `No 'Access-Control-Allow-Origin' header` | 這次請求跑在頁面的 origin 上 | 把 fetch 移到 background            |
+| 同一段程式碼在 popup 裡能用，在 content script 裡不能   | 程式碼相同，origin 不同     | 把 fetch 移到 background            |
+| background 裡的呼叫也失敗                               | 沒有相符的 host 權限        | 把該 origin 加進 `host_permissions` |
+| `OPTIONS` 請求失敗                                      | 伺服器拒絕了 preflight      | 簡化請求，或修好伺服器              |
+| `dev` 下能用，`build` 之後失敗                          | 一個只在開發期存在的 CSP 或權限 | 比對兩份 `dist/` manifest       |
+
+## 最佳實務
+
+- 把每一個第三方請求都放進 background，包括今天還能正常運作的那些。
+- 在 `host_permissions` 裡逐一點名 origin，而不是伸手去拿 `<all_urls>`。
+- 發佈之前先用正式建置測一遍。開發期比較寬鬆是刻意的。
+
+## 下一步
+
+- 在 [Messaging](/zh-Hant/docs/implementation-guide/messaging) 中了解如何在情境之間傳遞資料。
+- 檢視 [權限與 host 權限](/zh-Hant/docs/implementation-guide/permissions-and-host-permissions)。
+- 用 [攔截網路請求](/zh-Hant/docs/workflows/intercept-network-requests) 觀察流量。

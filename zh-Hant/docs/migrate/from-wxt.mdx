@@ -1,0 +1,146 @@
+---
+title: "從 WXT 遷移到 Extension.js"
+description: "逐步遷移指南：把 WXT 瀏覽器擴充功能遷移到 Extension.js。把 entrypoints/ 慣例轉換成 manifest.json、拆掉 defineContentScript 包裹器，並保留既有的 UI 程式碼。"
+keywords:
+  [
+    "wxt migration",
+    "wxt to extension.js",
+    "wxt alternative",
+    "migrate from wxt",
+    "wxt framework",
+    "defineContentScript",
+    "entrypoints",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+[WXT](https://wxt.dev) 是基於 Vite 的瀏覽器擴充功能框架，採用檔案系統進入點與自動產生的 manifest。它仍在積極維護，本身是不錯的選擇。團隊之所以遷移，通常是想要相反的取捨：以手寫的 `manifest.json` 作為事實來源、用 Rspack 建置，並讓輸出如實反映瀏覽器實際載入的內容。完整比較請見 [Extension.js vs WXT](/zh-Hant/docs/compare/extension-js-vs-wxt)。本指南會把典型的 WXT 專案遷移到 Extension.js，且不需要改寫你的 UI 程式碼。
+
+## 哪些會變、哪些不變
+
+**維持不變：** 你的 React／Vue／Svelte 元件、樣式、測試、`browser.*` 與 `chrome.*` API 呼叫（`extension dev` 預設會套用 `browser` polyfill，`extension build` 則接受 `--polyfill`），以及獨立使用的 `@wxt-dev/storage`（它包裝的是擴充功能的 storage API，在這裡運作方式相同）。
+
+**會改變：**
+
+- 檔案慣例的進入點（`entrypoints/popup/`、`entrypoints/content.ts`）變成真正的 `manifest.json` 中明確的條目。
+- `wxt.config.ts` 中的 `manifest` 選項（以及 HTML 進入點裡的 `<meta name="manifest.*">` 標籤）移到 `manifest.json`。
+- `defineBackground()` ／ `defineContentScript()` 包裹器拆成一般模組。
+- WXT 的自動 import 變成明確的 import。
+- `wxt` / `wxt build` / `wxt zip` 變成 `extension dev` / `extension build --zip`。
+- `import.meta.env.WXT_*` 環境變數變成 `EXTENSION_PUBLIC_*`。
+
+## 步驟 1：安裝 Extension.js
+
+```bash
+npm install extension@latest --save-dev
+npm uninstall wxt
+```
+
+## 步驟 2：撰寫 manifest
+
+WXT 會從 `wxt.config.ts` 加上 `entrypoints/` 的目錄配置產生 manifest。Extension.js 則把 `manifest.json` 當作事實來源。逐條轉換每個慣例：
+
+| WXT 慣例                                      | `manifest.json` 條目                                      |
+| --------------------------------------------- | --------------------------------------------------------- |
+| `entrypoints/popup/index.html`                | `"action": {"default_popup": "popup/index.html"}`         |
+| `entrypoints/options/index.html`              | `"options_ui": {"page": "options/index.html"}`            |
+| `entrypoints/newtab/index.html`               | `"chrome_url_overrides": {"newtab": "newtab/index.html"}` |
+| `entrypoints/background.ts`                   | `"background": {"service_worker": "background.ts"}`       |
+| `entrypoints/content.ts`（或 `*.content.ts`） | `"content_scripts": [{...}]` 條目                         |
+| `wxt.config.ts` 中的 `manifest: {...}`        | 直接合併到 `manifest.json`                                |
+| HTML 頁面中的 `<meta name="manifest.*">`      | 對應的 `manifest.json` 鍵                                 |
+
+把每個進入點目錄裡的檔案搬到專案中你偏好的任何位置（常見的配置是 `popup/`、`options/`、`content/`），再讓 manifest 指向它們。無論在 manifest 或 `<script>` 標籤中，副檔名都保留 `.ts`／`.tsx`，Extension.js 會在建置時編譯它們。
+
+## 步驟 3：拆掉 `defineBackground` 與 `defineContentScript`
+
+WXT 會包裹執行階段的程式碼，好從你的原始檔中解析出 manifest 選項：
+
+```ts entrypoints/content.ts
+export default defineContentScript({
+  matches: ["https://example.com/*"],
+  main(ctx) {
+    console.log("content script running");
+  },
+});
+```
+
+在 Extension.js 中，`matches` 寫在 manifest 裡，檔案則是一般模組，因此 `main()` 的函式主體會變成最上層的程式碼：
+
+```json manifest.json
+{
+  "content_scripts": [
+    {
+      "matches": ["https://example.com/*"],
+      "js": ["content/script.ts"]
+    }
+  ]
+}
+```
+
+```ts content/script.ts
+console.log("content script running");
+```
+
+`defineBackground(() => {...})` 也一樣，它的函式主體會變成 background 檔案的最上層。有兩個 WXT 專屬的輔助功能需要替換：
+
+- **`ctx`（ContentScriptContext）：** WXT 的 `ctx` 會在擴充功能更新、content script 被孤立時取消進行中的工作。請把綁在 `ctx` 上的監聽器換成一般的 `addEventListener` 呼叫。如果你確實依賴失效處理，可以用 `chrome.runtime.id` 檢查來保護長時間存活的 callback。
+- **`createShadowRootUi` ／ `createIntegratedUi`：** 請改用一般的 DOM 程式碼掛載元件：建立一個容器元素，把它附加到頁面上，然後渲染到其中。完整模式請見 [Content scripts](/zh-Hant/docs/implementation-guide/content-scripts)，包括以 shadow DOM 隔離樣式的方式。
+
+## 步驟 4：把自動 import 改為明確 import
+
+WXT 會自動 import `browser`、`defineContentScript`、`storage` 等等。Extension.js 不會注入全域變數，所以請補上明確的 import：
+
+- `browser.*` 呼叫：保持原樣。`extension dev` 預設會套用 polyfill，`extension build` 則需要 `--polyfill`。改用 `chrome.*` 同樣可行。
+- WXT 的 `storage`：`import { storage } from "@wxt-dev/storage"` 作為獨立套件可以繼續使用。
+- 框架的自動 import（來自 `@wxt-dev/module-react` 之類）：直接從框架套件本身 import。
+
+## 步驟 5：環境變數與腳本
+
+- 把 `.env` 檔案中的 `WXT_*`（以及 `VITE_*`）變數改名為 `EXTENSION_PUBLIC_*`，並把 `import.meta.env.WXT_FOO` 換成 `process.env.EXTENSION_PUBLIC_FOO`。參見[環境變數](/zh-Hant/docs/features/environment-variables)。
+- 更新 `package.json` 腳本：
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "start": "extension start"
+  }
+}
+```
+
+WXT 使用 `wxt build -b firefox` 加上 `wxt zip` 的地方，Extension.js 用一道指令就同時完成多瀏覽器建置與打包：
+
+```bash
+extension build --browser=chrome,firefox --zip
+```
+
+你會得到 `dist/chrome` 與 `dist/firefox`（而不是 `.output/chrome-mv3`），附帶各瀏覽器正確的 manifest，以及可上傳到 Chrome Web Store 與 addons.mozilla.org 的 `.zip` 壓縮檔。
+
+## 步驟 6：驗證
+
+```bash
+extension dev --browser=chrome
+```
+
+檢查 popup、options、content scripts 與 background 的行為，再以 `--browser=firefox` 在 Firefox 上跑相同的驗證。`extension dev` 預設會套用 polyfill，因此 `browser.*` 的程式碼在 Chromium 上不用修改就能執行。若要在 `extension build` 使用，請加上 `--polyfill`，那裡的預設值是關閉。
+
+## 常見陷阱
+
+- **Manifest V2：** WXT 支援把 MV2 當作建置目標，Extension.js 則只以 Manifest V3 為目標。如果你仍在出貨 MV2 版本，請先完成那次遷移。參見 [Manifest V3 概念](/zh-Hant/docs/concepts/manifest-v3)。
+- **`public/` 目錄：** WXT 的 `public/` 中的檔案會原封不動複製。Extension.js 對 `public/` 的處理相同，從 manifest 或 HTML 參照的路徑會繼續運作。
+- **`assets/` 與 `~`／`@` 別名：** 請在 `tsconfig.json` 的 paths 中設定這些別名，或改用相對路徑 import。參見 [Path resolution](/zh-Hant/docs/features/path-resolution)。
+- **WXT 模組**（`@wxt-dev/module-react`、`-vue`、`-svelte`）：不再需要，因為框架支援已內建。可以對照一個全新的[範本](/zh-Hant/docs/getting-started/templates)來看參考設定。
+- **`app.config.ts` 執行階段設定：** 請改用你自己的模組（一個單純匯出的物件就能達到同樣效果，而且少一層框架）。
+
+## 延伸閱讀
+
+- [Extension.js vs WXT](/zh-Hant/docs/compare/extension-js-vs-wxt)
+- [從 Plasmo 遷移](/zh-Hant/docs/migrate/from-plasmo)
+- [從 CRXJS 遷移](/zh-Hant/docs/migrate/from-crxjs)
+- [跨瀏覽器相容性](/zh-Hant/docs/features/cross-browser-compatibility)
+- [重新載入與 HMR](/zh-Hant/docs/features/reload-and-hmr)

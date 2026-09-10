@@ -1,0 +1,169 @@
+---
+title: "CORS 与跨源请求"
+description: "为什么在 content script 里 fetch 会撞上 CORS，而在 background 里不会。主机权限、开发服务器的响应头，以及仅在开发期生效的 CSP 补丁。"
+keywords:
+  [
+    "cors",
+    "cross-origin",
+    "content script fetch",
+    "host_permissions",
+    "access-control-allow-origin",
+    "preflight",
+    "extension.js",
+    "chrome extension",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+CORS 之所以绊住扩展作者，是因为规则会随着运行这次请求的上下文而变。同一个 `fetch` 调用，在 content script 里和在 background 里表现并不相同。
+
+Extension.js 不改变这些规则中的任何一条。它确实会给自己的开发服务器设置响应头，也确实会在开发期给 CSP 打补丁。这两件事都在下面说明。
+
+## 请求在哪里运行，就由哪套规则决定
+
+| 上下文                      | 请求的 origin  | 是否受 CORS 约束                |
+| --------------------------- | -------------- | ------------------------------- |
+| Background service worker   | 扩展的 origin  | 否，只要有主机权限覆盖该 URL    |
+| 像 popup 这样的扩展页面     | 扩展的 origin  | 否，只要有主机权限覆盖该 URL    |
+| Content script，isolated 世界 | 宿主页面的 origin | 是，自 Chrome 85 起           |
+| Content script，MAIN 世界   | 宿主页面的 origin | 是                           |
+
+就网络而言，content script 与页面共享同一个 origin。主机权限在那里并不能解除 CORS。这是最常见的一个意外。
+
+## 把请求挪到 background
+
+可靠的做法是让 background 去 fetch，再把结果送回来：
+
+```js src/content/scripts.js
+export default function initial() {
+  chrome.runtime.sendMessage(
+    { type: "fetch-report", url: "https://api.example.com/report" },
+    (response) => {
+      if (response?.ok) render(response.data);
+    },
+  );
+
+  return () => {};
+}
+```
+
+```js src/background.js
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type !== "fetch-report") return;
+
+  fetch(message.url)
+    .then((response) => response.json())
+    .then((data) => sendResponse({ ok: true, data }))
+    .catch((error) => sendResponse({ ok: false, error: String(error) }));
+
+  // 让消息通道保持打开，等待这次异步答复。
+  return true;
+});
+```
+
+这条通道的其余部分，请阅读 [消息传递](/zh-Hans/docs/implementation-guide/messaging)。
+
+## 声明主机权限
+
+background 只有对 manifest 点名的 origin 才豁免 CORS：
+
+```json manifest.json
+{
+  "host_permissions": ["https://api.example.com/*"]
+}
+```
+
+没有匹配的条目时，这次请求就是一次普通的跨源请求，由服务器的响应头说了算。
+
+Extension.js 不会拿你代码里的 URL 去校验主机权限。缺失的条目要到运行时才会以一次失败的请求暴露出来，而不是在构建时。
+
+优先使用更窄的模式。`<all_urls>` 能用，但商店审核者会追问它。
+
+## 预检请求依然会发生
+
+主机权限去掉的是对响应的 origin 检查，它去不掉预检。
+
+带自定义请求头的请求，或者用了 `GET`、`HEAD`、`POST` 之外方法的请求，仍然会先发出一个 `OPTIONS` 请求。服务器必须回应它。服务器在你手上时，就放行你发出的方法和请求头。不在你手上时，就把请求保持简单。
+
+## Extension.js 开发服务器
+
+在 `extension dev` 期间，Extension.js 会运行一个本地服务器，用来提供重载客户端和热更新。任何页面上的 content script 都会拨向它，这本身就是一次跨源请求，所以服务器答以：
+
+```http
+Access-Control-Allow-Origin: *
+```
+
+它也接受任何 `Host` 请求头。这是一个跑在你自己机器上的开发服务器。它永远不会出现在打包后的扩展里，它提供的任何东西也不会进入生产环境。
+
+### 仅在开发期生效的 CSP 补丁
+
+除非你自己设置，否则 Manifest v3 不会限制 `connect-src`。因此一个没有声明 `content_security_policy` 的项目不需要任何补丁，开发用的 manifest 里带的就是普通策略：
+
+```json dist/chromium/manifest.json
+{
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; "
+  }
+}
+```
+
+一旦你声明了自己的 `connect-src`，开发构建就会把本地 origin 追加进去，这样你的页面仍然连得上那个 socket：
+
+```json dist/chromium/manifest.json
+{
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' ws://127.0.0.1:* ws://localhost:* http://127.0.0.1:* http://localhost:*; "
+  }
+}
+```
+
+这些追加的条目会在 `extension build` 时被移除，你自己的 `connect-src` 则会保留。所以一份漏掉了你 API origin 的严格策略，会在开发期通过、在生产环境失败。当一个 CSP 报错一路活到生产环境时，请阅读 [Manifest 拒绝](/zh-Hans/docs/debugging/manifest-refusals)。
+
+### 绑定到另一个主机
+
+在容器里开发时，把服务器绑到别处：
+
+```bash
+extension dev --host 0.0.0.0
+```
+
+浏览器拨不通 `0.0.0.0`，所以 Extension.js 会为客户端解析出一个可连接的地址，兜底值是 `127.0.0.1`。当浏览器在另一台机器上时，请覆盖它：
+
+```bash
+extension dev --host 0.0.0.0 --public-host 192.168.1.20
+```
+
+开发期的 CSP 补丁会跟随解析出来的主机，所以那个 socket URL 始终在放行之列。
+
+## 远程脚本与样式表
+
+扩展的 CSP 禁止把远程 origin 上的脚本加载进扩展页面。那不是 CORS，任何响应头都修不好它。请改为把代码打进包里。
+
+Extension.js 会在构建期报告这种情况：
+
+```plaintext
+A remote script or stylesheet is blocked by extension CSP.
+```
+
+## 症状与修复
+
+| 症状                                                    | 原因                       | 修复                               |
+| ------------------------------------------------------- | -------------------------- | ---------------------------------- |
+| content script 里出现 `No 'Access-Control-Allow-Origin' header` | 这次请求跑在页面的 origin 上 | 把 fetch 挪到 background           |
+| 同一段代码在 popup 里能用，在 content script 里不能     | 代码相同，origin 不同      | 把 fetch 挪到 background           |
+| background 里的调用也失败                               | 没有匹配的主机权限         | 把该 origin 加进 `host_permissions` |
+| `OPTIONS` 请求失败                                      | 服务器拒绝了预检           | 简化请求，或修好服务器             |
+| `dev` 下能用，`build` 之后失败                          | 一个仅开发期存在的 CSP 或权限 | 对比两份 `dist/` manifest         |
+
+## 最佳实践
+
+- 把每一个第三方请求都放进 background，包括今天还能正常工作的那些。
+- 在 `host_permissions` 里逐个点名 origin，而不是伸手去拿 `<all_urls>`。
+- 发布之前先用生产构建测一遍。开发期更宽松是有意为之。
+
+## 下一步
+
+- 在 [消息传递](/zh-Hans/docs/implementation-guide/messaging) 中了解如何在上下文之间传递数据。
+- 回顾 [权限与主机权限](/zh-Hans/docs/implementation-guide/permissions-and-host-permissions)。
+- 用 [拦截网络请求](/zh-Hans/docs/workflows/intercept-network-requests) 观察流量。

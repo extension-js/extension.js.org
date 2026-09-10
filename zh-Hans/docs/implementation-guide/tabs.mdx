@@ -1,0 +1,173 @@
+---
+title: "开发与生产中的 tabs API"
+description: "在 Extension.js 项目中使用 chrome.tabs。开发期会注入 tabs 权限，生产构建不会，而 CLI 用 --tab 指定单个标签页。"
+keywords:
+  [
+    "tabs api",
+    "chrome.tabs",
+    "browser.tabs",
+    "tabs permission",
+    "activeTab",
+    "extension.js",
+    "--tab",
+    "list-tabs",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+tabs API 不需要打包器做任何事。Extension.js 编译 `chrome.tabs` 调用的方式与其他代码没有区别。它真正改变的是你在开发期间实际运行的那份 manifest，而这个差异里藏着一个坑。
+
+## 开发期会注入 tabs 权限
+
+开发循环重载 content script 的方式，是把它们注入到已经打开的标签页里。这需要你的扩展可能并未声明的权限，所以 Extension.js 会把它们加进写入 `dist/` 的那份 manifest。
+
+对于 manifest v3 项目，开发期会往 `permissions` 里加上：
+
+```json
+["scripting", "tabs", "management", "storage"]
+```
+
+它还会把所有 content script 的匹配模式合并进 `host_permissions`。
+
+对于 manifest v2 项目，开发期加的是 `tabs` 和 `storage`，外加那些匹配模式，因为 manifest v2 没有 `host_permissions` 这个键。
+
+这些都不会进入生产。`extension build` 输出的，正好是你声明过的那些权限。
+
+这个差异你可以自己看到。在 `manifest.json` 里只声明 `storage`，然后对比两次构建：
+
+```bash
+extension build
+```
+
+```json dist/chromium/manifest.json
+{
+  "permissions": ["storage"]
+}
+```
+
+```bash
+extension dev
+```
+
+```json dist/chromium/manifest.json
+{
+  "permissions": ["scripting", "tabs", "management", "storage"]
+}
+```
+
+## 这个坑，以及怎么绕开
+
+因为开发期注入了 `tabs`，即便 `manifest.json` 从没申请过这个权限，`chrome.tabs.query` 在 `extension dev` 里也照样成功。同一个调用在 `extension build` 之后就会失败。
+
+对一部分 API，Extension.js 会就此发出警告。用了 `chrome.management` 却没声明它，构建就会告诉你：
+
+```plaintext
+manifest.json does not declare the "management" permission, but background.js uses
+chrome.management. It works in development only because the dev instrumentation
+injects "management": the production build will fail at runtime.
+```
+
+这个警告覆盖 `storage`、`scripting` 和 `management`。**它不覆盖 `tabs`。** 一个调用 `chrome.tabs` 却没有声明权限的项目，编译干净、开发期运行干净，然后在打包后的扩展里坏掉。
+
+用了什么就声明什么：
+
+```json manifest.json
+{
+  "permissions": ["tabs", "storage"]
+}
+```
+
+然后在发布前对着生产构建确认一遍：
+
+```bash
+extension build
+```
+
+把 `dist/chromium` 作为未打包扩展加载，再把功能实际跑一遍。
+
+## 你真的需要 tabs 权限吗？
+
+很多扩展并不需要。`tabs` 权限的存在是为了读取受保护的字段，而不是为了调用这个 API。
+
+| 你要做的事                                    | 需要的权限                     |
+| --------------------------------------------- | ------------------------------ |
+| 调用 `chrome.tabs.query` 拿标签页 id          | 无                             |
+| 读取 `tab.url`、`tab.title`、`tab.favIconUrl` | `tabs`，或者一个匹配的主机权限 |
+| 按 `url` 过滤查询                             | `tabs`，或者一个匹配的主机权限 |
+| 在用户点击之后对当前标签页动手                | `activeTab`                    |
+| 往标签页里注入脚本                            | `scripting` 加上一个主机权限   |
+
+`activeTab` 是更小的请求。它授予的是用户操作过的那个标签页的访问权，有效期就是那一次访问。商店对它的审核态度，比 `tabs` 加 `<all_urls>` 要宽厚得多。
+
+完整清单请阅读 [权限与主机权限](/zh-Hans/docs/implementation-guide/permissions-and-host-permissions)。
+
+## 跨浏览器的命名
+
+Firefox 与 Safari 提供基于 Promise 的 `browser.tabs`。Chromium 提供基于回调的 `chrome.tabs`。Extension.js 通过 `webextension-polyfill` 在 Chromium 上提供 `browser` 命名空间，所以一种写法处处可用：
+
+```js
+const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+```
+
+它是怎么接上的，请阅读 [跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
+
+## 从终端指定单个标签页
+
+有几个 CLI 子命令作用于单个标签页。先列出打开的标签页：
+
+```bash
+extension inspect --list-tabs
+```
+
+每一行都带有 id、URL、标题、是否活动，以及窗口 id。把 id 传进去：
+
+```bash
+extension inspect --tab 412
+```
+
+`--tab` 只接受数字形式的标签页 id，别的都不行。如果想改用地址来匹配，请用 `--url`，它接受一个匹配模式或者一段普通的子串：
+
+```bash
+extension eval "document.title" --context content --url "https://example.com/*"
+```
+
+两个选项都不给时，使用的是最后获得焦点的窗口中的活动标签页。
+
+其他接受标签页的子命令：
+
+```bash
+extension reload --context content --tab 412
+```
+
+```bash
+extension logs --tab 412
+```
+
+这两者的含义并不相同。在 `reload` 上，`--tab` 选择的是作用对象。在 `logs` 上，它过滤的是已经记录下来的事件。
+
+`extension storage` 没有 `--tab` 选项。请改用 `--context` 选择界面。
+
+## 失败信息
+
+| 信息                                                   | 它意味着什么                                 |
+| ------------------------------------------------------ | -------------------------------------------- |
+| `no active tab to target`                              | 没有获得焦点的标签页，也没给 `--tab` 或 `--url` |
+| `no open tab matches url: ...`                         | `--url` 的值没有匹配到任何东西               |
+| `needs a --tab id, a --url to match, or an active tab` | 该上下文需要一个标签页，但没有解析出来       |
+| `restricted page, or outside host_permissions`         | 标签页存在，但无法对它执行脚本               |
+
+最后一条在 `chrome://` 页面和 Web Store 上很常见，任何扩展都碰不了那些页面。
+
+## 最佳实践
+
+- 要读取标签页 URL 时就声明 `tabs`。开发期不会提醒你。
+- 当工作由用户手势发起时，优先选择 `activeTab`。
+- 对着生产构建校验权限，而不是开发构建。
+- 永远不要假设标签页 id 能挺过浏览器重启。请重新查询一次。
+
+## 下一步
+
+- 回顾 [权限与主机权限](/zh-Hans/docs/implementation-guide/permissions-and-host-permissions)。
+- 用 [eval 命令](/zh-Hans/docs/commands/eval) 从终端驱动浏览器。
+- 阅读 [content script](/zh-Hans/docs/implementation-guide/content-scripts) 相关内容。
