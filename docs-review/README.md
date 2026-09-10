@@ -24,6 +24,16 @@ Runs on every page, every time, no agents involved. This is the vitest suite in
 | Known limitations still documented               | `docs-review/caveats.json` via `__tests__/docs-coverage.test.ts`                |
 | Every page carries a review record               | `__tests__/docs-coverage.test.ts`                                               |
 | Locale twins, stale version pins                 | `scripts/docs-coverage.mjs`                                                     |
+| Translated pages link inside their own locale    | `__tests__/locale-links.test.ts`                                                |
+
+`check:case` runs with `--disable MacOS`. Every `MacOS` in these docs is the real
+`Contents/MacOS` directory inside a macOS app bundle, so the suggested `macOS`
+would break working commands. The operating system is already written `macOS`
+everywhere it is named in prose.
+
+`check:locales` reads staleness from git commit dates, so a sweep that rewrites
+every translation at once would date them all to today. List such commits in
+`.locale-drift-ignore-revs` and the report skips them.
 
 Regenerate the ledger:
 
