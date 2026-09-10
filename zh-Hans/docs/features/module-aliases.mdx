@@ -1,0 +1,124 @@
+---
+title: "模块别名与导入解析"
+description: "用 @lib/badge 这样简短的导入标识符代替冗长的相对路径。Extension.js 会读取 tsconfig 的 paths，也接受通过 config 钩子声明的自定义别名。"
+keywords:
+  [
+    "extension.js",
+    "alias",
+    "module alias",
+    "path alias",
+    "tsconfig paths",
+    "baseUrl",
+    "resolve alias",
+    "import",
+    "docs",
+    "features",
+  ]
+---
+
+别名把一个导入标识符映射到项目里的某个文件夹。它把 `../../../lib/badge` 换成 `@lib/badge`。Extension.js 支持两种声明方式。
+
+本页讲的是 `import` 语句中的模块标识符。至于 `manifest.json` 和扩展 API 调用中的资产路径，请阅读 [可预期的路径解析](/zh-Hans/docs/features/path-resolution)。
+
+## 在 tsconfig.json 中声明别名
+
+Extension.js 会把你的 `tsconfig.json` 交给打包器的解析器。凡是写进 `compilerOptions.paths` 的内容，都会作用于构建：
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@lib/*": ["src/lib/*"]
+    }
+  }
+}
+```
+
+```js src/content/scripts.js
+import { BADGE_TEXT } from "@lib/badge.js";
+```
+
+`baseUrl` 是可选的。不写它的话，请把目标路径写成相对于 `tsconfig.json` 所在文件夹的形式：
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "paths": {
+      "@lib/*": ["./src/lib/*"]
+    }
+  }
+}
+```
+
+Extension.js 先在离得最近的 `package.json` 旁边找 `tsconfig.json`，然后才在项目文件夹里找。
+
+### 在 JavaScript 项目里同样有效
+
+即便你导入的每个文件都是纯 JavaScript，`tsconfig.json` 依然是别名的来源。你不必把项目改成 TypeScript，也不必为了让别名生效而安装 `typescript` 包。
+
+### jsconfig.json 不会被读取
+
+Extension.js 不读取 `jsconfig.json`。写在那个文件里的 `paths` 块不起任何作用，构建会在别名处失败：
+
+```plaintext
+Module not found: Can't resolve '@lib/badge.js'
+```
+
+把文件重命名为 `tsconfig.json` 即可解决。
+
+## 在 extension.config.js 中声明别名
+
+`config` 钩子拿到的是完整的打包器配置。如果你更希望把别名放在 `tsconfig.json` 之外，就在这里加上 `resolve.alias`：
+
+```js extension.config.js
+import path from "node:path";
+
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      "@lib": path.resolve(process.cwd(), "src/lib"),
+    };
+    return config;
+  },
+};
+```
+
+这个钩子在 `dev` 与 `build` 时都会运行，所以一次声明覆盖两边。这个钩子的其余部分，请阅读 [Rspack 配置](/zh-Hans/docs/features/rspack-configuration)。
+
+## Extension.js 替你设置的别名
+
+Extension.js 自己不定义任何文件夹别名。没有内置的 `@/`、`~/` 或 `src/` 前缀。工具链注入的每一个别名，都是为了把某个包钉死在同一份副本上：
+
+| 领域           | 被设为别名的标识符                                        |
+| -------------- | --------------------------------------------------------- |
+| Polyfill       | `webextension-polyfill`                                   |
+| React          | `react`、`react-dom`、`react-dom/client`，以及 JSX 运行时 |
+| Preact         | `preact`，以及被映射到 Preact 的 `react` 和 `react-dom`   |
+| Vue            | `vue`、`@vue/runtime-dom`、`@vue/runtime-core`、`@vue/shared` |
+| Svelte         | `svelte`、`svelte/store`                                  |
+| WebAssembly 包 | `@ffmpeg/core`、`@imagemagick/magick-wasm`、`tesseract-wasm` 的资产 |
+
+框架别名会输给你的别名。Extension.js 最后才合并你的 `resolve.alias`，所以在 `config` 钩子里点名 `react` 的别名会赢。
+
+只有一个键是例外。polyfill 的别名 `webextension-polyfill$` 在你的之后才应用，所以针对这个精确标识符的别名不会生效。
+
+## 标识符中的文件扩展名
+
+以下扩展名不用你写出来，Extension.js 也能解析：`.js`、`.cjs`、`.mjs`、`.jsx`、`.ts`、`.mts`、`.tsx`、`.json`、`.svelte`。
+
+它还会把产物风格的标识符映射回源文件。当那个 JavaScript 文件并不存在时，`./badge.js` 的导入会解析到 `badge.ts` 或 `badge.tsx`。
+
+## 最佳实践
+
+- 只保留一个别名来源。同一个前缀声明两遍很难追查。
+- 如果你希望编辑器也能跟着别名跳转，优先用 `tsconfig.json`。`config` 钩子对编辑器是不可见的。
+- 让别名指向项目内部的文件夹。指到根目录之外的别名会破坏打包产物。
+
+## 下一步
+
+- 在 [可预期的路径解析](/zh-Hans/docs/features/path-resolution) 中了解资产路径是怎么解析的。
+- 在 [Rspack 配置](/zh-Hans/docs/features/rspack-configuration) 中修改打包器设置。
+- 阅读 [TypeScript 支持](/zh-Hans/docs/languages-and-frameworks/typescript)。
