@@ -15,6 +15,11 @@ keywords:
     "devtools",
     "docs",
     "browsers",
+    "allow control",
+    "no sandbox",
+    "webgl",
+    "gpu",
+    "webgpu",
   ]
 ---
 
@@ -54,6 +59,26 @@ Extension.js 會以同樣的方式啟動並設定任何以 Chromium 為基礎的
 
 正在建置的擴充功能需要特定的啟動旗標?在 `extension.config.*` 裡設定一次,Extension.js
 每次執行都會套用。請參閱下方的 [`browserFlags`](/zh-Hant/docs/browsers/browser-flags)。
+
+## GPU 與 WebGL 旗標
+
+無頭工作階段、容器或虛擬機通常沒有 GPU。此時 WebGL 內容無法建立，需要它的 canvas 程式碼會拋出錯誤。透過 `browserFlags` 傳入 Chromium 開關：
+
+```js
+export default {
+  browser: {
+    chrome: {
+      browserFlags: [
+        "--ignore-gpu-blocklist",
+        "--use-gl=angle",
+        "--use-angle=swiftshader",
+      ],
+    },
+  },
+};
+```
+
+`--ignore-gpu-blocklist` 讓 Chromium 使用它的封鎖清單原本會拒絕的 GPU。`--use-gl=angle` 搭配 `--use-angle=swiftshader` 以軟體渲染 WebGL，這是持續整合中的正確選擇。`--enable-unsafe-webgpu` 在瀏覽器仍然限制 WebGPU 的地方開啟它。Firefox 沒有等價的開關，請改為透過瀏覽器偏好設定 `webgl.force-enabled`。
 
 ## 範本範例
 
