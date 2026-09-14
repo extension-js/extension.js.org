@@ -15,6 +15,11 @@ keywords:
     "devtools",
     "docs",
     "browsers",
+    "allow control",
+    "no sandbox",
+    "webgl",
+    "gpu",
+    "webgpu",
   ]
 ---
 
@@ -62,6 +67,26 @@ Extension.js launches and configures any Chromium-based browser the same way.
 Building an extension that needs specific flags at launch? Set them once in
 `extension.config.*` and Extension.js applies them every run. See
 [`browserFlags`](/docs/browsers/browser-flags) below.
+
+## GPU and WebGL flags
+
+A headless session, a container, or a virtual machine often has no GPU. WebGL contexts then fail to create, and canvas code that needs one throws. Pass the Chromium switches through `browserFlags`:
+
+```js
+export default {
+  browser: {
+    chrome: {
+      browserFlags: [
+        "--ignore-gpu-blocklist",
+        "--use-gl=angle",
+        "--use-angle=swiftshader",
+      ],
+    },
+  },
+};
+```
+
+`--ignore-gpu-blocklist` lets Chromium use a GPU that its blocklist would refuse. `--use-gl=angle` with `--use-angle=swiftshader` renders WebGL in software, which is the right choice in continuous integration. `--enable-unsafe-webgpu` turns on WebGPU where the browser still gates it. Firefox has no equivalent switches. Set `webgl.force-enabled` through browser preferences instead.
 
 ## Template examples
 

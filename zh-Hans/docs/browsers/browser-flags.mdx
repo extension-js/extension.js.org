@@ -15,6 +15,11 @@ keywords:
     "devtools",
     "docs",
     "browsers",
+    "allow control",
+    "no sandbox",
+    "webgl",
+    "gpu",
+    "webgpu",
   ]
 ---
 
@@ -54,6 +59,26 @@ Extension.js 对任何基于 Chromium 的浏览器都以相同方式启动与配
 
 在构建的扩展需要特定的启动 flag？在 `extension.config.*` 里设置一次，Extension.js
 每次运行都会应用。参见下文的 [`browserFlags`](/zh-Hans/docs/browsers/browser-flags)。
+
+## GPU 与 WebGL flag
+
+无头会话、容器或虚拟机通常没有 GPU。此时 WebGL 上下文无法创建，需要它的 canvas 代码会抛错。通过 `browserFlags` 传入 Chromium 开关：
+
+```js
+export default {
+  browser: {
+    chrome: {
+      browserFlags: [
+        "--ignore-gpu-blocklist",
+        "--use-gl=angle",
+        "--use-angle=swiftshader",
+      ],
+    },
+  },
+};
+```
+
+`--ignore-gpu-blocklist` 让 Chromium 使用它的黑名单本来会拒绝的 GPU。`--use-gl=angle` 配合 `--use-angle=swiftshader` 用软件渲染 WebGL，这是持续集成中的正确选择。`--enable-unsafe-webgpu` 在浏览器仍然限制 WebGPU 的地方打开它。Firefox 没有等价的开关，请改为通过浏览器偏好设置 `webgl.force-enabled`。
 
 ## 模板示例
 
