@@ -1,6 +1,6 @@
 ---
 title: "chrome 与 browser API 的类型"
-description: "安装 @types/chrome，让 tsc 在 TypeScript 扩展里解析得到 chrome.*。Extension.js 会生成 extension-env.d.ts 并引用这些类型，但不会替你安装它们。"
+description: "从 Extension.js 4.1.19 起，chrome.*、browser.* 与 process.env 的类型会随 extension 包一起安装。更早的版本需要你手动安装 @types/chrome。"
 keywords:
   [
     "@types/chrome",
@@ -16,7 +16,7 @@ keywords:
   ]
 ---
 
-Extension.js 用 SWC 编译 TypeScript，它只擦除类型，从不检查类型。类型检查是你用 `tsc` 单独运行的一步。本页说明这一步需要哪些包，才能解析 `chrome.*` 和 `browser.*`。
+Extension.js 用 SWC 编译 TypeScript，它只擦除类型，从不检查类型。类型检查是你用 `tsc` 单独运行的一步。本页说明这一步如何解析 `chrome.*`、`browser.*` 和 `process.env`。
 
 ## Extension.js 会生成什么
 
@@ -31,32 +31,56 @@ Extension.js 用 SWC 编译 TypeScript，它只擦除类型，从不检查类型
 
 这些引用会给你：
 
-| 引用                       | 它声明了什么                                              |
-| -------------------------- | --------------------------------------------------------- |
-| `extension/types`          | `browser` 全局变量、`process.env` 键、`import.meta.env` 键 |
-| `extension/types/polyfill` | 来自 `webextension-polyfill` 的 `browser.*` 命名空间形状   |
-| 通配符模块                 | 对 `.css`、`.module.css`、`.png`、`.svg` 等资源的 `import` |
+| 引用                       | 它声明了什么                                                        |
+| -------------------------- | ------------------------------------------------------------------- |
+| `extension/types`          | `browser` 全局变量、`chrome` 命名空间、`process.env` 与 `import.meta.env` 键 |
+| `extension/types/polyfill` | 来自 `webextension-polyfill` 的 `browser.*` 命名空间形状             |
+| 通配符模块                 | 对 `.css`、`.module.css`、`.png`、`.svg` 等资源的 `import`           |
 
 `EXTENSION_*` 环境变量键也在这里被赋予类型。这就是 `process.env.EXTENSION_MODE` 不需要额外配置就能解析的原因。
 
-## 为 chrome 命名空间安装 @types/chrome
+## 随 Extension.js 一起安装的类型
 
-`extension/types` 自己声明了 `browser` 全局变量，但它是通过一条引用去够到 `chrome` 命名空间的：
+从 Extension.js 4.1.19 起，`extension` 包把这些引用需要的三个类型包列为依赖：
 
-```ts
-/// <reference types="chrome" />
+| 包                             | 它提供的类型            |
+| ------------------------------ | ----------------------- |
+| `@types/chrome`                | `chrome.*` 命名空间     |
+| `@types/webextension-polyfill` | `browser.*` 命名空间    |
+| `@types/node`                  | `process.env`           |
+
+它们会随 `extension` 一起安装，所以在一个新项目里，`tsc` 不需要额外安装就能解析 `chrome.*` 和 `browser.*`：
+
+```bash
+npx tsc --noEmit
 ```
 
-只有当你的项目里装了 `@types/chrome`，这条引用才解析得到。Extension.js 不会安装它，模板也不会声明它。
+构建并不需要这些包。SWC 从来不读类型，所以不管有没有它们，构建都会成功。
 
-因此，一个调用了 `chrome.storage` 的脚手架 TypeScript 项目跑 `tsc` 会失败：
+## 固定你自己的版本
+
+`extension` 包接受这三个类型包的任意版本。当你的项目自己声明了其中一个时，npm、pnpm 和 Bun 会复用你的项目安装的那一份。
+
+当你的 `tsconfig.json` 没有 `types` 数组时，TypeScript 也会加载你的项目声明的那一份。以你自己 `package.json` 里的版本为准：
+
+```json package.json
+{
+  "devDependencies": {
+    "@types/chrome": "^0.0.287"
+  }
+}
+```
+
+## 使用 Extension.js 4.1.18 或更早版本的项目
+
+在 4.1.19 之前，`extension/types` 引用了 `chrome`，但不会安装 `@types/chrome`。一个调用了 `chrome.*`、却没有自己那一份类型的项目跑 `tsc` 会失败：
 
 ```plaintext
 src/background.ts(19,1): error TS2304: Cannot find name 'chrome'.
 src/content/scripts.ts(87,30): error TS2503: Cannot find namespace 'chrome'.
 ```
 
-安装这个包就能清掉它：
+把 `extension` 升级到 4.1.19 或更高版本。如果你留在更早的版本上，请手动安装这个包：
 
 <CodeGroup>
 
@@ -82,17 +106,7 @@ deno add -D npm:@types/chrome
 
 </CodeGroup>
 
-再跑一次检查，错误就没了：
-
-```bash
-npx tsc --noEmit
-```
-
-别的什么都没变。在安装之前构建就已经成功了，因为 SWC 从来不读类型。
-
-## 当你改用 browser.\* 时
-
-`browser` 全局变量由 `extension/types` 赋予类型，它把这个变量映射到 `webextension-polyfill` 上。想要完整的命名空间形状，请再装上配套的类型包：
+在这些版本上，装上 `@types/webextension-polyfill` 之前，`browser` 的类型是 `any`。想为 `browser.*` 提供类型，请把这个包也装上：
 
 <CodeGroup>
 
@@ -118,7 +132,11 @@ deno add -D npm:@types/webextension-polyfill
 
 </CodeGroup>
 
-同一个选择在运行时那一侧的样子，请阅读 [跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
+## 升级后 browser.\* 出现类型错误
+
+从 4.1.19 起，`browser` 拥有完整的 `webextension-polyfill` 类型，而不再是 `any`。以前能通过 `tsc` 的代码可能会出现新的类型错误，例如调用了 polyfill 没有声明的 API。
+
+修正这个调用，或者对只有 Chromium 提供的 API 改用 `chrome.*`。同一个选择在运行时那一侧的样子，请阅读 [跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
 
 ## 让 extension-env.d.ts 留在 include 列表里
 
@@ -135,17 +153,18 @@ deno add -D npm:@types/webextension-polyfill
 
 ## 症状与修复
 
-| 症状                                | 原因                              | 修复                          |
-| ----------------------------------- | --------------------------------- | ----------------------------- |
-| `Cannot find name 'chrome'`         | 没有安装 `@types/chrome`          | 安装 `@types/chrome`          |
-| `Cannot find namespace 'chrome'`    | 同样的原因，只是出现在类型位置    | 安装 `@types/chrome`          |
-| `Cannot find module './styles.css'` | `extension-env.d.ts` 落在 `include` 之外 | 把这个文件加进 `include` |
-| `Cannot find name 'browser'`        | 项目从来没跑过 `dev` 或 `build`   | 跑一次任意一条命令来生成类型  |
+| 症状                                | 原因                                             | 修复                                          |
+| ----------------------------------- | ------------------------------------------------ | --------------------------------------------- |
+| `Cannot find name 'chrome'`         | Extension.js 4.1.18 或更早，并且没有 `@types/chrome` | 升级到 4.1.19，或安装 `@types/chrome`         |
+| `Cannot find namespace 'chrome'`    | 同样的原因，只是出现在类型位置                   | 升级到 4.1.19，或安装 `@types/chrome`         |
+| `Cannot find module './styles.css'` | `extension-env.d.ts` 落在 `include` 之外         | 把这个文件加进 `include`                      |
+| `Cannot find name 'browser'`        | 项目从来没跑过 `dev` 或 `build`                  | 跑一次任意一条命令来生成类型                  |
+| `browser.*` 调用出现新的类型错误    | 从 4.1.19 起，`browser` 有了类型，不再是 `any`   | 修正这个调用，或对只在 Chromium 上的 API 改用 `chrome.*` |
 
 ## 最佳实践
 
 - 把 `extension-env.d.ts` 当作构建产物看待。愿意的话可以提交它，但绝不要编辑它。
-- 任何调用 `chrome.*` 的 TypeScript 项目都该加上 `@types/chrome`，包括你从模板生成的那些。
+- 只有当你需要某个类型包的特定版本时，才在你自己的 `devDependencies` 里声明它。
 - 在持续集成中跑 `tsc --noEmit`。Extension.js 的构建不会因为类型错误而失败。
 
 ## 下一步
