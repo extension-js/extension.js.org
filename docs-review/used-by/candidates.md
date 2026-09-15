@@ -8,16 +8,25 @@ into snippets/used-by.jsx with a description and an icon.
 
 ## Meets the showcase bar
 
-| Repository                                                                                          | Package                                    | Extension.js | Users | Stores                                                                              |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------ | ----- | ----------------------------------------------------------------------------------- |
-| [apades/dmMiniPlayer](https://github.com/apades/dmMiniPlayer/tree/main/packages/element-picker-ext) | `packages/element-picker-ext/package.json` | `^4.0.32`    | 10000 | [chrome](https://chromewebstore.google.com/detail/nahbabjlllhocabmecfjmcblchhpoclj) |
+None found.
 
 ## In a store, under 100 users
 
-None found.
+| Repository                                                                                                 | Package                       | Extension.js | Users | Stores                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------ | ----- | --------------------------------------------------------------------------------------------------------------------------- |
+| [autonome/cmd](https://github.com/autonome/cmd)                                                            | `package.json`                | `latest`     | 6     | [firefox](https://addons.mozilla.org/firefox/addon/cmd/)                                                                    |
+| [nimeshnayaju/lexical-devtools](https://github.com/nimeshnayaju/lexical-devtools/tree/main/apps/extension) | `apps/extension/package.json` | `^1.8.0`     | 26    | [chrome](https://chromewebstore.google.com/detail/dmbopeepjkdlplkjcjbnfiikajiddhnd) (root README links chrome, not counted) |
+| [SpreadSheets600/TidyTabs](https://github.com/SpreadSheets600/TidyTabs)                                    | `package.json`                | `^3.0.0`     | 3     | [chrome](https://chromewebstore.google.com/detail/cpmlaapifmhgklniidiijogjgnnhcbmn)                                         |
 
 ## No store listing found
 
-| Repository                                                                                                                               | Package                                                                           | Extension.js | Users | Stores |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------ | ----- | ------ |
-| [ApolloAuto/apollo](https://github.com/ApolloAuto/apollo/tree/master/modules/dreamview_plus/frontend/packages/dreamview-debug-extension) | `modules/dreamview_plus/frontend/packages/dreamview-debug-extension/package.json` | `latest`     |       | none   |
+| Repository                                                                                                                               | Package                                                                           | Extension.js   | Users | Stores                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | -------------- | ----- | -------------------------------------------- |
+| [apades/dmMiniPlayer](https://github.com/apades/dmMiniPlayer/tree/main/packages/element-picker-ext)                                      | `packages/element-picker-ext/package.json`                                        | `^4.0.32`      |       | none (root README links chrome, not counted) |
+| [ApolloAuto/apollo](https://github.com/ApolloAuto/apollo/tree/master/modules/dreamview_plus/frontend/packages/dreamview-debug-extension) | `modules/dreamview_plus/frontend/packages/dreamview-debug-extension/package.json` | `latest`       |       | none                                         |
+| [ebadfd/RRD](https://github.com/ebadfd/RRD)                                                                                              | `package.json`                                                                    | `^2.0.0-rc.38` |       | none                                         |
+| [itsmemeworks/adhx](https://github.com/itsmemeworks/adhx/tree/main/extension)                                                            | `extension/package.json`                                                          | `^4.1.5`       |       | none                                         |
+| [Louis454545/testxeon](https://github.com/Louis454545/testxeon)                                                                          | `package.json`                                                                    | `latest`       |       | none                                         |
+| [mrswastik-robot/AIcademics](https://github.com/mrswastik-robot/AIcademics/tree/main/extension/aicademics-extension)                     | `extension/aicademics-extension/package.json`                                     | `^2.0.0-rc.23` |       | none                                         |
+| [sametcn99/linkedin-hide-viewed-jobs](https://github.com/sametcn99/linkedin-hide-viewed-jobs)                                            | `package.json`                                                                    | `^4.0.32`      |       | none                                         |
+| [sijan2/quick-otp](https://github.com/sijan2/quick-otp/tree/main/chrome-extension)                                                       | `chrome-extension/package.json`                                                   | `latest`       |       | none                                         |

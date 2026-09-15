@@ -360,3 +360,18 @@ export function meetsShowcaseBar(project) {
     project.users >= SHOWCASE_MIN_USERS
   );
 }
+
+// A store link in the root README of a monorepo usually belongs to the main
+// product, not to an extension that lives in a subfolder. A subfolder package
+// only takes ids from its own README, and the root ids are kept for the report.
+export function pickStoreIds({
+  inSubfolder,
+  packageReadme = "",
+  rootReadme = "",
+  homepage = "",
+  description = "",
+}) {
+  const rootIds = findStoreIds([rootReadme, homepage, description].join("\n"));
+  if (!inSubfolder) return { storeIds: rootIds, ignoredRoot: {} };
+  return { storeIds: findStoreIds(packageReadme), ignoredRoot: rootIds };
+}
