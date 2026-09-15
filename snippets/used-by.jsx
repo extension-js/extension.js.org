@@ -2,8 +2,9 @@
 // has one export and everything it needs lives inside it.
 //
 // The `projects` array sits between the @generated markers. The weekly used-by
-// workflow (scripts/used-by/refresh.mjs) refreshes users, rating, version,
-// stars and statsCheckedAt in place and never changes the other fields.
+// workflow (scripts/used-by/refresh.mjs) refreshes `users` and statsCheckedAt in
+// place, which order the grid and prove each project meets the store bar.
+// Cards show no counts, so nothing on the page goes stale.
 // To add a project by hand, append one object, give it storeIds when it is
 // published, and put its images under /images/used-by/<slug>/. Set
 // darkGlyph: true for a dark icon on a transparent background, which the dark
@@ -19,7 +20,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
       website: "https://betterlyrics.org/",
       icon: "/images/used-by/better-lyrics/icon.png",
       screenshot: "/images/used-by/better-lyrics/screenshot.jpg",
-      version: "2.3.3",
       browsers: ["Chrome", "Firefox", "Edge"],
       storeIds: {
         chrome: "effdbpeggelllpfkjppbokhmmiinhlmg",
@@ -33,8 +33,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
         "zh-Hant": "為 YouTube Music 提供時間同步歌詞，支援翻譯和多種語言。",
       },
       users: 100000,
-      rating: 4.9,
-      stars: 860,
       statsCheckedAt: "2026-09-15",
     },
     {
@@ -44,7 +42,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
       repo: "https://github.com/joaomagfreitas/send-to-pocket-book/tree/master/extension",
       icon: "/images/used-by/send-to-pocketbook/icon.png",
       screenshot: "/images/used-by/send-to-pocketbook/screenshot.jpg",
-      version: "1.0",
       browsers: ["Chrome", "Firefox", "Edge"],
       storeIds: {
         chrome: "mockojkggpmpjlajehofiljbbbaoppdj",
@@ -59,7 +56,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
           "透過電子郵件同步，把目前分頁中的文件傳送到 PocketBook 電子閱讀器。",
       },
       users: 290,
-      rating: 4,
       statsCheckedAt: "2026-09-15",
     },
     {
@@ -69,7 +65,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
       repo: "https://github.com/migteam/better-trello-browser-extension",
       icon: "/images/used-by/better-trello/icon.png",
       screenshot: "/images/used-by/better-trello/screenshot.jpg",
-      version: "1.9",
       browsers: ["Chrome", "Firefox"],
       storeIds: {
         chrome: "dnhdnenpngcecekbhklemaidbdpibiae",
@@ -84,8 +79,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
           "改進 Trello 介面：更大的卡片和清單、顯示卡片 ID，並提供 Markdown 編輯器。",
       },
       users: 1100,
-      rating: 4.5,
-      stars: 17,
       statsCheckedAt: "2026-09-15",
     },
     {
@@ -95,7 +88,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
       repo: "https://github.com/StarCitizenToolBox/StarCitizenBoxBrowserEx",
       icon: "/images/used-by/starcitizenbox/icon.png",
       screenshot: "/images/used-by/starcitizenbox/screenshot.jpg",
-      version: "0.1.2",
       browsers: ["Chrome", "Firefox", "Edge"],
       storeIds: {
         chrome: "gocnjckojmledijgmadmacoikibcggja",
@@ -103,8 +95,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
         edge: "lipbbcckldklpdcpfagicipecaacikgi",
       },
       users: 4800,
-      rating: 5,
-      stars: 16,
       statsCheckedAt: "2026-09-15",
       source: "manual",
       description: {
@@ -119,14 +109,11 @@ export const UsedByGrid = ({ locale = "en" }) => {
       owner: "alex9849",
       repo: "https://github.com/alex9849/chrome-simple-keyboard",
       icon: "/images/used-by/simple-virtual-keyboard/icon.png",
-      version: "0.5.6",
       browsers: ["Chrome"],
       storeIds: {
         chrome: "cjabmkimbcmhhepelfhjhbhonnapiipj",
       },
       users: 4000,
-      rating: 3.3,
-      stars: 15,
       statsCheckedAt: "2026-09-15",
       source: "manual",
       description: {
@@ -143,7 +130,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
       builtBy: "Built by",
       source: "Source",
       website: "Website",
-      users: "users",
       availableOn: "Available on",
       stores: {
         chrome: "Chrome Web Store",
@@ -158,7 +144,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
       builtBy: "作者",
       source: "源码",
       website: "网站",
-      users: "用户",
       availableOn: "上架于",
       stores: {
         chrome: "Chrome 应用商店",
@@ -173,7 +158,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
       builtBy: "作者",
       source: "原始碼",
       website: "網站",
-      users: "使用者",
       availableOn: "上架於",
       stores: {
         chrome: "Chrome 線上應用程式商店",
@@ -192,21 +176,13 @@ export const UsedByGrid = ({ locale = "en" }) => {
       : key === "firefox"
         ? `https://addons.mozilla.org/firefox/addon/${id}/`
         : `https://microsoftedge.microsoft.com/addons/detail/${id}`;
-  // Counts are stored floored to two significant digits, so "+" stays true.
-  const formatCount = (value) => {
-    if (!value) return null;
-    const trim = (number) => String(Math.floor(number * 10) / 10);
-    if (value >= 1e6) return `${trim(value / 1e6)}M+`;
-    if (value >= 1e3) return `${trim(value / 1e3)}K+`;
-    return value >= 100 ? `${value}+` : String(value);
-  };
+  // Cards show no counts, the way the Next.js and Expo showcases do, so nothing
+  // on the page goes stale. Users still order the grid.
   const ordered = projects
     .map((project, index) => ({ project, index }))
     .sort(
       (a, b) =>
-        (b.project.users || 0) - (a.project.users || 0) ||
-        (b.project.stars || 0) - (a.project.stars || 0) ||
-        a.index - b.index,
+        (b.project.users || 0) - (a.project.users || 0) || a.index - b.index,
     )
     .map((entry) => entry.project);
   // Items carry their own leading bullet. The row sits one bullet to the left
@@ -216,13 +192,9 @@ export const UsedByGrid = ({ locale = "en" }) => {
       <span className="ext-usedby-sepline-row">
         {items.map((item) => (
           <span key={item.key} className="ext-usedby-sepline-item">
-            {item.href ? (
-              <a href={item.href} target="_blank" rel="noreferrer">
-                {item.label}
-              </a>
-            ) : (
-              item.label
-            )}
+            <a href={item.href} target="_blank" rel="noreferrer">
+              {item.label}
+            </a>
           </span>
         ))}
       </span>
@@ -237,13 +209,7 @@ export const UsedByGrid = ({ locale = "en" }) => {
           (project.description &&
             (project.description[locale] || project.description.en)) ||
           "";
-        // Small installs read as a weakness on a showcase, so counts start at 100.
-        const users = project.users >= 100 ? formatCount(project.users) : null;
-        const stars = formatCount(project.stars);
-        // One line under the name: numbers first, then where to look.
         const meta = [
-          users ? { key: "users", label: `${users} ${t.users}` } : null,
-          stars ? { key: "stars", label: `★ ${stars}` } : null,
           { key: "source", label: t.source, href: project.repo },
           project.website
             ? { key: "website", label: t.website, href: project.website }
@@ -296,25 +262,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
                   <h3 className="ext-usedby-name">{project.name}</h3>
                   <p className="ext-usedby-meta">{separated(meta)}</p>
                 </div>
-                {project.version ? (
-                  <span className="ext-usedby-pill">
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="12"
-                      height="12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />
-                      <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />
-                    </svg>
-                    v{project.version}
-                  </span>
-                ) : null}
               </div>
 
               <a
@@ -339,12 +286,25 @@ export const UsedByGrid = ({ locale = "en" }) => {
               <p className="ext-usedby-desc">{description}</p>
 
               {stores.length > 0 ? (
-                <p className="ext-usedby-links">
+                <div className="ext-usedby-links">
                   <span className="ext-usedby-links-label">
                     {t.availableOn}
                   </span>
-                  {separated(stores)}
-                </p>
+                  <ul className="ext-usedby-store-list">
+                    {stores.map((store) => (
+                      <li key={store.key}>
+                        <a
+                          className="ext-usedby-store"
+                          href={store.href}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {store.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
             </div>
           </article>

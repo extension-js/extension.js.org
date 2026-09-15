@@ -227,7 +227,8 @@ export function mergeStats(project, stats, checkedAt) {
   );
   const received = expected.filter((key) => stats[key]);
   // Summing a partial set would show a drop that did not happen, so users only
-  // move when every listed store answered.
+  // move when every listed store answered. Users order the grid and prove the
+  // store bar. Cards show no counts, so nothing else is kept.
   if (expected.length > 0 && received.length === expected.length) {
     const total = received.reduce(
       (sum, key) =>
@@ -237,35 +238,9 @@ export function mergeStats(project, stats, checkedAt) {
     const users = bucketCount(total);
     if (users !== null) next.users = users;
   }
-  const rating = STORE_KEYS.map((key) => stats[key] && stats[key].rating).find(
-    (value) => Number.isFinite(value) && value > 0,
-  );
-  if (rating !== undefined) next.rating = Math.round(rating * 10) / 10;
-  const version = ["firefox", "edge", "chrome"]
-    .map((key) => stats[key] && stats[key].version)
-    .find(Boolean);
-  if (version) next.version = version;
-  if (
-    isRepositoryRoot(project.repo) &&
-    stats.github &&
-    Number.isFinite(stats.github.stars)
-  ) {
-    const stars = bucketCount(stats.github.stars);
-    if (stars !== null) next.stars = stars;
-  }
-  const changed = ["users", "rating", "version", "stars"].some(
-    (key) => next[key] !== project[key],
-  );
+  const changed = next.users !== project.users;
   if (changed) next.statsCheckedAt = checkedAt;
   return { project: next, changed };
-}
-
-// Stars belong to a whole repository. A project that lives in a subfolder of a
-// larger repository (a /tree/ link) would borrow stars that are not its own.
-export function isRepositoryRoot(url) {
-  return /^https:\/\/github\.com\/[^/\s]+\/[^/\s#?]+\/?$/.test(
-    String(url || ""),
-  );
 }
 
 export function githubRepoOf(url) {
