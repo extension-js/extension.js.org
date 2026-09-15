@@ -5,7 +5,9 @@
 // workflow (scripts/used-by/refresh.mjs) refreshes users, rating, version,
 // stars and statsCheckedAt in place and never changes the other fields.
 // To add a project by hand, append one object, give it storeIds when it is
-// published, and put its images under /images/used-by/<slug>/.
+// published, and put its images under /images/used-by/<slug>/. Set
+// darkGlyph: true for a dark icon on a transparent background, which the dark
+// theme inverts so it stays visible.
 export const UsedByGrid = ({ locale = "en" }) => {
   // @generated:start
   const projects = [
@@ -33,108 +35,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
       users: 100000,
       rating: 4.9,
       stars: 860,
-      statsCheckedAt: "2026-09-15",
-    },
-    {
-      slug: "opal-connect",
-      name: "Opal Connect",
-      owner: "debpalash",
-      repo: "https://github.com/debpalash/Opal/tree/main/extension",
-      website: "https://opal.palash.dev",
-      icon: "/images/used-by/opal-connect/icon.png",
-      screenshot: "/images/used-by/opal-connect/screenshot.jpg",
-      version: "0.4.0",
-      browsers: ["Chrome", "Firefox", "Edge"],
-      source: "manual",
-      description: {
-        en: "Sends media, articles and downloads from any site to the Opal desktop player, and remote-controls it from a side panel.",
-        "zh-Hans":
-          "把任意网站的媒体、文章和下载发送到 Opal 桌面播放器，并通过侧边栏远程控制它。",
-        "zh-Hant":
-          "把任意網站的媒體、文章和下載傳送到 Opal 桌面播放器，並透過側邊欄遠端控制它。",
-      },
-    },
-    {
-      slug: "apollo-dreamview",
-      name: "Dreamview debug extension",
-      owner: "ApolloAuto",
-      repo: "https://github.com/ApolloAuto/apollo/tree/master/modules/dreamview_plus/frontend/packages/dreamview-debug-extension",
-      icon: "/images/used-by/apollo-dreamview/icon.png",
-      tile: "light",
-      version: "1.0",
-      browsers: ["Chrome"],
-      source: "manual",
-      description: {
-        en: "The debug tool for Dreamview, the visualizer of Baidu's Apollo autonomous driving platform.",
-        "zh-Hans":
-          "Dreamview 的调试工具。Dreamview 是百度 Apollo 自动驾驶平台的可视化工具。",
-        "zh-Hant":
-          "Dreamview 的除錯工具。Dreamview 是百度 Apollo 自動駕駛平台的視覺化工具。",
-      },
-    },
-    {
-      slug: "dmminiplayer-element-picker",
-      name: "dmMiniPlayer element picker",
-      owner: "apades",
-      repo: "https://github.com/apades/dmMiniPlayer/tree/main/packages/element-picker-ext",
-      version: "1.0.0",
-      browsers: ["Chrome"],
-      source: "manual",
-      description: {
-        en: "A test harness for the element picker library of dmMiniPlayer, a picture-in-picture player.",
-        "zh-Hans":
-          "dmMiniPlayer 元素选择器库的测试扩展。dmMiniPlayer 是一款画中画播放器。",
-        "zh-Hant":
-          "dmMiniPlayer 元素選擇器函式庫的測試擴充功能。dmMiniPlayer 是一款子母畫面播放器。",
-      },
-    },
-    {
-      slug: "tidytabs",
-      name: "TidyTabs",
-      owner: "SpreadSheets600",
-      repo: "https://github.com/SpreadSheets600/TidyTabs",
-      icon: "/images/used-by/tidytabs/icon.png",
-      screenshot: "/images/used-by/tidytabs/screenshot.jpg",
-      version: "1.2.0",
-      browsers: ["Chrome", "Firefox"],
-      storeIds: {
-        chrome: "cpmlaapifmhgklniidiijogjgnnhcbmn",
-        firefox: "tidytabs-openrouter",
-      },
-      source: "manual",
-      description: {
-        en: "Groups open tabs by topic, domain and context with AI models on OpenRouter.",
-        "zh-Hans":
-          "借助 OpenRouter 上的 AI 模型，按主题、域名和上下文对打开的标签页分组。",
-        "zh-Hant":
-          "借助 OpenRouter 上的 AI 模型，依主題、網域和情境將開啟的分頁分組。",
-      },
-      users: 4,
-      stars: 38,
-      statsCheckedAt: "2026-09-15",
-    },
-    {
-      slug: "bookmrk",
-      name: "Bookmrk",
-      owner: "sarvan-2187",
-      repo: "https://github.com/sarvan-2187/Bookmrk",
-      website: "https://bookmrk.dpdns.org",
-      icon: "/images/used-by/bookmrk/icon.png",
-      screenshot: "/images/used-by/bookmrk/screenshot.jpg",
-      version: "1.6.0",
-      browsers: ["Chrome", "Firefox", "Edge"],
-      storeIds: {
-        firefox: "bookmrk",
-      },
-      source: "manual",
-      description: {
-        en: "A local-first visual bookmark board that replaces the new tab page.",
-        "zh-Hans": "本地优先的可视化书签看板，替换新标签页。",
-        "zh-Hant": "本機優先的視覺化書籤看板，取代新分頁。",
-      },
-      users: 1,
-      rating: 5,
-      stars: 30,
       statsCheckedAt: "2026-09-15",
     },
     {
@@ -189,39 +89,50 @@ export const UsedByGrid = ({ locale = "en" }) => {
       statsCheckedAt: "2026-09-15",
     },
     {
-      slug: "claimeai-chatgpt",
-      name: "ClaimeAI for ChatGPT",
-      owner: "BharathxD",
-      repo: "https://github.com/BharathxD/ClaimeAI/tree/main/apps/extension",
-      website: "https://www.claime.tech",
-      icon: "/images/used-by/claimeai/icon.png",
-      version: "0.0.1",
-      browsers: ["Chrome"],
+      slug: "star-citizen-box",
+      name: "Star Citizen Box",
+      owner: "StarCitizenToolBox",
+      repo: "https://github.com/StarCitizenToolBox/StarCitizenBoxBrowserEx",
+      icon: "/images/used-by/starcitizenbox/icon.png",
+      screenshot: "/images/used-by/starcitizenbox/screenshot.jpg",
+      version: "0.1.2",
+      browsers: ["Chrome", "Firefox", "Edge"],
+      storeIds: {
+        chrome: "gocnjckojmledijgmadmacoikibcggja",
+        firefox: "星际公民盒子浏览器拓展",
+        edge: "lipbbcckldklpdcpfagicipecaacikgi",
+      },
+      users: 4800,
+      rating: 5,
+      stars: 16,
+      statsCheckedAt: "2026-09-15",
       source: "manual",
       description: {
-        en: "The helper extension of ClaimeAI. It adds a button to ChatGPT that sends text to the fact-checking platform.",
-        "zh-Hans":
-          "ClaimeAI 的辅助扩展。它在 ChatGPT 中添加一个按钮，把文本发送到事实核查平台。",
-        "zh-Hant":
-          "ClaimeAI 的輔助擴充功能。它在 ChatGPT 中新增一個按鈕，把文字傳送到事實查核平台。",
+        en: "Adds Chinese translations to Star Citizen community websites and tools.",
+        "zh-Hans": "为星际公民网站及工具站提供汉化。",
+        "zh-Hant": "為星際公民網站及工具站提供中文翻譯。",
       },
     },
     {
-      slug: "save-to-adhx",
-      name: "Save to ADHX",
-      owner: "itsmemeworks",
-      repo: "https://github.com/itsmemeworks/adhx/tree/main/extension",
-      website: "https://adhx.com",
-      icon: "/images/used-by/save-to-adhx/icon.png",
-      version: "0.1.0",
-      browsers: ["Chrome", "Firefox"],
+      slug: "simple-virtual-keyboard",
+      name: "Simple Virtual Keyboard",
+      owner: "alex9849",
+      repo: "https://github.com/alex9849/chrome-simple-keyboard",
+      icon: "/images/used-by/simple-virtual-keyboard/icon.png",
+      version: "0.5.6",
+      browsers: ["Chrome"],
+      storeIds: {
+        chrome: "cjabmkimbcmhhepelfhjhbhonnapiipj",
+      },
+      users: 4000,
+      rating: 3.3,
+      stars: 15,
+      statsCheckedAt: "2026-09-15",
       source: "manual",
       description: {
-        en: "Saves posts from X, Instagram, TikTok and YouTube Shorts to the open-source ADHX bookmark app.",
-        "zh-Hans":
-          "把 X、Instagram、TikTok 和 YouTube Shorts 上的帖子保存到开源书签应用 ADHX。",
-        "zh-Hant":
-          "把 X、Instagram、TikTok 和 YouTube Shorts 上的貼文儲存到開源書籤應用程式 ADHX。",
+        en: "Adds an on-screen virtual keyboard to the browser, for touch screens and kiosks.",
+        "zh-Hans": "为浏览器添加屏幕虚拟键盘，适用于触摸屏和自助终端。",
+        "zh-Hant": "為瀏覽器新增螢幕虛擬鍵盤，適用於觸控螢幕和自助服務機。",
       },
     },
   ];
@@ -230,31 +141,32 @@ export const UsedByGrid = ({ locale = "en" }) => {
   const labels = {
     en: {
       builtBy: "Built by",
-      source: "Source",
       website: "Website",
       users: "users",
-      stars: "stars",
       iconAlt: "icon",
+      slotTitle: "Your extension here",
+      slotText: "In a store with 100+ users? Add it with one pull request.",
     },
     "zh-Hans": {
       builtBy: "作者",
-      source: "源码",
       website: "网站",
       users: "用户",
-      stars: "星标",
       iconAlt: "图标",
+      slotTitle: "你的扩展",
+      slotText:
+        "已在应用商店上架且拥有 100+ 用户？一个 pull request 即可添加。",
     },
     "zh-Hant": {
       builtBy: "作者",
-      source: "原始碼",
       website: "網站",
       users: "使用者",
-      stars: "星號",
       iconAlt: "圖示",
+      slotTitle: "你的擴充功能",
+      slotText: "已在商店上架且擁有 100+ 使用者？一個 pull request 即可加入。",
     },
   };
   const t = labels[locale] || labels.en;
-  const storeNames = { chrome: "Chrome", firefox: "Firefox", edge: "Edge" };
+  const storeKeys = { Chrome: "chrome", Firefox: "firefox", Edge: "edge" };
   const storeHref = (key, id) =>
     key === "chrome"
       ? `https://chromewebstore.google.com/detail/${id}`
@@ -283,9 +195,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
     <div className="ext-usedby-grid">
       {ordered.map((project) => {
         const avatar = `https://github.com/${project.owner}.png?size=96`;
-        const stores = ["chrome", "firefox", "edge"].filter(
-          (key) => project.storeIds && project.storeIds[key],
-        );
         const description =
           (project.description &&
             (project.description[locale] || project.description.en)) ||
@@ -293,12 +202,22 @@ export const UsedByGrid = ({ locale = "en" }) => {
         // Small installs read as a weakness on a showcase, so counts start at 100.
         const users = project.users >= 100 ? formatCount(project.users) : null;
         const stars = formatCount(project.stars);
-        const meta = [
-          project.browsers ? project.browsers.join(", ") : null,
+        const stats = [
           users ? `${users} ${t.users}` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
+          stars ? `★ ${stars}` : null,
+        ].filter(Boolean);
+        // One line carries the browsers and the store listings: a browser with a
+        // listing is a link, a browser without one is plain text.
+        const links = (project.browsers || []).map((browser) => {
+          const key = storeKeys[browser];
+          const id = key && project.storeIds && project.storeIds[key];
+          return id
+            ? { label: browser, href: storeHref(key, id) }
+            : { label: browser, href: null };
+        });
+        if (project.website) {
+          links.push({ label: t.website, href: project.website });
+        }
         return (
           <article
             key={project.slug}
@@ -319,28 +238,27 @@ export const UsedByGrid = ({ locale = "en" }) => {
             ) : null}
             <div className="ext-usedby-body">
               <div className="ext-usedby-head">
-                <div
-                  className={
-                    "ext-usedby-tile" +
-                    (project.tile === "light" ? " ext-usedby-tile-light" : "")
-                  }
-                >
-                  {project.icon ? (
-                    <img
-                      src={project.icon}
-                      alt={`${project.name} ${t.iconAlt}`}
-                    />
-                  ) : (
-                    <img
-                      className="ext-usedby-tile-avatar"
-                      src={avatar}
-                      alt=""
-                    />
-                  )}
-                </div>
+                {project.icon ? (
+                  <img
+                    className={
+                      "ext-usedby-icon" +
+                      (project.darkGlyph ? " ext-usedby-icon-invert" : "")
+                    }
+                    src={project.icon}
+                    alt={`${project.name} ${t.iconAlt}`}
+                  />
+                ) : (
+                  <img
+                    className="ext-usedby-icon ext-usedby-icon-avatar"
+                    src={avatar}
+                    alt=""
+                  />
+                )}
                 <div className="ext-usedby-titles">
                   <h3 className="ext-usedby-name">{project.name}</h3>
-                  {meta ? <p className="ext-usedby-meta">{meta}</p> : null}
+                  {stats.length > 0 ? (
+                    <p className="ext-usedby-meta">{stats.join(" • ")}</p>
+                  ) : null}
                 </div>
                 {project.version ? (
                   <span className="ext-usedby-pill">
@@ -369,16 +287,17 @@ export const UsedByGrid = ({ locale = "en" }) => {
                 target="_blank"
                 rel="noreferrer"
               >
-                <img
-                  className="ext-usedby-avatar"
-                  src={avatar}
-                  alt=""
-                  loading="lazy"
-                />
+                {project.icon ? (
+                  <img
+                    className="ext-usedby-avatar"
+                    src={avatar}
+                    alt=""
+                    loading="lazy"
+                  />
+                ) : null}
                 <span className="ext-usedby-dev-text">
                   <span className="ext-usedby-dev-label">
                     {t.builtBy} {project.owner}
-                    {stars ? ` · ★ ${stars}` : ""}
                   </span>
                   <span className="ext-usedby-dev-url">
                     <span>{project.repo.replace(/^https:\/\//, "")}</span>
@@ -403,47 +322,36 @@ export const UsedByGrid = ({ locale = "en" }) => {
 
               <p className="ext-usedby-desc">{description}</p>
 
-              <div className="ext-usedby-actions">
-                {stores.length > 0 ? (
-                  <div className="ext-usedby-stores">
-                    {stores.map((key) => (
-                      <a
-                        key={key}
-                        className="ext-usedby-btn ext-usedby-btn-primary"
-                        href={storeHref(key, project.storeIds[key])}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {storeNames[key]}
-                      </a>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="ext-usedby-stores">
-                  {project.website ? (
-                    <a
-                      className="ext-usedby-btn"
-                      href={project.website}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {t.website}
-                    </a>
-                  ) : null}
-                  <a
-                    className="ext-usedby-btn"
-                    href={project.repo}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {t.source}
-                  </a>
-                </div>
-              </div>
+              {links.length > 0 ? (
+                <p className="ext-usedby-links">
+                  {links.map((link, index) => (
+                    <span key={link.label}>
+                      {index > 0 ? (
+                        <span className="ext-usedby-sep" aria-hidden="true">
+                          •
+                        </span>
+                      ) : null}
+                      {link.href ? (
+                        <a href={link.href} target="_blank" rel="noreferrer">
+                          {link.label}
+                        </a>
+                      ) : (
+                        <span className="ext-usedby-plain">{link.label}</span>
+                      )}
+                    </span>
+                  ))}
+                </p>
+              ) : null}
             </div>
           </article>
         );
       })}
+      {ordered.length % 2 === 1 ? (
+        <a className="ext-usedby-slot" href="#add-your-project">
+          <span className="ext-usedby-slot-title">{t.slotTitle}</span>
+          <span className="ext-usedby-slot-text">{t.slotText}</span>
+        </a>
+      ) : null}
     </div>
   );
 };
