@@ -192,7 +192,12 @@ export const UsedByGrid = ({ locale = "en" }) => {
       <span className="ext-usedby-sepline-row">
         {items.map((item) => (
           <span key={item.key} className="ext-usedby-sepline-item">
-            <a href={item.href} target="_blank" rel="noreferrer">
+            <a
+              className={item.className}
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+            >
               {item.label}
             </a>
           </span>
@@ -210,9 +215,19 @@ export const UsedByGrid = ({ locale = "en" }) => {
             (project.description[locale] || project.description.en)) ||
           "";
         const meta = [
-          { key: "source", label: t.source, href: project.repo },
+          {
+            key: "source",
+            label: t.source,
+            href: project.repo,
+            className: "ext-usedby-ext ext-usedby-source",
+          },
           project.website
-            ? { key: "website", label: t.website, href: project.website }
+            ? {
+                key: "website",
+                label: t.website,
+                href: project.website,
+                className: "ext-usedby-ext",
+              }
             : null,
         ].filter(Boolean);
         const stores = ["chrome", "firefox", "edge"]
@@ -260,28 +275,27 @@ export const UsedByGrid = ({ locale = "en" }) => {
                 )}
                 <div className="ext-usedby-titles">
                   <h3 className="ext-usedby-name">{project.name}</h3>
+                  <a
+                    className="ext-usedby-author"
+                    href={`https://github.com/${project.owner}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {project.icon ? (
+                      <img
+                        className="ext-usedby-author-avatar"
+                        src={avatar}
+                        alt=""
+                        loading="lazy"
+                      />
+                    ) : null}
+                    <span>
+                      {t.builtBy} {project.owner}
+                    </span>
+                  </a>
                   <p className="ext-usedby-meta">{separated(meta)}</p>
                 </div>
               </div>
-
-              <a
-                className="ext-usedby-dev"
-                href={`https://github.com/${project.owner}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {project.icon ? (
-                  <img
-                    className="ext-usedby-avatar"
-                    src={avatar}
-                    alt=""
-                    loading="lazy"
-                  />
-                ) : null}
-                <span className="ext-usedby-dev-label">
-                  {t.builtBy} {project.owner}
-                </span>
-              </a>
 
               <p className="ext-usedby-desc">{description}</p>
 
