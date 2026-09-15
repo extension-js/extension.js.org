@@ -198,6 +198,14 @@ export const UsedByGrid = ({ locale = "en" }) => {
               target="_blank"
               rel="noreferrer"
             >
+              {item.avatar ? (
+                <img
+                  className="ext-usedby-author-avatar"
+                  src={item.avatar}
+                  alt=""
+                  loading="lazy"
+                />
+              ) : null}
               {item.label}
             </a>
           </span>
@@ -215,6 +223,13 @@ export const UsedByGrid = ({ locale = "en" }) => {
             (project.description[locale] || project.description.en)) ||
           "";
         const meta = [
+          {
+            key: "author",
+            label: `${t.builtBy} ${project.owner}`,
+            href: `https://github.com/${project.owner}`,
+            className: "ext-usedby-author",
+            avatar: project.icon ? avatar : null,
+          },
           {
             key: "source",
             label: t.source,
@@ -275,24 +290,6 @@ export const UsedByGrid = ({ locale = "en" }) => {
                 )}
                 <div className="ext-usedby-titles">
                   <h3 className="ext-usedby-name">{project.name}</h3>
-                  <a
-                    className="ext-usedby-author"
-                    href={`https://github.com/${project.owner}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {project.icon ? (
-                      <img
-                        className="ext-usedby-author-avatar"
-                        src={avatar}
-                        alt=""
-                        loading="lazy"
-                      />
-                    ) : null}
-                    <span>
-                      {t.builtBy} {project.owner}
-                    </span>
-                  </a>
                   <p className="ext-usedby-meta">{separated(meta)}</p>
                 </div>
               </div>
