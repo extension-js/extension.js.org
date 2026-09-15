@@ -124,7 +124,7 @@ Example Domain
 pnpm extension eval "globalThis.__lastSyncAt" --context background --browser firefox
 ```
 
-在 Chromium MV3 上（預設樣板為 Chrome 建置的就是這種），background 是 service worker，而 Chrome 的擴充功能 CSP 會在那裡封鎖 eval。在這類建置上，`--context background` 回傳的是說明性的錯誤而非值。在 Chromium MV3 上請改用 `--context page` 或 `--context content`。`extension_eval` MCP 工具正是基於這個原因，在 Chromium MV3 session 上預設使用 `page` context；在 Firefox/MV2 上其預設值仍為 `background`。
+在 Chromium MV3 上（預設樣板為 Chrome 建置的就是這種），background 是 service worker，而 Chrome 的擴充功能 CSP 會在那裡封鎖 eval。在這類建置上，`--context background` 回傳的是說明性的錯誤而非值。在 Chromium MV3 上請改用 `--context page` 或 `--context content`。extension.dev 的 MCP 伺服器在 Chromium MV3 session 上對其 eval 工具套用同樣的預設值。
 
 ## 跨瀏覽器支援
 
@@ -135,9 +135,8 @@ Extension.js 透過**瀏覽器內的伴隨程式**進行除錯，而非 Chrome D
 | `logs`、`inspect`、`storage`、`reload`、`open`（含 `action`/`command`） | ✓                     | ✓（已驗證）              |
 | `page` / `content` context 中的 `eval`                                  | ✓                     | ✓                        |
 | `eval --context background`                                             | 僅 MV2 建置（見附註） | ✓（MV2 background 頁面） |
-| `extension_list_extensions`（MCP 工具）                                 | ✓                     | —（使用 CDP）            |
 
-（在 Chromium MV3 建置上，`eval --context background` 回傳的是說明性的錯誤。MV3 的 background 是 service worker，而 Chrome 的擴充功能 CSP 在每個 MV3 建置上都會拒絕 `unsafe-eval`，不只是正式環境。在 Chromium MV3 上請在 `page` / `content` 中執行運算式，或改以 Firefox/MV2 建置為目標呼叫 background。`extension_list_extensions` 是 MCP 工具而非 CLI 動詞 — 它透過 DevTools Protocol 連線，所以僅限 Chromium。）
+（在 Chromium MV3 建置上，`eval --context background` 回傳的是說明性的錯誤。MV3 的 background 是 service worker，而 Chrome 的擴充功能 CSP 在每個 MV3 建置上都會拒絕 `unsafe-eval`，不只是正式環境。在 Chromium MV3 上請在 `page` / `content` 中執行運算式，或改以 Firefox/MV2 建置為目標呼叫 background。）
 
 ## 日誌在瀏覽器裡的位置
 
@@ -168,11 +167,11 @@ Extension.js 透過**瀏覽器內的伴隨程式**進行除錯，而非 Chrome D
 
 ## 搭配 AI agent
 
-同樣的操作會透過 [`@extension.dev/mcp`](/zh-Hant/docs/integrations/chrome-devtools-mcp) 以 MCP 工具的形式提供（`extension_logs`、`extension_eval`、`extension_storage`、`extension_reload`、`extension_open`、`extension_list_extensions`）。限制完全相同 — 助手可以自由觀察，但只有在你為該 session 啟用後才能執行動作。
+贊助 Extension.js 的平台 extension.dev 提供一個 MCP 伺服器，把這些操作以工具的形式提供給 agent。限制完全相同：助理可以自由觀察，但只有在你為該 session 啟用後才能執行動作。請見 [extension.dev MCP 伺服器](/zh-Hant/docs/integrations/extension-mcp)。
 
 ## 下一步
 
 - [觸發動作與鍵盤指令](/zh-Hant/docs/debugging/trigger-actions-and-commands) — 不需點擊也能測試處理函式，可無頭執行並用於 CI。
 - [Manifest 拒絕載入](/zh-Hant/docs/debugging/manifest-refusals) — 為什麼 Chromium 會在 session 還來不及連上之前就拒絕一個擴充功能。
-- [同時執行兩個 MCP server](/zh-Hant/docs/integrations/chrome-devtools-mcp) — Extension.js 控制與 Chrome DevTools MCP 並用。
+- [Chrome DevTools MCP](/zh-Hant/docs/integrations/chrome-devtools-mcp)：Google 的 Chrome 除錯伺服器與 Extension.js session 並用。
 - [CI 範本](/zh-Hant/docs/workflows/ci-templates) — 將這些整合進 PR 檢核流程。

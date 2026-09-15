@@ -124,7 +124,7 @@ To call into the background instead, target a Firefox or MV2 session, where the 
 pnpm extension eval "globalThis.__lastSyncAt" --context background --browser firefox
 ```
 
-On Chromium MV3 (what the default template builds for Chrome) the background is a service worker, and Chrome's extension CSP blocks eval there. `--context background` returns an explanatory error instead of a value on those builds. Use `--context page` or `--context content` on Chromium MV3. The `extension_eval` MCP tool defaults to the `page` context on Chromium MV3 sessions for exactly this reason; on Firefox/MV2 its default stays `background`.
+On Chromium MV3 (what the default template builds for Chrome) the background is a service worker, and Chrome's extension CSP blocks eval there. `--context background` returns an explanatory error instead of a value on those builds. Use `--context page` or `--context content` on Chromium MV3. The extension.dev MCP server applies the same default to its eval tool on Chromium MV3 sessions.
 
 ## Cross-browser support
 
@@ -135,9 +135,8 @@ Extension.js debugs through an **in-browser companion**, not the Chrome DevTools
 | `logs`, `inspect`, `storage`, `reload`, `open` (incl. `action`/`command`) | ✓                             | ✓ (verified)   |
 | `eval` in `page` / `content` contexts                                    | ✓                             | ✓              |
 | `eval --context background`                                              | MV2 builds only (see footnote) | ✓ (MV2 background page) |
-| `extension_list_extensions` (MCP tool)                                   | ✓                             | n/a (uses CDP) |
 
-(`eval --context background` on a Chromium MV3 build returns an explanatory error. The MV3 background is a service worker, and Chrome's extension CSP rejects `unsafe-eval` there on every MV3 build, not only in production. Evaluate in `page`/`content` on Chromium MV3, or target the background on a Firefox/MV2 build. `extension_list_extensions` is an MCP tool rather than a CLI verb: it connects over the DevTools Protocol, so it's Chromium-only.)
+(`eval --context background` on a Chromium MV3 build returns an explanatory error. The MV3 background is a service worker, and Chrome's extension CSP rejects `unsafe-eval` there on every MV3 build, not only in production. Evaluate in `page`/`content` on Chromium MV3, or target the background on a Firefox/MV2 build.)
 
 ## Where logs live in the browser
 
@@ -168,11 +167,11 @@ The gates are intentional, not bureaucratic:
 
 ## With an AI agent
 
-The same operations are exposed as MCP tools through [`@extension.dev/mcp`](/docs/integrations/chrome-devtools-mcp) (`extension_logs`, `extension_eval`, `extension_storage`, `extension_reload`, `extension_open`, `extension_list_extensions`). The gates are identical: an assistant observes freely but only acts when you've enabled it for the session.
+extension.dev, the platform that sponsors Extension.js, ships an MCP server that exposes these operations to an agent as tools. The gates are identical: an assistant observes freely but only acts when you have enabled it for the session. See [extension.dev MCP server](/docs/integrations/extension-mcp).
 
 ## Next steps
 
 - [Trigger actions and keyboard commands](/docs/debugging/trigger-actions-and-commands): test handlers without clicking, headless and in CI.
 - [Manifest refusals](/docs/debugging/manifest-refusals): why Chromium refuses an extension before the session can attach.
-- [Run both MCP servers](/docs/integrations/chrome-devtools-mcp): Extension.js control alongside Chrome DevTools MCP.
+- [Chrome DevTools MCP](/docs/integrations/chrome-devtools-mcp): Google's Chrome debugging server beside an Extension.js session.
 - [CI templates](/docs/workflows/ci-templates): wire these into a pull-request gate.
