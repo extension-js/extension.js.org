@@ -25,10 +25,11 @@ Extension.js 允许你用前缀在同一份文件里声明浏览器特定的值�
 
 ## 工作原理
 
-Extension.js 扫描 manifest 的键，并按所选浏览器解析带前缀的条目。解析以引擎家族为单位，而不是按厂商：
+Extension.js 扫描 manifest 的键，并按所选浏览器解析带前缀的条目。前缀要么指定一个引擎家族，要么指定单个浏览器：
 
-- Chromium 系目标(`chromium`、`chrome`、`edge`、`chromium-based`，分支 `brave`、`opera`、`vivaldi`、`yandex`，以及 Safari 产物)解析：`chromium:`、`chrome:`、`edge:`
-- Gecko 系目标(`firefox`、`gecko-based`，以及分支 `waterfox`、`librewolf`)解析：`firefox:`、`gecko:`
+- `chromium:` 覆盖所有 Chromium 系目标(`chromium`、`chrome`、`edge`、`chromium-based`，分支 `brave`、`opera`、`vivaldi`、`yandex`，以及 Safari 产物)
+- `chrome:` 只覆盖 `chrome`，`edge:` 只覆盖 `edge`
+- `firefox:` 与 `gecko:` 覆盖所有 Gecko 系目标(`firefox`、`gecko-based`，以及分支 `waterfox`、`librewolf`)
 
 当某个带前缀的键匹配当前目标时，Extension.js 会在输出的 manifest 中把它重写为不带前缀的键。分支目标会继承其引擎家族的前缀，因此当你面向 `brave` 或 `waterfox` 这样的分支时，一份只带 `chromium:`/`firefox:` 键的 manifest 仍能被正确解析。精确的浏览器名称前缀也会匹配它自己的目标(例如运行 `--browser=brave` 时的 `brave:`)。
 
@@ -59,45 +60,61 @@ Extension.js 扫描 manifest 的键，并按所选浏览器解析带前缀的条
 | 前缀        | 包含的目标浏览器                                                                     |
 | ----------- | ------------------------------------------------------------------------------------ |
 | `chromium:` | 所有 Chromium 系目标：`chromium`、`chrome`、`edge`、`chromium-based`、分支、Safari 产物 |
-| `chrome:`   | 所有 Chromium 系目标(与 `chromium:` 的清单相同)                                      |
-| `edge:`     | 所有 Chromium 系目标(与 `chromium:` 的清单相同)                                      |
+| `chrome:`   | 仅 `chrome`                                                                          |
+| `edge:`     | 仅 `edge`                                                                            |
 | `firefox:`  | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`                   |
 | `gecko:`    | `firefox`、`gecko-based`、`firefox-based`、`waterfox`、`librewolf`                   |
-| `safari:`   | `safari` 与 `webkit-based`；在这些目标上优先于 Chromium 系的键                        |
+| `safari:`   | `safari` 与 `webkit-based`，在这些目标上优先于 `chromium:` 键                        |
 | `webkit:`   | `safari` 与 `webkit-based`(行为与 `safari:` 相同)                                    |
 
-精确的浏览器名称前缀(例如 `brave:`、`vivaldi:` 或 `waterfox:`)只有在你面向同一个浏览器时才会额外解析，并且胜过它所属的家族前缀(面向 `chrome` 时 `chrome:` 胜过 `chromium:`)。
+精确的浏览器名称前缀(例如 `chrome:`、`edge:`、`brave:` 或 `waterfox:`)只有在你面向同一个浏览器时才会解析。它胜过所属的家族前缀，因此为 `chrome` 构建时 `chrome:` 胜过 `chromium:`。
 
-Safari 产物继承 Chromium 家族(转换器消费的是 Chrome 形态的 manifest)，因此 `chromium:`/`chrome:`/`edge:` 键同样适用于 Safari；只想覆盖 Safari 时请使用 `safari:`(或 `webkit:`)，它们优先于家族键。
+Safari 产物继承 Chromium 家族，因为转换器消费的是 Chrome 形态的 manifest。`chromium:` 键适用于 Safari，但 `chrome:` 和 `edge:` 键不适用。只想覆盖 Safari 时请使用 `safari:`(或 `webkit:`)，它们优先于 `chromium:` 键。
 
 它适用于 manifest 中任意层级的任何字段，包括 `permissions`、`content_scripts` 和 `background`。
 
-### 家族级解析，而不是按厂商
+### 只面向一个 Chromium 厂商
 
-`chromium:`、`chrome:` 和 `edge:` 都是 Chromium 家族内部的家族前缀：它们各自都适用于每一个 Chromium 系目标。如果你只想为某一个厂商设置字段，请使用它精确的浏览器名称前缀(例如 `brave:`)，它只会为那个目标解析。
+`chromium:` 是家族前缀。`chrome:` 和 `edge:` 各自只指定一个浏览器，因此一个字段可以只发布到一个商店，而不进入另一个商店。例如，Chrome Web Store 的 `key` 不能进入 Edge Add-ons 的包：
+
+```json
+{
+  "chrome:key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA..."
+}
+```
+
+`extension build --browser=chrome` 会输出 `key`。`extension build --browser=edge` 不会包含它。
+
+前缀匹配的是你用 `--browser` 请求的浏览器，而不是实际启动的二进制。当 Extension.js 退回到另一个浏览器二进制时，前缀仍按请求的目标解析。
+
+<Note>
+  从 Extension.js 4.1.19 起，`chrome:` 和 `edge:` 成为精确的浏览器前缀。在 4.1.18 及更早版本中，它们适用于每一个 Chromium 系目标。如果构建丢弃了 4.1.18 会应用的 `chrome:` 或 `edge:` 键，构建会打印一条点名该键的警告。把该键重命名为 `chromium:` 即可保留原来的覆盖范围。
+</Note>
 
 ### 优先级：三层结构
 
 当多个键设置同一个字段时，胜出者由层级决定，而不是由它在文件中的位置决定：
 
 1. 不带前缀的普通键是基础。
-2. 家族前缀(Chromium 目标上的 `chromium:`、`chrome:`、`edge:`，Gecko 目标上的 `firefox:`、`gecko:`)覆盖普通键。
+2. 家族前缀(Chromium 目标上的 `chromium:`，Gecko 目标上的 `firefox:` 与 `gecko:`)覆盖普通键。
 3. 精确前缀覆盖前两者。精确指的是该前缀点名了确切的目标，比如为 `chrome` 构建时的 `chrome:`，或为 `brave` 构建时的 `brave:`。在 Safari 和 webkit 系目标上，`safari:` 和 `webkit:` 都属于精确前缀。
 
 源码顺序只在同一层级内部用来打破平局。看这个例子：
 
 ```json
 {
-  "chrome:action": {
-    "default_title": "First"
+  "chromium:action": {
+    "default_title": "Family"
   },
-  "edge:action": {
-    "default_title": "Second"
+  "chrome:action": {
+    "default_title": "Chrome"
   }
 }
 ```
 
-为 `chrome` 构建会输出 `"First"`：`chrome:` 点名了确切的目标，因此位于精确层，胜过在这里只是家族匹配的 `edge:`。为 `edge` 构建会因为镜像的原因输出 `"Second"`。为 `chromium` 或 `brave` 构建则输出 `"Second"`，因为两个前缀都只是家族匹配，源码顺序靠后的那个赢下平局。
+为 `chrome` 构建会输出 `"Chrome"`。`chrome:` 点名了确切的目标，因此位于精确层，胜过 `chromium:`。为 `edge`、`chromium` 或 `brave` 构建则输出 `"Family"`，因为 `chrome:` 不适用于这些目标。
+
+只有同一层级里有两个前缀时才会平局，比如 `waterfox` 这样的 Gecko 分支上的 `firefox:` 与 `gecko:`，或 Safari 目标上的 `safari:` 与 `webkit:`。源码顺序靠后的键胜出。
 
 只要带前缀的键匹配，它总是覆盖同名的普通键，无论两者在文件中的先后位置。
 
