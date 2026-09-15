@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Refreshes the used-by showcase.
 //
-// 1. Stats: for every project in snippets/used-by.jsx, reads users, rating and
-//    version from the stores it lists, and GitHub stars. Writes them back in
-//    place and never touches the hand-written fields.
+// 1. Stats: for every project in snippets/used-by.jsx, reads users from the
+//    stores it lists and writes them back in place. Users order the grid and
+//    prove the store bar. Hand-written fields are never touched.
 // 2. Discovery: walks GitHub's dependents list for the `extension` package and
 //    verifies each repository really builds with Extension.js. Verified
 //    projects are only listed in the report. A person adds them to the page.
@@ -23,7 +23,6 @@ import {
   bucketCount,
   checkPackageJson,
   githubRepoOf,
-  isRepositoryRoot,
   mapAmoAddon,
   mapEdgeProduct,
   meetsShowcaseBar,
@@ -148,17 +147,6 @@ async function fetchStats(project) {
       if (!stats.edge) errors.push("Edge Add-ons returned no product");
     } catch (error) {
       errors.push(`Edge Add-ons: ${error.message}`);
-    }
-  }
-  const repo = isRepositoryRoot(project.repo)
-    ? githubRepoOf(project.repo)
-    : null;
-  if (repo) {
-    try {
-      const meta = await github(`/repos/${repo}`);
-      stats.github = { stars: meta.stargazers_count };
-    } catch (error) {
-      errors.push(`GitHub: ${error.message}`);
     }
   }
   return { stats, errors };
@@ -476,11 +464,12 @@ async function main() {
     "",
     "## Store stats",
     "",
-    "| Project | Users | Rating | Version | Stars | Meets bar | Changed | Problems |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Project | Users | Meets bar | Changed | Problems |",
+    "| --- | --- | --- | --- | --- |",
+    // Users only: cards show no counts.
     ...statRows.map(
       ({ project, changed, errors }) =>
-        `| ${project.name} | ${project.users ?? ""} | ${project.rating ?? ""} | ${project.version ?? ""} | ${project.stars ?? ""} | ${meetsShowcaseBar(project) ? "yes" : "no"} | ${changed ? "yes" : "no"} | ${errors.join("; ")} |`,
+        `| ${project.name} | ${project.users ?? ""} | ${meetsShowcaseBar(project) ? "yes" : "no"} | ${changed ? "yes" : "no"} | ${errors.join("; ")} |`,
     ),
     "",
     "## New verified projects",
