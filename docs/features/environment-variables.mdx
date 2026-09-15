@@ -49,7 +49,7 @@ npx extension@latest create my-extension --template=newtab-env
 pnpx extension@latest create my-extension --template=newtab-env
 ```
 
-```bash yarn
+```bash yarn 2+
 yarn dlx extension@latest create my-extension --template=newtab-env
 ```
 
@@ -81,7 +81,7 @@ npx extension@latest create my-extension --template=content-env
 pnpx extension@latest create my-extension --template=content-env
 ```
 
-```bash yarn
+```bash yarn 2+
 yarn dlx extension@latest create my-extension --template=content-env
 ```
 
@@ -409,6 +409,18 @@ console.log(`API URL for the current environment: ${apiUrl}`);
 `import.meta.env` and `process.env` have parity for injected env keys.
 
 Reading a key that no env file defines yields `undefined` instead of crashing: Extension.js defines the bare `import.meta.env` as an object of every injected variable (Vite parity), so `import.meta.env.MISSING_KEY` and destructuring like `const {FOO} = import.meta.env` are both safe in any output format.
+
+### `import.meta.url` at runtime
+
+Before 4.1.19, the bundler replaced `import.meta.url` with the source file's `file://` path. That path put folder names from the build machine into the shipped bundle. From 4.1.19, Extension.js resolves a bare `import.meta.url` at runtime instead:
+
+| Where the code runs                                         | Value of `import.meta.url`                          |
+| ----------------------------------------------------------- | --------------------------------------------------- |
+| Extension pages and workers (service worker, popup, options) | The URL of that page or worker                      |
+| Content scripts                                             | The extension root, the same as `runtime.getURL("/")` |
+| Scripts in the `MAIN` world                                 | The URL of the web page                             |
+
+`new URL("./image.png", import.meta.url)` still works. The bundler emits the file and points the URL at the emitted copy. `import.meta.dirname` and `import.meta.filename` are `undefined` in extension code, because no file system path exists at runtime.
 
 ## Secrets in browser extension builds
 
