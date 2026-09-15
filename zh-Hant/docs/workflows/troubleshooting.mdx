@@ -2,7 +2,7 @@
 title: "Extension.js 疑難排解"
 description: "用實用的分流流程修復常見的 Extension.js 問題，涵蓋重啟診斷、相依套件設定、瀏覽器啟動與 manifest 錯誤。"
 keywords:
-  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows", "content-0.css", "ERR_FILE_NOT_FOUND"]
+  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows", "content-0.css", "ERR_FILE_NOT_FOUND", "rspack-dev-server-hot"]
 ---
 
 先從最常見的失敗開始檢查，才能快速解除本機開發的阻塞。把這頁當成進入深度除錯前的實用分流流程。
@@ -108,6 +108,14 @@ extension dev --host 0.0.0.0 --port 0
 - 執行 `npx extension@latest dev` 使用最新的 CLI，或提升 `package.json` 中 `extension` 相依的版本。
 
 如果你的 content script 匯入了 CSS 檔案，或 manifest 條目宣告了 `css`，那麼這個檔案是真實存在的，必須出現在 `dist/<browser>/content_scripts/` 中。這種情況下檔案缺失是建置問題，而不是這個幻影請求。
+
+### 擴充功能頁面的 URL 帶有 `?rspack-dev-server-hot=false` 並整頁重新載入
+
+在 `extension dev` 中，options、popup 或 sidebar 頁面的 URL 以 `?rspack-dev-server-hot=false&webpack-dev-server-hot=false` 結尾。每次修改都會重新載入整個頁面，而不是原地更新。
+
+從 3.18.1 到 4.1.9，Extension.js 會刻意加上這些參數。它們關閉了 HTML 頁面上的 hot module replacement，因此頁面會退回到整頁重新載入。4.1.10 版為這些頁面開啟了 hot module replacement，並從 URL 中移除舊參數。請升級：
+
+- 執行 `npx extension@latest dev` 使用最新的 CLI，或提升 `package.json` 中 `extension` 相依的版本。
 
 ### 修正後仍卡住
 
