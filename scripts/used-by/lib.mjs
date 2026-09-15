@@ -346,3 +346,17 @@ export function parseCodeSearchRepos(json) {
   }
   return [...names.values()];
 }
+
+// The showcase lists shipped products with real users, the way Next.js and
+// Expo showcases do: at least one store listing and 100 or more users.
+export const SHOWCASE_MIN_USERS = 100;
+
+export function meetsShowcaseBar(project) {
+  const ids = (project && project.storeIds) || {};
+  const listed = STORE_KEYS.some((key) => ids[key]);
+  return (
+    listed &&
+    Number.isFinite(project.users) &&
+    project.users >= SHOWCASE_MIN_USERS
+  );
+}
