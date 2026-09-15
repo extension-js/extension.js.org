@@ -19,6 +19,7 @@ import {
   parseCodeSearchRepos,
   parseCount,
   parseDependentsPage,
+  pickStoreIds,
   readProjects,
   storeUrl,
   writeProjects,
@@ -355,5 +356,41 @@ describe("the showcase bar", () => {
         `${project.slug} is below the bar`,
       ).toBe(true);
     }
+  });
+});
+
+describe("store ids for a candidate", () => {
+  const rootReadme =
+    "Get it: https://chromewebstore.google.com/detail/nahbabjlllhocabmecfjmcblchhpoclj";
+
+  it("uses the root README for an extension at the repository root", () => {
+    expect(pickStoreIds({ inSubfolder: false, rootReadme })).toEqual({
+      storeIds: { chrome: "nahbabjlllhocabmecfjmcblchhpoclj" },
+      ignoredRoot: {},
+    });
+  });
+
+  it("ignores root README links for an extension in a subfolder", () => {
+    expect(
+      pickStoreIds({
+        inSubfolder: true,
+        packageReadme: "# Picker",
+        rootReadme,
+      }),
+    ).toEqual({
+      storeIds: {},
+      ignoredRoot: { chrome: "nahbabjlllhocabmecfjmcblchhpoclj" },
+    });
+  });
+
+  it("uses the subfolder README when it has its own listing", () => {
+    expect(
+      pickStoreIds({
+        inSubfolder: true,
+        packageReadme:
+          "https://addons.mozilla.org/en-US/firefox/addon/send-to-pocketbook/",
+        rootReadme,
+      }).storeIds,
+    ).toEqual({ firefox: "send-to-pocketbook" });
   });
 });

@@ -30,8 +30,10 @@ for (const loc of LOCALES) {
   const base = path.join(ROOT, prefix(loc));
   const roots = ["docs", "blog"].map((d) => path.join(base, d));
   const list = roots.flatMap((r) => walk(r));
-  if (existsSync(path.join(base, "index.mdx")))
-    list.push(path.join(base, "index.mdx"));
+  // Root-level pages outside docs/ and blog/, shared by every locale.
+  for (const name of ["index.mdx", "showcase.mdx"]) {
+    if (existsSync(path.join(base, name))) list.push(path.join(base, name));
+  }
   files[loc] = new Map(
     list.map((f) => [path.relative(base, f).replace(/\\/g, "/"), f]),
   );

@@ -145,7 +145,7 @@ export const UsedByGrid = ({ locale = "en" }) => {
       users: "users",
       iconAlt: "icon",
       slotTitle: "Your extension here",
-      slotText: "In a store with 100+ users? Add it with one pull request.",
+      slotText: "Shipped it to a store? Take your spot with one pull request.",
     },
     "zh-Hans": {
       builtBy: "作者",
@@ -153,8 +153,7 @@ export const UsedByGrid = ({ locale = "en" }) => {
       users: "用户",
       iconAlt: "图标",
       slotTitle: "你的扩展",
-      slotText:
-        "已在应用商店上架且拥有 100+ 用户？一个 pull request 即可添加。",
+      slotText: "已经上架？一个 pull request 就能占据一席之地。",
     },
     "zh-Hant": {
       builtBy: "作者",
@@ -162,7 +161,7 @@ export const UsedByGrid = ({ locale = "en" }) => {
       users: "使用者",
       iconAlt: "圖示",
       slotTitle: "你的擴充功能",
-      slotText: "已在商店上架且擁有 100+ 使用者？一個 pull request 即可加入。",
+      slotText: "已經上架？一個 pull request 就能占有一席之地。",
     },
   };
   const t = labels[locale] || labels.en;

@@ -19,7 +19,7 @@ const REVIEW_DIR = path.join(ROOT, "docs-review");
 const LEDGER_PATH = path.join(REVIEW_DIR, "coverage.json");
 const CAVEATS_PATH = path.join(REVIEW_DIR, "caveats.json");
 const LOCALE_ROOTS = ["docs", "zh-Hans/docs", "zh-Hant/docs"];
-const EXTRA_PAGES = ["index.mdx"];
+const EXTRA_PAGES = ["index.mdx", "showcase.mdx"];
 
 function walkMdx(dir, out = []) {
   if (!existsSync(dir)) return out;

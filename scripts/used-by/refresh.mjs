@@ -11,7 +11,7 @@
 // Usage:
 //   node scripts/used-by/refresh.mjs [--dry-run] [--no-discover]
 //     [--body <path>] [--candidates <path>] [--max-pages 25]
-//     [--verify-limit 40] [--min-stars 5]
+//     [--verify-limit 150] [--min-stars 5]
 // GITHUB_TOKEN raises the GitHub API limit from 60 to 5,000 requests an hour.
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -22,7 +22,6 @@ import {
   STORE_KEYS,
   bucketCount,
   checkPackageJson,
-  findStoreIds,
   githubRepoOf,
   isRepositoryRoot,
   mapAmoAddon,
@@ -32,6 +31,7 @@ import {
   parseChromeDetail,
   parseCodeSearchRepos,
   parseDependentsPage,
+  pickStoreIds,
   readProjects,
   storeUrl,
   writeProjects,
@@ -62,7 +62,7 @@ function parseArgs(argv) {
     body: null,
     candidates: resolve(ROOT, "docs-review/used-by/candidates.md"),
     maxPages: 25,
-    verifyLimit: 40,
+    verifyLimit: 150,
     minStars: 5,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -263,16 +263,21 @@ async function verifyRepository(fullName) {
       : "";
     if (!MANIFEST_PATHS.some((relative) => files.has(`${dir}${relative}`)))
       continue;
-    let readme = "";
-    for (const candidate of [`${dir}README.md`, "README.md"]) {
-      if (!files.has(candidate)) continue;
+    const readRepoFile = async (path) => {
+      if (!files.has(path)) return "";
       try {
-        readme = await readRaw(fullName, branch, candidate);
-        break;
+        return await readRaw(fullName, branch, path);
       } catch {
-        // Ignore
+        return "";
       }
-    }
+    };
+    const picked = pickStoreIds({
+      inSubfolder: dir !== "",
+      packageReadme: dir ? await readRepoFile(`${dir}README.md`) : "",
+      rootReadme: await readRepoFile("README.md"),
+      homepage: repo.homepage || "",
+      description: repo.description || "",
+    });
     return {
       ok: true,
       fullName,
@@ -283,9 +288,8 @@ async function verifyRepository(fullName) {
       repoUrl: dir
         ? `https://github.com/${fullName}/tree/${branch}/${dir.replace(/\/$/, "")}`
         : `https://github.com/${fullName}`,
-      storeIds: findStoreIds(
-        [readme, repo.homepage || "", repo.description || ""].join("\n"),
-      ),
+      storeIds: picked.storeIds,
+      ignoredRootStoreIds: picked.ignoredRoot,
     };
   }
   return {
@@ -294,6 +298,16 @@ async function verifyRepository(fullName) {
     reason:
       "no package.json with an Extension.js dependency, a CLI script and a manifest.json",
   };
+}
+
+// Root README links of a subfolder extension are shown, never counted.
+function storeCell(candidate) {
+  const ignored = Object.keys(candidate.ignoredRootStoreIds || {});
+  const note =
+    ignored.length > 0
+      ? ` (root README links ${ignored.join(", ")}, not counted)`
+      : "";
+  return `${storeLinks(candidate.storeIds)}${note}`;
 }
 
 function storeLinks(storeIds) {
@@ -323,7 +337,7 @@ function renderCandidates(candidates) {
       .sort((a, b) => a.fullName.localeCompare(b.fullName))
       .map(
         (c) =>
-          `| [${c.fullName}](${c.repoUrl}) | \`${c.packagePath}\` | \`${c.spec}\` | ${c.users ?? ""} | ${storeLinks(c.storeIds)} |`,
+          `| [${c.fullName}](${c.repoUrl}) | \`${c.packagePath}\` | \`${c.spec}\` | ${c.users ?? ""} | ${storeCell(c)} |`,
       ),
   ];
   const sections = [
@@ -458,7 +472,7 @@ async function main() {
   }
 
   const body = [
-    "Weekly refresh of the used-by showcase (extension.js.org/docs/used-by).",
+    "Weekly refresh of the used-by showcase (extension.js.org/showcase).",
     "",
     "## Store stats",
     "",
@@ -482,7 +496,7 @@ async function main() {
             )
             .map(
               (c) =>
-                `| [${c.fullName}](${c.repoUrl}) | ${c.stars} | ${c.users ?? ""} | ${c.meetsBar ? "yes" : "no"} | \`${c.packagePath}\` | \`${c.spec}\` | ${storeLinks(c.storeIds)} |`,
+                `| [${c.fullName}](${c.repoUrl}) | ${c.stars} | ${c.users ?? ""} | ${c.meetsBar ? "yes" : "no"} | \`${c.packagePath}\` | \`${c.spec}\` | ${storeCell(c)} |`,
             ),
         ].join("\n")
       : "None this week.",
