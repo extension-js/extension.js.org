@@ -9,7 +9,6 @@ import {
   findStoreIds,
   githubRepoOf,
   isExtensionJsSpec,
-  isRepositoryRoot,
   lowestVersion,
   mapAmoAddon,
   mapEdgeProduct,
@@ -200,14 +199,12 @@ describe("merging stats", () => {
     repo: "https://github.com/better-lyrics/better-lyrics",
     storeIds: { chrome: "a", firefox: "b", edge: "c" },
     users: 90000,
-    version: "2.3.2",
     description: { en: "Hand-written." },
   };
   const full = {
     chrome: { users: 100000, rating: 4.9, version: "2.3.3" },
     firefox: { users: 4549, rating: 4.91, version: "2.3.3" },
     edge: { users: 5326, rating: 4.9, version: "2.3.3" },
-    github: { stars: 865 },
   };
 
   it("floors counts to two significant digits", () => {
@@ -218,62 +215,34 @@ describe("merging stats", () => {
     expect(bucketCount(0)).toBeNull();
   });
 
-  it("sums users across stores and keeps hand-written fields", () => {
+  it("sums users across stores and keeps only users and the date", () => {
     const { project, changed } = mergeStats(base, full, "2026-09-15");
     expect(changed).toBe(true);
     expect(project).toMatchObject({
       users: 100000,
-      rating: 4.9,
-      version: "2.3.3",
-      stars: 860,
       statsCheckedAt: "2026-09-15",
       description: { en: "Hand-written." },
     });
+    for (const key of ["rating", "version", "stars"]) {
+      expect(project, `${key} must not be stored`).not.toHaveProperty(key);
+    }
   });
 
   it("keeps the previous users when a listed store did not answer", () => {
-    const { project } = mergeStats(
+    const { project, changed } = mergeStats(
       base,
       { firefox: full.firefox, edge: full.edge },
       "2026-09-15",
     );
     expect(project.users).toBe(90000);
-    expect(project.version).toBe("2.3.3");
+    expect(changed).toBe(false);
   });
 
-  it("reports no change and keeps the date when nothing moved", () => {
-    const current = {
-      ...base,
-      users: 100000,
-      rating: 4.9,
-      version: "2.3.3",
-      stars: 860,
-      statsCheckedAt: "2026-09-01",
-    };
+  it("reports no change and keeps the date when users did not move", () => {
+    const current = { ...base, users: 100000, statsCheckedAt: "2026-09-01" };
     const { project, changed } = mergeStats(current, full, "2026-09-15");
     expect(changed).toBe(false);
     expect(project.statsCheckedAt).toBe("2026-09-01");
-  });
-
-  it("shows stars only for a project at the root of its repository", () => {
-    expect(
-      isRepositoryRoot("https://github.com/better-lyrics/better-lyrics"),
-    ).toBe(true);
-    expect(
-      isRepositoryRoot(
-        "https://github.com/ApolloAuto/apollo/tree/master/modules/dreamview_plus",
-      ),
-    ).toBe(false);
-    const subfolder = {
-      ...base,
-      repo: "https://github.com/ApolloAuto/apollo/tree/master/modules/dreamview_plus",
-    };
-    const { project } = mergeStats(
-      subfolder,
-      { github: { stars: 26827 } },
-      "2026-09-15",
-    );
-    expect(project.stars).toBeUndefined();
   });
 
   it("reads a GitHub repository from a tree URL", () => {
@@ -392,5 +361,39 @@ describe("store ids for a candidate", () => {
         rootReadme,
       }).storeIds,
     ).toEqual({ firefox: "send-to-pocketbook" });
+  });
+});
+
+describe("the add-your-project steps", () => {
+  it.each(["showcase.mdx", "zh-Hans/showcase.mdx", "zh-Hant/showcase.mdx"])(
+    "keep every step within 36 characters in %s, so each fits one line",
+    (file) => {
+      const source = readFileSync(resolve(HERE, "..", file), "utf8");
+      const list =
+        /<ol className="ext-usedby-steps">([\s\S]*?)<\/ol>/.exec(source)?.[1] ??
+        "";
+      const steps = [...list.matchAll(/<span>([\s\S]*?)<\/span>/g)].map((m) =>
+        m[1]
+          .replace(/<[^>]+>/g, "")
+          .replace(/\s+/g, " ")
+          .trim(),
+      );
+      expect(steps).toHaveLength(4);
+      for (const step of steps) {
+        expect(step.length, step).toBeLessThanOrEqual(36);
+      }
+    },
+  );
+});
+
+describe("the showcase cards", () => {
+  it("store no counts that would go stale on the page", () => {
+    for (const project of readProjects(SNIPPET)) {
+      for (const key of ["version", "rating", "stars"]) {
+        expect(project, `${project.slug} stores ${key}`).not.toHaveProperty(
+          key,
+        );
+      }
+    }
   });
 });
