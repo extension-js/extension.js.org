@@ -408,6 +408,18 @@ console.log(`API URL for the current environment: ${apiUrl}`);
 
 讀取任何 env 檔都未定義的鍵會得到 `undefined`，而不會當機：Extension.js 會把裸的 `import.meta.env` 定義為包含所有已注入變數的物件（與 Vite 行為一致），因此 `import.meta.env.MISSING_KEY` 與 `const {FOO} = import.meta.env` 這類解構在任何輸出格式下都是安全的。
 
+### 執行階段的 `import.meta.url`
+
+在 4.1.19 之前，打包工具會把 `import.meta.url` 替換成原始檔的 `file://` 路徑。這個路徑會把建置機器上的資料夾名稱帶進發佈的 bundle。從 4.1.19 起，Extension.js 改為在執行階段解析裸的 `import.meta.url`：
+
+| 程式碼執行的位置                                   | `import.meta.url` 的值                     |
+| -------------------------------------------------- | ------------------------------------------ |
+| 擴充功能頁面與 worker（service worker、popup、options） | 該頁面或 worker 的 URL                     |
+| content script                                     | 擴充功能根目錄，與 `runtime.getURL("/")` 相同 |
+| `MAIN` world 中的腳本                              | 網頁的 URL                                 |
+
+`new URL("./image.png", import.meta.url)` 仍然可用。打包工具會輸出該檔案，並讓 URL 指向輸出後的副本。在擴充功能程式碼中，`import.meta.dirname` 與 `import.meta.filename` 為 `undefined`，因為執行階段不存在檔案系統路徑。
+
 ## 擴充功能建置中的機密
 
 瀏覽器擴充功能會在使用者的機器上執行。任何安裝你擴充功能的人，都可以檢視你打包進 JavaScript、HTML 或編譯後 `manifest.json` 的任何值。請把 bundle 視為公開內容。
