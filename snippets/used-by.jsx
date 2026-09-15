@@ -141,31 +141,51 @@ export const UsedByGrid = ({ locale = "en" }) => {
   const labels = {
     en: {
       builtBy: "Built by",
+      source: "Source",
       website: "Website",
       users: "users",
+      availableOn: "Available on",
+      stores: {
+        chrome: "Chrome Web Store",
+        firefox: "Firefox Add-ons",
+        edge: "Edge Add-ons",
+      },
       iconAlt: "icon",
       slotTitle: "Your extension here",
       slotText: "Shipped it to a store? Take your spot with one pull request.",
     },
     "zh-Hans": {
       builtBy: "作者",
+      source: "源码",
       website: "网站",
       users: "用户",
+      availableOn: "上架于",
+      stores: {
+        chrome: "Chrome 应用商店",
+        firefox: "Firefox 附加组件",
+        edge: "Edge 加载项",
+      },
       iconAlt: "图标",
       slotTitle: "你的扩展",
       slotText: "已经上架？一个 pull request 就能占据一席之地。",
     },
     "zh-Hant": {
       builtBy: "作者",
+      source: "原始碼",
       website: "網站",
       users: "使用者",
+      availableOn: "上架於",
+      stores: {
+        chrome: "Chrome 線上應用程式商店",
+        firefox: "Firefox 附加元件",
+        edge: "Edge 附加元件",
+      },
       iconAlt: "圖示",
       slotTitle: "你的擴充功能",
       slotText: "已經上架？一個 pull request 就能占有一席之地。",
     },
   };
   const t = labels[locale] || labels.en;
-  const storeKeys = { Chrome: "chrome", Firefox: "firefox", Edge: "edge" };
   const storeHref = (key, id) =>
     key === "chrome"
       ? `https://chromewebstore.google.com/detail/${id}`
@@ -189,6 +209,25 @@ export const UsedByGrid = ({ locale = "en" }) => {
         a.index - b.index,
     )
     .map((entry) => entry.project);
+  // Items carry their own leading bullet. The row sits one bullet to the left
+  // inside a clipping wrapper, so a bullet that starts a wrapped line is hidden.
+  const separated = (items) => (
+    <span className="ext-usedby-sepline">
+      <span className="ext-usedby-sepline-row">
+        {items.map((item) => (
+          <span key={item.key} className="ext-usedby-sepline-item">
+            {item.href ? (
+              <a href={item.href} target="_blank" rel="noreferrer">
+                {item.label}
+              </a>
+            ) : (
+              item.label
+            )}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
 
   return (
     <div className="ext-usedby-grid">
@@ -201,22 +240,22 @@ export const UsedByGrid = ({ locale = "en" }) => {
         // Small installs read as a weakness on a showcase, so counts start at 100.
         const users = project.users >= 100 ? formatCount(project.users) : null;
         const stars = formatCount(project.stars);
-        const stats = [
-          users ? `${users} ${t.users}` : null,
-          stars ? `★ ${stars}` : null,
+        // One line under the name: numbers first, then where to look.
+        const meta = [
+          users ? { key: "users", label: `${users} ${t.users}` } : null,
+          stars ? { key: "stars", label: `★ ${stars}` } : null,
+          { key: "source", label: t.source, href: project.repo },
+          project.website
+            ? { key: "website", label: t.website, href: project.website }
+            : null,
         ].filter(Boolean);
-        // One line carries the browsers and the store listings: a browser with a
-        // listing is a link, a browser without one is plain text.
-        const links = (project.browsers || []).map((browser) => {
-          const key = storeKeys[browser];
-          const id = key && project.storeIds && project.storeIds[key];
-          return id
-            ? { label: browser, href: storeHref(key, id) }
-            : { label: browser, href: null };
-        });
-        if (project.website) {
-          links.push({ label: t.website, href: project.website });
-        }
+        const stores = ["chrome", "firefox", "edge"]
+          .filter((key) => project.storeIds && project.storeIds[key])
+          .map((key) => ({
+            key,
+            label: t.stores[key],
+            href: storeHref(key, project.storeIds[key]),
+          }));
         return (
           <article
             key={project.slug}
@@ -255,9 +294,7 @@ export const UsedByGrid = ({ locale = "en" }) => {
                 )}
                 <div className="ext-usedby-titles">
                   <h3 className="ext-usedby-name">{project.name}</h3>
-                  {stats.length > 0 ? (
-                    <p className="ext-usedby-meta">{stats.join(" • ")}</p>
-                  ) : null}
+                  <p className="ext-usedby-meta">{separated(meta)}</p>
                 </div>
                 {project.version ? (
                   <span className="ext-usedby-pill">
@@ -282,7 +319,7 @@ export const UsedByGrid = ({ locale = "en" }) => {
 
               <a
                 className="ext-usedby-dev"
-                href={project.repo}
+                href={`https://github.com/${project.owner}`}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -294,51 +331,19 @@ export const UsedByGrid = ({ locale = "en" }) => {
                     loading="lazy"
                   />
                 ) : null}
-                <span className="ext-usedby-dev-text">
-                  <span className="ext-usedby-dev-label">
-                    {t.builtBy} {project.owner}
-                  </span>
-                  <span className="ext-usedby-dev-url">
-                    <span>{project.repo.replace(/^https:\/\//, "")}</span>
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="12"
-                      height="12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M15 3h6v6" />
-                      <path d="M10 14 21 3" />
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    </svg>
-                  </span>
+                <span className="ext-usedby-dev-label">
+                  {t.builtBy} {project.owner}
                 </span>
               </a>
 
               <p className="ext-usedby-desc">{description}</p>
 
-              {links.length > 0 ? (
+              {stores.length > 0 ? (
                 <p className="ext-usedby-links">
-                  {links.map((link, index) => (
-                    <span key={link.label}>
-                      {index > 0 ? (
-                        <span className="ext-usedby-sep" aria-hidden="true">
-                          •
-                        </span>
-                      ) : null}
-                      {link.href ? (
-                        <a href={link.href} target="_blank" rel="noreferrer">
-                          {link.label}
-                        </a>
-                      ) : (
-                        <span className="ext-usedby-plain">{link.label}</span>
-                      )}
-                    </span>
-                  ))}
+                  <span className="ext-usedby-links-label">
+                    {t.availableOn}
+                  </span>
+                  {separated(stores)}
                 </p>
               ) : null}
             </div>
