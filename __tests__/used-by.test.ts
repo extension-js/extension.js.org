@@ -13,6 +13,7 @@ import {
   lowestVersion,
   mapAmoAddon,
   mapEdgeProduct,
+  meetsShowcaseBar,
   mergeStats,
   parseChromeDetail,
   parseCodeSearchRepos,
@@ -332,5 +333,27 @@ describe("code search results", () => {
       }),
     ).toEqual(["mantou132/browser4agent"]);
     expect(parseCodeSearchRepos(undefined)).toEqual([]);
+  });
+});
+
+describe("the showcase bar", () => {
+  it("needs a store listing and at least 100 users", () => {
+    expect(meetsShowcaseBar({ storeIds: { chrome: "a" }, users: 290 })).toBe(
+      true,
+    );
+    expect(meetsShowcaseBar({ storeIds: { firefox: "b" }, users: 97 })).toBe(
+      false,
+    );
+    expect(meetsShowcaseBar({ storeIds: {}, users: 5000 })).toBe(false);
+    expect(meetsShowcaseBar({ users: 5000 })).toBe(false);
+  });
+
+  it("holds for every project on the page", () => {
+    for (const project of readProjects(SNIPPET)) {
+      expect(
+        meetsShowcaseBar(project),
+        `${project.slug} is below the bar`,
+      ).toBe(true);
+    }
   });
 });
