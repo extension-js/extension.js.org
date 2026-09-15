@@ -2,7 +2,7 @@
 title: "Troubleshooting Extension.js issues"
 description: "Fix common Extension.js issues with a practical triage path. Covers restart diagnostics, dependency setup, browser launch, and manifest errors."
 keywords:
-  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows", "content-0.css", "ERR_FILE_NOT_FOUND"]
+  ["browser", "manifest", "react", "vue", "preact", "hmr", "docs", "workflows", "content-0.css", "ERR_FILE_NOT_FOUND", "rspack-dev-server-hot"]
 ---
 
 Unblock local development quickly by checking the most common failures first. Use this page as a practical triage path before deeper debugging.
@@ -108,6 +108,14 @@ Before Extension.js 4.1.10, a content script with no stylesheet still requested 
 - Run `npx extension@latest dev` to use the latest CLI, or bump the `extension` dependency in `package.json`.
 
 If your content script imports a CSS file, or the manifest entry declares `css`, the file is real and must exist in `dist/<browser>/content_scripts/`. A missing file in that case is a build problem, not this phantom request.
+
+### Extension pages reload with `?rspack-dev-server-hot=false` in the URL
+
+In `extension dev`, the URL of an options, popup, or sidebar page ends with `?rspack-dev-server-hot=false&webpack-dev-server-hot=false`. Each edit reloads the whole page instead of updating it in place.
+
+From 3.18.1 to 4.1.9, Extension.js added these parameters on purpose. They turned off hot module replacement on HTML pages, so pages fell back to a full reload. Version 4.1.10 turns hot module replacement on for these pages and removes the old parameters from the URL. Upgrade:
+
+- Run `npx extension@latest dev` to use the latest CLI, or bump the `extension` dependency in `package.json`.
 
 ### Still blocked after fixes
 
