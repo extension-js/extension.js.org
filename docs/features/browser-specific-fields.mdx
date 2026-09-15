@@ -25,10 +25,11 @@ Browsers still differ in key manifest areas, like background configuration and v
 
 ## How it works
 
-Extension.js scans manifest keys and resolves prefixed entries for the selected browser. Resolution is per engine family, not per vendor:
+Extension.js scans manifest keys and resolves prefixed entries for the selected browser. A prefix names an engine family or one browser:
 
-- Chromium-family targets (`chromium`, `chrome`, `edge`, `chromium-based`, the forks `brave`, `opera`, `vivaldi`, `yandex`, and Safari builds) resolve: `chromium:`, `chrome:`, `edge:`
-- Gecko-family targets (`firefox`, `gecko-based`, and the forks `waterfox`, `librewolf`) resolve: `firefox:`, `gecko:`
+- `chromium:` reaches every Chromium-family target (`chromium`, `chrome`, `edge`, `chromium-based`, the forks `brave`, `opera`, `vivaldi`, `yandex`, and Safari builds)
+- `chrome:` reaches only `chrome`, and `edge:` reaches only `edge`
+- `firefox:` and `gecko:` reach every Gecko-family target (`firefox`, `gecko-based`, and the forks `waterfox`, `librewolf`)
 
 When a prefixed key matches the active target, Extension.js rewrites it to the unprefixed key in the emitted manifest. Fork targets inherit their engine family's prefixes, so a manifest that only carries `chromium:`/`firefox:` keys still resolves correctly when you target a fork like `brave` or `waterfox`. An exact browser-name prefix also matches its own target (for example, `brave:` when you run `--browser=brave`).
 
@@ -59,45 +60,61 @@ Supported prefix map:
 | Prefix      | Included for target browser                                                                        |
 | ----------- | -------------------------------------------------------------------------------------------------- |
 | `chromium:` | Every Chromium-family target: `chromium`, `chrome`, `edge`, `chromium-based`, forks, Safari builds |
-| `chrome:`   | Every Chromium-family target (same list as `chromium:`)                                            |
-| `edge:`     | Every Chromium-family target (same list as `chromium:`)                                            |
+| `chrome:`   | `chrome` only                                                                                      |
+| `edge:`     | `edge` only                                                                                        |
 | `firefox:`  | `firefox`, `gecko-based`, `firefox-based`, `waterfox`, `librewolf`                                 |
 | `gecko:`    | `firefox`, `gecko-based`, `firefox-based`, `waterfox`, `librewolf`                                 |
-| `safari:`   | `safari` and `webkit-based`; wins over chromium-family keys on those targets                       |
+| `safari:`   | `safari` and `webkit-based`, wins over `chromium:` keys on those targets                           |
 | `webkit:`   | `safari` and `webkit-based` (same behavior as `safari:`)                                           |
 
-An exact browser-name prefix (for example, `brave:`, `vivaldi:`, or `waterfox:`) additionally resolves only when you target that same browser, and wins over its family prefix (`chrome:` beats `chromium:` when targeting `chrome`).
+An exact browser-name prefix (for example, `chrome:`, `edge:`, `brave:`, or `waterfox:`) resolves only when you target that same browser. It wins over its family prefix, so `chrome:` beats `chromium:` when you build for `chrome`.
 
-Safari builds inherit the Chromium family (the converter consumes a Chrome-shaped manifest), so `chromium:`/`chrome:`/`edge:` keys apply to Safari too; use `safari:` (or `webkit:`) for Safari-only overrides, and they take precedence over the family keys.
+Safari builds inherit the Chromium family, because the converter consumes a Chrome-shaped manifest. `chromium:` keys apply to Safari, but `chrome:` and `edge:` keys do not. Use `safari:` (or `webkit:`) for Safari-only overrides. They take precedence over `chromium:` keys.
 
 This works for any manifest field at any level, including `permissions`, `content_scripts`, and `background`.
 
-### Family-wide resolution, not per vendor
+### Target one Chromium vendor
 
-`chromium:`, `chrome:`, and `edge:` are family prefixes within the Chromium family: each of them applies to every Chromium-family target. If you need a field for one vendor only, use its exact browser-name prefix (for example, `brave:`), which resolves only for that target.
+`chromium:` is the family prefix. `chrome:` and `edge:` each name one browser, so a field can ship to one store and stay out of the other. For example, a Chrome Web Store `key` must not reach the Edge Add-ons package:
+
+```json
+{
+  "chrome:key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA..."
+}
+```
+
+`extension build --browser=chrome` emits `key`. `extension build --browser=edge` leaves it out.
+
+The prefix matches the browser that you request with `--browser`, not the binary that launches. When Extension.js falls back to another browser binary, prefixes still resolve for the requested target.
+
+<Note>
+  In Extension.js 4.1.19, `chrome:` and `edge:` became exact browser prefixes. Up to 4.1.18, they reached every Chromium-family target. When a build drops a `chrome:` or `edge:` key that 4.1.18 applied, the build prints a warning that names the key. Rename the key to `chromium:` to keep the old reach.
+</Note>
 
 ### Precedence: the three-tier lattice
 
 When several keys set the same field, the winner is decided by tier, not by position in the file:
 
 1. A plain key is the base.
-2. A family prefix (`chromium:`, `chrome:`, `edge:` on Chromium targets, `firefox:`, `gecko:` on Gecko targets) overrides the plain key.
-3. A specific prefix overrides both. Specific means the prefix names the exact target, such as `chrome:` when you build for `chrome`, or `brave:` when you build for `brave`. On Safari and webkit-based targets, `safari:` and `webkit:` are both specific.
+2. A family prefix (`chromium:` on Chromium targets, `firefox:` and `gecko:` on Gecko targets) overrides the plain key.
+3. A specific prefix overrides both. Specific means that the prefix names the exact target, such as `chrome:` for a `chrome` build or `brave:` for a `brave` build. On Safari and webkit-based targets, `safari:` and `webkit:` are both specific.
 
 Source order only breaks ties inside one tier. Consider:
 
 ```json
 {
-  "chrome:action": {
-    "default_title": "First"
+  "chromium:action": {
+    "default_title": "Family"
   },
-  "edge:action": {
-    "default_title": "Second"
+  "chrome:action": {
+    "default_title": "Chrome"
   }
 }
 ```
 
-Building for `chrome` emits `"First"`: `chrome:` names the exact target, so it sits in the specific tier and beats `edge:`, which is only a family match there. Building for `edge` emits `"Second"` for the mirror-image reason. Building for `chromium` or `brave` emits `"Second"`, because both prefixes are family matches and the later one in source order wins the tie.
+Building for `chrome` emits `"Chrome"`. `chrome:` names the exact target, so it sits in the specific tier and beats `chromium:`. Building for `edge`, `chromium`, or `brave` emits `"Family"`, because `chrome:` does not apply to those targets.
+
+A tie needs two prefixes in the same tier, such as `firefox:` and `gecko:` on a Gecko fork like `waterfox`, or `safari:` and `webkit:` on a Safari target. The later key in source order wins.
 
 A matching prefixed key always overrides a plain key with the same name, regardless of where each appears in the file.
 
