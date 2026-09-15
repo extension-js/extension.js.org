@@ -11,7 +11,7 @@ Extension.js Docs is the documentation site for the cross-browser extension fram
 - Read the docs: [extension.js.org](https://extension.js.org)
 - View the available examples: [extension-js/examples](https://github.com/extension-js/examples)
 - Explore the framework: [extension-js/extension.js](https://github.com/extension-js/extension.js)
-- Contribute to the framework: [CONTRIBUTING.md](https://github.com/extension-js/extension.js/blob/main/CONTRIBUTING.md)
+- Contribute to the framework: [CONTRIBUTING.md](https://github.com/extension-js/extension.js/blob/main/docs/CONTRIBUTING.md)
 
 ## Frameworks
 
