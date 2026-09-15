@@ -94,6 +94,32 @@ The site exposes two AI-accessible endpoints, documented in `docs/ai-access.mdx`
 
 When pointing other agents at this docs site for grounded answers, prefer the MCP server.
 
+## Search engine operations
+
+Google Search Console (property `https://extension.js.org/`), Bing Webmaster Tools and Yandex
+Webmaster are all verified through `seo.metatags` in `docs.json`. Read the consoles before
+proposing any SEO change.
+
+Standing rulings. Do not re-litigate these without new evidence:
+
+- **IndexNow cannot work here.** Mintlify serves only known root files, so the required key file
+  cannot be hosted at any path. Bing is covered instead by `.github/workflows/bing-index.yml`,
+  which submits changed pages through the SubmitUrlBatch API on every push to main.
+- **Yandex gets no new plumbing.** The recrawl API needs a hand-grabbed OAuth token that expires
+  in about six months and only reorders a queue, and a Metrica tag would put a third-party
+  tracker with session replay on every page. Yandex sends about 5 clicks a day. The sitemap
+  already carries accurate `lastmod`. Revisit only above roughly 50 clicks a day.
+- **Do not chase generic head terms.** `extension`, `extensions` and `what is a browser
+  extension` together take roughly 285,000 impressions for about 166 clicks across Google and
+  Bing. Impressions and sitewide CTR on this property are vanity metrics.
+- **Keep every title under 60 characters including the ` - Extension.js` suffix.**
+- **hreflang is a platform gap, not a config mistake.** Mintlify emits no `rel="alternate"` links
+  for `navigation.languages` and its schema has no field for them. Raise it with Mintlify support
+  rather than hand-rolling tags.
+- **Measure AI reach, not clicks.** Bing AI Performance counts about 2,500 Copilot citations
+  against 121 search clicks, and Google's generative AI report shows 36,700 impressions. That is
+  where this site is actually read.
+
 ## Skills available
 
 `.agents/skills/` contains reusable skill files for agents working on the site:
