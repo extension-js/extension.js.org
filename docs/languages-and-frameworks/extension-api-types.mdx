@@ -1,6 +1,6 @@
 ---
 title: "Types for the chrome and browser APIs"
-description: "Install @types/chrome so tsc resolves chrome.* in a TypeScript extension. Extension.js ships extension-env.d.ts and references the types, but does not install them."
+description: "From Extension.js 4.1.19, the types for chrome.*, browser.*, and process.env install with the extension package. Older versions need @types/chrome installed by hand."
 keywords:
   [
     "@types/chrome",
@@ -16,7 +16,7 @@ keywords:
   ]
 ---
 
-Extension.js compiles TypeScript with SWC, which strips types and never checks them. Type checking is a separate step that you run with `tsc`. This page covers the packages that step needs to resolve `chrome.*` and `browser.*`.
+Extension.js compiles TypeScript with SWC, which strips types and never checks them. Type checking is a separate step that you run with `tsc`. This page covers how that step resolves `chrome.*`, `browser.*`, and `process.env`.
 
 ## What Extension.js generates
 
@@ -31,32 +31,56 @@ The file pulls in the ambient types that the `extension` package publishes:
 
 Those references give you:
 
-| Reference                  | What it declares                                                       |
-| -------------------------- | ---------------------------------------------------------------------- |
-| `extension/types`          | The `browser` global, `process.env` keys, `import.meta.env` keys       |
-| `extension/types/polyfill` | The `browser.*` namespace shape from `webextension-polyfill`           |
-| Wildcard modules           | `import` of `.css`, `.module.css`, `.png`, `.svg`, and other assets    |
+| Reference                  | What it declares                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `extension/types`          | The `browser` global, the `chrome` namespace, `process.env` and `import.meta.env` keys |
+| `extension/types/polyfill` | The `browser.*` namespace shape from `webextension-polyfill`                        |
+| Wildcard modules           | `import` of `.css`, `.module.css`, `.png`, `.svg`, and other assets                 |
 
 The `EXTENSION_*` environment keys are typed here too. That is why `process.env.EXTENSION_MODE` resolves without extra setup.
 
-## Install @types/chrome for the chrome namespace
+## Types that install with Extension.js
 
-`extension/types` declares the `browser` global itself, but it reaches the `chrome` namespace through a reference:
+From Extension.js 4.1.19, the `extension` package lists the three type packages that its references need as dependencies:
 
-```ts
-/// <reference types="chrome" />
+| Package                        | What it types             |
+| ------------------------------ | ------------------------- |
+| `@types/chrome`                | The `chrome.*` namespace  |
+| `@types/webextension-polyfill` | The `browser.*` namespace |
+| `@types/node`                  | `process.env`             |
+
+They install with `extension`, so `tsc` resolves `chrome.*` and `browser.*` in a new project without an extra install:
+
+```bash
+npx tsc --noEmit
 ```
 
-That reference resolves only when `@types/chrome` is installed in your project. Extension.js does not install it, and the templates do not declare it.
+The build does not need these packages. SWC never reads the types, so the build succeeds with or without them.
 
-A scaffolded TypeScript project that calls `chrome.storage` therefore fails `tsc`:
+## Pin your own version
+
+The `extension` package accepts any version of the three type packages. When your project declares one of them, npm, pnpm, and Bun reuse the copy that your project installs.
+
+When your `tsconfig.json` has no `types` array, TypeScript also loads the copy that your project declares. The version in your own `package.json` wins:
+
+```json package.json
+{
+  "devDependencies": {
+    "@types/chrome": "^0.0.287"
+  }
+}
+```
+
+## Projects on Extension.js 4.1.18 or older
+
+Before 4.1.19, `extension/types` referenced `chrome` but did not install `@types/chrome`. A project that calls `chrome.*` without its own copy fails `tsc`:
 
 ```plaintext
 src/background.ts(19,1): error TS2304: Cannot find name 'chrome'.
 src/content/scripts.ts(87,30): error TS2503: Cannot find namespace 'chrome'.
 ```
 
-Install the package to clear it:
+Upgrade `extension` to 4.1.19 or later. If you stay on an older version, install the package by hand:
 
 <CodeGroup>
 
@@ -82,17 +106,7 @@ deno add -D npm:@types/chrome
 
 </CodeGroup>
 
-Run the check again and the errors are gone:
-
-```bash
-npx tsc --noEmit
-```
-
-Nothing else changes. The build already succeeded before the install, because SWC never reads the types.
-
-## When you write browser.\* instead
-
-The `browser` global is typed by `extension/types`, which maps it onto `webextension-polyfill`. For the full namespace shape, add the matching types package:
+On those versions, `browser` has the type `any` until `@types/webextension-polyfill` is installed. To type `browser.*`, install that package too:
 
 <CodeGroup>
 
@@ -118,7 +132,11 @@ deno add -D npm:@types/webextension-polyfill
 
 </CodeGroup>
 
-Read [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the runtime side of the same choice.
+## Type errors on browser.\* after an upgrade
+
+From 4.1.19, `browser` has the full `webextension-polyfill` type instead of `any`. Code that passed `tsc` before can show new type errors, for example a call to an API that the polyfill does not declare.
+
+Fix the call, or use `chrome.*` for an API that only Chromium ships. Read [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the runtime side of the same choice.
 
 ## Keep extension-env.d.ts in the include list
 
@@ -135,17 +153,18 @@ When Extension.js writes a `tsconfig.json` for a project that has none, that fil
 
 ## Symptoms and fixes
 
-| Symptom                                     | Cause                                     | Fix                                        |
-| ------------------------------------------- | ----------------------------------------- | ------------------------------------------ |
-| `Cannot find name 'chrome'`                 | `@types/chrome` is not installed          | Install `@types/chrome`                    |
-| `Cannot find namespace 'chrome'`            | Same cause, in a type position            | Install `@types/chrome`                    |
-| `Cannot find module './styles.css'`         | `extension-env.d.ts` is out of `include`  | Add the file to `include`                  |
-| `Cannot find name 'browser'`                | The project never ran `dev` or `build`    | Run either command once to generate types  |
+| Symptom                                   | Cause                                                 | Fix                                                    |
+| ----------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------ |
+| `Cannot find name 'chrome'`               | Extension.js 4.1.18 or older, and no `@types/chrome`  | Upgrade to 4.1.19, or install `@types/chrome`          |
+| `Cannot find namespace 'chrome'`          | Same cause, in a type position                        | Upgrade to 4.1.19, or install `@types/chrome`          |
+| `Cannot find module './styles.css'`       | `extension-env.d.ts` is out of `include`              | Add the file to `include`                              |
+| `Cannot find name 'browser'`              | The project never ran `dev` or `build`                | Run either command once to generate types              |
+| New type errors on `browser.*` calls      | From 4.1.19, `browser` is typed instead of `any`      | Fix the call, or use `chrome.*` for a Chromium-only API |
 
 ## Best practices
 
 - Treat `extension-env.d.ts` as build output. Commit it if you like, but never edit it.
-- Add `@types/chrome` to any TypeScript project that calls `chrome.*`, including one that you scaffolded from a template.
+- Declare a type package in your own `devDependencies` only when you need a specific version of it.
 - Run `tsc --noEmit` in continuous integration. The Extension.js build does not fail on type errors.
 
 ## Next steps
