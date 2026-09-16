@@ -1,0 +1,97 @@
+---
+title: "在開發容器或 Codespace 中開發"
+description: "在 Docker、VS Code 開發容器或 GitHub Codespace 中執行 Extension.js 開發流程。涵蓋沙箱參數、繫結位址與檔案監看。"
+keywords:
+  [
+    "extension.js",
+    "docker",
+    "dev container",
+    "devcontainer",
+    "codespaces",
+    "remote development",
+    "vs code",
+    "docs",
+    "workflows",
+  ]
+---
+
+在 Docker、VS Code 開發容器或 GitHub Codespace 中執行 Extension.js 的開發流程。
+
+有兩種配置可選。瀏覽器可以和開發伺服器一起跑在容器內。瀏覽器也可以留在主機端，只把開發伺服器放進容器。下面的參數兩種配置都涵蓋。
+
+## 沙箱參數會自動補上
+
+多數 Linux 容器沒有可用的 setuid 沙箱。Chromium 會在偵錯埠繫結之前就結束，工作階段失敗而且看不出原因。
+
+當 Extension.js 辨識出這種環境時，它會為 Chromium 的啟動補上 `--no-sandbox` 與 `--disable-setuid-sandbox`。辨識條件是平台為 Linux，並且符合以下任一項：
+
+- `CI` 變數的值為字串 `true`。
+- 存在 `/.dockerenv` 檔案，由 Docker 建立。
+- 存在 `/run/.containerenv` 檔案，由 Podman 建立。
+- `REMOTE_CONTAINERS` 變數由 VS Code 設為 `true`。
+- `CODESPACES` 變數由 GitHub Codespaces 設為 `true`。
+- `container` 變數由數種 Linux 執行環境設定。
+
+<Note>
+  平台判斷也是條件的一部分。跑在 macOS 或 Windows
+  主機上的容器回報的平台不同，因此那裡不會補上這些參數。
+</Note>
+
+你也可以自己加入參數。`browserFlags` 設定項與 `EXTENSION_BROWSER_FLAGS` 變數請見[瀏覽器參數](/zh-Hant/docs/browsers/browser-flags)。
+
+## 把開發伺服器繫結到所有網路介面
+
+開發伺服器預設繫結 `127.0.0.1`，容器外的任何程序都連不到。傳入 `--host 0.0.0.0` 改為繫結所有網路介面：
+
+```bash
+extension dev ./my-extension --host 0.0.0.0
+```
+
+瀏覽器無法連線萬用位址，因此 Extension.js 會為重新載入通道另外解析一個可連線位址。萬用繫結會解析為 `127.0.0.1`，在你把連接埠轉送到主機端時這是正確的值。`ready.json` 中的 `host` 欄位回報的就是這個可連線位址，而不是繫結位址。
+
+當瀏覽器必須以別的名稱連到容器時，請明確傳入：
+
+```bash
+extension dev ./my-extension --host 0.0.0.0 --public-host my-container.local
+```
+
+## 讓瀏覽器留在主機端
+
+沒有顯示環境的容器無法啟動瀏覽器。用 `--no-browser` 只啟動開發伺服器，然後在你自己的瀏覽器載入編譯產物：
+
+```bash
+extension dev ./my-extension --host 0.0.0.0 --no-browser
+```
+
+編譯後的擴充功能位於 `dist/<browser>/`，例如 `dist/chromium/`。在主機端把該目錄當成未封裝擴充功能載入。連接埠轉送完成後，重新載入仍會透過開發伺服器送達。
+
+<Warning>
+  `--no-browser` 與 `--wait` 不能在同一個程序中使用，因為 `--wait`
+  輪詢的契約檔案這次執行永遠不會寫出。請在一個程序執行 `extension dev
+  --no-browser`，在另一個程序執行 `extension dev --wait`。
+</Warning>
+
+## 繫結掛載下的檔案監看
+
+Extension.js 預設使用原生檔案系統事件監看，因為輪詢會喚醒 CPU 並拖慢重新載入。在擁有自己檔案系統的容器內，原生事件是可靠的。
+
+會出問題的是來自 macOS 或 Windows 主機的繫結掛載。這類掛載常常漏掉事件，主機端的編輯到不了編譯器。這時請開啟輪詢：
+
+```bash
+EXTENSION_WATCH_POLL=true extension dev ./my-extension
+```
+
+間隔預設為 1000 毫秒。想要別的節奏時，把 `EXTENSION_WATCH_POLL_INTERVAL` 設為另一個毫秒值。
+
+## 容器工作階段檢查清單
+
+1. 把開發伺服器連接埠轉送到主機端。
+2. 以 `--host 0.0.0.0` 啟動工作階段。
+3. 容器內沒有瀏覽器時加上 `--no-browser`。
+4. 編輯經由繫結掛載傳入時加上 `EXTENSION_WATCH_POLL=true`。
+
+## 後續步驟
+
+- 閱讀[瀏覽器參數](/zh-Hant/docs/browsers/browser-flags)，了解 Extension.js 傳入的參數。
+- 閱讀[在 WSL 下開發擴充功能](/zh-Hant/docs/browsers/wsl)，了解 Windows 上的對應做法。
+- 閱讀 [CI 範本](/zh-Hant/docs/workflows/ci-templates)，了解建置伺服器上的無頭執行。
