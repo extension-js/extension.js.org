@@ -100,6 +100,31 @@ Google Search Console (property `https://extension.js.org/`), Bing Webmaster Too
 Webmaster are all verified through `seo.metatags` in `docs.json`. Read the consoles before
 proposing any SEO change.
 
+`__tests__/search-surface.test.ts` guards the mechanical parts: title length including the
+` - Extension.js` suffix, robots.txt rule validity, redirects that resolve, and the rule that no
+internal link may point at a redirect source. Run `pnpm test` before proposing SEO work.
+
+### The 30-day checkpoint
+
+Re-read all three consoles on **2026-10-16** and compare against this baseline, taken
+2026-09-15. Do not automate it in CI: every console needs an interactive login, and copied
+cookies do not work for any of the three.
+
+| Measure                         | Baseline 2026-09-15                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------------------- |
+| Google, 28 days                 | 769 clicks, 339K impressions, position 8.9                                              |
+| Google indexing                 | 326 indexed, 1,029 not indexed (565 of the 700 "crawled, not indexed" are build chunks) |
+| Google generative AI, 90 days   | 36.7K impressions                                                                       |
+| Bing, 90 days                   | 121 clicks, 121.9K impressions, 516 indexed, 359 warnings                               |
+| Bing AI citations, 90 days      | 2,533                                                                                   |
+| Yandex                          | about 5 clicks a day, 0 robots errors, 317 pages in search                              |
+| Pages with zero clicks, 90 days | 404 of 527                                                                              |
+
+Judge the waves on the Bing citation count and the Google generative-AI impressions, not on
+clicks or CTR. To reach the consoles, launch real Chrome on a fresh `--user-data-dir` with
+`--remote-debugging-port`, have the maintainer log in once, then drive it over CDP. Delete that
+profile directory afterwards, it holds live logins.
+
 Standing rulings. Do not re-litigate these without new evidence:
 
 - **IndexNow cannot work here.** Mintlify serves only known root files, so the required key file
@@ -110,7 +135,7 @@ Standing rulings. Do not re-litigate these without new evidence:
   tracker with session replay on every page. Yandex sends about 5 clicks a day. The sitemap
   already carries accurate `lastmod`. Revisit only above roughly 50 clicks a day.
 - **Do not chase generic head terms.** `extension`, `extensions` and `what is a browser
-  extension` together take roughly 285,000 impressions for about 166 clicks across Google and
+extension` together take roughly 285,000 impressions for about 166 clicks across Google and
   Bing. Impressions and sitewide CTR on this property are vanity metrics.
 - **Keep every title under 60 characters including the ` - Extension.js` suffix.**
 - **hreflang is a platform gap, not a config mistake.** Mintlify emits no `rel="alternate"` links
