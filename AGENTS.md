@@ -138,6 +138,10 @@ Standing rulings. Do not re-litigate these without new evidence:
 extension` together take roughly 285,000 impressions for about 166 clicks across Google and
   Bing. Impressions and sitewide CTR on this property are vanity metrics.
 - **Keep every title under 60 characters including the ` - Extension.js` suffix.**
+- **Do not `noindex` the section index pages.** The idea was to shrink the indexable surface, but
+  565 of Google's 700 "crawled, not indexed" URLs are Mintlify build chunks, so the surface was
+  never the problem. Two of the candidates rank on page one anyway (`/blog` at position 8.2,
+  `/docs/getting-started` at 4.0). Removing a page-one URL for no measured gain is a loss.
 - **hreflang is a platform gap, not a config mistake.** Mintlify emits no `rel="alternate"` links
   for `navigation.languages` and its schema has no field for them. Raise it with Mintlify support
   rather than hand-rolling tags.
