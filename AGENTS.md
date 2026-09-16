@@ -83,7 +83,16 @@ One STE rule cannot be automated and belongs on the review checklist instead:
 **warnings and prerequisites go before the step they apply to, never after.**
 Vale matches text patterns, not document structure, so it cannot see ordering.
 
-The rules are English-only. Do not run them against `zh-Hans/` or `zh-Hant/`.
+The rules are English-only, and `.vale.ini` excludes `zh-Hans/` and `zh-Hant/`
+from them. That exclusion belongs in the config, not in the command: the
+Mintlify check on every pull request runs Vale itself and reads `.vale.ini`, so
+a command-level exclusion never reached it and it kept reporting 144 ordinary
+Chinese dashes as errors.
+
+There are two levels, on purpose. `.vale.ini` sets `MinAlertLevel = error`,
+which is what this repo gates on and what any outside runner reports.
+`pnpm check:prose` asks for suggestions explicitly, so the ASD-STE100 coaching
+still shows up while you write.
 
 ## AI access surfaces
 
