@@ -98,7 +98,11 @@ export default {
 
 ## Share a module between entries
 
-Extension.js sets `optimization.splitChunks` to `false` on purpose. The manifest and each HTML page name one file per entry, so a module that three entries import is copied into three bundles. To keep one copy, load the module with `import()` from the pages that need it. Rspack emits one chunk for it, and every page fetches that chunk on demand from the extension origin. A cache group gives the chunk a stable name:
+Extension.js splits HTML pages only. The default `optimization.splitChunks` gives pages two stable siblings: `shared/framework.js` for the UI framework runtime, and `shared/commons.js` for anything two or more pages import. The framework group covers React, Preact, Vue, Svelte, Solid and Lit. Neither name carries a hash, so a manifest entry or a public asset can keep pointing at it.
+
+Every other surface keeps exactly one file. The manifest names a single script for a background worker, a content script or an injected script, and those surfaces never load a sibling.
+
+That is why sharing a module between a page and a content script still needs `import()`. Rspack emits one chunk for it, and every caller fetches that chunk on demand from the extension origin. A cache group gives the chunk a stable name:
 
 ```js
 export default {
