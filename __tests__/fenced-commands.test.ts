@@ -108,9 +108,16 @@ describe("fenced extension commands only use flags the verb accepts", () => {
     expect(offenders.join("\n"), offenders.join("\n")).toBe("");
   });
 
-  it.skipIf(!hasMonorepo())("the flag snapshot matches the CLI source", () => {
-    expect(buildSnapshot(), "Run: node scripts/generate-cli-flags.mjs").toEqual(
-      snapshot,
-    );
-  });
+  // This one is IO bound rather than a performance assertion: it spawns the
+  // CLI once per verb, which runs past vitest's 5s default on a busy machine.
+  it.skipIf(!hasMonorepo())(
+    "the flag snapshot matches the CLI source",
+    () => {
+      expect(
+        buildSnapshot(),
+        "Run: node scripts/generate-cli-flags.mjs",
+      ).toEqual(snapshot);
+    },
+    120_000,
+  );
 });

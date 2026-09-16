@@ -41,7 +41,21 @@ const ARGV_SHIM_FLAGS = {
   "--no-reload": ["dev"],
 };
 
+// Every call spawns the CLI, and a snapshot asks each verb for its help, so
+// these processes are the whole cost of this file. One per argv per process.
+const helpCache = new Map();
+
 function runHelp(args) {
+  const key = args.join(" ");
+  const cached = helpCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const text = spawnHelp(args);
+  helpCache.set(key, text);
+  return text;
+}
+
+function spawnHelp(args) {
   try {
     return execFileSync("node", [CLI_BIN, ...args, "--help"], {
       encoding: "utf-8",
@@ -180,7 +194,11 @@ export function commandNames(rootHelp = runHelp([])) {
   return [...names];
 }
 
+let snapshotCache = null;
+
 export function buildSnapshot() {
+  if (snapshotCache) return snapshotCache;
+
   const rootHelp = runHelp([]);
   const inherited = new Set([
     ...visibleFlags(rootHelp),
@@ -201,6 +219,8 @@ export function buildSnapshot() {
     }
     snapshot[verb] = [...flags].sort();
   }
+
+  snapshotCache = snapshot;
   return snapshot;
 }
 
