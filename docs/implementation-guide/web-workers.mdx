@@ -1,0 +1,117 @@
+---
+title: "Web Workers in a content script"
+description: "A content script cannot construct a Worker from an extension URL. See what Extension.js emits, why the browser refuses it, and which alternatives work."
+keywords:
+  [
+    "extension.js",
+    "web worker",
+    "worker",
+    "content script",
+    "offscreen",
+    "blob",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+Move heavy work off the main thread of a page without freezing it.
+
+Extension.js compiles `new Worker(new URL("./worker.js", import.meta.url))` through the bundler default for a web target. The call emits a separate worker chunk at the root of `dist/<browser>/`, and the compiled call points at that chunk through `chrome.runtime.getURL()`. That part works.
+
+The browser is what refuses. A worker script has to come from the same origin as the document that creates it. The document behind a content script is the host page, so both forms below fail.
+
+## What a content script actually gets
+
+This content script compiles cleanly and fails at runtime:
+
+```js
+// Both calls throw in a content script.
+const bundled = new Worker(new URL("./worker.js", import.meta.url));
+const staticFile = new Worker(chrome.runtime.getURL("worker-static.js"));
+```
+
+On `https://example.com`, Chromium reports:
+
+```text
+SecurityError: Failed to construct 'Worker': Script at
+'chrome-extension://<id>/496.js' cannot be accessed from origin
+'https://example.com'.
+```
+
+Adding the file to `web_accessible_resources` does not lift the restriction. It controls whether the page may load the file, not whether the file may become a worker for a foreign origin.
+
+<Note>
+  This was measured on Chromium with a content script on a public page. Firefox
+  and Safari were not measured, so treat the errors above as Chromium behavior.
+</Note>
+
+## Run the worker from a page that the extension owns
+
+A popup, an options page, a side panel, and an offscreen document all load from the `chrome-extension://` origin. A worker created there is same-origin, so both forms work with no extra setup:
+
+```js
+// In an extension page, not a content script.
+const bundled = new Worker(new URL("./worker.js", import.meta.url));
+
+bundled.onmessage = (event) => console.log(event.data);
+bundled.postMessage("hello");
+```
+
+This is the route to prefer. Keep the content script thin, send the input to your background service worker or to an offscreen document, and let the worker run there. See [Offscreen documents](/docs/implementation-guide/offscreen-documents) for a page that runs without any visible surface, and [Message passing](/docs/implementation-guide/messaging) for the round trip.
+
+## The blob workaround, and its two conditions
+
+When the work has to stay in the page, fetch the worker source and construct the worker from a blob URL. A blob inherits the page origin, so the browser accepts it:
+
+```js
+const url = chrome.runtime.getURL("worker-static.js");
+const response = await fetch(url);
+const source = await response.text();
+const blob = new Blob([source], {type: "text/javascript"});
+const worker = new Worker(URL.createObjectURL(blob));
+```
+
+Two conditions decide whether that succeeds.
+
+**The file has to be web accessible.** `extension build` does not add the worker chunk to `web_accessible_resources`, so declare the file yourself in `manifest.json`:
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["worker-static.js"],
+      "matches": ["https://example.com/*"]
+    }
+  ]
+}
+```
+
+Without that entry the `fetch` fails with `TypeError: Failed to fetch`, and the request shows as `chrome-extension://invalid/`.
+
+**The host page CSP has to allow blob workers.** A page that sends `worker-src 'self'` blocks the blob, and the failure is quiet. The constructor returns normally, then the worker fails through `onerror` with an empty message:
+
+```text
+Creating a worker from 'blob:...' violates the following Content Security
+Policy directive: "worker-src 'self'". The action has been blocked.
+```
+
+A `try`/`catch` around `new Worker` never sees it. Attach an `onerror` handler and treat it as the real failure signal.
+
+<Warning>
+  A development session injects a broad `web_accessible_resources` entry that a
+  production build does not. Code that reaches a bundled file from the page can
+  therefore work under `extension dev` and fail after `extension build`. Test
+  the production output before you ship.
+</Warning>
+
+## Choosing between the three
+
+- An extension page needs no setup, and both forms work there.
+- A content script with a blob needs a manifest entry and a permissive page CSP.
+- A content script with an extension URL is refused, and nothing changes that.
+
+## Next steps
+
+- Read [Offscreen documents](/docs/implementation-guide/offscreen-documents) for background work without a visible page.
+- Read [Web accessible resources](/docs/implementation-guide/web-accessible-resources) for the manifest entry.
+- Read [Content scripts](/docs/implementation-guide/content-scripts) for what else the page origin limits.

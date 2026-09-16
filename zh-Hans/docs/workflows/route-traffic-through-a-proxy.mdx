@@ -1,0 +1,110 @@
+---
+title: "通过代理转发流量"
+description: "在 Extension.js 项目中使用代理 API。涵盖固定服务器、PAC 脚本、代理认证，以及各浏览器目标如何处理该权限。"
+keywords:
+  [
+    "extension.js",
+    "proxy",
+    "pac script",
+    "onAuthRequired",
+    "vpn",
+    "manifest v3",
+    "docs",
+    "workflows",
+  ]
+---
+
+让浏览器的请求经过你的扩展所控制的代理服务器。
+
+Extension.js 没有任何针对代理的行为。代理 API 属于浏览器，而你的 `manifest.json` 权限会按原样进入构建产物。各目标之间的差别在于哪些权限会被保留，所以先从这里看起。
+
+## 各目标如何处理该权限
+
+一个声明了 `"proxy"` 的清单，构建结果如下：
+
+| 目标     | `dist/<browser>/manifest.json` 中的结果 |
+| -------- | --------------------------------------- |
+| Chromium | `proxy` 原样保留                        |
+| Firefox  | `proxy` 原样保留                        |
+| Safari   | `proxy` 被移除，构建会给出提示          |
+
+Safari 构建会打印原因：
+
+```text
+Safari has no support for 1 manifest key this build inherited from its
+Chromium manifest, so the safari build dropped it.
+permissions.proxy Safari has no proxy API
+```
+
+在承诺 Safari 上的代理行为之前，请先为此做好规划。只想给某一个目标添加清单键时，见[按浏览器区分的清单字段](/zh-Hans/docs/features/browser-specific-fields)。
+
+## 设置固定代理
+
+在后台 service worker 中配置代理，那里可以使用该 API：
+
+```js
+chrome.proxy.settings.set({
+  value: {
+    mode: "fixed_servers",
+    rules: {
+      singleProxy: {scheme: "http", host: "127.0.0.1", port: 8080},
+      bypassList: ["localhost"],
+    },
+  },
+  scope: "regular",
+});
+```
+
+`proxy` 权限是必需的，Chromium 构建通常还需要覆盖目标站点的主机权限。
+
+## 分发 PAC 脚本
+
+PAC 脚本不是清单字段，因此打包器不会把它当作入口。它不会被计算哈希、重写路径，也不会自行进入产物。有两条可行路线。
+
+把脚本作为 data 内联传入：
+
+```js
+const pac = `function FindProxyForURL(url, host) {
+  if (host === "localhost") return "DIRECT";
+  return "PROXY 127.0.0.1:8080";
+}`;
+
+chrome.proxy.settings.set({
+  value: {mode: "pac_script", pacScript: {data: pac}},
+  scope: "regular",
+});
+```
+
+或者把脚本保留为文件。`public/` 目录里的内容会原样复制进构建产物，所以放在那里的 PAC 文件会以同名出现在 `dist/<browser>/`。从你自己的扩展源用 `fetch` 读取它，再把文本作为 `data` 传入。`public/` 的作用见[特殊目录](/zh-Hans/docs/features/special-folders)。
+
+## 处理代理认证
+
+需要凭据的代理会触发 `chrome.webRequest.onAuthRequired`。Manifest V3 移除了阻塞式 `webRequest`，因此应答该质询需要在 `webRequest` 之外再加上 `webRequestAuthProvider` 权限。
+
+[拦截网络请求](/zh-Hans/docs/workflows/intercept-network-requests)介绍了 Manifest V3 保留的请求 API，以及 `declarativeNetRequest` 在哪里取代了阻塞式 API。
+
+<Warning>
+  编译进扩展的凭据，任何安装者都能读到。环境变量也改变不了这一点，因为它们的值在构建时就被内联了。见[环境变量](/zh-Hans/docs/features/environment-variables)。
+</Warning>
+
+## Firefox 的机制不同
+
+Firefox 有一个同名权限下的代理 API，背后的模型不一样。Firefox 通过 `browser.proxy.onRequest` 让扩展逐请求做决定，而不是存一份设置对象。
+
+Extension.js 不会就这个差异发出警告。它的 Gecko 兼容性警告覆盖的是其他 API，因此一个 Chromium 形态的 `chrome.proxy.settings.set` 调用进入 Firefox 构建时不会有任何提示。请在 [MDN](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy) 上确认该 API，并在发布前测试 Firefox 目标。
+
+## 也可以只代理开发浏览器
+
+有时你想代理的是开发期的浏览器，而不是扩展。这时传浏览器参数，而不是用扩展 API：
+
+```bash
+EXTENSION_BROWSER_FLAGS="--proxy-server=http://127.0.0.1:8080" extension dev ./my-extension
+```
+
+[浏览器参数](/zh-Hans/docs/browsers/browser-flags)介绍了这个变量和 `browserFlags` 配置项。
+
+## 后续步骤
+
+- 阅读[拦截网络请求](/zh-Hans/docs/workflows/intercept-network-requests)，了解请求 API。
+- 阅读[权限与主机权限](/zh-Hans/docs/implementation-guide/permissions-and-host-permissions)，了解权限规则。
+- 阅读[构建广告拦截器](/zh-Hans/docs/workflows/build-an-ad-blocker)，了解基于规则的拦截。

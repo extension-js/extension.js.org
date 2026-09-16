@@ -1,0 +1,162 @@
+---
+title: "Solid for browser extensions"
+description: "Add Solid to an Extension.js project. Covers the JSX adapter over solid-js/h, the TypeScript setting it needs, and the reactivity limits it carries."
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "typescript",
+    "javascript",
+    "solid",
+    "solid-js",
+    "jsx",
+    "rspack",
+  ]
+---
+
+Write extension surfaces with Solid signals and JSX, without adding a build configuration of your own.
+
+Extension.js detects Solid from your dependencies. It then points the automatic JSX runtime at `solid-js` and resolves `solid-js/jsx-runtime` through a small adapter that ships with the toolchain. The adapter calls `solid-js/h`, the hyperscript entry, because `solid-js` publishes JSX types rather than a JSX runtime module.
+
+<Warning>
+  Solid is not one of the four frameworks that Extension.js treats as
+  first-class. There is no Solid template, no fast refresh, and the reactivity
+  limits below are real. Read them before you choose Solid for a new project.
+</Warning>
+
+## When Solid is a good fit
+
+- You already know Solid signals and want them in an extension surface.
+- You are porting an existing Solid codebase to a browser extension.
+- You want a small runtime for a popup, a side panel, or a new tab page.
+
+## Add Solid to an existing extension
+
+There is no `solid` template, so start from any other template or from your own project.
+
+### Installation
+
+Install the one dependency:
+
+<CodeGroup>
+
+```bash npm
+npm install solid-js
+```
+
+```bash pnpm
+pnpm add solid-js
+```
+
+```bash yarn
+yarn add solid-js
+```
+
+```bash bun
+bun add solid-js
+```
+
+```bash deno
+deno add npm:solid-js
+```
+
+</CodeGroup>
+
+Extension.js reads `dependencies` and `devDependencies`, so either section works.
+
+### File extensions
+
+Extension.js chooses the parser from the file extension. Use `*.jsx` for plain JavaScript and `*.tsx` for TypeScript. A `.ts` file never parses JSX.
+
+### TypeScript configuration
+
+The generated `tsconfig.json` sets `"jsx": "react-jsx"` without a JSX import source. Your editor and `tsc` then look for `react/jsx-runtime`, which a Solid project does not have. Add the import source yourself:
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "solid-js"
+  }
+}
+```
+
+The bundler does not read that setting, so a build succeeds without it. Only type checking and editor hints need it.
+
+## What the build does
+
+Extension.js compiles your JSX with SWC, using the automatic runtime and `solid-js` as the import source. It also aliases `solid-js/jsx-runtime` and `solid-js/jsx-dev-runtime` to the shipped adapter. Nothing else changes, and no Babel preset runs.
+
+```tsx
+import {render} from "solid-js/web";
+import {createSignal} from "solid-js";
+
+function Counter() {
+  const [count, setCount] = createSignal(0);
+
+  return (
+    <button onClick={() => setCount(count() + 1)}>count {() => count()}</button>
+  );
+}
+
+const root = document.getElementById("root");
+
+if (root) render(() => <Counter />, root);
+```
+
+## Reactivity limits to plan for
+
+Solid normally compiles JSX with `babel-preset-solid`, which wraps every dynamic expression so that the DOM updates on its own. Extension.js runs no such compiler, so the hyperscript rules apply instead.
+
+### Pass signals as functions
+
+The automatic JSX runtime reads `{count()}` once, at the moment the element is created. That value never changes again. Pass the function instead, and the binding stays reactive:
+
+```jsx
+<p>{() => count()}</p>
+```
+
+The same rule covers attributes and control flow. A `<Show when={count() > 0}>` reads its condition once, so a `when` that has to react needs the function form too.
+
+### One runtime copy is required
+
+The shipped adapter resolves `solid-js/h` with Node resolution, which returns the CommonJS build. Your own `import` statements resolve to the ECMAScript build, so the bundle ends up with two copies of the Solid runtime. Signals created in one copy are invisible to the DOM bindings in the other, and nothing updates.
+
+Point the alias at the ECMAScript build to collapse the two copies into one:
+
+```js
+import {createRequire} from "node:module";
+
+const require = createRequire(import.meta.url);
+
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      "solid-js/h$": require.resolve("solid-js/h/dist/h.js"),
+    };
+
+    return config;
+  },
+};
+```
+
+That file is `extension.config.js` at the root of your project. The alias value is an internal path inside the `solid-js` package, so check it again after a major Solid upgrade.
+
+### Updates arrive through live reload
+
+Fast refresh covers React and Svelte only. A Solid edit reloads the affected surface and remounts it, so component state does not survive the edit.
+
+## Troubleshooting
+
+- **JSX errors about `react/jsx-runtime`:** add `jsxImportSource` to `tsconfig.json`.
+- **The first render is correct and nothing updates:** add the alias above.
+- **A value still never updates:** write it as `{() => value()}` rather than `{value()}`.
+- **No Solid integration detected:** confirm that `solid-js` is in your `package.json`.
+
+## Next steps
+
+- Compare the alternatives in [Languages and frameworks](/docs/languages-and-frameworks/index).
+- Read [TypeScript support](/docs/languages-and-frameworks/typescript) for the rest of the type setup.
+- Read [Rspack configuration](/docs/features/rspack-configuration) for the `config` hook.

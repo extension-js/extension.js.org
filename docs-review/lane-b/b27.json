@@ -1,0 +1,115 @@
+{
+  "batch": "b27-search-miss-pages-2026-09-16",
+  "pages": [
+    {
+      "page": "docs/workflows/dev-containers.mdx",
+      "claimsChecked": 14,
+      "claimsVerifiedByRunning": 6,
+      "findings": 1,
+      "verdict": "accurate",
+      "note": "New page, written from the CLI at 4.1.19 built from source. Container sandbox detection read in programs/extension/browsers/run-chromium/chromium-launch/browser-config.ts: the page repeats the exact condition, process.platform === 'linux' AND one of CI === 'true', /.dockerenv, /run/.containerenv, REMOTE_CONTAINERS === 'true', CODESPACES === 'true', or a set container variable, and it says the platform check is part of the condition because the code makes it so. Flags added are --no-sandbox and --disable-setuid-sandbox on Chromium launches only. Ran `extension dev --no-browser --host 0.0.0.0 --port 8932` against a throwaway fixture: ready.json reported status ready with port 8932, and lsof showed TCP *:8932 (LISTEN), so both flags behave as the page says. That same ready.json reported host 127.0.0.1 while bound to the wildcard, which is the connectable host from dev-server/connectable-host.ts, and the page states that distinction rather than calling it the bind address. The --no-browser plus --wait refusal is quoted from commands/dev.ts, including the two-process instruction the CLI itself prints. FINDING, and the reason this page says what it says: the CLI help text at helpers/messages.ts:664 and the --ai-help payload at :873 both claim file watching uses polling by default at a 1 second interval. The code says the opposite. rspack-config.ts:496 and dev-server/index.ts:827 only enable polling when EXTENSION_WATCH_POLL === 'true', with EXTENSION_WATCH_POLL_INTERVAL defaulting to 1000 ms, and the comment in the dev server states native events are the default on purpose. The page documents the code, not the help text, and the help text should be corrected in the product."
+    },
+    {
+      "page": "zh-Hans/docs/workflows/dev-containers.mdx",
+      "claimsChecked": 14,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 4 code fences byte-identical, same 6 headings, same flag and variable names. Links carry the /zh-Hans prefix and all three targets exist on disk."
+    },
+    {
+      "page": "zh-Hant/docs/workflows/dev-containers.mdx",
+      "claimsChecked": 14,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 4 code fences byte-identical, same 6 headings, same flag and variable names. Links carry the /zh-Hant prefix and all three targets exist on disk."
+    },
+    {
+      "page": "docs/languages-and-frameworks/solid.mdx",
+      "claimsChecked": 16,
+      "claimsVerifiedByRunning": 11,
+      "findings": 2,
+      "verdict": "minor-issues",
+      "note": "New page, verified by building and running a Solid fixture rather than by reading alone. Detection and JSX wiring read in plugin-js-frameworks/js-tools/solid.ts and js-frameworks-lib/jsx-transform.ts: isUsingSolid looks for solid-js in the project dependencies, getJsxImportSource returns solid-js, and the aliases point solid-js/jsx-runtime and solid-js/jsx-dev-runtime at the shipped adapter over solid-js/h. `extension build --browser=chromium` on a newtab fixture with solid-js 1.9 succeeded and rendered correctly in Chromium (heading and button present through Playwright). NO TEMPLATE EXISTS, confirmed against the template catalog, so the page tells readers to add solid-js to an existing project and never shows a scaffold command. FINDING 1, verified: the generated tsconfig.json sets jsx react-jsx with no jsxImportSource, and `tsc --noEmit` then fails with TS2875 'This JSX tag requires the module path react/jsx-runtime to exist'. Adding jsxImportSource solid-js made tsc exit 0 with the same build output, which is what the page recommends. FINDING 2, verified and the reason for the warning block: signal updates do not reach the DOM out of the box. Clicking a button that called setCount left every binding at its first value, and a component-level createEffect never re-ran, while a createRoot effect outside the render tree did re-run. Cause: the adapter resolves solid-js/h through Node resolution, which yields h.cjs, so the bundle carries a CommonJS copy of the Solid runtime alongside the ECMAScript copy that user imports resolve to. Aliasing solid-js/h$ to solid-js/h/dist/h.js in extension.config.js dropped the bundle from 54.0 KB to 21.6 KB and made updates work, which the page ships as the workaround. Eager interpolation still never updates, because no Solid compiler wraps it, so the page tells readers to write {() => value()}. Fast refresh is React and Svelte only, read at plugin-js-frameworks/index.ts hmrFrameworks."
+    },
+    {
+      "page": "zh-Hans/docs/languages-and-frameworks/solid.mdx",
+      "claimsChecked": 16,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 9 code fences byte-identical, including the five CodeGroup install commands and the extension.config.js alias. Same 12 headings, and the warning block keeps both limitations."
+    },
+    {
+      "page": "zh-Hant/docs/languages-and-frameworks/solid.mdx",
+      "claimsChecked": 16,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 9 code fences byte-identical, including the five CodeGroup install commands and the extension.config.js alias. Same 12 headings, and the warning block keeps both limitations."
+    },
+    {
+      "page": "docs/implementation-guide/web-workers.mdx",
+      "claimsChecked": 12,
+      "claimsVerifiedByRunning": 10,
+      "findings": 1,
+      "verdict": "accurate",
+      "note": "New page, written only after a fixture was built and run, because the bundler has no Web Worker handling of its own to read. Static side: rspack-config.ts sets target 'web' and configures no worker parser or worker chunk loading, so the stock new Worker(new URL(...)) support is all there is. Build side: a content-script fixture emitted a separate worker chunk at the dist root and compiled the call to new Worker(new URL(r.p+r.u(909),r.b)) with r.p pointing at chrome.runtime.getURL('/'). Runtime side, Chromium, content script on https://example.com, identical under dev and a production build: both the bundled URL form and the chrome.runtime.getURL form throw SecurityError 'Failed to construct Worker: Script at chrome-extension://<id>/496.js cannot be accessed from origin https://example.com'. The page quotes that error. A worker created from an extension page worked for both forms with no setup. The blob workaround worked, and its two conditions were each proven by a failing run: without a web_accessible_resources entry the fetch failed with TypeError: Failed to fetch against chrome-extension://invalid/, and on a page sending worker-src 'self' the constructor returned normally and the worker failed through onerror with an empty message. FINDING, stated on the page as a warning: a dev session injects a broad web_accessible_resources entry ('/*.js' on all urls) that `extension build` does not, so page-reachable bundled files can work in dev and fail in production. NOT VERIFIED and therefore not claimed: Firefox, Safari, module workers, SharedWorker, and running a worker specifically inside an offscreen document. The page says the measurements are Chromium."
+    },
+    {
+      "page": "zh-Hans/docs/implementation-guide/web-workers.mdx",
+      "claimsChecked": 12,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 6 code fences byte-identical, including both console errors and the manifest entry. Same 5 headings, and the Chromium-only note survives."
+    },
+    {
+      "page": "zh-Hant/docs/implementation-guide/web-workers.mdx",
+      "claimsChecked": 12,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 6 code fences byte-identical, including both console errors and the manifest entry. Same 5 headings, and the Chromium-only note survives."
+    },
+    {
+      "page": "docs/workflows/route-traffic-through-a-proxy.mdx",
+      "claimsChecked": 11,
+      "claimsVerifiedByRunning": 5,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "New page. The Extension.js half was measured: a fixture declaring permissions proxy, webRequest and webRequestAuthProvider was built for three targets. dist/chromium/manifest.json and dist/firefox/manifest.json keep proxy verbatim, and dist/safari/manifest.json drops it while the build prints 'Safari has no support for 1 manifest key this build inherited from its Chromium manifest' followed by 'permissions.proxy Safari has no proxy API'. The page quotes that output. The Firefox build printed no warning about the API difference, which matches warn-gecko-unsupported-apis.ts, where proxy is absent from both lists, so the page says Extension.js does not warn and sends the reader to MDN. PAC scripts are not a manifest field: the file-bearing manifest fields come from browser-extension-manifest-fields and cover html, icons, json (declarative_net_request rule_resources and storage.managed_schema only), scripts, locales, web_accessible_resources and theme, with no PAC entry, so the page says the bundler never sees one and points at public/, which plugin-special-folders copies verbatim. EXTENSION_BROWSER_FLAGS is parsed in browsers-lib/shared-utils.ts and appended after config flags, and the page links browser-flags rather than restating it. The chrome.proxy and onAuthRequired snippets are platform API shapes, not Extension.js behavior, and were not executed in a browser."
+    },
+    {
+      "page": "zh-Hans/docs/workflows/route-traffic-through-a-proxy.mdx",
+      "claimsChecked": 11,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 4 code fences byte-identical, including the quoted Safari build output. Same 7 headings and the same three-row target table."
+    },
+    {
+      "page": "zh-Hant/docs/workflows/route-traffic-through-a-proxy.mdx",
+      "claimsChecked": 11,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 4 code fences byte-identical, including the quoted Safari build output. Same 7 headings and the same three-row target table."
+    },
+    {
+      "page": "docs/workflows/send-analytics-events.mdx",
+      "claimsChecked": 13,
+      "claimsVerifiedByRunning": 6,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "New page, created because two searches for extension analytics landed on the telemetry page, which is about the CLI's own reporting. The page opens by disambiguating the two and links telemetry-and-privacy. Remote code claim measured: a fixture whose popup loaded https://www.googletagmanager.com/gtag/js built with exit 0 and printed 'The page loads a remote <script>, which the MV3 CSP blocks' with PATH and GOT lines, and the tag stayed in the emitted HTML, so the page says the build warns but does not stop you. The Measurement Protocol payload was validated against Google's own debug endpoint, which returned 200 with an empty validationMessages array for the exact client_id and events shape shown. The env var claim was read in plugin-compilation/env.ts, where only EXTENSION_PUBLIC_ keys are injected and each is inlined by DefinePlugin, which is why the page says a bundled key is not a secret. The Firefox data collection line is quoted from a real firefox build of the proxy fixture. CSP behavior comes from apply-dev-defaults-lib/patch-csp.ts, which extends connect-src with loopback origins in dev only and never touches a build."
+    },
+    {
+      "page": "zh-Hans/docs/workflows/send-analytics-events.mdx",
+      "claimsChecked": 13,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 6 code fences byte-identical, including both quoted build warnings and the host_permissions block. Same 6 headings, and the disambiguation note keeps its link."
+    },
+    {
+      "page": "zh-Hant/docs/workflows/send-analytics-events.mdx",
+      "claimsChecked": 13,
+      "findings": 0,
+      "verdict": "accurate",
+      "note": "Translated from the English twin in the same commit. All 6 code fences byte-identical, including both quoted build warnings and the host_permissions block. Same 6 headings, and the disambiguation note keeps its link."
+    }
+  ]
+}

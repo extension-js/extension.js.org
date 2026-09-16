@@ -1,0 +1,162 @@
+---
+title: "在瀏覽器擴充功能中使用 Solid"
+description: "在 Extension.js 專案中加入 Solid。涵蓋以 solid-js/h 為基礎的 JSX 轉接層、需要的 TypeScript 設定，以及它帶來的反應式限制。"
+keywords:
+  [
+    "extension.js",
+    "extensions",
+    "typescript",
+    "javascript",
+    "solid",
+    "solid-js",
+    "jsx",
+    "rspack",
+  ]
+---
+
+以 Solid 的訊號與 JSX 撰寫擴充功能介面，不必自己加上建置設定。
+
+Extension.js 會從相依套件偵測 Solid。它會把自動 JSX 執行期指向 `solid-js`，並將 `solid-js/jsx-runtime` 解析到工具鏈內附的一個小型轉接層。該轉接層會呼叫 hyperscript 進入點 `solid-js/h`，因為 `solid-js` 發布的是 JSX 型別，而不是 JSX 執行期模組。
+
+<Warning>
+  Solid 並不屬於 Extension.js
+  視為一等公民的四個框架。沒有 Solid 範本，沒有 fast
+  refresh，下面的反應式限制也真實存在。在新專案選用 Solid 之前請先讀完。
+</Warning>
+
+## 什麼情況下適合使用 Solid
+
+- 你已經熟悉 Solid 的訊號，想用在擴充功能介面上。
+- 你要把現有的 Solid 程式碼移植成瀏覽器擴充功能。
+- 你想讓 popup、側邊欄或新分頁有一個很小的執行期。
+
+## 在既有擴充功能中加入 Solid
+
+沒有 `solid` 範本，所以請從其他範本或你自己的專案開始。
+
+### 安裝
+
+只需要安裝一個相依套件：
+
+<CodeGroup>
+
+```bash npm
+npm install solid-js
+```
+
+```bash pnpm
+pnpm add solid-js
+```
+
+```bash yarn
+yarn add solid-js
+```
+
+```bash bun
+bun add solid-js
+```
+
+```bash deno
+deno add npm:solid-js
+```
+
+</CodeGroup>
+
+Extension.js 會讀取 `dependencies` 與 `devDependencies`，放在哪一個都可以。
+
+### 副檔名
+
+Extension.js 會依副檔名選擇解析器。純 JavaScript 用 `*.jsx`，TypeScript 用 `*.tsx`。`.ts` 檔案永遠不會解析 JSX。
+
+### TypeScript 設定
+
+產生的 `tsconfig.json` 會設定 `"jsx": "react-jsx"`，而且沒有 JSX 匯入來源。於是編輯器與 `tsc` 會去找 `react/jsx-runtime`，但 Solid 專案並沒有它。請自己補上匯入來源：
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "solid-js"
+  }
+}
+```
+
+打包器不會讀取這個設定，所以沒有它也能建置成功。只有型別檢查與編輯器提示需要它。
+
+## 建置時發生了什麼
+
+Extension.js 以 SWC 編譯你的 JSX，使用自動執行期，並以 `solid-js` 作為匯入來源。它也會把 `solid-js/jsx-runtime` 與 `solid-js/jsx-dev-runtime` 別名到內附的轉接層。除此之外沒有其他變動，也不會執行任何 Babel preset。
+
+```tsx
+import {render} from "solid-js/web";
+import {createSignal} from "solid-js";
+
+function Counter() {
+  const [count, setCount] = createSignal(0);
+
+  return (
+    <button onClick={() => setCount(count() + 1)}>count {() => count()}</button>
+  );
+}
+
+const root = document.getElementById("root");
+
+if (root) render(() => <Counter />, root);
+```
+
+## 需要事先評估的反應式限制
+
+Solid 通常以 `babel-preset-solid` 編譯 JSX，它會包裝每個動態運算式，讓 DOM 自行更新。Extension.js 不會執行這種編譯器，因此適用的是 hyperscript 的規則。
+
+### 把訊號當成函式傳入
+
+自動 JSX 執行期只在元素建立的那一刻讀取一次 `{count()}`。那個值之後就不會再變。改成傳入函式，繫結就會維持反應式：
+
+```jsx
+<p>{() => count()}</p>
+```
+
+同樣的規則也適用於屬性與流程控制。`<Show when={count() > 0}>` 的條件只會讀取一次，所以需要反應的 `when` 也要寫成函式形式。
+
+### 執行期必須只有一份
+
+內附的轉接層以 Node 解析方式解析 `solid-js/h`，得到的是 CommonJS 建置產物。你自己的 `import` 陳述式則解析到 ECMAScript 建置產物，於是 bundle 裡出現兩份 Solid 執行期。在其中一份建立的訊號，對另一份的 DOM 繫結是看不見的，什麼都不會更新。
+
+把別名指向 ECMAScript 建置產物，兩份就會收斂成一份：
+
+```js
+import {createRequire} from "node:module";
+
+const require = createRequire(import.meta.url);
+
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      "solid-js/h$": require.resolve("solid-js/h/dist/h.js"),
+    };
+
+    return config;
+  },
+};
+```
+
+這個檔案是專案根目錄下的 `extension.config.js`。別名的值是 `solid-js` 套件內部的路徑，所以在 Solid 大版本升級之後請再確認一次。
+
+### 更新透過 live reload 生效
+
+fast refresh 只涵蓋 React 與 Svelte。Solid 的一次編輯會重新載入並重新掛載受影響的介面，因此元件狀態不會在編輯後保留。
+
+## 疑難排解
+
+- **出現關於 `react/jsx-runtime` 的 JSX 錯誤：** 在 `tsconfig.json` 加上 `jsxImportSource`。
+- **首次算繪正確，之後不再更新：** 加上上面的別名。
+- **某個值仍然從不更新：** 寫成 `{() => value()}`，而不是 `{value()}`。
+- **沒有偵測到 Solid 整合：** 確認 `package.json` 內有 `solid-js`。
+
+## 後續步驟
+
+- 在[語言與框架](/zh-Hant/docs/languages-and-frameworks/index)比較其他選項。
+- 閱讀 [TypeScript 支援](/zh-Hant/docs/languages-and-frameworks/typescript)，了解其餘的型別設定。
+- 閱讀 [Rspack 設定](/zh-Hant/docs/features/rspack-configuration)，了解 `config` 掛鉤。
