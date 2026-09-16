@@ -18,12 +18,15 @@ const snapshot: Record<string, string[]> = JSON.parse(
 
 function walkMdx(dir: string, found: string[] = []): string[] {
   if (!existsSync(dir)) return found;
+
   for (const entry of readdirSync(dir)) {
     if (entry === "node_modules" || entry.startsWith(".")) continue;
+
     const full = resolve(dir, entry);
     if (statSync(full).isDirectory()) walkMdx(full, found);
     else if (entry.endsWith(".mdx") || entry.endsWith(".md")) found.push(full);
   }
+
   return found;
 }
 
@@ -42,10 +45,13 @@ function collectFencedCommands(file: string): FencedCommand[] {
 
   lines.forEach((rawLine, index) => {
     const trimmed = rawLine.trim();
+
     if (trimmed.startsWith("```")) {
       inFence = !inFence;
+
       return;
     }
+
     if (!inFence) return;
 
     const match = trimmed.match(
@@ -95,7 +101,9 @@ describe("fenced extension commands only use flags the verb accepts", () => {
 
     for (const command of fenced) {
       if (!(command.verb in snapshot)) continue;
+
       const accepted = new Set(snapshot[command.verb] || []);
+
       for (const flag of command.flags) {
         if (!accepted.has(flag)) {
           offenders.push(

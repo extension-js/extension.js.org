@@ -140,6 +140,7 @@ describe("store data", () => {
       rating: 4.9,
       version: "2.3.3",
     });
+
     expect(detail?.iconUrl).toMatch(/^https:\/\/lh3\.googleusercontent\.com\//);
   });
 
@@ -171,6 +172,7 @@ describe("store data", () => {
       rating: 4.91,
       version: "2.3.3",
     });
+
     expect(mapAmoAddon({})).toBeNull();
   });
 
@@ -188,6 +190,7 @@ describe("store data", () => {
       iconUrl: "https://store-images.s-microsoft.com/image/logo",
       users: 5326,
     });
+
     expect(mapEdgeProduct(null)).toBeNull();
   });
 });
@@ -223,6 +226,7 @@ describe("merging stats", () => {
       statsCheckedAt: "2026-09-15",
       description: { en: "Hand-written." },
     });
+
     for (const key of ["rating", "version", "stars"]) {
       expect(project, `${key} must not be stored`).not.toHaveProperty(key);
     }
@@ -256,11 +260,13 @@ describe("the snippet data block", () => {
   it("reads the projects between the generated markers", () => {
     const projects = readProjects(SNIPPET);
     expect(projects.length).toBeGreaterThan(0);
+
     for (const project of projects) {
       expect(project.slug, "every project needs a slug").toBeTruthy();
       expect(project.repo, `${project.slug} needs a repo`).toMatch(
         /^https:\/\/github\.com\//,
       );
+
       expect(
         project.description?.en,
         `${project.slug} needs an English description`,
@@ -302,6 +308,7 @@ describe("code search results", () => {
         ],
       }),
     ).toEqual(["mantou132/browser4agent"]);
+
     expect(parseCodeSearchRepos(undefined)).toEqual([]);
   });
 });
@@ -311,9 +318,11 @@ describe("the showcase bar", () => {
     expect(meetsShowcaseBar({ storeIds: { chrome: "a" }, users: 290 })).toBe(
       true,
     );
+
     expect(meetsShowcaseBar({ storeIds: { firefox: "b" }, users: 97 })).toBe(
       false,
     );
+
     expect(meetsShowcaseBar({ storeIds: {}, users: 5000 })).toBe(false);
     expect(meetsShowcaseBar({ users: 5000 })).toBe(false);
   });
@@ -379,6 +388,7 @@ describe("the add-your-project steps", () => {
           .trim(),
       );
       expect(steps).toHaveLength(4);
+
       for (const step of steps) {
         expect(step.length, step).toBeLessThanOrEqual(36);
       }

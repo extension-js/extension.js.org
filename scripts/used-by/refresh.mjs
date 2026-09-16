@@ -1,18 +1,5 @@
 #!/usr/bin/env node
-// Refreshes the used-by showcase.
-//
-// 1. Stats: for every project in snippets/used-by.jsx, reads users from the
-//    stores it lists and writes them back in place. Users order the grid and
-//    prove the store bar. Hand-written fields are never touched.
-// 2. Discovery: walks GitHub's dependents list for the `extension` package and
-//    verifies each repository really builds with Extension.js. Verified
-//    projects are only listed in the report. A person adds them to the page.
-//
-// Usage:
-//   node scripts/used-by/refresh.mjs [--dry-run] [--no-discover]
-//     [--body <path>] [--candidates <path>] [--max-pages 25]
-//     [--verify-limit 150] [--min-stars 5]
-// GITHUB_TOKEN raises the GitHub API limit from 60 to 5,000 requests an hour.
+
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,6 +51,7 @@ function parseArgs(argv) {
     verifyLimit: 150,
     minStars: 5,
   };
+
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--dry-run") options.dryRun = true;
@@ -75,6 +63,7 @@ function parseArgs(argv) {
     else if (arg === "--min-stars") options.minStars = Number(argv[++i]);
     else throw new Error(`Unknown argument: ${arg}`);
   }
+
   return options;
 }
 
@@ -89,6 +78,7 @@ async function request(url, headers = {}) {
     signal: AbortSignal.timeout(20_000),
   });
   if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+
   return response;
 }
 
@@ -111,6 +101,7 @@ async function fetchStats(project) {
       : {};
   const stats = {};
   const errors = [];
+
   if (ids.chrome) {
     try {
       const html = await getText(
@@ -118,13 +109,16 @@ async function fetchStats(project) {
         { "user-agent": BROWSER_UA },
       );
       stats.chrome = parseChromeDetail(html);
+
       if (!stats.chrome) errors.push("Chrome Web Store page had no og:title");
-      else if (stats.chrome.users === null)
+      else if (stats.chrome.users === null) {
         errors.push("Chrome Web Store user count not found");
+      }
     } catch (error) {
       errors.push(`Chrome Web Store: ${error.message}`);
     }
   }
+
   if (ids.firefox) {
     try {
       stats.firefox = mapAmoAddon(
@@ -132,11 +126,13 @@ async function fetchStats(project) {
           `https://addons.mozilla.org/api/v5/addons/addon/${encodeURIComponent(ids.firefox)}/`,
         ),
       );
+
       if (!stats.firefox) errors.push("Firefox Add-ons returned no add-on");
     } catch (error) {
       errors.push(`Firefox Add-ons: ${error.message}`);
     }
   }
+
   if (ids.edge) {
     try {
       stats.edge = mapEdgeProduct(
@@ -144,22 +140,26 @@ async function fetchStats(project) {
           `https://microsoftedge.microsoft.com/addons/getproductdetailsbycrxid/${ids.edge}`,
         ),
       );
+
       if (!stats.edge) errors.push("Edge Add-ons returned no product");
     } catch (error) {
       errors.push(`Edge Add-ons: ${error.message}`);
     }
   }
+
   return { stats, errors };
 }
 
 async function discoverDependents(maxPages) {
   const found = new Map();
   let cursor = null;
+
   for (let page = 0; page < maxPages; page++) {
     const url = cursor
       ? `${DEPENDENTS_URL}&dependents_after=${cursor}`
       : DEPENDENTS_URL;
     let html;
+
     try {
       html = await getText(url, { "user-agent": BROWSER_UA });
     } catch (error) {
@@ -168,12 +168,15 @@ async function discoverDependents(maxPages) {
         error: `dependents page ${page + 1}: ${error.message}`,
       };
     }
+
     const { rows, next } = parseDependentsPage(html);
     for (const row of rows) found.set(row.fullName.toLowerCase(), row);
     if (!next || rows.length === 0) break;
+
     cursor = next;
     await sleep(1500);
   }
+
   return { repos: [...found.values()], error: null };
 }
 
@@ -185,17 +188,23 @@ const CODE_SEARCH_QUERIES = [
 // Best effort: code search needs a token, and some tokens are not allowed to
 // use it. A refusal is reported and discovery continues with the dependents list.
 async function discoverByCodeSearch(limit) {
-  if (!TOKEN)
+  if (!TOKEN) {
     return { repos: [], error: "code search skipped: no GITHUB_TOKEN" };
+  }
+
   const found = new Map();
+
   for (const query of CODE_SEARCH_QUERIES) {
     for (let page = 1; page <= 2; page++) {
       try {
         const json = await github(
           `/search/code?q=${encodeURIComponent(query)}&per_page=100&page=${page}`,
         );
-        for (const name of parseCodeSearchRepos(json))
+
+        for (const name of parseCodeSearchRepos(json)) {
           found.set(name.toLowerCase(), name);
+        }
+
         if (!json.items || json.items.length < 100) break;
       } catch (error) {
         return {
@@ -203,9 +212,11 @@ async function discoverByCodeSearch(limit) {
           error: `code search: ${error.message}`,
         };
       }
+
       await sleep(7000);
     }
   }
+
   return { repos: [...found.values()].slice(0, limit), error: null };
 }
 
@@ -219,9 +230,11 @@ async function verifyRepository(fullName) {
   const repo = await github(`/repos/${fullName}`);
   if (repo.fork) return { ok: false, fullName, reason: "fork" };
   if (repo.archived) return { ok: false, fullName, reason: "archived" };
+
   if (FIRST_PARTY_OWNERS.has(repo.owner.login.toLowerCase())) {
     return { ok: false, fullName, reason: "first-party repository" };
   }
+
   const branch = repo.default_branch;
   const tree = await github(
     `/repos/${fullName}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
@@ -237,28 +250,37 @@ async function verifyRepository(fullName) {
         /(^|\/)package\.json$/.test(path) && !path.includes("node_modules/"),
     )
     .slice(0, 40);
+
   for (const packagePath of packageFiles) {
     let pkg;
+
     try {
       pkg = JSON.parse(await readRaw(fullName, branch, packagePath));
     } catch {
       continue;
     }
+
     const check = checkPackageJson(pkg);
     if (!check.dependency || !check.cli) continue;
+
     const dir = packagePath.includes("/")
       ? packagePath.slice(0, packagePath.lastIndexOf("/") + 1)
       : "";
-    if (!MANIFEST_PATHS.some((relative) => files.has(`${dir}${relative}`)))
+
+    if (!MANIFEST_PATHS.some((relative) => files.has(`${dir}${relative}`))) {
       continue;
+    }
+
     const readRepoFile = async (path) => {
       if (!files.has(path)) return "";
+
       try {
         return await readRaw(fullName, branch, path);
       } catch {
         return "";
       }
     };
+
     const picked = pickStoreIds({
       inSubfolder: dir !== "",
       packageReadme: dir ? await readRepoFile(`${dir}README.md`) : "",
@@ -266,6 +288,7 @@ async function verifyRepository(fullName) {
       homepage: repo.homepage || "",
       description: repo.description || "",
     });
+
     return {
       ok: true,
       fullName,
@@ -280,6 +303,7 @@ async function verifyRepository(fullName) {
       ignoredRootStoreIds: picked.ignoredRoot,
     };
   }
+
   return {
     ok: false,
     fullName,
@@ -295,6 +319,7 @@ function storeCell(candidate) {
     ignored.length > 0
       ? ` (root README links ${ignored.join(", ")}, not counted)`
       : "";
+
   return `${storeLinks(candidate.storeIds)}${note}`;
 }
 
@@ -302,6 +327,7 @@ function storeLinks(storeIds) {
   const links = STORE_KEYS.filter((key) => storeIds[key]).map(
     (key) => `[${key}](${storeUrl(key, storeIds[key])})`,
   );
+
   return links.length > 0 ? links.join(", ") : "none";
 }
 
@@ -336,6 +362,7 @@ function renderCandidates(candidates) {
     ],
     ["## No store listing found", candidates.filter((c) => !listed(c))],
   ];
+
   for (const [heading, rows] of sections) {
     lines.push(
       heading,
@@ -344,6 +371,7 @@ function renderCandidates(candidates) {
       "",
     );
   }
+
   return lines.join("\n");
 }
 
@@ -356,10 +384,12 @@ async function main() {
   const statRows = [];
   const refreshed = [];
   let changedCount = 0;
+
   for (const project of projects) {
     const { stats, errors } = await fetchStats(project);
     const { project: next, changed } = mergeStats(project, stats, checkedAt);
     if (changed) changedCount++;
+
     refreshed.push(next);
     statRows.push({ project: next, changed, errors });
   }
@@ -367,6 +397,7 @@ async function main() {
   let candidates = [];
   const rejected = [];
   const notes = [];
+
   if (options.discover) {
     const listed = new Set(
       projects.map((project) =>
@@ -377,14 +408,19 @@ async function main() {
       options.maxPages,
     );
     if (error) notes.push(error);
+
     const searched = await discoverByCodeSearch(150);
     if (searched.error) notes.push(searched.error);
+
     const byName = new Map(
       dependents.map((row) => [row.fullName.toLowerCase(), row]),
     );
+
     for (const name of searched.repos) {
-      if (byName.has(name.toLowerCase()) || listed.has(name.toLowerCase()))
+      if (byName.has(name.toLowerCase()) || listed.has(name.toLowerCase())) {
         continue;
+      }
+
       try {
         const meta = await github(`/repos/${name}`);
         byName.set(name.toLowerCase(), {
@@ -395,10 +431,12 @@ async function main() {
         // Ignore
       }
     }
+
     const repos = [...byName.values()];
     notes.push(
       `Dependents page: ${dependents.length} repositories. Code search: ${searched.repos.length} repositories.`,
     );
+
     const queue = repos
       .filter((row) => !listed.has(row.fullName.toLowerCase()))
       .filter((row) => row.stars >= options.minStars)
@@ -407,13 +445,16 @@ async function main() {
     notes.push(
       `Dependents seen: ${repos.length}. Checked: ${queue.length} (at least ${options.minStars} stars, not already listed).`,
     );
+
     for (const row of queue) {
       try {
         const result = await verifyRepository(row.fullName);
+
         if (!result.ok) {
           rejected.push(result);
           continue;
         }
+
         if (Object.keys(result.storeIds).length > 0) {
           const { stats } = await fetchStats({
             storeIds: result.storeIds,
@@ -429,6 +470,7 @@ async function main() {
           );
           result.users = bucketCount(total);
         }
+
         result.meetsBar = meetsShowcaseBar(result);
         candidates.push(result);
       } catch (error) {
@@ -449,6 +491,7 @@ async function main() {
       });
       await writeFile(SNIPPET, next);
     }
+
     if (options.discover) {
       await mkdir(dirname(options.candidates), { recursive: true });
       const markdown = await format(renderCandidates(candidates), {
@@ -510,6 +553,7 @@ async function main() {
   } else {
     process.stdout.write(`${body}\n`);
   }
+
   process.stdout.write(
     `used-by: ${changedCount} project(s) with new stats, ${candidates.length} candidate(s), ${rejected.length} rejected.\n`,
   );

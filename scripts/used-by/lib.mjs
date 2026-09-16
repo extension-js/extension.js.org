@@ -1,5 +1,3 @@
-// Pure helpers for the used-by showcase refresh. No network and no file
-// access here, so every rule that decides what reaches the page is tested.
 import vm from "node:vm";
 
 export const GENERATED_START = "// @generated:start";
@@ -16,8 +14,10 @@ function parseVersion(text) {
     String(text).trim(),
   );
   if (!m) return null;
+
   const part = (v) =>
     v === undefined || v === "x" || v === "*" ? 0 : Number(v);
+
   return [Number(m[1]), part(m[2]), part(m[3])];
 }
 
@@ -25,6 +25,7 @@ function compareVersions(a, b) {
   for (let i = 0; i < 3; i++) {
     if (a[i] !== b[i]) return a[i] - b[i];
   }
+
   return 0;
 }
 
@@ -36,40 +37,53 @@ export function lowestVersion(range) {
     .map((alt) => alt.trim())
     .filter(Boolean);
   if (alternatives.length === 0) return null;
+
   let lowest = null;
+
   for (const alt of alternatives) {
     const tokens = alt.split(/\s+/).filter(Boolean);
     let altLow = null;
+
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
       if (token === "-" || token.startsWith("<")) continue;
+
       const op = /^(>=|>|=|\^|~)?/.exec(token)[1] || "";
       let rest = token.slice(op.length);
       if (!rest && tokens[i + 1]) rest = tokens[++i];
+
       const version = parseVersion(rest);
       if (!version) return null;
       if (op === ">") version[2] += 1;
       // Inside one alternative every lower bound must hold, so the highest wins.
       if (!altLow || compareVersions(version, altLow) > 0) altLow = version;
     }
+
     if (!altLow) return null;
     if (!lowest || compareVersions(altLow, lowest) < 0) lowest = altLow;
   }
+
   return lowest;
 }
 
 export function isExtensionJsSpec(spec) {
   if (typeof spec !== "string") return false;
+
   let value = spec.trim();
+
   if (value.startsWith("npm:")) {
     const alias = /^npm:extension@(.+)$/.exec(value);
     if (!alias) return false;
+
     value = alias[1].trim();
   }
+
   if (DIST_TAGS.has(value)) return true;
   if (/^0\.0\.0-next-\d+/.test(value)) return true;
   if (/^[a-z]+:/i.test(value) || value.includes("/")) return false;
+
   const low = lowestVersion(value);
+
   return low !== null && compareVersions(low, MIN_EXTENSION_JS) >= 0;
 }
 
@@ -81,13 +95,16 @@ const WORKSPACE_SELECTOR =
 
 export function callsExtensionCli(scripts) {
   if (!scripts || typeof scripts !== "object") return false;
+
   for (const value of Object.values(scripts)) {
     if (typeof value !== "string") continue;
+
     for (const match of value.matchAll(CLI_CALL)) {
       const before = value.slice(0, match.index + match[1].length).trimEnd();
       if (!WORKSPACE_SELECTOR.test(before)) return true;
     }
   }
+
   return false;
 }
 
@@ -96,6 +113,7 @@ export function checkPackageJson(pkg) {
     (pkg && pkg.devDependencies && pkg.devDependencies.extension) ??
     (pkg && pkg.dependencies && pkg.dependencies.extension) ??
     null;
+
   return {
     spec,
     dependency: isExtensionJsSpec(spec),
@@ -111,26 +129,35 @@ export function findStoreIds(text) {
       source,
     );
   if (chrome) ids.chrome = chrome[1];
+
   const firefox =
     /addons\.mozilla\.org\/(?:[a-z]{2}(?:-[A-Za-z]{2})?\/)?firefox\/addon\/([^/\s)"'?#]+)/.exec(
       source,
     );
   if (firefox) ids.firefox = decodeURIComponent(firefox[1]);
+
   const edge =
     /microsoftedge\.microsoft\.com\/addons\/detail\/(?:[^/\s)"'?#]+\/)?([a-z]{32})/.exec(
       source,
     );
   if (edge) ids.edge = edge[1];
+
   return ids;
 }
 
 export function storeUrl(store, id) {
-  if (store === "chrome")
+  if (store === "chrome") {
     return `https://chromewebstore.google.com/detail/${id}`;
-  if (store === "firefox")
+  }
+
+  if (store === "firefox") {
     return `https://addons.mozilla.org/firefox/addon/${id}/`;
-  if (store === "edge")
+  }
+
+  if (store === "edge") {
     return `https://microsoftedge.microsoft.com/addons/detail/${id}`;
+  }
+
   return null;
 }
 
@@ -146,9 +173,12 @@ function decodeEntities(text) {
 export function parseCount(text) {
   const match = /^([\d,.]+)\s*([KM])?/i.exec(String(text).trim());
   if (!match) return null;
+
   const base = Number(match[1].replace(/,/g, ""));
   if (!Number.isFinite(base)) return null;
+
   const unit = (match[2] || "").toUpperCase();
+
   return Math.round(base * (unit === "M" ? 1e6 : unit === "K" ? 1e3 : 1));
 }
 
@@ -160,13 +190,17 @@ export function parseChromeDetail(html) {
     const match = new RegExp(
       `<meta property="og:${property}" content="([^"]*)"`,
     ).exec(html);
+
     return match ? decodeEntities(match[1]) : null;
   };
+
   const title = meta("title");
   if (!title) return null;
+
   const users = /(\d[\d,.]*\s*[KM]?)\+?\s+users\b/.exec(html);
   const rating = /(\d(?:\.\d)?) out of 5/.exec(html);
   const version = />Version<\/div>\s*<div[^>]*>\s*([^<\s]+)/.exec(html);
+
   return {
     name: title.replace(/\s+-\s+Chrome Web Store$/, ""),
     iconUrl: meta("image"),
@@ -180,7 +214,9 @@ export function parseChromeDetail(html) {
 
 export function mapAmoAddon(json) {
   if (!json || typeof json !== "object" || !json.slug) return null;
+
   const names = json.name && typeof json.name === "object" ? json.name : {};
+
   return {
     name: names["en-US"] || Object.values(names)[0] || json.slug,
     iconUrl: (json.icons && json.icons["128"]) || json.icon_url || null,
@@ -198,7 +234,9 @@ export function mapAmoAddon(json) {
 
 export function mapEdgeProduct(json) {
   if (!json || typeof json !== "object" || !json.crxId) return null;
+
   const logo = json.logoUrl || null;
+
   return {
     name: json.name || null,
     iconUrl: logo && logo.startsWith("//") ? `https:${logo}` : logo,
@@ -216,7 +254,9 @@ export function mapEdgeProduct(json) {
 export function bucketCount(value) {
   if (!Number.isFinite(value) || value <= 0) return null;
   if (value < 100) return Math.floor(value);
+
   const step = 10 ** (Math.floor(Math.log10(value)) - 1);
+
   return Math.floor(value / step) * step;
 }
 
@@ -226,6 +266,7 @@ export function mergeStats(project, stats, checkedAt) {
     (key) => project.storeIds && project.storeIds[key],
   );
   const received = expected.filter((key) => stats[key]);
+
   // Summing a partial set would show a drop that did not happen, so users only
   // move when every listed store answered. Users order the grid and prove the
   // store bar. Cards show no counts, so nothing else is kept.
@@ -238,45 +279,57 @@ export function mergeStats(project, stats, checkedAt) {
     const users = bucketCount(total);
     if (users !== null) next.users = users;
   }
+
   const changed = next.users !== project.users;
   if (changed) next.statsCheckedAt = checkedAt;
+
   return { project: next, changed };
 }
 
 export function githubRepoOf(url) {
   const match = /github\.com\/([^/\s]+)\/([^/\s#?]+)/.exec(String(url || ""));
+
   return match ? `${match[1]}/${match[2].replace(/\.git$/, "")}` : null;
 }
 
 export function readProjects(source) {
   const start = source.indexOf(GENERATED_START);
   const end = source.indexOf(GENERATED_END);
+
   if (start < 0 || end < 0 || end < start) {
     throw new Error("used-by snippet: the @generated markers are missing");
   }
+
   const block = source.slice(start + GENERATED_START.length, end).trim();
   const match = /^const\s+projects\s*=\s*([\s\S]*?);?$/.exec(block);
+
   if (!match) {
     throw new Error(
       "used-by snippet: no `const projects = [...]` between the markers",
     );
   }
+
   const projects = vm.runInNewContext(`(${match[1]})`, Object.create(null), {
     timeout: 1000,
   });
+
   if (!Array.isArray(projects)) {
     throw new Error("used-by snippet: `projects` is not an array");
   }
+
   return projects;
 }
 
 export function writeProjects(source, projects) {
   const start = source.indexOf(GENERATED_START);
   const end = source.indexOf(GENERATED_END);
+
   if (start < 0 || end < 0 || end < start) {
     throw new Error("used-by snippet: the @generated markers are missing");
   }
+
   const indent = (/([ \t]*)\/\/ @generated:end/.exec(source) || ["", ""])[1];
+
   return (
     source.slice(0, start + GENERATED_START.length) +
     `\n${indent}const projects = ${JSON.stringify(projects, null, 2)};\n${indent}` +
@@ -291,12 +344,14 @@ export function parseDependentsPage(html) {
   const chunks = String(html)
     .split('data-test-id="dg-repo-pkg-dependent"')
     .slice(1);
+
   for (const chunk of chunks) {
     const repo =
       /data-hovercard-type="repository"[^>]*href="\/([^"/]+\/[^"/]+)"/.exec(
         chunk,
       );
     if (!repo) continue;
+
     const afterStar = chunk.split("octicon-star")[1] || "";
     const stars = /<\/svg>\s*([\d,]+)/.exec(afterStar);
     rows.push({
@@ -304,9 +359,11 @@ export function parseDependentsPage(html) {
       stars: stars ? Number(stars[1].replace(/,/g, "")) : 0,
     });
   }
+
   const next = /href="[^"]*dependents_after=([^"&]+)[^"]*"[^>]*>\s*Next/.exec(
     html,
   );
+
   return { rows, next: next ? next[1] : null };
 }
 
@@ -314,11 +371,14 @@ export function parseDependentsPage(html) {
 // second source. Results carry the repository, and forks are dropped here.
 export function parseCodeSearchRepos(json) {
   const names = new Map();
+
   for (const item of (json && json.items) || []) {
     const repo = item && item.repository;
     if (!repo || repo.fork || !repo.full_name) continue;
+
     names.set(repo.full_name.toLowerCase(), repo.full_name);
   }
+
   return [...names.values()];
 }
 
@@ -329,6 +389,7 @@ export const SHOWCASE_MIN_USERS = 100;
 export function meetsShowcaseBar(project) {
   const ids = (project && project.storeIds) || {};
   const listed = STORE_KEYS.some((key) => ids[key]);
+
   return (
     listed &&
     Number.isFinite(project.users) &&
@@ -348,5 +409,6 @@ export function pickStoreIds({
 }) {
   const rootIds = findStoreIds([rootReadme, homepage, description].join("\n"));
   if (!inSubfolder) return { storeIds: rootIds, ignoredRoot: {} };
+
   return { storeIds: findStoreIds(packageReadme), ignoredRoot: rootIds };
 }

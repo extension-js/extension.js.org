@@ -27,11 +27,13 @@ function extractLinks(content: string, pattern: RegExp): string[] {
   const found: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(clean))) found.push(m[1]);
+
   return found;
 }
 
 function pageExists(path: string): boolean {
   const base = resolve(ROOT, path.replace(/^\//, ""));
+
   return existsSync(`${base}.mdx`) || existsSync(resolve(base, "index.mdx"));
 }
 
@@ -54,6 +56,7 @@ describe("Translated pages keep the reader in their locale", () => {
           "g",
         ),
       );
+
       if (prefixed.length > 0) {
         it(`${relPath}: every ${locale} link resolves`, () => {
           const missing = prefixed.filter((link) => !pageExists(link));
@@ -69,6 +72,7 @@ describe("Translated pages keep the reader in their locale", () => {
         content,
         /(?:\]\(|(?:href|src)=")(\/(?:docs|blog)[^)"\s#]*)/g,
       );
+
       if (bare.length > 0) {
         it(`${relPath}: only links out to untranslated pages`, () => {
           const translated = bare.filter((link) =>
