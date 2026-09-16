@@ -136,6 +136,31 @@ The translation runs in the other direction too. In a Chromium MV3 build, a `bac
 
 Chromium MV3 rejects the whole extension whenever `background.scripts` is present, even next to a valid `service_worker`. Extension.js therefore always removes the `scripts` key from the emitted Chromium MV3 manifest. When the source declares both fields, the existing `service_worker` entry wins.
 
+## Safari: a background page, not a service worker
+
+Safari builds emit a non-persistent background page. Extension.js translates a `background.service_worker` entry into `background: {scripts: [...]}`, the same translation it runs for Firefox.
+
+The reason was measured. A Manifest V3 service worker never started on Safari 26.5.2, including for extensions built by Apple's own converter. A background page ran immediately. WebKit deliberately prefers the page form ([WebKit bug 270750](https://bugs.webkit.org/show_bug.cgi?id=270750)).
+
+<Warning>
+  One unguarded Chromium-only call at the **top level** of a background script
+  throws on Safari, and Safari then discards the background context. You get no
+  logs, no reload, and no error, so the extension looks dead. Guard the
+  call, or branch at build time.
+</Warning>
+
+```js
+// Throws on Safari and takes the whole background context with it.
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+// Safe on every target.
+chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
+```
+
+Safari builds also warn about the extension APIs that Safari lacks, which is the cheapest way to find this before you start debugging. See [Building Safari extensions](/docs/browsers/safari).
+
+{/* TODO(version): name the release that ships the Safari background-page emission and the build-time API warnings. Merged as 0508e40cd, unreleased as of 4.1.19. */}
+
 ## MV3 service worker lifecycle
 
 `background.service_worker` runs under the browser's service-worker lifecycle, not as a long-running process.
