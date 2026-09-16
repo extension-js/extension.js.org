@@ -73,16 +73,16 @@ The scripts that the scaffolder writes are manager-agnostic. Each one calls the 
 
 ## Why the CLI needs Node
 
-The published packages declare `"engines": {"node": ">=22.12"}`. The CLI checks `process.versions.node` at startup and stops when the version is too low.
+The published packages declare `"engines": {"node": ">=22.12"}`. The CLI checks the runtime at startup: it stops on a Node version below that floor, and it stops on Bun whatever version Bun reports.
 
-Bun reports a Node compatibility version that is lower than that floor. Forcing the Bun runtime therefore trips the guard:
+The refusal is about the runtime, not about a version number. Bun is detected through `process.versions.bun`, which the runtime sets itself, so every route into it is covered: the `--bun` flag on `bunx` and `bun run`, and a `run.bun` default in `bunfig.toml`. Forcing the Bun runtime trips the guard:
 
 ```bash
 bunx --bun extension@latest --version
 ```
 
 ```plaintext
-[Extension.js] The extension CLI runs on Node.js, not on the Bun runtime. Bun 1.2.13 emulates Node.js 22.6.0, below the required 22.12, so the Node.js you have installed is not the problem. Re-run without the --bun flag, plain bunx runs the extension CLI on Node.js.
+[Extension.js] The extension CLI runs on Node.js, not on the Bun runtime (Bun 1.2.13, reporting Node.js 22.6.0), so the Node.js you have installed is not the problem. Run it on Node.js instead: drop --bun from bunx or bun run, or unset run.bun in bunfig.toml, plain bunx runs the extension CLI on Node.js.
 ```
 
 Drop `--bun` and the same command works. Plain `bunx` respects the `#!/usr/bin/env node` shebang on the CLI binary, so the process runs on Node while Bun handles resolution and caching.

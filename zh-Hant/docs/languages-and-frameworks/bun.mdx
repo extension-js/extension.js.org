@@ -73,16 +73,16 @@ bun run build
 
 ## CLI 為什麼需要 Node
 
-發佈出去的套件宣告了 `"engines": {"node": ">=22.12"}`。CLI 在啟動時檢查 `process.versions.node`，版本太低就停下來。
+發佈出去的套件宣告了 `"engines": {"node": ">=22.12"}`。CLI 在啟動時檢查執行階段：Node 版本低於這個下限會停下來，而只要執行階段是 Bun，無論它回報什麼版本都會停下來。
 
-Bun 回報的 Node 相容版本低於這個下限。因此強行採用 Bun 執行階段會觸發這道防護：
+這道拒絕針對的是執行階段，而不是某個版本號。Bun 是透過 `process.versions.bun` 辨識的，這個值由執行階段自己設定，所以進入 Bun 的每一條路徑都被涵蓋：`bunx` 與 `bun run` 上的 `--bun` 旗標，以及 `bunfig.toml` 裡的 `run.bun` 預設值。強行採用 Bun 執行階段會觸發這道防護：
 
 ```bash
 bunx --bun extension@latest --version
 ```
 
 ```plaintext
-[Extension.js] The extension CLI runs on Node.js, not on the Bun runtime. Bun 1.2.13 emulates Node.js 22.6.0, below the required 22.12, so the Node.js you have installed is not the problem. Re-run without the --bun flag, plain bunx runs the extension CLI on Node.js.
+[Extension.js] The extension CLI runs on Node.js, not on the Bun runtime (Bun 1.2.13, reporting Node.js 22.6.0), so the Node.js you have installed is not the problem. Run it on Node.js instead: drop --bun from bunx or bun run, or unset run.bun in bunfig.toml, plain bunx runs the extension CLI on Node.js.
 ```
 
 拿掉 `--bun`，同一條指令就能用。單純的 `bunx` 會尊重 CLI 執行檔上的 `#!/usr/bin/env node` shebang，所以行程跑在 Node 上，而解析與快取交給 Bun。
