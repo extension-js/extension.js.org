@@ -1,6 +1,6 @@
 ---
 title: "Building Safari extensions with Extension.js"
-description: "Build your web extension into a Safari app on macOS with Extension.js. Covers requirements, the dev and build workflow, and known limitations."
+description: "Develop and build your web extension as a Safari app on macOS with Extension.js. Covers requirements, the dev loop, logs, reload, and known limitations."
 keywords:
   [
     "extension.js",
@@ -15,16 +15,23 @@ keywords:
   ]
 ---
 
-Package your existing web extension into a native Safari app on macOS, with no
-separate Xcode project to maintain by hand.
+Develop a web extension against Safari on macOS, with no separate Xcode project
+to maintain by hand.
 
 <Note>
-  Safari is supported on **macOS only** and requires the full Xcode app. The
-  build → convert → `xcodebuild` → open pipeline covers `build` and `dev`;
-  `preview` and `start` are not available, and there is no live reload yet.
+  Safari is supported on **macOS only** and requires the full Xcode app. `dev`
+  and `build` both work. `preview` and `start` do not, for the reason described
+  in [Command support](#command-support).
 </Note>
 
-Use `--browser=safari` to turn the same extension you ship to Chrome and Firefox into a Safari App Extension. Extension.js bundles your code, runs Apple's `safari-web-extension-converter`, compiles the generated app with `xcodebuild`, and walks you through enabling it.
+`extension dev --browser safari` bundles your code, converts it with Apple's `safari-web-extension-converter`, builds and signs an app with `xcodebuild`, and opens it. You enable the extension once in Safari Settings. After that, `extension logs` streams background and content rows, the control bridge attaches, and every save reloads the extension in Safari.
+
+{/* TODO(version): name the release that ships the Safari dev loop (logs, control bridge, automatic reload) in the Note and the paragraph above. Merged as 0508e40cd, unreleased as of 4.1.19. */}
+
+<Note>
+  The behavior on this page was measured on macOS 26.5.2, Safari 26.5.2, and
+  Xcode 26.6. Safari 27 exists and was not re-measured.
+</Note>
 
 <Frame>
   <iframe
@@ -37,9 +44,9 @@ Use `--browser=safari` to turn the same extension you ship to Chrome and Firefox
   />
 </Frame>
 
-## Requirements
+## What you need
 
-Safari is **macOS-only** and needs the **full Xcode app**, not just the Command Line Tools. The converter (`safari-web-extension-converter`) and `xcodebuild` ship inside `Xcode.app`.
+Safari is **macOS only** and needs the **full Xcode app**, not just the Command Line Tools. The converter (`safari-web-extension-converter`) and `xcodebuild` ship inside `Xcode.app`.
 
 ```bash
 # Install Xcode from the Mac App Store, then point the toolchain at it:
@@ -47,7 +54,9 @@ sudo xcode-select --switch /Applications/Xcode.app
 xcodebuild -runFirstLaunch
 ```
 
-If Xcode is missing, `extension build`/`dev --browser=safari` fail fast, before bundling, with guidance instead of a late, confusing error.
+A paid Apple Developer account is **not** required. Without `--development-team` the app is signed ad-hoc, and Safari accepts an ad-hoc signed app: it lists the extension like any other, with the Develop menu setting **Allow unsigned extensions** turned off. That setting belongs to a different path, described in [Temporary extensions](#temporary-extensions-no-xcode).
+
+If Xcode is missing, `extension dev` and `extension build` for Safari targets fail fast, before bundling, with guidance instead of a late, confusing error.
 
 ## What it produces
 
@@ -120,24 +129,14 @@ nothing to run.
 
 ## Enabling the extension in Safari
 
-How you enable the extension depends on how the app was signed. Extension.js
-prints the steps that match your build when the app opens (`dev`, or
-`build --open`), and confirms when macOS has registered the extension.
+Extension.js prints the steps that match your build when the app opens (`dev`,
+or `build --open`), and confirms when macOS has registered the extension.
 
-### Signed builds (recommended)
-
-Pass `--development-team` with your Apple Developer team id and the app is
-signed with your own certificate:
-
-```bash
-extension dev --browser safari --development-team A1B2C3D4E5
-```
-
-Safari then lists the extension like any other, and there is one step:
+The one-time gesture is the same for signed and ad-hoc builds:
 
 1. Safari ▸ Settings ▸ Extensions ▸ turn on your extension.
 
-The toggle survives restarts, so this is a one-time step per machine.
+The toggle survives Safari restarts, so this is genuinely one time per machine, not once per launch.
 
 Turning the extension **on is not the same as giving it access to pages**.
 Safari asks for website access separately, and until you grant it a content
@@ -148,36 +147,45 @@ surprises people coming from Chrome, where installing grants it.
 
 In the same panel, under **Permissions**, use:
 
-- **Always Allow on Every Website…** for a development extension you are
+- **Always Allow on Every Website…** for a development extension that you are
   iterating on. It persists, so you grant it once.
-- **Edit Websites…** to allow only the hosts you are testing against.
+- **Edit Websites…** to allow only the hosts that you are testing against.
 
 If your extension loads but nothing happens on the page, this is almost always
 why. Check the permission before you go looking at your code.
+
+### Signed builds with an Apple Developer team
+
+Pass `--development-team` with your Apple Developer team id and the app is
+signed with your own certificate:
+
+```bash
+extension dev --browser safari --development-team A1B2C3D4E5
+```
 
 To find your team id, run `xcrun security find-identity -v -p codesigning`. The
 ten-character code in the certificate name is your team id, and it is also on
 the Membership page of your Apple Developer account.
 
+Team signing is what you need for distribution. For day-to-day development it
+changes nothing about how Safari lists or runs the extension.
+
 ### Ad-hoc builds (no Apple Developer account)
 
-Without `--development-team` the build is ad-hoc signed, which Safari treats as
-unsigned. It still runs, with three steps:
+Without `--development-team` the app is ad-hoc signed. Safari lists it and runs
+it, and the enable gesture above is the whole setup. This was measured with
+Safari ▸ Develop ▸ **Allow unsigned extensions** turned **off**.
 
-1. Safari ▸ Settings ▸ Advanced ▸ check **"Show features for web developers"**.
-2. Safari ▸ Develop ▸ **Allow Unsigned Extensions** (this resets every time Safari restarts).
-3. Safari ▸ Settings ▸ Extensions ▸ turn on your extension.
-4. Grant website access, exactly as described above. Enabling alone does not
-   let a content script run.
+### Temporary extensions (no Xcode)
 
-<Note>
-  "Allow Unsigned Extensions" resets each time you launch Safari, and it cannot
-  be scripted or saved in preferences, so every restart costs you the same three
-  steps. If you have an Apple Developer account, `--development-team` is worth
-  it for day-to-day development, not just for shipping.
-</Note>
+Safari has a second path that Extension.js does not drive: Safari ▸ Settings ▸
+Developer ▸ **Add Temporary Extension…**, which loads an unpacked folder such as
+`dist/safari` with no Xcode step at all. It needs **Allow unsigned extensions**,
+and the extension disappears when Safari quits, or after 24 hours. Use it for a
+quick look at a bundle. Use `extension dev` for a dev loop that survives a
+restart.
 
-## Developing with `dev`
+## The dev loop
 
 `extension dev --browser=safari` runs a watch loop:
 
@@ -186,11 +194,14 @@ npx extension dev --browser=safari
 ```
 
 - **First compile**: full package: convert, build, open the app, and print the enable steps.
-- **On every save**: incremental `xcodebuild` resync (typically a couple of seconds) that updates the app's resources from the freshly rebuilt `dist/safari`.
+- **On every save**: an incremental `xcodebuild` resync updates the app's resources from the freshly rebuilt `dist/safari`, and the extension reloads in Safari.
 
-Resyncs run in the background so the bundler loop is never blocked. A burst of saves collapses to a single follow-up resync against the newest output, so five quick saves cost one rebuild, not five. If the first full package fails, the next compile retries the full flow instead of resyncing a project that was never built.
+Once the extension is enabled, the loop needs no further clicking. Measured on
+Safari 26.5.2, a save reaches a reloaded extension in roughly 4 seconds.
 
-Safari has no live-reload channel like Chromium or Firefox, so after a rebuild **refresh the page (or toggle the extension)** in Safari to pick up changes.
+### What one save costs
+
+Resyncs run in the background, so the bundler loop is never blocked. A burst of saves collapses to a single follow-up resync against the newest output, so five quick saves cost one rebuild, not five. If the first full package fails, the next compile retries the full flow instead of resyncing a project that was never built.
 
 ### When the Xcode project regenerates
 
@@ -206,7 +217,7 @@ Regeneration replaces the project: customizations made in
 Xcode (entitlements, capabilities, added files or targets) are **discarded**.
 Only these signing settings are preserved automatically: `DEVELOPMENT_TEAM`,
 `CODE_SIGN_STYLE`, and `PROVISIONING_PROFILE_SPECIFIER`. Extension.js warns
-before every regeneration of an existing project; if you customized the project
+before every regeneration of an existing project. If you customized the project
 in Xcode, back it up first. Delete `dist/safari-xcode` for a clean slate.
 
 ### How the bundle id is enforced
@@ -240,12 +251,98 @@ a not-yet-registered note. Under `--no-open` (and plain `build` without
 `--open`) the app never launches, so registration cannot happen yet. The poll is
 skipped and the CLI prints the `open` command instead.
 
+## Reading logs
+
+A Safari dev session is a normal session for [`logs`](/docs/commands/logs):
+
+```bash
+extension logs --browser safari --follow
+```
+
+Background rows and content-script rows arrive in the same stream as they do on Chromium, with the same `--context`, `--level`, and `--output` filters.
+
+{/* TODO(version): name the release that ships logs and the control bridge for Safari sessions. */}
+
+A silent stream after an edit is the symptom described in the next section. It means the background context is gone, not that logging is unsupported.
+
+## The one call that kills a Safari background
+
+One unguarded Chromium-only call at the **top level** of a background script
+throws on Safari. Safari then discards the background context, and you get no
+logs, no reload, and no error anywhere. The extension looks dead.
+
+```js
+// Kills the background on Safari: sidePanel does not exist there.
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+```
+
+Guard the call, or branch at build time:
+
+```js
+// Optional chaining is enough for a call you can skip.
+chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
+
+// Or keep the code out of the Safari bundle entirely.
+if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "safari") {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+```
+
+The same code inside an event listener is survivable, because only that callback
+throws. At the top level it takes the whole context with it. The build-time
+warnings described below exist to catch exactly this, so read them before you
+start debugging a background that never speaks.
+
+See [Environment variables](/docs/features/environment-variables) for the
+`EXTENSION_PUBLIC_BROWSER` value on each target.
+
+## What Safari builds change in your manifest
+
+### Background page instead of a service worker
+
+Safari builds emit a non-persistent background **page** (`background: {scripts: [...]}`), not a service worker. Extension.js translates a `background.service_worker` entry into that shape, the same translation it runs for Firefox.
+
+The reason is measured, not stylistic. On Safari 26.5.2, a Manifest V3 service
+worker never started in testing, including for extensions built by Apple's own
+converter, while a background page ran immediately. WebKit deliberately prefers
+the page form ([WebKit bug 270750](https://bugs.webkit.org/show_bug.cgi?id=270750)).
+
+Author one `background.service_worker` and it loads on Chromium, Firefox, and
+Safari. See [Background scripts](/docs/implementation-guide/background) for the
+translation in both directions.
+
+{/* TODO(version): name the release that ships the Safari background-page emission. */}
+
+### Keys and permissions Safari cannot use
+
+Manifest keys and permissions that Safari does not implement are dropped from the Safari build automatically. The build prints one line per dropped key, naming the key and why it went. Nothing is dropped silently, and your source `manifest.json` is untouched.
+
+`content_scripts[].world` is deliberately **kept**, because Safari has supported it since Safari 18.
+
+For Safari-only overrides, use the `safari:` and `webkit:` manifest prefixes. They win over the `chromium:` family keys that Safari otherwise inherits. See [Browser-specific manifest fields](/docs/features/browser-specific-fields).
+
+{/* TODO(version): name the release that ships the dropped-key report. */}
+
+### APIs Safari does not have
+
+The build warns about extension APIs that Safari lacks, naming each namespace it
+finds in your code. Twelve namespaces are covered: `sidePanel`, `offscreen`,
+`tabGroups`, `management`, `identity`, `notifications`, `bookmarks`, `history`,
+`downloads`, `idle`, `omnibox`, and `userScripts`. The warnings run in
+production builds and in `dev`.
+
+A warning is not a build failure. Code that reaches one of these namespaces
+still ships, and it is your call whether to guard it, branch on the target, or
+accept that the feature is absent on Safari.
+
+{/* TODO(version): name the release that ships the Safari API warnings. */}
+
 ## Debugging in Safari
 
-Safari doesn't support the `--logs` centralized logger (there is no automation
-channel), but Web Inspector covers every extension context:
+Web Inspector covers every extension context, and it is the right tool when you
+want a debugger rather than a log stream:
 
-- **Background/service worker**: Safari ▸ Develop ▸ Web Extension Background
+- **Background**: Safari ▸ Develop ▸ Web Extension Background
   Content ▸ _your extension_.
 - **Popup/options/sidebar pages**: open the surface, then right-click ▸ Inspect
   Element (or Develop ▸ _your Mac_ ▸ the page).
@@ -255,8 +352,7 @@ channel), but Web Inspector covers every extension context:
 If a build fails, the CLI prints the tail of the failing `xcrun`/`xcodebuild`
 output, bounded to the last 50 lines and 8 KB so diagnostics stay readable.
 Pass `--debug` (or set `EXTENSION_DEBUG=true`) to stream the full tool output
-live instead. The converter's compatibility warnings (manifest keys Safari
-doesn't support) are surfaced as warnings during packaging.
+live instead.
 
 ## Engine target
 
@@ -268,14 +364,14 @@ npx extension build --browser=webkit-based
 
 ## Command support
 
-| Command   | Safari support                                                                |
-| --------- | ----------------------------------------------------------------------------- |
-| `build`   | ✅ Builds and packages the Safari app.                                        |
-| `dev`     | ✅ Watch + incremental rebuild (refresh in Safari to apply).                  |
-| `preview` | ❌ Not supported. Safari extensions can't be auto-loaded into a live browser. |
-| `start`   | ❌ Not supported. Same reason as `preview`.                                   |
+| Command   | Safari support                                                       |
+| --------- | --------------------------------------------------------------------- |
+| `build`   | ✅ Builds and packages the Safari app.                                |
+| `dev`     | ✅ Watch, incremental rebuild, logs, and automatic reload.            |
+| `preview` | ❌ Not supported. Exits with `E_COMMAND_UNSUPPORTED_FOR_TARGET`.      |
+| `start`   | ❌ Not supported. Same reason as `preview`.                           |
 
-`preview` and `start` exist to launch your extension in a running browser. Safari requires the manual, security-gated enable step above, so those commands refuse Safari targets and point you to `build` instead. Under `--output json`, both fail with `E_COMMAND_UNSUPPORTED_FOR_TARGET` (Safari is a supported browser, these commands have no Safari path).
+`preview` and `start` exist to launch an already-built extension in a running browser. The Safari route for that is WebDriver, and it was measured: `safaridriver` does load an unpacked folder, and the background even runs, but Safari grants the extension **zero host origins**. Content scripts never inject, and no API call can grant the access afterwards. A session that looks healthy would test nothing, so both commands refuse Safari targets instead and point at `dev` and `build`.
 
 <Frame>
   <iframe
@@ -290,9 +386,9 @@ npx extension build --browser=webkit-based
 
 ## Limitations
 
-- **Packaging is macOS-only.** The Xcode step needs macOS with the full Xcode app. (`build` on other platforms still produces `dist/safari`; `dev` requires macOS.)
-- **No live reload.** Rebuilds are fast, but you refresh in Safari to apply them.
-- **Manual one-time enable.** Toggling the extension on and granting it website access are Safari security controls and cannot be automated. On ad-hoc builds, allowing unsigned extensions is a third control with the same rule.
+- **Packaging is macOS only.** The Xcode step needs macOS with the full Xcode app. (`build` on other platforms still produces `dist/safari`, and `dev` requires macOS.)
+- **`preview` and `start` have no Safari path.** See [Command support](#command-support) for what was measured.
+- **The enable gesture is manual.** Turning the extension on and granting it website access are Safari security controls and cannot be automated. Both survive restarts, so you pay for them once.
 - **Signing stops at development.** `--development-team` signs the local app with your development certificate. Distribution signing, notarization, and App Store submission are a separate step beyond this workflow (see below).
 - **macOS target only.** iOS app generation is not produced by this workflow today.
 
@@ -305,7 +401,7 @@ pipeline that Extension.js plans to offer through the
 Apple's own guides:
 
 - [Distributing your Safari web extension](https://developer.apple.com/documentation/safariservices/safari_web_extensions/distributing_your_safari_web_extension) (Apple Developer Program, signing, App Store Connect).
-- [Notarizing macOS software](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution) for non–App Store distribution.
+- [Notarizing macOS software](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution) for non-App Store distribution.
 
 Two things from the Extension.js side make that path smooth. Do them early:
 
@@ -317,12 +413,14 @@ Two things from the Extension.js side make that path smooth. Do them early:
 
 ## Best practices
 
-- **Build other targets normally**: Safari is additive, so keep iterating in `chromium`/`firefox` and run `--browser=safari` when you want to validate Safari.
+- **Read the build warnings first.** They name the APIs and manifest keys that Safari does not have, which is the cheapest way to find a background that will not start.
+- **Guard Chromium-only calls at the top level** of background and content scripts, with optional chaining or a branch on `EXTENSION_PUBLIC_BROWSER`.
 - **Use browser-specific fields** for true behavioral differences. Safari resolves the `chromium:` family prefix, and `safari:`/`webkit:` prefixed keys win over it on Safari targets, for both `--browser=safari` and `--browser=webkit-based`. `chrome:` and `edge:` keys do not reach Safari.
 - **Keep the generated project** unless you need a clean slate, because regenerating discards Xcode-side customizations beyond the preserved signing settings.
 
 ## Next steps
 
 - See all [supported browsers](/docs/browsers/browsers-available).
+- Stream a Safari session with [`logs`](/docs/commands/logs).
 - Use [browser-specific manifest fields](/docs/features/browser-specific-fields).
 - Review [multi-platform builds](/docs/features/multi-platform-builds).
