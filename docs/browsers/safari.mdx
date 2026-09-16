@@ -54,7 +54,7 @@ sudo xcode-select --switch /Applications/Xcode.app
 xcodebuild -runFirstLaunch
 ```
 
-A paid Apple Developer account is **not** required. Without `--development-team` the app is signed ad-hoc, and Safari accepts an ad-hoc signed app: it lists the extension like any other, with the Develop menu setting **Allow unsigned extensions** turned off. That setting belongs to a different path, described in [Temporary extensions](#temporary-extensions-no-xcode).
+A paid Apple Developer account is **not** required. Without `--development-team` the app is signed ad-hoc. Safari accepts an ad-hoc signed app and lists the extension like any other, with the Develop menu setting **Allow unsigned extensions** turned off. That setting belongs to a different path, described in [Temporary extensions](#temporary-extensions-no-xcode).
 
 If Xcode is missing, `extension dev` and `extension build` for Safari targets fail fast, before bundling, with guidance instead of a late, confusing error.
 
@@ -147,8 +147,8 @@ surprises people coming from Chrome, where installing grants it.
 
 In the same panel, under **Permissions**, use:
 
-- **Always Allow on Every Website…** for a development extension that you are
-  iterating on. It persists, so you grant it once.
+- **Always Allow on Every Website…** for an extension that you iterate on. It
+  persists, so you grant it once.
 - **Edit Websites…** to allow only the hosts that you are testing against.
 
 If your extension loads but nothing happens on the page, this is almost always
@@ -179,8 +179,8 @@ Safari ▸ Develop ▸ **Allow unsigned extensions** turned **off**.
 ### Temporary extensions (no Xcode)
 
 Safari has a second path that Extension.js does not drive: Safari ▸ Settings ▸
-Developer ▸ **Add Temporary Extension…**, which loads an unpacked folder such as
-`dist/safari` with no Xcode step at all. It needs **Allow unsigned extensions**,
+Developer ▸ **Add Temporary Extension…**. It loads an unpacked folder such as
+`dist/safari`, with no Xcode step at all. It needs **Allow unsigned extensions**,
 and the extension disappears when Safari quits, or after 24 hours. Use it for a
 quick look at a bundle. Use `extension dev` for a dev loop that survives a
 restart.
@@ -194,7 +194,7 @@ npx extension dev --browser=safari
 ```
 
 - **First compile**: full package: convert, build, open the app, and print the enable steps.
-- **On every save**: an incremental `xcodebuild` resync updates the app's resources from the freshly rebuilt `dist/safari`, and the extension reloads in Safari.
+- **On every save**: an incremental `xcodebuild` resync updates app resources from the rebuilt `dist/safari`. Safari reloads the extension.
 
 Once the extension is enabled, the loop needs no further clicking. Measured on
 Safari 26.5.2, a save reaches a reloaded extension in roughly 4 seconds.
@@ -304,7 +304,7 @@ Safari builds emit a non-persistent background **page** (`background: {scripts: 
 
 The reason is measured, not stylistic. On Safari 26.5.2, a Manifest V3 service
 worker never started in testing, including for extensions built by Apple's own
-converter, while a background page ran immediately. WebKit deliberately prefers
+converter. A background page ran immediately. WebKit deliberately prefers
 the page form ([WebKit bug 270750](https://bugs.webkit.org/show_bug.cgi?id=270750)).
 
 Author one `background.service_worker` and it loads on Chromium, Firefox, and
@@ -332,7 +332,7 @@ finds in your code. Twelve namespaces are covered: `sidePanel`, `offscreen`,
 production builds and in `dev`.
 
 A warning is not a build failure. Code that reaches one of these namespaces
-still ships, and it is your call whether to guard it, branch on the target, or
+still ships. It is your call whether to guard it, branch on the target, or
 accept that the feature is absent on Safari.
 
 {/* TODO(version): name the release that ships the Safari API warnings. */}
@@ -371,7 +371,7 @@ npx extension build --browser=webkit-based
 | `preview` | ❌ Not supported. Exits with `E_COMMAND_UNSUPPORTED_FOR_TARGET`.      |
 | `start`   | ❌ Not supported. Same reason as `preview`.                           |
 
-`preview` and `start` exist to launch an already-built extension in a running browser. The Safari route for that is WebDriver, and it was measured: `safaridriver` does load an unpacked folder, and the background even runs, but Safari grants the extension **zero host origins**. Content scripts never inject, and no API call can grant the access afterwards. A session that looks healthy would test nothing, so both commands refuse Safari targets instead and point at `dev` and `build`.
+`preview` and `start` exist to launch an already-built extension in a running browser. The Safari route for that is WebDriver, and it was measured. `safaridriver` does load an unpacked folder, and the background even runs, but Safari grants the extension **zero host origins**. Content scripts never inject, and no API call can grant the access afterwards. A session that looks healthy would test nothing, so both commands refuse Safari targets instead and point at `dev` and `build`.
 
 <Frame>
   <iframe
@@ -386,9 +386,9 @@ npx extension build --browser=webkit-based
 
 ## Limitations
 
-- **Packaging is macOS only.** The Xcode step needs macOS with the full Xcode app. (`build` on other platforms still produces `dist/safari`, and `dev` requires macOS.)
+- **Packaging is macOS only.** The Xcode step needs the full Xcode app. `build` still produces `dist/safari` elsewhere.
 - **`preview` and `start` have no Safari path.** See [Command support](#command-support) for what was measured.
-- **The enable gesture is manual.** Turning the extension on and granting it website access are Safari security controls and cannot be automated. Both survive restarts, so you pay for them once.
+- **Enabling and granting access are manual.** They are Safari security controls and cannot be automated. Both survive restarts.
 - **Signing stops at development.** `--development-team` signs the local app with your development certificate. Distribution signing, notarization, and App Store submission are a separate step beyond this workflow (see below).
 - **macOS target only.** iOS app generation is not produced by this workflow today.
 
