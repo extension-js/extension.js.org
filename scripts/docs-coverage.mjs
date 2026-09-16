@@ -1,10 +1,3 @@
-// Docs review coverage ledger for extension.js.org.
-// Every content page carries two independent review records, because the
-// existing vitest suite proves claim types are sound, not that a page was read.
-//   lane-a  deterministic claim checks (this script plus __tests__/)
-//   lane-b  per-page truth audit by a reviewer that can run the real CLI
-//   lane-c  end-to-end sealed journeys, extra depth, never proof of coverage
-// Run with --assert to fail when a page is missing a lane, or --json for raw.
 import {
   readFileSync,
   readdirSync,
@@ -23,22 +16,29 @@ const EXTRA_PAGES = ["index.mdx", "showcase.mdx"];
 
 function walkMdx(dir, out = []) {
   if (!existsSync(dir)) return out;
+
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+
     const full = path.join(dir, entry.name);
+
     if (entry.isDirectory()) walkMdx(full, out);
-    else if (entry.name.endsWith(".mdx") || entry.name.endsWith(".md"))
+    else if (entry.name.endsWith(".mdx") || entry.name.endsWith(".md")) {
       out.push(full);
+    }
   }
+
   return out;
 }
 
 export function collectPages() {
   const pages = [];
+
   for (const localeRoot of LOCALE_ROOTS) {
     const locale = localeRoot.startsWith("zh-")
       ? localeRoot.split("/")[0]
       : "en";
+
     for (const abs of walkMdx(path.join(ROOT, localeRoot))) {
       pages.push({
         id: path.relative(ROOT, abs),
@@ -51,10 +51,12 @@ export function collectPages() {
       });
     }
   }
+
   for (const rel of EXTRA_PAGES) {
     const abs = path.join(ROOT, rel);
     if (existsSync(abs)) pages.push({ id: rel, locale: "en", slug: rel, abs });
   }
+
   return pages.sort((a, b) => a.id.localeCompare(b.id));
 }
 
@@ -70,16 +72,21 @@ export function analyzePage(rawSource) {
   // a command or flag written inside one is not a claim the page makes.
   const source = rawSource.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
   const shellFences = [];
+
   for (const match of source.matchAll(FENCE_RE)) {
     const lang = (match[1] || "").trim().split(/\s+/)[0].toLowerCase();
-    if (["bash", "sh", "shell", "console", "zsh"].includes(lang))
+
+    if (["bash", "sh", "shell", "console", "zsh"].includes(lang)) {
       shellFences.push(match[2]);
+    }
   }
+
   const shell = shellFences.join("\n");
   const commands = [...shell.matchAll(COMMAND_RE)].map((m) => m[1]);
   const inlineCommands = [
     ...source.matchAll(/`extension(?:@[\w.\-]+)?\s+([a-z][a-z-]*)[^`]*`/g),
   ].map((m) => m[1]);
+
   return {
     commands: [...new Set([...commands, ...inlineCommands])],
     flags: [...new Set([...source.matchAll(FLAG_RE)].map((m) => m[0]))],
@@ -107,6 +114,7 @@ export function claimCount(analysis) {
 
 function loadCaveats() {
   if (!existsSync(CAVEATS_PATH)) return [];
+
   return JSON.parse(readFileSync(CAVEATS_PATH, "utf-8")).caveats || [];
 }
 
@@ -115,9 +123,11 @@ function loadCaveats() {
 export function checkCaveats(pages) {
   const findings = [];
   const byId = new Map(pages.map((p) => [p.id, p]));
+
   for (const caveat of loadCaveats()) {
     for (const pageId of caveat.mustAppearOn) {
       const page = byId.get(pageId);
+
       if (!page) {
         findings.push({
           kind: "caveat-page-missing",
@@ -125,12 +135,15 @@ export function checkCaveats(pages) {
           page: pageId,
           detail: "page listed in the caveat ledger does not exist",
         });
+
         continue;
       }
+
       const source = readFileSync(page.abs, "utf-8");
       const hit = caveat.anyOf.some((needle) =>
         new RegExp(needle, "i").test(source),
       );
+
       // A limitation that matters in English matters in translation too, but the
       // evidence is locale specific, so each locale brings its own patterns.
       for (const [locale, patterns] of Object.entries(
@@ -139,7 +152,9 @@ export function checkCaveats(pages) {
         const twinId = pageId.replace(/^docs\//, `${locale}/docs/`);
         const twin = byId.get(twinId);
         if (!twin) continue;
+
         const twinSource = readFileSync(twin.abs, "utf-8");
+
         if (
           !patterns.some((needle) => new RegExp(needle, "i").test(twinSource))
         ) {
@@ -153,6 +168,7 @@ export function checkCaveats(pages) {
           });
         }
       }
+
       if (!hit) {
         findings.push({
           kind: "omitted-caveat",
@@ -165,35 +181,46 @@ export function checkCaveats(pages) {
       }
     }
   }
+
   return findings;
 }
 
 export function checkLocaleTwins(pages) {
   const bySlug = new Map();
+
   for (const page of pages) {
     if (!bySlug.has(page.slug)) bySlug.set(page.slug, new Set());
+
     bySlug.get(page.slug).add(page.locale);
   }
+
   const findings = [];
+
   for (const [slug, locales] of bySlug) {
     if (!locales.has("en")) continue;
+
     for (const locale of ["zh-Hans", "zh-Hant"]) {
-      if (!locales.has(locale))
+      if (!locales.has(locale)) {
         findings.push({
           kind: "missing-translation",
           page: `docs/${slug}`,
           detail: `no ${locale} twin`,
         });
+      }
     }
   }
+
   return findings;
 }
 
 export function checkVersionPins(pages, latest) {
   if (!latest) return [];
+
   const findings = [];
+
   for (const page of pages) {
     const analysis = analyzePage(readFileSync(page.abs, "utf-8"));
+
     for (const pin of analysis.versionPins) {
       if (pin !== latest) {
         findings.push({
@@ -204,6 +231,7 @@ export function checkVersionPins(pages, latest) {
       }
     }
   }
+
   return findings;
 }
 
@@ -216,21 +244,28 @@ export function checkTranslationParity(pages) {
     "zh-Hans": new Map(),
     "zh-Hant": new Map(),
   };
+
   for (const page of pages) {
     if (
       page.id === page.slug &&
       page.locale === "en" &&
       !page.id.startsWith("docs/")
-    )
+    ) {
       continue;
+    }
+
     byLocale[page.locale]?.set(page.slug, page);
   }
+
   const findings = [];
+
   for (const [slug, enPage] of byLocale.en) {
     const enAnalysis = analyzePage(readFileSync(enPage.abs, "utf-8"));
+
     for (const locale of ["zh-Hans", "zh-Hant"]) {
       const twin = byLocale[locale].get(slug);
       if (!twin) continue;
+
       const twinAnalysis = analyzePage(readFileSync(twin.abs, "utf-8"));
       const missingCommands = enAnalysis.commands.filter(
         (c) => !twinAnalysis.commands.includes(c),
@@ -241,6 +276,7 @@ export function checkTranslationParity(pages) {
       const missingFlags = enAnalysis.flags.filter(
         (f) => !twinAnalysis.flags.includes(f),
       );
+
       if (missingCommands.length || extraCommands.length) {
         findings.push({
           kind: "translation-command-drift",
@@ -248,6 +284,7 @@ export function checkTranslationParity(pages) {
           detail: `commands differ from the English twin${missingCommands.length ? `, missing: ${missingCommands.join(", ")}` : ""}${extraCommands.length ? `, extra: ${extraCommands.join(", ")}` : ""}`,
         });
       }
+
       if (missingFlags.length) {
         findings.push({
           kind: "translation-flag-drift",
@@ -257,6 +294,7 @@ export function checkTranslationParity(pages) {
       }
     }
   }
+
   return findings;
 }
 
@@ -294,6 +332,7 @@ const KNOWN_COMPONENTS = new Set([
 
 export function checkComponents(pages) {
   const findings = [];
+
   for (const page of pages) {
     const source = readFileSync(page.abs, "utf-8")
       .replace(/```[\s\S]*?```/g, "")
@@ -301,6 +340,7 @@ export function checkComponents(pages) {
     const used = new Set(
       [...source.matchAll(/<([A-Z][A-Za-z0-9]*)[\s/>]/g)].map((m) => m[1]),
     );
+
     for (const name of used) {
       if (!KNOWN_COMPONENTS.has(name)) {
         findings.push({
@@ -311,6 +351,7 @@ export function checkComponents(pages) {
       }
     }
   }
+
   return findings;
 }
 
@@ -319,17 +360,21 @@ export function checkComponents(pages) {
 // there. Thirteen pages carried an empty "Video walkthrough" this way.
 export function checkEmptySections(pages) {
   const findings = [];
+
   for (const page of pages) {
     const source = readFileSync(page.abs, "utf-8");
     const matches = [...source.matchAll(/^(##+)\s+(.+?)\s*$/gm)];
+
     for (let index = 0; index < matches.length; index += 1) {
       const level = matches[index][1].length;
       const next = matches[index + 1];
       // A section that opens straight into its own subsection is not empty:
       // only a heading with no prose AND no deeper heading is a dead promise.
       if (next && next[1].length > level) continue;
+
       const start = matches[index].index + matches[index][0].length;
       const end = next ? next.index : source.length;
+
       if (source.slice(start, end).trim() === "") {
         findings.push({
           kind: "empty-section",
@@ -339,6 +384,7 @@ export function checkEmptySections(pages) {
       }
     }
   }
+
   return findings;
 }
 
@@ -346,16 +392,22 @@ function loadReviewRecords(lane) {
   const dir = path.join(REVIEW_DIR, lane);
   const records = new Map();
   if (!existsSync(dir)) return records;
+
   for (const file of readdirSync(dir)) {
     if (!file.endsWith(".json")) continue;
+
     const parsed = JSON.parse(readFileSync(path.join(dir, file), "utf-8"));
+
     for (const entry of parsed.pages || []) {
       const previous = records.get(entry.page);
+
       // Keep the record with the most findings so a thin pass cannot mask a thorough one.
-      if (!previous || (entry.findings || 0) > (previous.findings || 0))
+      if (!previous || (entry.findings || 0) > (previous.findings || 0)) {
         records.set(entry.page, { ...entry, source: file });
+      }
     }
   }
+
   return records;
 }
 
@@ -372,6 +424,7 @@ export function buildLedger({ latest } = {}) {
 
   const ledgerPages = pages.map((page) => {
     const analysis = analyzePage(readFileSync(page.abs, "utf-8"));
+
     return {
       page: page.id,
       locale: page.locale,
@@ -415,6 +468,7 @@ function main() {
 
   if (args.includes("--json")) {
     console.log(JSON.stringify(ledger, null, 2));
+
     return;
   }
 
@@ -436,10 +490,14 @@ function main() {
   if (ledger.laneAFindings.length) {
     console.log(`\nLane A findings: ${ledger.laneAFindings.length}`);
     const byKind = {};
-    for (const f of ledger.laneAFindings)
+
+    for (const f of ledger.laneAFindings) {
       byKind[f.kind] = (byKind[f.kind] || 0) + 1;
-    for (const [kind, count] of Object.entries(byKind))
+    }
+
+    for (const [kind, count] of Object.entries(byKind)) {
       console.log(`  ${kind}: ${count}`);
+    }
   }
 
   if (args.includes("--assert")) {
@@ -447,22 +505,31 @@ function main() {
     const blocking = ledger.laneAFindings.filter(
       (f) => f.kind === "omitted-caveat" || f.kind === "caveat-page-missing",
     );
+
     if (missing.length || blocking.length) {
       if (missing.length) {
         console.error(
           `\n✖ ${missing.length} page(s) have no lane B review record:`,
         );
+
         for (const page of missing.slice(0, 20)) console.error(`  ${page}`);
-        if (missing.length > 20)
+
+        if (missing.length > 20) {
           console.error(`  ... and ${missing.length - 20} more`);
+        }
       }
+
       if (blocking.length) {
         console.error(`\n✖ ${blocking.length} caveat ledger violation(s):`);
-        for (const f of blocking)
+
+        for (const f of blocking) {
           console.error(`  ${f.page}: ${f.caveat} (${f.detail})`);
+        }
       }
+
       process.exit(1);
     }
+
     console.log("\n✔ every page carries a lane A and lane B review record");
   }
 }

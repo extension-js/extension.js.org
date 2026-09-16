@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 import { readFileSync, writeFileSync } from "node:fs";
 import { globSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -138,13 +139,16 @@ const DOMAIN_ALWAYS = [
 function parseFrontmatter(src) {
   const m = src.match(/^---\n([\s\S]*?)\n---\n?/);
   if (!m) return { frontmatter: null, body: src, fmRaw: "" };
+
   const fmRaw = m[0];
   const body = src.slice(m[0].length);
   const fm = {};
+
   for (const line of m[1].split("\n")) {
     const kv = line.match(/^(\w+):\s*(.*)$/);
     if (kv) fm[kv[1]] = kv[2].replace(/^["'](.*)["']$/, "$1");
   }
+
   return { frontmatter: fm, body, fmRaw };
 }
 
@@ -161,6 +165,7 @@ function extractKeywords(fm, body, slug) {
 
   // Domain keywords present in title + description + body
   const haystack = `${title} ${description} ${body.toLowerCase()}`;
+
   for (const term of DOMAIN_ALWAYS) {
     if (haystack.includes(term)) pool.add(term);
   }
@@ -212,12 +217,15 @@ function processFile(path) {
   );
   const out = newFm + body;
   writeFileSync(path, out);
+
   return true;
 }
 
 const files = globSync(`${ROOT}/{docs,blog}/**/*.mdx`);
 let touched = 0;
+
 for (const f of files) {
   if (processFile(f)) touched++;
 }
+
 console.log(`added keywords to ${touched}/${files.length} files`);

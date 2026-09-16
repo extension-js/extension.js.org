@@ -38,6 +38,7 @@ function extractArrayLiteral(source: string, name: string): string[] {
     new RegExp(`export const ${name} = \\[([^\\]]+)\\]`),
   );
   if (!match) return [];
+
   return [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
 }
 
@@ -49,6 +50,7 @@ describe("supported surface", () => {
       expect(extractArrayLiteral(source, "SUPPORTED_PACKAGE_MANAGERS")).toEqual(
         SUPPORTED_PACKAGE_MANAGERS,
       );
+
       expect(extractArrayLiteral(source, "SUPPORTED_UI_FRAMEWORKS")).toEqual(
         SUPPORTED_UI_FRAMEWORKS,
       );
@@ -60,9 +62,11 @@ describe("supported surface", () => {
       ...getAllMdxFiles(DOCS_DIR),
       resolve(SITE_ROOT, "index.mdx"),
     ];
+
     for (const page of pages) {
       const content = readFileSync(page, "utf-8");
       if (!content.includes("```bash npm")) continue;
+
       for (const pm of SUPPORTED_PACKAGE_MANAGERS) {
         expect(
           content,
@@ -82,6 +86,7 @@ describe("supported surface", () => {
       resolve(DOCS_DIR, "getting-started", "templates.mdx"),
       resolve(DOCS_DIR, "languages-and-frameworks", "index.mdx"),
     ];
+
     for (const page of pages) {
       // A page removed from the site leaves this list pointing at nothing, and
       // readFileSync then fails with a bare ENOENT that says nothing about why
@@ -93,9 +98,11 @@ describe("supported surface", () => {
         `${relative(SITE_ROOT, page)} is listed as drift-prone but does not ` +
           "exist. Remove it from this list, or restore the page.",
       ).toBe(true);
+
       const paragraphs = stripCodeBlocks(readFileSync(page, "utf-8")).split(
         /\n\s*\n/,
       );
+
       for (const paragraph of paragraphs) {
         const mentioned = SUPPORTED_UI_FRAMEWORKS.filter((framework) =>
           new RegExp(`\\b${framework}\\b`, "i").test(paragraph),
@@ -113,6 +120,7 @@ describe("supported surface", () => {
       resolve(DOCS_DIR, "languages-and-frameworks", "index.mdx"),
       "utf-8",
     );
+
     for (const framework of SUPPORTED_UI_FRAMEWORKS) {
       expect(content).toContain(`/docs/languages-and-frameworks/${framework}`);
     }
@@ -137,6 +145,7 @@ describe("supported surface", () => {
       ...getAllMdxFiles(DOCS_DIR),
       resolve(SITE_ROOT, "index.mdx"),
     ];
+
     for (const page of pages) {
       expect(
         /\bstylus\b/i.test(readFileSync(page, "utf-8")),
@@ -155,12 +164,14 @@ describe("supported surface", () => {
     const nav = readFileSync(resolve(SITE_ROOT, "docs.json"), "utf-8");
     expect(nav).toContain("docs/features/compatibility-matrix");
     const content = readFileSync(matrixPath, "utf-8").toLowerCase();
+
     for (const item of [
       ...SUPPORTED_PACKAGE_MANAGERS,
       ...SUPPORTED_UI_FRAMEWORKS,
     ]) {
       expect(content, `compatibility matrix omits ${item}`).toContain(item);
     }
+
     for (const browser of ["chrome", "edge", "firefox", "safari"]) {
       expect(content, `compatibility matrix omits ${browser}`).toContain(
         browser,

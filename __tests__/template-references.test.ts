@@ -19,6 +19,7 @@ function extractTemplateNames(content: string): Map<string, string[]> {
 
   function add(name: string, source: string) {
     if (!templates.has(name)) templates.set(name, []);
+
     templates.get(name)!.push(source);
   }
 
@@ -55,12 +56,15 @@ describe("Template references", () => {
   });
 
   const allTemplates = new Map<string, string[]>();
+
   for (const file of files) {
     const content = readFileSync(file, "utf-8");
     const templates = extractTemplateNames(content);
+
     for (const [name, sources] of templates) {
       const relPath = file.replace(DOCS_DIR + "/", "");
       if (!allTemplates.has(name)) allTemplates.set(name, []);
+
       allTemplates.get(name)!.push(...sources.map((s) => `${relPath}:${s}`));
     }
   }

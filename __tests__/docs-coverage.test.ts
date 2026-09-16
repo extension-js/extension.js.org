@@ -68,15 +68,18 @@ describe("docs review coverage", () => {
     expect(existsSync(CAVEATS_PATH)).toBe(true);
     const { caveats } = JSON.parse(readFileSync(CAVEATS_PATH, "utf-8"));
     expect(caveats.length).toBeGreaterThan(0);
+
     for (const caveat of caveats) {
       expect(
         caveat.verifiedBy,
         `caveat ${caveat.id} has no verifiedBy citation`,
       ).toBeTruthy();
+
       expect(
         caveat.mustAppearOn.length,
         `caveat ${caveat.id} targets no page`,
       ).toBeGreaterThan(0);
+
       expect(
         caveat.anyOf.length,
         `caveat ${caveat.id} has no match patterns`,

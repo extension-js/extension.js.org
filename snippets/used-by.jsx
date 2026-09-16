@@ -1,14 +1,3 @@
-// Mintlify evaluates every export of a snippet in isolation, so this file
-// has one export and everything it needs lives inside it.
-//
-// The `projects` array sits between the @generated markers. The weekly used-by
-// workflow (scripts/used-by/refresh.mjs) refreshes `users` and statsCheckedAt in
-// place, which order the grid and prove each project meets the store bar.
-// Cards show no counts, so nothing on the page goes stale.
-// To add a project by hand, append one object, give it storeIds when it is
-// published, and put its images under /images/used-by/<slug>/. Set
-// darkGlyph: true for a dark icon on a transparent background, which the dark
-// theme inverts so it stays visible.
 export const UsedByGrid = ({ locale = "en" }) => {
   // @generated:start
   const projects = [
@@ -252,6 +241,7 @@ export const UsedByGrid = ({ locale = "en" }) => {
             label: t.stores[key],
             href: storeHref(key, project.storeIds[key]),
           }));
+
         return (
           <article
             key={project.slug}
