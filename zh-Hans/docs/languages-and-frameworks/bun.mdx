@@ -18,20 +18,20 @@ keywords:
 
 Bun 可以充当 Extension.js 项目的包管理器和脚本运行器。Extension.js 会检测到 Bun，把它记录进 `package.json`，并在自己的输出里打印 Bun 命令。
 
-Extension.js CLI 本身跑在 Node 上。这个分工就是下面那个问题的全部答案。
+Extension.js CLI 也能跑在 Bun 上，从 Bun 1.2 开始。下面那个问题分成两半，而它们的答案已经和以前不一样了。
 
 ## 我可以用 Bun 代替 Node 吗？
 
-对你的项目来说，可以。对 CLI 进程来说，不行。
+对你的项目来说可以，对 CLI 进程来说也可以。
 
-| 你想做的事                                   | 是否能用 Bun      |
-| -------------------------------------------- | ----------------- |
-| 安装依赖（`bun install`）                    | 可以              |
-| 运行脚手架（`bunx extension`）               | 可以              |
-| 运行脚本（`bun run dev`、`bun run build`）   | 可以              |
-| 在 Bun 运行时上执行 CLI                      | 不行，必须用 Node |
+| 你想做的事                                   | 是否能用 Bun        |
+| -------------------------------------------- | ------------------- |
+| 安装依赖（`bun install`）                    | 可以                |
+| 运行脚手架（`bunx extension`）               | 可以                |
+| 运行脚本（`bun run dev`、`bun run build`）   | 可以                |
+| 在 Bun 运行时上执行 CLI                      | 可以，从 Bun 1.2 起 |
 
-Bun 仍然是你的操作界面，Node 仍然是执行 CLI 的运行时。两者都要装。
+普通的 `bunx extension` 仍然会把 CLI 跑在 Node 上，因为发布出去的可执行文件带着 `#!/usr/bin/env node` 这行 shebang。加上 `--bun`，或者在 `bunfig.toml` 里设置 `run.bun`，才会在 Bun 上执行。
 
 ## 用 Bun 创建项目
 
@@ -71,21 +71,17 @@ bun run build
 
 脚手架写下的脚本与管理器无关。每一条都调用 `extension` 这个可执行文件，所以 `bun run dev`、`bun run build` 和 `bun run preview` 都能用。
 
-## CLI 为什么需要 Node
+## 哪些 Bun 版本可用
 
-发布出去的包声明了 `"engines": {"node": ">=22.12"}`。CLI 在启动时检查运行时：Node 版本低于这个下限会停下来，而只要运行时是 Bun，无论它报告什么版本都会停下来。
+Extension.js 需要 Bun 1.2 或更新版本。CLI 在启动时读取 `process.versions.bun`，按 Bun 自己的版本来判断，而不是按 Bun 报告的 Node 版本，因为这两者并不同步：Bun 1.1.38 和 Bun 1.2.0 都报告 Node 22.6.0，但只有其中一个能跑完构建。
 
-这道拒绝针对的是运行时，而不是某个版本号。Bun 是通过 `process.versions.bun` 识别的，这个值由运行时自己设置，所以进入 Bun 的每一条路径都被覆盖：`bunx` 和 `bun run` 上的 `--bun` 标志，以及 `bunfig.toml` 里的 `run.bun` 默认值。强行使用 Bun 运行时会触发这道守卫：
-
-```bash
-bunx --bun extension@latest --version
-```
+低于 1.2 的 Bun 无法加载 rspack 的原生绑定，所以旧版本不是在门口被拦下，而是在打包器深处失败。守卫会先把它拦住：
 
 ```plaintext
-[Extension.js] The extension CLI runs on Node.js, not on the Bun runtime (Bun 1.2.13, reporting Node.js 22.6.0), so the Node.js you have installed is not the problem. Run it on Node.js instead: drop --bun from bunx or bun run, or unset run.bun in bunfig.toml, plain bunx runs the extension CLI on Node.js.
+[Extension.js] Requires Bun >= 1.2 (you are on 1.1.38). Run bun upgrade, or run the extension CLI on Node.js >= 22.12 instead.
 ```
 
-去掉 `--bun`，同一条命令就能用。普通的 `bunx` 会尊重 CLI 可执行文件上的 `#!/usr/bin/env node` shebang，所以进程跑在 Node 上，而解析和缓存交给 Bun。
+Bun 是通过 `process.versions.bun` 识别的，这个值由运行时自己设置，所以进入 Bun 的每一条路径都被覆盖：`bunx` 和 `bun run` 上的 `--bun` 标志，以及 `bunfig.toml` 里的 `run.bun` 默认值。
 
 ## Extension.js 如何检测 Bun
 

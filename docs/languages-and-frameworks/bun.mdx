@@ -18,20 +18,20 @@ keywords:
 
 Bun works as the package manager and the script runner for an Extension.js project. Extension.js detects Bun, records it in `package.json`, and prints Bun commands in its own output.
 
-The Extension.js CLI itself runs on Node. That split is the whole answer to the question below.
+The Extension.js CLI runs on Bun too, from Bun 1.2 onward. The question below has two halves, and they now have different answers than they used to.
 
 ## Can I use Bun instead of Node?
 
-For your project, yes. For the CLI process, no.
+Yes, for your project and for the CLI process both.
 
-| What you want                              | Works with Bun    |
-| ------------------------------------------ | ----------------- |
-| Install dependencies (`bun install`)       | Yes               |
-| Run the scaffolder (`bunx extension`)      | Yes               |
-| Run scripts (`bun run dev`, `bun run build`) | Yes             |
-| Execute the CLI on the Bun runtime         | No, Node is required |
+| What you want                                | Works with Bun    |
+| -------------------------------------------- | ----------------- |
+| Install dependencies (`bun install`)         | Yes               |
+| Run the scaffolder (`bunx extension`)        | Yes               |
+| Run scripts (`bun run dev`, `bun run build`) | Yes               |
+| Execute the CLI on the Bun runtime           | Yes, from Bun 1.2 |
 
-Bun stays your interface. Node stays the runtime that executes the CLI. You need both installed.
+Plain `bunx extension` still runs the CLI on Node, because the published binary carries a `#!/usr/bin/env node` shebang. Add `--bun`, or set `run.bun` in `bunfig.toml`, to execute it on Bun instead.
 
 ## Create a project with Bun
 
@@ -71,21 +71,17 @@ bun run build
 
 The scripts that the scaffolder writes are manager-agnostic. Each one calls the `extension` binary, so `bun run dev`, `bun run build`, and `bun run preview` all work.
 
-## Why the CLI needs Node
+## Which Bun versions work
 
-The published packages declare `"engines": {"node": ">=22.12"}`. The CLI checks the runtime at startup: it stops on a Node version below that floor, and it stops on Bun whatever version Bun reports.
+Extension.js needs Bun 1.2 or newer. The CLI reads `process.versions.bun` at startup and judges Bun on its own version, never on the Node version that Bun reports, because the two do not track each other. Bun 1.1.38 and Bun 1.2.0 both report Node 22.6.0, and only one of them finishes a build.
 
-The refusal is about the runtime, not about a version number. Bun is detected through `process.versions.bun`, which the runtime sets itself, so every route into it is covered: the `--bun` flag on `bunx` and `bun run`, and a `run.bun` default in `bunfig.toml`. Forcing the Bun runtime trips the guard:
-
-```bash
-bunx --bun extension@latest --version
-```
+Below 1.2, Bun cannot load the rspack native binding, so an older Bun fails deep inside the bundler rather than at the door. The guard stops it first:
 
 ```plaintext
-[Extension.js] The extension CLI runs on Node.js, not on the Bun runtime (Bun 1.2.13, reporting Node.js 22.6.0), so the Node.js you have installed is not the problem. Run it on Node.js instead: drop --bun from bunx or bun run, or unset run.bun in bunfig.toml, plain bunx runs the extension CLI on Node.js.
+[Extension.js] Requires Bun >= 1.2 (you are on 1.1.38). Run bun upgrade, or run the extension CLI on Node.js >= 22.12 instead.
 ```
 
-Drop `--bun` and the same command works. Plain `bunx` respects the `#!/usr/bin/env node` shebang on the CLI binary, so the process runs on Node while Bun handles resolution and caching.
+Bun is detected through `process.versions.bun`, which the runtime sets itself, so every route into it is covered: the `--bun` flag on `bunx` and `bun run`, and a `run.bun` default in `bunfig.toml`.
 
 ## How Extension.js detects Bun
 
