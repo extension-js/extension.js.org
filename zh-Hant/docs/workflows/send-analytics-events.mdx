@@ -1,0 +1,117 @@
+---
+title: "從你的擴充功能傳送分析事件"
+description: "在 Manifest V3 擴充功能中收集自己的產品分析資料。涵蓋遠端程式碼禁令、Measurement Protocol，以及打包進產物的金鑰代表什麼。"
+keywords:
+  [
+    "extension.js",
+    "analytics",
+    "google analytics",
+    "measurement protocol",
+    "ga4",
+    "remote code",
+    "docs",
+    "workflows",
+  ]
+---
+
+在你自己的擴充功能內部，記錄使用者如何使用它。
+
+<Note>
+  本頁談的是你的擴充功能所傳送的分析資料。關於 Extension.js
+  命令列工具本身回報的資料以及如何關閉，請閱讀[遙測與隱私控制](/zh-Hant/docs/features/telemetry-and-privacy)。
+
+</Note>
+
+## 來自 CDN 的分析程式碼片段無法運作
+
+Manifest V3 禁止遠端託管程式碼。從內容傳遞網路載入標籤管理工具或分析 SDK 的廠商片段，正是這項政策針對的模式。
+
+當專案中的 HTML 頁面引用遠端指令碼時，Extension.js 會發出警告：
+
+```text
+Warning: The page loads a remote <script>, which the MV3 CSP blocks.
+PATH  popup/index.html
+GOT   https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX
+Bundle the script or self-host it instead.
+```
+
+建置仍然會成功，標籤也會留在產物中，所以沒有東西阻止你把它發布出去。之後瀏覽器會拒絕執行該指令碼，任何事件都不會送出。請把這則警告視為缺陷。
+
+剩下兩條路線。要嘛打包一個以套件形式發布、而且不需要再載入程式碼的分析函式庫，要嘛自己呼叫 HTTP 端點。本頁其餘部分談第二條路線，它完全不需要第三方執行期。
+
+## 透過 Measurement Protocol 傳送事件
+
+Google Analytics 4 接受以一般 HTTP 傳送的事件。一次請求長這樣：
+
+```js
+async function track(name, params) {
+  await fetch(
+    "https://www.google-analytics.com/mp/collect" +
+      `?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        client_id: await getClientId(),
+        events: [{name, params: {...params, engagement_time_msec: "100"}}],
+      }),
+    },
+  );
+}
+```
+
+`client_id` 由你自己產生。為每次安裝建立一個識別碼，儲存後重複使用：
+
+```js
+async function getClientId() {
+  const stored = await chrome.storage.local.get("clientId");
+  if (stored.clientId) return stored.clientId;
+
+  const clientId = crypto.randomUUID();
+  await chrome.storage.local.set({clientId});
+
+  return clientId;
+}
+```
+
+在調整酬載期間，請改送到 `https://www.google-analytics.com/debug/mp/collect`。該端點不會記錄請求，而是回傳這次請求的驗證訊息。
+
+## 從 service worker 傳送
+
+請在背景 service worker 或擴充功能頁面發出請求。這些情境帶有擴充功能本身的來源，而主機權限涵蓋這次呼叫：
+
+```json
+{
+  "host_permissions": ["https://www.google-analytics.com/"]
+}
+```
+
+內容指令碼跑在宿主頁面的來源之下，那裡主機權限不適用，生效的是頁面自己的規則。請傳訊息給背景，由它發出呼叫。完整表格與訊息傳遞寫法請見[跨來源請求](/zh-Hant/docs/implementation-guide/cross-origin-requests)。
+
+如果你宣告了自己的 `content_security_policy`，那麼 `connect-src` 就必須列出分析端點。開發工作階段只會往該指示詞追加自己的回送位址條目，永遠不會加上你的端點。因此少了一條，在開發期與正式環境會以相同方式失敗。
+
+## 打包進產物的金鑰不是祕密
+
+隨擴充功能一起發布的 API secret，任何安裝者都讀得到。環境變數改變不了這件事。Extension.js 會在建置時把每一個 `EXTENSION_PUBLIC_` 值內嵌進產物。這能讓值不進入你的程式碼儲存庫，卻不能讓它不落到使用者手上。
+
+```js
+const MEASUREMENT_ID = process.env.EXTENSION_PUBLIC_GA_MEASUREMENT_ID;
+```
+
+對於可以輪替的唯寫分析金鑰，這樣是可以接受的。當某個憑證必須保密時，請把事件傳到你自己控制的小型後端，並把憑證留在那裡。前綴與檔案順序請見[環境變數](/zh-Hant/docs/features/environment-variables)。
+
+## 宣告你收集了什麼
+
+每個商店都要求你揭露資料收集，Firefox 建置也會在建置期提醒：
+
+```text
+addons.mozilla.org requires browser_specific_settings.gecko.data_collection_permissions
+for new add-ons. Declare {"required": ["none"]} if this extension transmits no data.
+```
+
+請如實宣告，並讓酬載小到與宣告相符。頁面 URL、表單內容，以及任何可識別個人的資料，都會提高每個商店的審查門檻。
+
+## 後續步驟
+
+- 閱讀[遙測與隱私控制](/zh-Hant/docs/features/telemetry-and-privacy)，了解工具本身的回報。
+- 閱讀[跨來源請求](/zh-Hant/docs/implementation-guide/cross-origin-requests)，了解請求可以在哪裡發出。
+- 發布前請閱讀[安全檢查清單](/zh-Hant/docs/workflows/security-checklist)。

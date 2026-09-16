@@ -1,0 +1,113 @@
+---
+title: "Route traffic through a proxy"
+description: "Use the proxy API from an Extension.js project. Covers fixed servers, PAC scripts, proxy authentication, and what each browser target does with the permission."
+keywords:
+  [
+    "extension.js",
+    "proxy",
+    "pac script",
+    "onAuthRequired",
+    "vpn",
+    "manifest v3",
+    "docs",
+    "workflows",
+  ]
+---
+
+Send the browser's requests through a proxy server that your extension controls.
+
+Extension.js has no proxy-specific behavior. The proxy API belongs to the browser, and your `manifest.json` permissions travel into the build as you wrote them. What changes between targets is which permissions survive, so start there.
+
+## What each target does with the permission
+
+A manifest that asks for `"proxy"` builds like this:
+
+| Target   | Result in `dist/<browser>/manifest.json`     |
+| -------- | -------------------------------------------- |
+| Chromium | `proxy` passes through unchanged             |
+| Firefox  | `proxy` passes through unchanged             |
+| Safari   | `proxy` is removed, and the build says so    |
+
+The Safari build prints the reason:
+
+```text
+Safari has no support for 1 manifest key this build inherited from its
+Chromium manifest, so the safari build dropped it.
+permissions.proxy Safari has no proxy API
+```
+
+Plan for that before you promise proxy behavior on Safari. See [Browser-specific manifest fields](/docs/features/browser-specific-fields) when you want a manifest key on one target only.
+
+## Set a fixed proxy
+
+Configure the proxy from the background service worker, where the API is available:
+
+```js
+chrome.proxy.settings.set({
+  value: {
+    mode: "fixed_servers",
+    rules: {
+      singleProxy: {scheme: "http", host: "127.0.0.1", port: 8080},
+      bypassList: ["localhost"],
+    },
+  },
+  scope: "regular",
+});
+```
+
+The `proxy` permission is required, and a Chromium build also wants host permissions for the sites that you intend to cover.
+
+## Ship a PAC script
+
+A PAC script is not a manifest field, so the bundler never sees it as an entry. It does not get hashed, rewritten, or added to the output on its own. Two routes work.
+
+Pass the script inline as data:
+
+```js
+const pac = `function FindProxyForURL(url, host) {
+  if (host === "localhost") return "DIRECT";
+  return "PROXY 127.0.0.1:8080";
+}`;
+
+chrome.proxy.settings.set({
+  value: {mode: "pac_script", pacScript: {data: pac}},
+  scope: "regular",
+});
+```
+
+Or keep the script as a file. Anything inside the `public/` folder is copied into the build without processing, so a PAC file placed there arrives in `dist/<browser>/` under the same name. Read it with `fetch` from your own extension origin, then pass the text as `data`. See [Special folders](/docs/features/special-folders) for what `public/` does.
+
+## Handle proxy authentication
+
+A proxy that asks for credentials triggers `chrome.webRequest.onAuthRequired`. Manifest V3 removed blocking `webRequest`, so answering that challenge needs the `webRequestAuthProvider` permission alongside `webRequest`.
+
+[Intercept network requests](/docs/workflows/intercept-network-requests) covers the request APIs that Manifest V3 keeps, and where `declarativeNetRequest` replaces the blocking ones.
+
+<Warning>
+  Credentials that are compiled into the extension are readable by anyone who
+  installs it. Environment variables do not change that, because their values
+  are inlined at build time. See [Environment
+  variables](/docs/features/environment-variables).
+</Warning>
+
+## Firefox works differently
+
+Firefox has a proxy API under the same permission name, and a different model behind it. Firefox asks the extension to decide per request through `browser.proxy.onRequest`, rather than storing a settings object.
+
+Extension.js does not warn about this difference. Its Gecko compatibility warnings cover other APIs, so a Chromium-shaped `chrome.proxy.settings.set` call reaches a Firefox build with no message at all. Confirm the API on [MDN](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy) and test the Firefox target before you ship it.
+
+## Proxy the dev browser instead
+
+Sometimes you want the browser proxied during development, and not the extension. Pass a browser flag rather than an extension API:
+
+```bash
+EXTENSION_BROWSER_FLAGS="--proxy-server=http://127.0.0.1:8080" extension dev ./my-extension
+```
+
+[Browser flags](/docs/browsers/browser-flags) covers that variable and the `browserFlags` config key.
+
+## Next steps
+
+- Read [Intercept network requests](/docs/workflows/intercept-network-requests) for the request APIs.
+- Read [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions) for the permission rules.
+- Read [Build an ad blocker](/docs/workflows/build-an-ad-blocker) for rule-based blocking instead.

@@ -1,0 +1,97 @@
+---
+title: "在开发容器或 Codespace 中开发"
+description: "在 Docker、VS Code 开发容器或 GitHub Codespace 中运行 Extension.js 开发流程。涵盖沙箱参数、监听地址和文件监视。"
+keywords:
+  [
+    "extension.js",
+    "docker",
+    "dev container",
+    "devcontainer",
+    "codespaces",
+    "remote development",
+    "vs code",
+    "docs",
+    "workflows",
+  ]
+---
+
+在 Docker、VS Code 开发容器或 GitHub Codespace 中运行 Extension.js 的开发流程。
+
+有两种布局可选。浏览器可以和开发服务器一起运行在容器内。浏览器也可以留在宿主机上，只把开发服务器放进容器。下面的参数两种布局都覆盖。
+
+## 沙箱参数会自动补上
+
+多数 Linux 容器没有可用的 setuid 沙箱。Chromium 会在调试端口绑定之前就退出，会话失败而且看不出原因。
+
+当 Extension.js 识别出这种环境时，它会给 Chromium 启动补上 `--no-sandbox` 和 `--disable-setuid-sandbox`。识别条件是平台为 Linux，并且满足以下任意一项：
+
+- `CI` 变量的值为字符串 `true`。
+- 存在 `/.dockerenv` 文件，由 Docker 创建。
+- 存在 `/run/.containerenv` 文件，由 Podman 创建。
+- `REMOTE_CONTAINERS` 变量由 VS Code 设为 `true`。
+- `CODESPACES` 变量由 GitHub Codespaces 设为 `true`。
+- `container` 变量由若干 Linux 运行时设置。
+
+<Note>
+  平台判断也是条件的一部分。运行在 macOS 或 Windows
+  宿主上的容器报告的平台不同，因此那里不会补上这些参数。
+</Note>
+
+你也可以自己添加参数。`browserFlags` 配置项和 `EXTENSION_BROWSER_FLAGS` 变量见[浏览器参数](/zh-Hans/docs/browsers/browser-flags)。
+
+## 把开发服务器绑定到所有网卡
+
+开发服务器默认绑定 `127.0.0.1`，容器外的任何进程都访问不到。传入 `--host 0.0.0.0` 改为绑定所有网卡：
+
+```bash
+extension dev ./my-extension --host 0.0.0.0
+```
+
+浏览器无法连接通配地址，因此 Extension.js 会为重载通道单独解析一个可连接地址。通配绑定会解析为 `127.0.0.1`，在你把端口转发到宿主机时这是正确的值。`ready.json` 中的 `host` 字段报告的就是这个可连接地址，而不是绑定地址。
+
+当浏览器必须用别的名字访问容器时，显式传入：
+
+```bash
+extension dev ./my-extension --host 0.0.0.0 --public-host my-container.local
+```
+
+## 让浏览器留在宿主机
+
+没有显示环境的容器无法启动浏览器。用 `--no-browser` 只启动开发服务器，然后在你自己的浏览器里加载编译产物：
+
+```bash
+extension dev ./my-extension --host 0.0.0.0 --no-browser
+```
+
+编译后的扩展位于 `dist/<browser>/`，例如 `dist/chromium/`。在宿主机上把该目录作为未打包扩展加载。端口转发完成后，重载仍然会通过开发服务器送达。
+
+<Warning>
+  `--no-browser` 和 `--wait` 不能在同一个进程中使用，因为 `--wait`
+  轮询的契约文件这次运行永远不会写出。请在一个进程里运行 `extension dev
+  --no-browser`，在另一个进程里运行 `extension dev --wait`。
+</Warning>
+
+## 绑定挂载下的文件监视
+
+Extension.js 默认使用原生文件系统事件监视，因为轮询会唤醒 CPU 并拖慢重载。在拥有自己文件系统的容器里，原生事件是可靠的。
+
+出问题的是来自 macOS 或 Windows 宿主的绑定挂载。这类挂载常常丢事件，宿主机上的改动到不了编译器。这时请打开轮询：
+
+```bash
+EXTENSION_WATCH_POLL=true extension dev ./my-extension
+```
+
+间隔默认为 1000 毫秒。想用别的节奏时，把 `EXTENSION_WATCH_POLL_INTERVAL` 设为另一个毫秒值。
+
+## 容器会话检查清单
+
+1. 把开发服务器端口转发到宿主机。
+2. 用 `--host 0.0.0.0` 启动会话。
+3. 容器内没有浏览器时加上 `--no-browser`。
+4. 改动经由绑定挂载传入时加上 `EXTENSION_WATCH_POLL=true`。
+
+## 后续步骤
+
+- 阅读[浏览器参数](/zh-Hans/docs/browsers/browser-flags)，了解 Extension.js 传入的参数。
+- 阅读[在 WSL 下开发扩展](/zh-Hans/docs/browsers/wsl)，了解 Windows 上的对应做法。
+- 阅读 [CI 模板](/zh-Hans/docs/workflows/ci-templates)，了解构建服务器上的无头运行。

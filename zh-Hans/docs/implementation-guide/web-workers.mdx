@@ -1,0 +1,111 @@
+---
+title: "在内容脚本中使用 Web Worker"
+description: "内容脚本无法用扩展 URL 构造 Worker。了解 Extension.js 产出了什么、浏览器为什么拒绝，以及哪些替代方案可行。"
+keywords:
+  [
+    "extension.js",
+    "web worker",
+    "worker",
+    "content script",
+    "offscreen",
+    "blob",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+把繁重的计算移出页面主线程，避免页面卡住。
+
+Extension.js 按 web 目标的打包器默认行为编译 `new Worker(new URL("./worker.js", import.meta.url))`。这个调用会在 `dist/<browser>/` 根目录产出一个独立的 worker 块，编译后的调用通过 `chrome.runtime.getURL()` 指向该块。这部分是正常的。
+
+拒绝发生在浏览器一侧。worker 脚本必须与创建它的文档同源。内容脚本背后的文档是宿主页面，所以下面两种写法都会失败。
+
+## 内容脚本实际得到的结果
+
+下面这段内容脚本能正常编译，运行时失败：
+
+```js
+// Both calls throw in a content script.
+const bundled = new Worker(new URL("./worker.js", import.meta.url));
+const staticFile = new Worker(chrome.runtime.getURL("worker-static.js"));
+```
+
+在 `https://example.com` 上，Chromium 报告：
+
+```text
+SecurityError: Failed to construct 'Worker': Script at
+'chrome-extension://<id>/496.js' cannot be accessed from origin
+'https://example.com'.
+```
+
+把文件加入 `web_accessible_resources` 也解除不了这个限制。它控制的是页面能否加载该文件，而不是该文件能否成为外部源的 worker。
+
+<Note>
+  以上是在 Chromium
+  上、用运行于公开页面的内容脚本实测的结果。Firefox 和 Safari
+  没有实测，因此请把上面的报错视为 Chromium 的行为。
+</Note>
+
+## 在扩展自己的页面里运行 worker
+
+popup、选项页、侧边栏和 offscreen 文档都从 `chrome-extension://` 源加载。在那里创建的 worker 是同源的，两种写法都无需额外设置即可工作：
+
+```js
+// In an extension page, not a content script.
+const bundled = new Worker(new URL("./worker.js", import.meta.url));
+
+bundled.onmessage = (event) => console.log(event.data);
+bundled.postMessage("hello");
+```
+
+这是首选路线。让内容脚本保持轻薄，把输入发送给后台 service worker 或 offscreen 文档，让 worker 在那里运行。无可见界面的页面见 [Offscreen 文档](/zh-Hans/docs/implementation-guide/offscreen-documents)，往返消息见[消息传递](/zh-Hans/docs/implementation-guide/messaging)。
+
+## blob 变通方案及其两个前提
+
+当这项工作必须留在页面里时，请取回 worker 源码，并用 blob URL 构造 worker。blob 继承页面的源，因此浏览器会接受：
+
+```js
+const url = chrome.runtime.getURL("worker-static.js");
+const response = await fetch(url);
+const source = await response.text();
+const blob = new Blob([source], {type: "text/javascript"});
+const worker = new Worker(URL.createObjectURL(blob));
+```
+
+它能否成功由两个前提决定。
+
+**该文件必须可被网页访问。** `extension build` 不会把 worker 块加入 `web_accessible_resources`，所以请自己在 `manifest.json` 中声明该文件：
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["worker-static.js"],
+      "matches": ["https://example.com/*"]
+    }
+  ]
+}
+```
+
+没有这条声明时，`fetch` 会以 `TypeError: Failed to fetch` 失败，请求显示为 `chrome-extension://invalid/`。
+
+**宿主页面的 CSP 必须允许 blob worker。** 发送 `worker-src 'self'` 的页面会拦截该 blob，而且失败是静默的。构造函数正常返回，随后 worker 通过 `onerror` 失败，消息为空：
+
+```text
+Creating a worker from 'blob:...' violates the following Content Security
+Policy directive: "worker-src 'self'". The action has been blocked.
+```
+
+`new Worker` 外面的 `try`/`catch` 完全捕获不到它。请挂上 `onerror` 处理器，并把它当作真正的失败信号。
+
+## 三种做法的取舍
+
+- 扩展页面不需要任何设置，两种写法都可用。
+- 内容脚本加 blob 需要一条清单条目，以及宽松的页面 CSP。
+- 内容脚本直接用扩展 URL 会被拒绝，没有办法改变。
+
+## 后续步骤
+
+- 阅读 [Offscreen 文档](/zh-Hans/docs/implementation-guide/offscreen-documents)，了解无可见页面的后台工作。
+- 阅读[可被网页访问的资源](/zh-Hans/docs/implementation-guide/web-accessible-resources)，了解清单条目。
+- 阅读[内容脚本](/zh-Hans/docs/implementation-guide/content-scripts)，了解页面源还限制了什么。
