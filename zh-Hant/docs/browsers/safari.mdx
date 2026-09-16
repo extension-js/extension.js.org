@@ -186,11 +186,16 @@ npx extension dev --browser=safari
 ### Xcode 專案何時會重新產生
 
 Xcode 專案只會產生一次，之後的同步都重複使用它。是否過期由一個指紋檔
-`dist/safari-xcode/.manifest-fingerprint` 判定。v2
-指紋會記錄正規化後的 `manifest.json` 內容，以及身分輸入：app
-名稱、bundle id 與僅 macOS 設定。當儲存的指紋不再吻合，或你傳入
+`dist/safari-xcode/.manifest-fingerprint` 判定。v4
+指紋會記錄身分輸入（app 名稱、bundle id 與僅 macOS 設定）、`dist/safari`
+的頂層項目，以及 manifest 的 `icons` 集合。至於 manifest
+本身，它只記錄轉換工具會判斷的那部分：頂層鍵名、`permissions` 與
+`optional_permissions` 的值，以及每個 `content_scripts` 項目與 `options_ui`
+的鍵名。manifest 的其餘位元組不參與，因此每次儲存都會變動的內容雜湊腳本名不會讓轉換工具重跑。當儲存的指紋不再吻合，或你傳入
 `--force-regenerate` 時，轉換工具會再次執行。純外觀性的 manifest
 變更（鍵順序、空白）不會觸發它。
+
+{/* TODO(version): the v4 fingerprint shape above. Merged as 0508e40cd, unreleased as of 4.1.19, which still writes the v2 shape. */}
 
 重新產生會替換整個專案：你在 Xcode 中所做的客製（entitlements、capabilities、新增的檔案或
 target）都會被 **丟棄**。只有這幾項簽章設定會自動保留：`DEVELOPMENT_TEAM`、`CODE_SIGN_STYLE`
