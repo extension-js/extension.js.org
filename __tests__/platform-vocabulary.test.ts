@@ -37,8 +37,10 @@ const PLATFORM_VOCABULARY = [
 
 function allDocPages(): string[] {
   const files: string[] = [];
+
   for (const localeDir of LOCALE_DIRS) {
     const dir = resolve(ROOT, localeDir);
+
     for (const entry of readdirSync(dir, {
       recursive: true,
       encoding: "utf-8",
@@ -48,6 +50,7 @@ function allDocPages(): string[] {
       }
     }
   }
+
   return files;
 }
 
@@ -70,16 +73,20 @@ describe("platform vocabulary stays out of the docs corpus", () => {
 
   it("finds no platform vocabulary outside the allowlist", () => {
     const violations: string[] = [];
+
     for (const page of allDocPages()) {
       const relativePath = relative(ROOT, page);
       if (ALLOWED_PAGES.includes(relativePath)) continue;
+
       const body = readFileSync(page, "utf8").toLowerCase();
+
       for (const term of PLATFORM_VOCABULARY) {
         if (body.includes(term.toLowerCase())) {
           violations.push(`${relativePath}: ${term}`);
         }
       }
     }
+
     expect(violations).toEqual([]);
   });
 

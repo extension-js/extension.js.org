@@ -13,8 +13,10 @@ const LOCALE_DIRS = ["docs", "zh-Hans/docs", "zh-Hant/docs"];
 
 function allDocPages(): string[] {
   const files: string[] = [];
+
   for (const localeDir of LOCALE_DIRS) {
     const dir = resolve(ROOT, localeDir);
+
     for (const entry of readdirSync(dir, {
       recursive: true,
       encoding: "utf-8",
@@ -24,6 +26,7 @@ function allDocPages(): string[] {
       }
     }
   }
+
   return files;
 }
 
@@ -35,6 +38,7 @@ describe("hand-off to the extension.dev platform", () => {
   it("finds every locale's command docs", () => {
     const pages = allDocPages();
     expect(pages.length).toBeGreaterThan(0);
+
     for (const localeDir of LOCALE_DIRS) {
       expect(
         pages.some((page) => page.includes(`/${localeDir}/commands/build.`)),
@@ -66,8 +70,10 @@ describe("hand-off to the extension.dev platform", () => {
   it("teaches no command from the private deploy package", () => {
     for (const page of allDocPages()) {
       const body = readFileSync(page, "utf8");
+
       for (const name of ["@extension.dev/deploy", "extension-deploy"]) {
         if (!body.includes(name)) continue;
+
         throw new Error(
           `${page} still references ${name}, which no reader can install.`,
         );

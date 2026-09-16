@@ -19,7 +19,6 @@ const HAS_MONOREPO = existsSync(COMMANDS_DIR);
 interface CommandMapping {
   doc: string;
   source: string;
-  /** For files that define multiple commands (e.g. install.ts has install + uninstall) */
   commandBoundary?: string;
 }
 
@@ -42,30 +41,26 @@ const COMMAND_MAP: Record<string, CommandMapping> = {
   },
 };
 
-/**
- * Extract --flag-name patterns from markdown table rows.
- * Only matches flags inside backticks within table rows.
- */
 function extractDocFlags(content: string): Set<string> {
   const flags = new Set<string>();
   const lines = content.split("\n");
+
   for (const line of lines) {
     if (!line.trim().startsWith("|")) continue;
     // Skip separator rows
     if (/^\|[\s-|]+$/.test(line.trim())) continue;
+
     const re = /`(--[\w-]+)/g;
     let m;
+
     while ((m = re.exec(line))) {
       flags.add(m[1]);
     }
   }
+
   return flags;
 }
 
-/**
- * Extract the source section for a specific command when multiple
- * commands are defined in the same file.
- */
 function extractCommandSection(content: string, boundary: string): string {
   const idx = content.indexOf(boundary);
   if (idx === -1) return content;
@@ -74,24 +69,17 @@ function extractCommandSection(content: string, boundary: string): string {
   const rest = content.slice(idx + boundary.length);
   const nextCommand = rest.search(/\.command\(/);
   if (nextCommand === -1) return content.slice(idx);
+
   return content.slice(idx, idx + boundary.length + nextCommand);
 }
 
-/**
- * Check if a flag exists in the source content.
- * Searches .option() calls and .addHelpText() strings.
- */
 function sourceContainsFlag(source: string, flag: string): boolean {
   return source.includes(flag);
 }
 
-/**
- * The command source plus the flag strings of every shared Option it
- * registers through a helper factory (`.addOption(helper())`), so a flag
- * that moved into helpers/cli-options.ts still counts for that command only.
- */
 function withSharedOptions(sourcePath: string, section?: string): string {
   const own = section ?? readFileSync(sourcePath, "utf-8");
+
   return [own, ...sharedOptionStrings(sourcePath, section)].join("\n");
 }
 
@@ -123,12 +111,14 @@ describe("CLI command flags match source", () => {
         const docFlags = extractDocFlags(docContent);
 
         let section: string | undefined;
+
         if (mapping.commandBoundary) {
           section = extractCommandSection(
             readFileSync(sourcePath, "utf-8"),
             mapping.commandBoundary,
           );
         }
+
         const sourceContent = withSharedOptions(sourcePath, section);
 
         for (const flag of docFlags) {

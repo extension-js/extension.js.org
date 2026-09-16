@@ -35,24 +35,30 @@ function allPages(): string[] {
   const fromRoot = ROOT_PAGES.map((page) => resolve(ROOT, page)).filter(
     (page) => existsSync(page),
   );
+
   return [...fromTrees, ...fromRoot];
 }
 
 function frontmatterTitle(content: string): string | null {
   if (!content.startsWith("---")) return null;
+
   const end = content.indexOf("\n---", 3);
   if (end === -1) return null;
+
   const block = content.slice(3, end);
+
   for (const line of block.split("\n")) {
     const match = /^title:\s*(?:"([^"]*)"|'([^']*)'|(.+?))\s*$/.exec(line);
     if (match) return match[1] ?? match[2] ?? match[3] ?? null;
   }
+
   return null;
 }
 
 // A site path such as /docs/browsers resolves to a page file or a section index.
 function pageExists(path: string): boolean {
   const base = resolve(ROOT, path.replace(/^\//, ""));
+
   return (
     existsSync(`${base}.mdx`) ||
     existsSync(`${base}.md`) ||
@@ -73,6 +79,7 @@ function internalLinks(content: string): string[] {
   const re = /(?:\]\(|(?:href|src)=")(\/[^)"\s#]*)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(clean))) found.push(m[1]);
+
   return found;
 }
 
@@ -98,6 +105,7 @@ describe("Search result titles stay inside the snippet budget", () => {
   const measured = pages.map((file) => {
     const title = frontmatterTitle(readFileSync(file, "utf-8"));
     const rendered = (title ?? "").length + TITLE_SUFFIX.length;
+
     return { file: file.replace(`${ROOT}/`, ""), title, rendered };
   });
 
@@ -144,6 +152,7 @@ describe("robots.txt stays valid for every crawler", () => {
     .filter((entry) => entry.line !== "" && !entry.line.startsWith("#"))
     .map((entry) => {
       const colon = entry.line.indexOf(":");
+
       return {
         number: entry.number,
         name: entry.line.slice(0, colon).trim().toLowerCase(),
@@ -173,11 +182,14 @@ describe("robots.txt stays valid for every crawler", () => {
     directives.forEach((entry, index) => {
       if (entry.name === "user-agent") seenAgent = true;
       if (entry.name !== "allow" && entry.name !== "disallow") return;
+
       const afterSitemap = firstSitemap !== -1 && index > firstSitemap;
+
       if (!seenAgent || afterSitemap) {
         orphans.push(`line ${entry.number}: ${entry.raw}`);
       }
     });
+
     expect(
       orphans,
       `a rule outside a group is ignored:\n${orphans.join("\n")}`,
@@ -187,6 +199,7 @@ describe("robots.txt stays valid for every crawler", () => {
   it("declares an absolute sitemap", () => {
     const sitemaps = directives.filter((entry) => entry.name === "sitemap");
     expect(sitemaps.length).toBeGreaterThan(0);
+
     for (const entry of sitemaps) {
       expect(entry.value, `${entry.raw} is not absolute`).toMatch(
         /^https:\/\//,
@@ -226,12 +239,15 @@ describe("Pages link to pages, never to a redirect", () => {
 
   it("no internal link lands on a redirect source", () => {
     const leaning: string[] = [];
+
     for (const file of allPages()) {
       const relPath = file.replace(`${ROOT}/`, "");
+
       for (const link of internalLinks(readFileSync(file, "utf-8"))) {
         if (sources.has(link)) leaning.push(`${relPath} -> ${link}`);
       }
     }
+
     expect(
       leaning,
       `link the destination directly:\n${leaning.join("\n")}`,
