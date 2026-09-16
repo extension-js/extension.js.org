@@ -1,0 +1,110 @@
+---
+title: "透過 Proxy 轉送流量"
+description: "在 Extension.js 專案使用 proxy API。涵蓋固定伺服器、PAC 指令碼、Proxy 驗證，以及各瀏覽器目標如何處理該權限。"
+keywords:
+  [
+    "extension.js",
+    "proxy",
+    "pac script",
+    "onAuthRequired",
+    "vpn",
+    "manifest v3",
+    "docs",
+    "workflows",
+  ]
+---
+
+讓瀏覽器的請求經過你的擴充功能所控制的 proxy 伺服器。
+
+Extension.js 沒有任何針對 proxy 的行為。proxy API 屬於瀏覽器，而你的 `manifest.json` 權限會原封不動進入建置產物。各目標之間的差別在於哪些權限會被保留，所以請從這裡看起。
+
+## 各目標如何處理該權限
+
+一份宣告了 `"proxy"` 的資訊清單，建置結果如下：
+
+| 目標     | `dist/<browser>/manifest.json` 中的結果 |
+| -------- | --------------------------------------- |
+| Chromium | `proxy` 原樣保留                        |
+| Firefox  | `proxy` 原樣保留                        |
+| Safari   | `proxy` 被移除，建置會提示              |
+
+Safari 建置會印出原因：
+
+```text
+Safari has no support for 1 manifest key this build inherited from its
+Chromium manifest, so the safari build dropped it.
+permissions.proxy Safari has no proxy API
+```
+
+在承諾 Safari 上的 proxy 行為之前，請先為此做好規劃。只想為單一目標加上資訊清單鍵時，請見[依瀏覽器區分的資訊清單欄位](/zh-Hant/docs/features/browser-specific-fields)。
+
+## 設定固定 proxy
+
+在背景 service worker 設定 proxy，那裡可以使用該 API：
+
+```js
+chrome.proxy.settings.set({
+  value: {
+    mode: "fixed_servers",
+    rules: {
+      singleProxy: {scheme: "http", host: "127.0.0.1", port: 8080},
+      bypassList: ["localhost"],
+    },
+  },
+  scope: "regular",
+});
+```
+
+`proxy` 權限是必要的，Chromium 建置通常還需要涵蓋目標網站的主機權限。
+
+## 隨擴充功能提供 PAC 指令碼
+
+PAC 指令碼不是資訊清單欄位，因此打包器不會把它當成進入點。它不會被計算雜湊、改寫路徑，也不會自行進入產物。有兩條可行路線。
+
+把指令碼當成 data 內嵌傳入：
+
+```js
+const pac = `function FindProxyForURL(url, host) {
+  if (host === "localhost") return "DIRECT";
+  return "PROXY 127.0.0.1:8080";
+}`;
+
+chrome.proxy.settings.set({
+  value: {mode: "pac_script", pacScript: {data: pac}},
+  scope: "regular",
+});
+```
+
+或者把指令碼保留成檔案。`public/` 目錄裡的內容會原樣複製進建置產物，所以放在那裡的 PAC 檔案會以同名出現在 `dist/<browser>/`。從你自己的擴充功能來源以 `fetch` 讀取它，再把文字當成 `data` 傳入。`public/` 的作用請見[特殊資料夾](/zh-Hant/docs/features/special-folders)。
+
+## 處理 proxy 驗證
+
+需要憑證的 proxy 會觸發 `chrome.webRequest.onAuthRequired`。Manifest V3 移除了阻擋式 `webRequest`，因此要回應該挑戰，除了 `webRequest` 之外還需要 `webRequestAuthProvider` 權限。
+
+[攔截網路請求](/zh-Hant/docs/workflows/intercept-network-requests)介紹了 Manifest V3 保留的請求 API，以及 `declarativeNetRequest` 在哪些地方取代了阻擋式 API。
+
+<Warning>
+  編譯進擴充功能的憑證，任何安裝者都讀得到。環境變數也改變不了這件事，因為它們的值在建置時就被內嵌了。請見[環境變數](/zh-Hant/docs/features/environment-variables)。
+</Warning>
+
+## Firefox 的機制不同
+
+Firefox 有一個同名權限下的 proxy API，背後的模型並不一樣。Firefox 透過 `browser.proxy.onRequest` 讓擴充功能逐一請求做決定，而不是儲存一份設定物件。
+
+Extension.js 不會針對這個差異提出警告。它的 Gecko 相容性警告涵蓋的是其他 API，因此 Chromium 形態的 `chrome.proxy.settings.set` 呼叫進入 Firefox 建置時不會有任何訊息。請在 [MDN](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy) 確認該 API，並在發布前測試 Firefox 目標。
+
+## 也可以只代理開發用瀏覽器
+
+有時你想代理的是開發期的瀏覽器，而不是擴充功能。這時請傳瀏覽器參數，而不是使用擴充功能 API：
+
+```bash
+EXTENSION_BROWSER_FLAGS="--proxy-server=http://127.0.0.1:8080" extension dev ./my-extension
+```
+
+[瀏覽器參數](/zh-Hant/docs/browsers/browser-flags)介紹了這個變數與 `browserFlags` 設定項。
+
+## 後續步驟
+
+- 閱讀[攔截網路請求](/zh-Hant/docs/workflows/intercept-network-requests)，了解請求 API。
+- 閱讀[權限與主機權限](/zh-Hant/docs/implementation-guide/permissions-and-host-permissions)，了解權限規則。
+- 閱讀[打造廣告攔截器](/zh-Hant/docs/workflows/build-an-ad-blocker)，了解以規則為基礎的攔截。

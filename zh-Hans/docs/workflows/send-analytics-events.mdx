@@ -1,0 +1,117 @@
+---
+title: "从你的扩展发送分析事件"
+description: "在 Manifest V3 扩展中收集自己的产品分析数据。涵盖远程代码禁令、Measurement Protocol，以及打包进产物的密钥意味着什么。"
+keywords:
+  [
+    "extension.js",
+    "analytics",
+    "google analytics",
+    "measurement protocol",
+    "ga4",
+    "remote code",
+    "docs",
+    "workflows",
+  ]
+---
+
+在你自己的扩展内部，记录用户如何使用它。
+
+<Note>
+  本页讲的是你的扩展发送的分析数据。关于 Extension.js
+  命令行工具自身上报的数据以及如何关闭，请阅读[遥测与隐私控制](/zh-Hans/docs/features/telemetry-and-privacy)。
+
+</Note>
+
+## 来自 CDN 的分析脚本不可用
+
+Manifest V3 禁止远程托管代码。从内容分发网络加载标签管理器或分析 SDK 的厂商代码片段，正是该政策针对的模式。
+
+当项目中的 HTML 页面引用远程脚本时，Extension.js 会发出警告：
+
+```text
+Warning: The page loads a remote <script>, which the MV3 CSP blocks.
+PATH  popup/index.html
+GOT   https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX
+Bundle the script or self-host it instead.
+```
+
+构建仍然会成功，标签也会留在产物里，所以没有什么阻止你把它发布出去。之后浏览器会拒绝执行该脚本，任何事件都不会发出。请把这条警告当作缺陷看待。
+
+剩下两条路线。要么打包一个以 npm 包形式发布、且无需再加载代码的分析库，要么自己调用 HTTP 端点。本页其余部分讲第二条路线，它完全不需要第三方运行时。
+
+## 通过 Measurement Protocol 发送事件
+
+Google Analytics 4 接受普通 HTTP 形式的事件。一次请求长这样：
+
+```js
+async function track(name, params) {
+  await fetch(
+    "https://www.google-analytics.com/mp/collect" +
+      `?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        client_id: await getClientId(),
+        events: [{name, params: {...params, engagement_time_msec: "100"}}],
+      }),
+    },
+  );
+}
+```
+
+`client_id` 由你自己生成。为每次安装创建一个标识符，存下来并重复使用：
+
+```js
+async function getClientId() {
+  const stored = await chrome.storage.local.get("clientId");
+  if (stored.clientId) return stored.clientId;
+
+  const clientId = crypto.randomUUID();
+  await chrome.storage.local.set({clientId});
+
+  return clientId;
+}
+```
+
+在调试载荷期间，请改为发送到 `https://www.google-analytics.com/debug/mp/collect`。该端点不会记录请求，而是返回这次请求的校验信息。
+
+## 从 service worker 发送
+
+请在后台 service worker 或扩展页面中发起请求。这些上下文带有扩展自身的源，而主机权限覆盖这次调用：
+
+```json
+{
+  "host_permissions": ["https://www.google-analytics.com/"]
+}
+```
+
+内容脚本运行在宿主页面的源之下，那里主机权限不起作用，生效的是页面自己的规则。请发消息给后台，由它发起调用。完整表格和消息传递写法见[跨源请求](/zh-Hans/docs/implementation-guide/cross-origin-requests)。
+
+如果你声明了自己的 `content_security_policy`，那么 `connect-src` 必须列出分析端点。开发会话只会往该指令里追加自己的本地回环条目，永远不会加上你的端点。因此漏写一条在开发期和生产环境会以同样的方式失败。
+
+## 打包进产物的密钥不是秘密
+
+随扩展一起发布的 API secret，任何安装者都能读到。环境变量改变不了这一点。Extension.js 会在构建时把每一个 `EXTENSION_PUBLIC_` 值内联进产物。这能让值不进入代码仓库，但不能让它不落到用户手里。
+
+```js
+const MEASUREMENT_ID = process.env.EXTENSION_PUBLIC_GA_MEASUREMENT_ID;
+```
+
+对于可以轮换的只写分析密钥，这样是可以接受的。当某个凭据必须保密时，请把事件发送到你自己控制的小型后端，并把凭据放在那里。前缀和文件顺序见[环境变量](/zh-Hans/docs/features/environment-variables)。
+
+## 声明你收集了什么
+
+每个商店都要求你披露数据收集，Firefox 构建也会在构建期提醒：
+
+```text
+addons.mozilla.org requires browser_specific_settings.gecko.data_collection_permissions
+for new add-ons. Declare {"required": ["none"]} if this extension transmits no data.
+```
+
+请如实声明，并让载荷小到与声明相符。页面 URL、表单内容，以及任何能识别个人的数据，都会抬高每个商店的审核门槛。
+
+## 后续步骤
+
+- 阅读[遥测与隐私控制](/zh-Hans/docs/features/telemetry-and-privacy)，了解工具自身的上报。
+- 阅读[跨源请求](/zh-Hans/docs/implementation-guide/cross-origin-requests)，了解请求可以在哪里发起。
+- 发布前请阅读[安全检查清单](/zh-Hans/docs/workflows/security-checklist)。

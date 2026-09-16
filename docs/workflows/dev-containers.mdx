@@ -1,0 +1,97 @@
+---
+title: "Develop in a dev container or Codespace"
+description: "Run the Extension.js dev loop inside Docker, a VS Code dev container, or a GitHub Codespace. Covers sandbox flags, host binding, and file watching."
+keywords:
+  [
+    "extension.js",
+    "docker",
+    "dev container",
+    "devcontainer",
+    "codespaces",
+    "remote development",
+    "vs code",
+    "docs",
+    "workflows",
+  ]
+---
+
+Run the Extension.js dev loop inside Docker, a VS Code dev container, or a GitHub Codespace.
+
+You have two layouts to choose from. The browser can run inside the container, next to the dev server. The browser can also stay on your host machine, with only the dev server inside. The flags below cover both.
+
+## Sandbox flags are added for you
+
+Most Linux containers ship without a usable setuid sandbox. Chromium then exits before the debugging port binds, and the session fails with no obvious cause.
+
+Extension.js adds `--no-sandbox` and `--disable-setuid-sandbox` to Chromium launches when it detects that layout. Detection needs the platform to be Linux, plus one of these signals:
+
+- The `CI` variable, set to the string `true`.
+- A `/.dockerenv` file, which Docker creates.
+- A `/run/.containerenv` file, which Podman creates.
+- The `REMOTE_CONTAINERS` variable, set to `true` by VS Code.
+- The `CODESPACES` variable, set to `true` by GitHub Codespaces.
+- The `container` variable, set by several Linux runtimes.
+
+<Note>
+  The platform check is part of the condition. A container running on a macOS or
+  Windows host reports a different platform, so the flags are not added there.
+</Note>
+
+You can also add flags yourself. See [Browser flags](/docs/browsers/browser-flags) for the `browserFlags` config key and the `EXTENSION_BROWSER_FLAGS` variable.
+
+## Bind the dev server to all interfaces
+
+The dev server binds to `127.0.0.1` by default, which no process outside the container can reach. Pass `--host 0.0.0.0` to bind every interface instead:
+
+```bash
+extension dev ./my-extension --host 0.0.0.0
+```
+
+The browser cannot dial a wildcard address, so Extension.js resolves a separate connectable host for the reload bridge. A wildcard bind resolves to `127.0.0.1`, which is correct when you forward the port to your host. The `host` field in `ready.json` reports that connectable value, not the bind address.
+
+When the browser has to reach the container under another name, pass it explicitly:
+
+```bash
+extension dev ./my-extension --host 0.0.0.0 --public-host my-container.local
+```
+
+## Keep the browser on the host
+
+A container without a display cannot launch a browser. Start the dev server alone with `--no-browser`, then load the compiled output in your own browser:
+
+```bash
+extension dev ./my-extension --host 0.0.0.0 --no-browser
+```
+
+The compiled extension lands in `dist/<browser>/`, for example `dist/chromium/`. Load that directory as an unpacked extension on the host. Reloads still arrive over the dev server once the port is forwarded.
+
+<Warning>
+  `--no-browser` and `--wait` are refused in the same process, because `--wait`
+  polls a contract that this run never writes. Run `extension dev --no-browser`
+  in one process and `extension dev --wait` in another.
+</Warning>
+
+## File watching over bind mounts
+
+Extension.js watches with native filesystem events by default, because polling wakes the CPU and delays reloads. Native events are reliable inside a container that owns its own filesystem.
+
+A bind mount from a macOS or Windows host is the case that breaks. Those mounts often drop events, and edits made on the host never reach the compiler. Turn on polling for that case:
+
+```bash
+EXTENSION_WATCH_POLL=true extension dev ./my-extension
+```
+
+The interval defaults to 1000 milliseconds. Set `EXTENSION_WATCH_POLL_INTERVAL` to another value in milliseconds when you want a different cadence.
+
+## Checklist for a container session
+
+1. Forward the dev server port to the host.
+2. Start the session with `--host 0.0.0.0`.
+3. Add `--no-browser` when the container has no browser.
+4. Add `EXTENSION_WATCH_POLL=true` when edits arrive over a bind mount.
+
+## Next steps
+
+- Read [Browser flags](/docs/browsers/browser-flags) for the flags that Extension.js passes.
+- Read [Developing extensions under WSL](/docs/browsers/wsl) for the Windows equivalent.
+- Read [CI templates](/docs/workflows/ci-templates) for headless runs on a build server.

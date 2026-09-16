@@ -1,0 +1,117 @@
+---
+title: "Send analytics from your extension"
+description: "Collect your own product analytics in a Manifest V3 extension. Covers the remote code ban, the Measurement Protocol, and what a bundled key really is."
+keywords:
+  [
+    "extension.js",
+    "analytics",
+    "google analytics",
+    "measurement protocol",
+    "ga4",
+    "remote code",
+    "docs",
+    "workflows",
+  ]
+---
+
+Record what people do with your extension, from inside your own extension.
+
+<Note>
+  This page is about analytics that your extension sends. For the data that the
+  Extension.js command line tool itself reports, and how to turn it off, read
+  [Telemetry and privacy controls](/docs/features/telemetry-and-privacy).
+</Note>
+
+## An analytics snippet from a CDN does not work
+
+Manifest V3 blocks remotely hosted code. The vendor snippet that loads a tag manager or an analytics SDK from a content delivery network is exactly the pattern that the policy targets.
+
+Extension.js warns when an HTML page in your project references a remote script:
+
+```text
+Warning: The page loads a remote <script>, which the MV3 CSP blocks.
+PATH  popup/index.html
+GOT   https://www.googletagmanager.com/gtag/js?id=G-XXXXXXX
+Bundle the script or self-host it instead.
+```
+
+The build still succeeds and the tag stays in the output, so nothing stops you from shipping it. The browser then refuses to run the script, and no event is ever sent. Treat the warning as a defect.
+
+Two routes remain. Bundle an analytics library that ships as a package and works without loading more code, or call an HTTP endpoint yourself. The rest of this page covers the second route, which is the one that needs no third-party runtime at all.
+
+## Send events over the Measurement Protocol
+
+Google Analytics 4 accepts events over plain HTTP. A request looks like this:
+
+```js
+async function track(name, params) {
+  await fetch(
+    "https://www.google-analytics.com/mp/collect" +
+      `?measurement_id=${MEASUREMENT_ID}&api_secret=${API_SECRET}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        client_id: await getClientId(),
+        events: [{name, params: {...params, engagement_time_msec: "100"}}],
+      }),
+    },
+  );
+}
+```
+
+The `client_id` is yours to generate. Create one identifier per installation, store it, and reuse it:
+
+```js
+async function getClientId() {
+  const stored = await chrome.storage.local.get("clientId");
+  if (stored.clientId) return stored.clientId;
+
+  const clientId = crypto.randomUUID();
+  await chrome.storage.local.set({clientId});
+
+  return clientId;
+}
+```
+
+While you are building the payload, send it to `https://www.google-analytics.com/debug/mp/collect` instead. That endpoint returns the validation messages for your request rather than recording it.
+
+## Send from the service worker
+
+Run the request in the background service worker, or in an extension page. Those contexts carry the extension origin, and a host permission covers the call:
+
+```json
+{
+  "host_permissions": ["https://www.google-analytics.com/"]
+}
+```
+
+A content script runs under the host page's origin instead, where host permissions do not apply and the page's own rules do. Send a message to the background and let it make the call. [Cross-origin requests](/docs/implementation-guide/cross-origin-requests) has the full table and the message-passing pattern.
+
+If you declare your own `content_security_policy`, then `connect-src` has to list the analytics endpoint. A development session appends its own loopback entries to that directive, and never your endpoint. A missing entry therefore fails the same way in development and in production.
+
+## A bundled key is not a secret
+
+An API secret that ships inside the extension is readable by anyone who installs it. Environment variables do not change this. Extension.js inlines every `EXTENSION_PUBLIC_` value into the bundle at build time. That keeps the value out of your repository, and not out of your users' hands.
+
+```js
+const MEASUREMENT_ID = process.env.EXTENSION_PUBLIC_GA_MEASUREMENT_ID;
+```
+
+That is acceptable for a write-only analytics key that you can rotate. When a credential must stay private, send the event to a small backend that you control, and keep the credential there. [Environment variables](/docs/features/environment-variables) covers the prefix and the file order.
+
+## Declare what you collect
+
+Every store asks you to disclose data collection, and a Firefox build says so during the build:
+
+```text
+addons.mozilla.org requires browser_specific_settings.gecko.data_collection_permissions
+for new add-ons. Declare {"required": ["none"]} if this extension transmits no data.
+```
+
+Keep the declaration honest, and keep the payload small enough to match it. Page URLs, form values, and anything that identifies a person raise the review bar on every store.
+
+## Next steps
+
+- Read [Telemetry and privacy controls](/docs/features/telemetry-and-privacy) for the tool's own reporting.
+- Read [Cross-origin requests](/docs/implementation-guide/cross-origin-requests) for where a request may run.
+- Read [Security checklist](/docs/workflows/security-checklist) before a release.

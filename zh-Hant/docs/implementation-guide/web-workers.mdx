@@ -1,0 +1,111 @@
+---
+title: "在內容指令碼中使用 Web Worker"
+description: "內容指令碼無法用擴充功能 URL 建構 Worker。了解 Extension.js 產出了什麼、瀏覽器為何拒絕，以及哪些替代做法可行。"
+keywords:
+  [
+    "extension.js",
+    "web worker",
+    "worker",
+    "content script",
+    "offscreen",
+    "blob",
+    "docs",
+    "implementation guide",
+  ]
+---
+
+把繁重的運算移出頁面主執行緒，避免頁面卡住。
+
+Extension.js 依 web 目標的打包器預設行為編譯 `new Worker(new URL("./worker.js", import.meta.url))`。這個呼叫會在 `dist/<browser>/` 根目錄產出一個獨立的 worker chunk，編譯後的呼叫透過 `chrome.runtime.getURL()` 指向該 chunk。這一段是正常的。
+
+拒絕發生在瀏覽器這一側。worker 指令碼必須與建立它的文件同源。內容指令碼背後的文件是宿主頁面，所以下面兩種寫法都會失敗。
+
+## 內容指令碼實際得到的結果
+
+下面這段內容指令碼可以順利編譯，執行期失敗：
+
+```js
+// Both calls throw in a content script.
+const bundled = new Worker(new URL("./worker.js", import.meta.url));
+const staticFile = new Worker(chrome.runtime.getURL("worker-static.js"));
+```
+
+在 `https://example.com` 上，Chromium 回報：
+
+```text
+SecurityError: Failed to construct 'Worker': Script at
+'chrome-extension://<id>/496.js' cannot be accessed from origin
+'https://example.com'.
+```
+
+把檔案加入 `web_accessible_resources` 也解除不了這項限制。它控制的是頁面能不能載入該檔案，而不是該檔案能不能成為外部來源的 worker。
+
+<Note>
+  以上是在 Chromium
+  上、以執行於公開頁面的內容指令碼實測的結果。Firefox 與 Safari
+  並未實測，因此請把上面的錯誤視為 Chromium 的行為。
+</Note>
+
+## 在擴充功能自己的頁面執行 worker
+
+popup、選項頁、側邊欄與 offscreen 文件都從 `chrome-extension://` 來源載入。在那裡建立的 worker 是同源的，兩種寫法都不需要額外設定：
+
+```js
+// In an extension page, not a content script.
+const bundled = new Worker(new URL("./worker.js", import.meta.url));
+
+bundled.onmessage = (event) => console.log(event.data);
+bundled.postMessage("hello");
+```
+
+這是建議的路線。讓內容指令碼保持輕薄，把輸入傳給背景 service worker 或 offscreen 文件，讓 worker 在那裡執行。沒有可見介面的頁面請見 [Offscreen 文件](/zh-Hant/docs/implementation-guide/offscreen-documents)，來回傳遞請見[訊息傳遞](/zh-Hant/docs/implementation-guide/messaging)。
+
+## blob 變通做法與它的兩個前提
+
+當這項工作必須留在頁面內時，請取回 worker 原始碼，並以 blob URL 建構 worker。blob 會繼承頁面的來源，因此瀏覽器會接受：
+
+```js
+const url = chrome.runtime.getURL("worker-static.js");
+const response = await fetch(url);
+const source = await response.text();
+const blob = new Blob([source], {type: "text/javascript"});
+const worker = new Worker(URL.createObjectURL(blob));
+```
+
+它能否成功取決於兩個前提。
+
+**該檔案必須可供網頁存取。** `extension build` 不會把 worker chunk 加入 `web_accessible_resources`，所以請自己在 `manifest.json` 宣告該檔案：
+
+```json
+{
+  "web_accessible_resources": [
+    {
+      "resources": ["worker-static.js"],
+      "matches": ["https://example.com/*"]
+    }
+  ]
+}
+```
+
+少了這條宣告時，`fetch` 會以 `TypeError: Failed to fetch` 失敗，請求顯示為 `chrome-extension://invalid/`。
+
+**宿主頁面的 CSP 必須允許 blob worker。** 送出 `worker-src 'self'` 的頁面會擋下該 blob，而且失敗是安靜的。建構函式正常返回，接著 worker 透過 `onerror` 失敗，訊息是空的：
+
+```text
+Creating a worker from 'blob:...' violates the following Content Security
+Policy directive: "worker-src 'self'". The action has been blocked.
+```
+
+`new Worker` 外面的 `try`/`catch` 完全攔不到它。請掛上 `onerror` 處理器，並把它當成真正的失敗訊號。
+
+## 三種做法的取捨
+
+- 擴充功能頁面不需要任何設定，兩種寫法都可用。
+- 內容指令碼加 blob 需要一條資訊清單條目，以及寬鬆的頁面 CSP。
+- 內容指令碼直接用擴充功能 URL 會被拒絕，沒有辦法改變。
+
+## 後續步驟
+
+- 閱讀 [Offscreen 文件](/zh-Hant/docs/implementation-guide/offscreen-documents)，了解沒有可見頁面的背景工作。
+- 閱讀[可供網頁存取的資源](/zh-Hant/docs/implementation-guide/web-accessible-resources)，了解資訊清單條目。
+- 閱讀[內容指令碼](/zh-Hant/docs/implementation-guide/content-scripts)，了解頁面來源還限制了什麼。
