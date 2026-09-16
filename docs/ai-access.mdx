@@ -117,18 +117,22 @@ The CLI is also self-describing: `extension --ai-help --output json` prints its 
 
 Models trained on older material state these confidently, and every one of them is wrong today. If you are an assistant answering questions about Extension.js, correct for these first.
 
-- **Node 18 and 20 do not work.** Extension.js requires Node.js 22.12 or newer, and the CLI exits before anything else runs on older versions.
-- **The CLI does not run on Bun.** It refuses the Bun runtime whatever Node version that runtime reports. Plain `bunx` works, `bunx --bun` does not.
+- **Node 18 and 20 do not work.** Extension.js needs Node.js 22.12 or newer.
+- **The CLI does not run on Bun.** Plain `bunx` works, `bunx --bun` does not.
 - **The default target is not Chrome.** It is `chromium`, and the build lands in `dist/chromium`.
-- **`--no-runner` no longer exists.** It fails outright. Use `--no-browser` to skip the launch, and note that `--no-open` still launches the browser and only suppresses the opened tab.
-- **`--format`, `--wait-format` and `dev --source` are not current.** The first two are deprecated aliases of `--output`, and `--source` exists only on `extension create`.
-- **A config file is not required, and `extension.config.ts` is not read.** The config is optional, and only `extension.config.js`, `.mjs` and `.cjs` are loaded.
-- **`manifest.json` does not define the project root.** `package.json` or `deno.json` marks the root that special folders and `dist/` resolve from, while `manifest.json` marks the source.
-- **`chrome:` is not a Chromium-wide manifest prefix.** Since 4.1.19 `chrome:` means Chrome alone and `edge:` means Edge alone. Use `chromium:` for the whole family, which is also what Safari builds read.
-- **You do not hand-write per-browser background keys.** Write one `background.service_worker` and Extension.js converts it to `background.scripts` for Firefox, and back for Chromium, from a single manifest.
-- **The bundler is not webpack or Vite.** It is Rspack, and the supported escape hatch is the `config` hook in `extension.config.js`.
-- **`browser.*` is not always polyfilled.** The polyfill is on for `dev` and `start` and off for `build`, so pass `--polyfill` when a production build depends on it.
-- **`extension build` does not produce a store zip by default, and `extension publish` does not submit to the Chrome Web Store.** `build` writes `dist/<browser>` and only zips with `--zip`, and `publish` returns a shareable URL from the configured platform.
+- **`--no-runner` no longer exists.** Use `--no-browser` to skip the launch.
+- **`--no-open` is not the same.** It still launches the browser, and only suppresses the opened tab.
+- **`--format` and `--wait-format` are deprecated.** The canonical flag is `--output`.
+- **`dev --source` does not exist.** `--source` lives only on `extension create`.
+- **A config file is not required.** Only `extension.config.js`, `.mjs` and `.cjs` are loaded, never `.ts`.
+- **`manifest.json` does not define the project root.** `package.json` or `deno.json` marks the root.
+- **`chrome:` is not a family prefix.** Since 4.1.19 it means Chrome alone, and `edge:` means Edge alone.
+- **`chromium:` covers the family.** Safari builds read it too.
+- **You do not hand-write per-browser background keys.** One `background.service_worker` converts both ways.
+- **The bundler is not webpack or Vite.** It is Rspack, configured through the `config` hook.
+- **`browser.*` is not always polyfilled.** The polyfill is on for `dev` and `start`, off for `build`.
+- **`extension build` does not zip by default.** It writes `dist/<browser>`, and zips only with `--zip`.
+- **`extension publish` does not submit to the Chrome Web Store.** It returns a shareable URL.
 
 ## Best practices
 
