@@ -186,11 +186,16 @@ npx extension dev --browser=safari
 ### Xcode 工程何时会重新生成
 
 Xcode 工程只生成一次，之后的重新同步都复用它。是否过期由一个指纹文件
-`dist/safari-xcode/.manifest-fingerprint` 决定。v2
-指纹记录了归一化后的 `manifest.json` 内容，以及身份输入：app
-名称、bundle id 和仅 macOS 设置。当存储的指纹不再匹配，或你传入
+`dist/safari-xcode/.manifest-fingerprint` 决定。v4
+指纹记录了身份输入（app 名称、bundle id 和仅 macOS 设置）、`dist/safari`
+的顶层条目，以及 manifest 的 `icons` 集合。至于 manifest
+本身，它只记录转换器会判断的那部分：顶层键名、`permissions` 与
+`optional_permissions` 的值，以及每个 `content_scripts` 条目和 `options_ui`
+的键名。manifest 的其余字节不参与，因此每次保存都会变化的内容哈希脚本名不会让转换器重跑。当存储的指纹不再匹配，或你传入
 `--force-regenerate` 时，转换器会再次运行。纯外观性的 manifest
 改动（键顺序、空白）不会触发它。
+
+{/* TODO(version): the v4 fingerprint shape above. Merged as 0508e40cd, unreleased as of 4.1.19, which still writes the v2 shape. */}
 
 重新生成会替换整个工程：你在 Xcode 里做的定制（entitlements、capabilities、新增的文件或
 target）都会被 **丢弃**。只有这几项签名设置会被自动保留：`DEVELOPMENT_TEAM`、`CODE_SIGN_STYLE`

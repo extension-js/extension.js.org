@@ -206,12 +206,18 @@ Resyncs run in the background, so the bundler loop is never blocked. A burst of 
 ### When the Xcode project regenerates
 
 The Xcode project is generated once and reused for resyncs. Staleness is decided
-by a fingerprint file, `dist/safari-xcode/.manifest-fingerprint`. The v2
-fingerprint stores your normalized `manifest.json` content plus the identity
-inputs: app name, bundle id, and the macOS-only setting. The converter runs
-again when the stored fingerprint no longer matches, or when you pass
-`--force-regenerate`. Cosmetic manifest edits (key order, whitespace) do not
-trigger it.
+by a fingerprint file, `dist/safari-xcode/.manifest-fingerprint`. The v4
+fingerprint stores the identity inputs (app name, bundle id, and the macOS-only
+setting), the top-level entries of `dist/safari`, and the manifest `icons` set.
+Of the manifest itself it stores only the surface the converter judges. That
+surface is the top-level key names, the `permissions` and `optional_permissions`
+values, and the key names inside each `content_scripts` entry and `options_ui`. The other
+manifest bytes stay out, so the content-hashed script names that change on every
+save do not re-run the converter. The converter runs again when the stored
+fingerprint no longer matches, or when you pass `--force-regenerate`. Cosmetic
+manifest edits (key order, whitespace) do not trigger it.
+
+{/* TODO(version): the v4 fingerprint shape above. Merged as 0508e40cd, unreleased as of 4.1.19, which still writes the v2 shape. */}
 
 Regeneration replaces the project: customizations made in
 Xcode (entitlements, capabilities, added files or targets) are **discarded**.
