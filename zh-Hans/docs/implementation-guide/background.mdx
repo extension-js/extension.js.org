@@ -136,6 +136,30 @@ Firefox 不会运行 MV3 `background.service_worker`（加载这样的扩展会�
 
 只要出现 `background.scripts`，Chromium MV3 就会拒绝整个扩展，即使旁边还有一个有效的 `service_worker` 也一样。因此 Extension.js 总是会从输出的 Chromium MV3 manifest 中移除 `scripts` 键。当源文件同时声明了两个字段时，已有的 `service_worker` 条目胜出。
 
+## Safari：用 background 页面，而不是 service worker
+
+Safari 构建产出的是一个非持久的 background 页面。Extension.js 会把 `background.service_worker` 条目翻译成 `background: {scripts: [...]}`，和它为 Firefox 做的翻译一样。
+
+原因是在 Safari 26.5.2 上测量出来的：测试中 Manifest V3 的 service worker 从未启动过，包括用 Apple 自己的转换器构建的扩展，而 background 页面则会立即运行。WebKit 有意偏好页面形式（[WebKit bug 270750](https://bugs.webkit.org/show_bug.cgi?id=270750)）。
+
+<Warning>
+  在 background 脚本 **顶层** 有一个没有保护的、仅 Chromium
+  才有的调用，在 Safari 上就会抛错，Safari 随后会丢弃这个 background
+  上下文。你拿不到日志、拿不到重载，也看不到任何错误，扩展看上去就是死的。请保护这个调用，或者在构建期分支。
+</Warning>
+
+```js
+// Throws on Safari and takes the whole background context with it.
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+// Safe on every target.
+chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
+```
+
+Safari 构建还会对 Safari 缺少的扩展 API 发出警告，这是在你开始调试之前发现问题最省事的办法。详见 [构建 Safari 扩展](/zh-Hans/docs/browsers/safari)。
+
+{/* TODO(version): name the release that ships the Safari background-page emission and the build-time API warnings. Merged as 0508e40cd, unreleased as of 4.1.19. */}
+
 ## MV3 service worker 生命周期
 
 `background.service_worker` 按浏览器的 service worker 生命周期运行，而不是作为长时间运行的进程。

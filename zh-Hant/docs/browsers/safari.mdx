@@ -1,6 +1,6 @@
 ---
 title: "使用 Extension.js 建置 Safari 擴充功能"
-description: "在 macOS 上使用 Extension.js 將 web extension 建置成 Safari 應用程式。涵蓋需求、dev 與 build 工作流程及已知限制。"
+description: "在 macOS 上使用 Extension.js 開發並建置 Safari 應用程式形式的 web extension。涵蓋需求、dev 迴圈、記錄、重新載入與已知限制。"
 keywords:
   [
     "extension.js",
@@ -15,16 +15,21 @@ keywords:
   ]
 ---
 
-把你現有的 web extension 打包成 macOS 上的原生 Safari 應用程式,無需手動維護
-獨立的 Xcode 專案。
+在 macOS 上針對 Safari 開發 web extension，不必手動維護獨立的 Xcode 專案。
 
 <Note>
-  Safari **僅支援 macOS**,且需要完整的 Xcode 應用程式。build → 轉換 →
-  `xcodebuild` → 開啟 app 的流程涵蓋 `build` 與 `dev`;不支援 `preview` 與
-  `start`,目前也尚未支援即時重載。
+  Safari **僅支援 macOS**，且需要完整的 Xcode 應用程式。`dev` 與 `build`
+  都可以使用。`preview` 與 `start` 不行，原因請見下方的「指令支援」。
 </Note>
 
-使用 `--browser=safari`,把你發布到 Chrome 與 Firefox 的同一份擴充功能轉成 Safari App Extension。Extension.js 會打包你的程式碼、執行 Apple 的 `safari-web-extension-converter`,以 `xcodebuild` 編譯產生的 app,並引導你完成啟用步驟。
+`extension dev --browser safari` 會打包你的程式碼、以 Apple 的 `safari-web-extension-converter` 轉換它，再用 `xcodebuild` 建置並簽章一個 app，然後開啟它。你只需要在 Safari 設定中啟用擴充功能一次。之後 `extension logs` 會串流 background 與 content 的記錄列，控制通道會接上，而且每次儲存都會在 Safari 中重新載入擴充功能。
+
+{/* TODO(version): name the release that ships the Safari dev loop (logs, control bridge, automatic reload) in the Note and the paragraph above. Merged as 0508e40cd, unreleased as of 4.1.19. */}
+
+<Note>
+  本頁描述的行為量測自 macOS 26.5.2、Safari 26.5.2 與 Xcode 26.6。Safari 27
+  已經存在，但沒有重新量測。
+</Note>
 
 <Frame>
   <iframe
@@ -37,9 +42,9 @@ keywords:
   />
 </Frame>
 
-## 需求
+## 你需要什麼
 
-Safari **僅限 macOS**,而且需要**完整的 Xcode 應用程式**,不是僅安裝 Command Line Tools。轉換工具(`safari-web-extension-converter`)與 `xcodebuild` 都打包在 `Xcode.app` 中。
+Safari **僅限 macOS**，而且需要**完整的 Xcode 應用程式**，不是僅安裝 Command Line Tools。轉換工具（`safari-web-extension-converter`）與 `xcodebuild` 都打包在 `Xcode.app` 中。
 
 ```bash
 # Install Xcode from the Mac App Store, then point the toolchain at it:
@@ -47,51 +52,53 @@ sudo xcode-select --switch /Applications/Xcode.app
 xcodebuild -runFirstLaunch
 ```
 
-如果缺少 Xcode,`extension build`/`dev --browser=safari` 會在打包前就立即失敗,並提供指引,而不是稍後才丟出讓人困惑的錯誤。
+付費的 Apple Developer 帳號 **不是** 必要條件。沒有 `--development-team` 時，app 會以 ad-hoc 方式簽章，而 Safari 接受 ad-hoc 簽章的 app：它會像列出其他擴充功能一樣列出它，而且「開發」選單中的 **允許未簽章的擴充功能** 維持關閉。那個設定屬於另一條路徑，請見下方的「暫時擴充功能（不用 Xcode）」。
+
+如果缺少 Xcode，Safari 目標的 `extension dev` 與 `extension build` 會在打包前就立即失敗，並提供指引，而不是稍後才丟出讓人困惑的錯誤。
 
 ## 產物內容
 
-`extension build --browser=safari` 會在你的專案旁邊建立:
+`extension build --browser=safari` 會在你的專案旁邊建立：
 
 | 路徑                  | 內容                                                  |
 | --------------------- | ----------------------------------------------------- |
-| `dist/safari`         | 打包後的 web extension(manifest、scripts、資源)。     |
-| `dist/safari-xcode`   | 產生的 Xcode 專案(app 加上 Safari extension target)。 |
-| `…/Release/<App>.app` | 編譯後、作為你擴充功能宿主的 app;有設定 `--development-team` 時以你的 team id 簽章,否則為 ad-hoc 簽章。 |
+| `dist/safari`         | 打包後的 web extension（manifest、scripts、資源）。    |
+| `dist/safari-xcode`   | 產生的 Xcode 專案（app 加上 Safari extension target）。|
+| `…/Release/<App>.app` | 編譯後、作為你擴充功能宿主的 app；有設定 `--development-team` 時以你的 team id 簽章，否則為 ad-hoc 簽章。 |
 
-整套流程會一氣呵成:**打包 → 轉換 → `xcodebuild`**,而在 `dev`(或
-`build --open`)下還會 **開啟 app → 引導啟用**。單純執行 `build`
-會在打包後停下,並改為印出 `open` 指令。
+整套流程會一氣呵成：**打包 → 轉換 → `xcodebuild`**，而在 `dev`（或
+`build --open`）下還會 **開啟 app → 引導啟用**。單純執行 `build`
+會在打包後停下，並改為印出 `open` 指令。
 
 ```bash
 npx extension build --browser=safari
 ```
 
-App 名稱與 bundle identifier 會根據你的 manifest `name` 推導而出(例如 `React Sidebar Example` → bundle id `dev.extensionjs.React-Sidebar-Example`)。專案預設以 macOS 為目標。
+App 名稱與 bundle identifier 會根據你的 manifest `name` 推導而出（例如 `React Sidebar Example` → bundle id `dev.extensionjs.React-Sidebar-Example`）。專案預設以 macOS 為目標。
 
 <Warning>
   產生的 `dev.extensionjs.*` bundle id 只是開發用的暫代值。如果你打算發行你的
-  app,請 **從第一次建置開始** 就設定一個你自己擁有的 bundle
-  id。之後才更改會讓 Safari 把這個擴充功能視為全新的身分(使用者會失去啟用狀態與資料)。
+  app，請 **從第一次建置開始** 就設定一個你自己擁有的 bundle
+  id。之後才更改會讓 Safari 把這個擴充功能視為全新的身分（使用者會失去啟用狀態與資料）。
 </Warning>
 
 ## App 身分與打包選項
 
-`dev` 與 `build` 都接受身分覆寫選項(僅適用 Safari 目標):
+`dev` 與 `build` 都接受身分覆寫選項（僅適用 Safari 目標）：
 
 | 旗標                 | 作用                                                                        |
 | -------------------- | --------------------------------------------------------------------------- |
-| `--bundle-id`        | 你自己擁有的反向 DNS bundle identifier(例如 `com.example.my-extension`)。   |
-| `--app-name`         | 覆寫 app 名稱(預設取自 manifest 的 `name`)。                                |
-| `--development-team` | 用來簽章的 Apple Developer team id(例如 `A1B2C3D4E5`)。沒有它時建置為 ad-hoc 簽章。 |
-| `--macos-only`       | 產生僅 macOS 的 Xcode 專案(預設 `true`)。傳入 `--macos-only false` 可產生 macOS + iOS 通用專案。 |
-| `--force-regenerate` | 即使 Xcode 專案已是最新,仍強制重新產生。                                    |
-| `--safari-binary`    | 僅 `dev`:打包後用來開啟的 Safari 執行檔。                                   |
-| `--open`             | 僅 `build`:打包後開啟建置好的 app(預設關閉)。                               |
+| `--bundle-id`        | 你自己擁有的反向 DNS bundle identifier（例如 `com.example.my-extension`）。 |
+| `--app-name`         | 覆寫 app 名稱（預設取自 manifest 的 `name`）。                              |
+| `--development-team` | 用來簽章的 Apple Developer team id（例如 `A1B2C3D4E5`）。沒有它時建置為 ad-hoc 簽章。 |
+| `--macos-only`       | 產生僅 macOS 的 Xcode 專案（預設 `true`）。傳入 `--macos-only false` 可產生 macOS + iOS 通用專案。 |
+| `--force-regenerate` | 即使 Xcode 專案已是最新，仍強制重新產生。                                    |
+| `--safari-binary`    | 僅 `dev`：打包後用來開啟的 Safari 執行檔。                                   |
+| `--open`             | 僅 `build`：打包後開啟建置好的 app（預設關閉）。                             |
 
-沒有 `--bundle-id` 時,Extension.js 會推導出 `dev.extensionjs.<name>`,其中 `<name>` 是經過淨化的 app 名稱(連續的非英數字元會變成連字號)。你自行提供的 bundle id 必須符合反向 DNS 形狀:至少兩段以點分隔、由字母、數字與連字號組成,且每段以字母開頭。不合法的值會在打包前被拒絕。
+沒有 `--bundle-id` 時，Extension.js 會推導出 `dev.extensionjs.<name>`，其中 `<name>` 是經過淨化的 app 名稱（連續的非英數字元會變成連字號）。你自行提供的 bundle id 必須符合反向 DNS 形狀：至少兩段以點分隔、由字母、數字與連字號組成，且每段以字母開頭。不合法的值會在打包前被拒絕。
 
-同樣的選項也可以寫在 `extension.config.js` 中(CLI 旗標優先):
+同樣的選項也可以寫在 `extension.config.js` 中（CLI 旗標優先）：
 
 ```js
 export default {
@@ -105,139 +112,202 @@ export default {
 };
 ```
 
-更改 bundle id、app 名稱或 manifest,都會在下一次執行時重新產生 Xcode
-專案(參見下方關於重新產生的警告)。
+更改 bundle id、app 名稱或 manifest，都會在下一次執行時重新產生 Xcode
+專案（參見下方關於重新產生的警告）。
 
 ## 在其他平台建置 web extension 產物
 
-`extension build --browser=safari` 在 Linux 與 Windows 上同樣可用:它會產出完整的
-`dist/safari` web extension 產物,並帶著一則警告 **略過 Xcode 打包步驟**。
-這讓 CI 可以在任何平台建置酬載,之後再由一台 Mac(或 macOS runner)完成轉換與
+`extension build --browser=safari` 在 Linux 與 Windows 上同樣可用：它會產出完整的
+`dist/safari` web extension 產物，並帶著一則警告 **略過 Xcode 打包步驟**。
+這讓 CI 可以在任何平台建置酬載，之後再由一台 Mac（或 macOS runner）完成轉換與
 `xcodebuild` 的部分。`dev --browser=safari` 仍然需要裝有 Xcode 的
-macOS,因為少了打包步驟的 Safari 開發迴圈沒有任何東西可以執行。
+macOS，因為少了打包步驟的 Safari 開發迴圈沒有任何東西可以執行。
 
 ## 在 Safari 中啟用擴充功能
 
-啟用方式取決於 app 是如何簽章的。app 開啟時(`dev`,或
-`build --open`),Extension.js 會印出符合你這次建置的步驟,並在 macOS
-註冊好擴充功能時加以確認。
+app 開啟時（`dev`，或 `build --open`），Extension.js 會印出符合你這次建置的步驟，並在 macOS 註冊好擴充功能時加以確認。
 
-### 已簽章的建置(建議)
+不論是團隊簽章還是 ad-hoc 簽章，這個一次性的動作都相同：
 
-帶上 `--development-team` 與你的 Apple Developer team id,app 就會以你自己的憑證簽章:
+1. Safari ▸ 設定 ▸ 擴充功能 ▸ 啟用你的擴充功能。
+
+這個開關在 Safari 重新啟動後仍會保留，所以每台機器真的只需要做一次，而不是每次啟動都做一次。
+
+把擴充功能 **開啟，並不等於給了它存取頁面的權限**。Safari
+會另外詢問網站存取權，在你授予之前，content script 根本不會執行：擴充功能被列出、已啟用，卻什麼都不做。
+即使你的 manifest 在 `content_scripts.matches` 與 `host_permissions`
+中都宣告了 `<all_urls>`，情況也一樣，這正是從 Chrome
+過來的人最容易感到意外的地方，因為在 Chrome 中安裝即授予。
+
+在同一個面板的 **權限（Permissions）** 底下，使用：
+
+- **在每個網站上一律允許…（Always Allow on Every Website…）** 適合你正在迭代的開發用擴充功能。它會持續保留，只需授予一次。
+- **編輯網站…（Edit Websites…）** 只允許你正在測試的主機。
+
+如果你的擴充功能載入了卻在頁面上毫無動靜，幾乎都是這個原因。先檢查權限，再回頭看你的程式碼。
+
+### 以 Apple Developer 團隊簽章的建置
+
+帶上 `--development-team` 與你的 Apple Developer team id，app 就會以你自己的憑證簽章：
 
 ```bash
 extension dev --browser safari --development-team A1B2C3D4E5
 ```
 
-之後 Safari 會像列出其他擴充功能一樣列出它,而且只有一個步驟:
+要找出你的 team id，執行 `xcrun security find-identity -v -p codesigning`。憑證名稱中那組十個字元的代碼就是你的 team id，它同時也列在你 Apple Developer 帳號的 Membership 頁面上。
 
-1. Safari ▸ 設定 ▸ 擴充功能 ▸ 啟用你的擴充功能。
+團隊簽章是發行時需要的。對日常開發而言，它不會改變 Safari 列出或執行擴充功能的方式。
 
-這個開關在重新啟動後仍會保留,所以每台機器只需要做一次。
+### ad-hoc 建置（沒有 Apple Developer 帳號）
 
-把擴充功能 **開啟,並不等於給了它存取頁面的權限**。Safari
-會另外詢問網站存取權,在你授予之前,content script 根本不會執行:擴充功能被列出、已啟用,卻什麼都不做。
-即使你的 manifest 在 `content_scripts.matches` 與 `host_permissions`
-中都宣告了 `<all_urls>`,情況也一樣——這正是從 Chrome
-過來的人最容易感到意外的地方,因為在 Chrome 中安裝即授予。
+沒有 `--development-team` 時，app 為 ad-hoc 簽章。Safari 會列出並執行它，上面那個啟用動作就是全部的設定。這是在 Safari ▸ 開發 ▸ **允許未簽章的擴充功能** **關閉** 的狀態下量測的。
 
-在同一個面板的 **權限(Permissions)** 底下,使用:
+### 暫時擴充功能（不用 Xcode）
 
-- **在每個網站上一律允許…(Always Allow on Every Website…)** 適合你正在迭代的開發用擴充功能。它會持續保留,只需授予一次。
-- **編輯網站…(Edit Websites…)** 只允許你正在測試的主機。
+Safari 還有第二條路徑，Extension.js 不會驅動它：Safari ▸ 設定 ▸ 開發者 ▸ **加入暫時擴充功能…**，它會載入一個未封裝的資料夾（例如 `dist/safari`），完全不需要 Xcode 步驟。它需要 **允許未簽章的擴充功能**，而且擴充功能會在 Safari 結束時消失，或在 24 小時後消失。想快速看一眼產物時用它。想要一個重新啟動後仍然存在的開發迴圈，請用 `extension dev`。
 
-如果你的擴充功能載入了卻在頁面上毫無動靜,幾乎都是這個原因。先檢查權限,再回頭看你的程式碼。
+## dev 迴圈
 
-要找出你的 team id,執行 `xcrun security find-identity -v -p codesigning`。憑證名稱中那組十個字元的代碼就是你的 team id,它同時也列在你 Apple Developer 帳號的 Membership 頁面上。
-
-### ad-hoc 建置(沒有 Apple Developer 帳號)
-
-沒有 `--development-team` 時建置為 ad-hoc 簽章,Safari 會將其視為未簽章。它仍然可以執行,只是需要三個步驟:
-
-1. Safari ▸ 設定 ▸ 進階 ▸ 勾選 **「顯示網頁開發者功能」**。
-2. Safari ▸ 開發 ▸ **允許未簽章的擴充功能**(每次 Safari 重新啟動都會重設)。
-3. Safari ▸ 設定 ▸ 擴充功能 ▸ 啟用你的擴充功能。
-4. 依照上面所述授予網站存取權。只是啟用並不會讓 content script 執行。
-
-<Note>
-  「允許未簽章的擴充功能」會在你每次啟動 Safari 時重設,而且無法以腳本設定,也不能存進偏好設定,因此每次重新啟動都要重來同樣的三個步驟。
-  如果你有 Apple Developer 帳號,`--development-team`
-  光是為了日常開發就值得,不只是為了發行。
-</Note>
-
-## 使用 `dev` 開發
-
-`extension dev --browser=safari` 會啟動一個 watch 迴圈:
+`extension dev --browser=safari` 會啟動一個 watch 迴圈：
 
 ```bash
 npx extension dev --browser=safari
 ```
 
-- **第一次編譯** — 完整流程:轉換、建置、開啟 app,並印出啟用步驟。
-- **每次儲存** — 增量的 `xcodebuild` 同步(通常只要幾秒),把剛重建好的 `dist/safari` 資源更新到 app 中。
+- **第一次編譯**：完整流程：轉換、建置、開啟 app，並印出啟用步驟。
+- **每次儲存**：一次增量的 `xcodebuild` 同步，把剛重建好的 `dist/safari` 資源更新到 app 中，並在 Safari 中重新載入擴充功能。
 
-同步在背景執行,因此打包迴圈永遠不會被阻塞。連續多次儲存會收斂成一次針對最新產物的後續同步,所以五次快速儲存只花一次重建,而不是五次。如果第一次完整打包失敗,下一次編譯會重跑完整流程,而不是去同步一個從未成功建置過的專案。
+擴充功能啟用之後，這個迴圈不再需要你點任何東西。在 Safari 26.5.2 上量測，從儲存到擴充功能完成重新載入大約需要 4 秒。
 
-Safari 沒有像 Chromium 或 Firefox 那樣的即時重新載入通道,因此每次重建後,需要在 Safari 中**重新整理頁面(或切換擴充功能開關)**才能套用變更。
+### 一次儲存的成本
+
+同步在背景執行，因此打包迴圈永遠不會被阻塞。連續多次儲存會收斂成一次針對最新產物的後續同步，所以五次快速儲存只花一次重建，而不是五次。如果第一次完整打包失敗，下一次編譯會重跑完整流程，而不是去同步一個從未成功建置過的專案。
 
 ### Xcode 專案何時會重新產生
 
-Xcode 專案只會產生一次,之後的同步都重複使用它。是否過期由一個指紋檔
+Xcode 專案只會產生一次，之後的同步都重複使用它。是否過期由一個指紋檔
 `dist/safari-xcode/.manifest-fingerprint` 判定。v2
-指紋會記錄正規化後的 `manifest.json` 內容,以及身分輸入:app
-名稱、bundle id 與僅 macOS 設定。當儲存的指紋不再吻合,或你傳入
-`--force-regenerate` 時,轉換工具會再次執行。純外觀性的 manifest
-變更(鍵順序、空白)不會觸發它。
+指紋會記錄正規化後的 `manifest.json` 內容，以及身分輸入：app
+名稱、bundle id 與僅 macOS 設定。當儲存的指紋不再吻合，或你傳入
+`--force-regenerate` 時，轉換工具會再次執行。純外觀性的 manifest
+變更（鍵順序、空白）不會觸發它。
 
-重新產生會替換整個專案:你在 Xcode 中所做的客製(entitlements、capabilities、新增的檔案或
-target)都會被 **丟棄**。只有這幾項簽章設定會自動保留:`DEVELOPMENT_TEAM`、`CODE_SIGN_STYLE`
-與 `PROVISIONING_PROFILE_SPECIFIER`。每次要重新產生既有專案前,Extension.js
-都會先警告;如果你在 Xcode 中做過客製,請先備份。刪除 `dist/safari-xcode` 即可從頭來過。
+重新產生會替換整個專案：你在 Xcode 中所做的客製（entitlements、capabilities、新增的檔案或
+target）都會被 **丟棄**。只有這幾項簽章設定會自動保留：`DEVELOPMENT_TEAM`、`CODE_SIGN_STYLE`
+與 `PROVISIONING_PROFILE_SPECIFIER`。每次要重新產生既有專案前，Extension.js
+都會先警告。如果你在 Xcode 中做過客製，請先備份。刪除 `dist/safari-xcode` 即可從頭來過。
 
 ### bundle id 如何被強制套用
 
-Apple 的轉換工具會依 app 名稱推導母 app 的 id,而不是原封不動採用
-`--bundle-identifier`。每次轉換之後,Extension.js 都會改寫產生的
-`project.pbxproj` 中兩處 `PRODUCT_BUNDLE_IDENTIFIER`:app target 取得你的 bundle
-id,extension target 取得 `<bundle-id>.Extension`。這樣保留下來的是你設定的身分,而不是轉換工具猜出來的那個。
+Apple 的轉換工具會依 app 名稱推導母 app 的 id，而不是原封不動採用
+`--bundle-identifier`。每次轉換之後，Extension.js 都會改寫產生的
+`project.pbxproj` 中兩處 `PRODUCT_BUNDLE_IDENTIFIER`：app target 取得你的 bundle
+id，extension target 取得 `<bundle-id>.Extension`。這樣保留下來的是你設定的身分，而不是轉換工具猜出來的那個。
 
 ### `xcodebuild` 實際執行了什麼
 
-編譯步驟使用 `Release` 組態,derived data 寫入
-`dist/safari-xcode/.derived`,這個資料夾值得加進 `.gitignore`。簽章設定取決於
-`--development-team`。有 team id 時,建置會傳入
+編譯步驟使用 `Release` 組態，derived data 寫入
+`dist/safari-xcode/.derived`，這個資料夾值得加進 `.gitignore`。簽章設定取決於
+`--development-team`。有 team id 時，建置會傳入
 `DEVELOPMENT_TEAM=<id>`、`CODE_SIGN_STYLE=Automatic` 與
-`-allowProvisioningUpdates`,因此 Xcode 不必開啟也能產生所需的 provisioning
-profile。沒有時則傳入 ad-hoc 設定(`CODE_SIGN_IDENTITY=-`、`CODE_SIGNING_REQUIRED=NO`、`CODE_SIGNING_ALLOWED=YES`),讓內嵌的
+`-allowProvisioningUpdates`，因此 Xcode 不必開啟也能產生所需的 provisioning
+profile。沒有時則傳入 ad-hoc 設定（`CODE_SIGN_IDENTITY=-`、`CODE_SIGNING_REQUIRED=NO`、`CODE_SIGNING_ALLOWED=YES`），讓內嵌的
 `.appex` 即使沒有 Apple Developer 帳號也能通過驗證。對僅 macOS
-的專案,scheme 名稱就是你的 app 名稱;通用專案則是 `<App> (macOS)`。
+的專案，scheme 名稱就是你的 app 名稱；通用專案則是 `<App> (macOS)`。
 
 ### 註冊確認
 
-開啟 app 之後,Extension.js 會輪詢 `pluginkit`
-查詢擴充功能的註冊狀態,大約在 5 秒內嘗試 6 次,然後印出確認或一則尚未註冊的提示。在
-`--no-open`(以及沒有 `--open` 的單純 `build`)下,app 根本不會啟動,因此還談不上註冊。此時輪詢會被略過,CLI 改為印出
+開啟 app 之後，Extension.js 會輪詢 `pluginkit`
+查詢擴充功能的註冊狀態，大約在 5 秒內嘗試 6 次，然後印出確認或一則尚未註冊的提示。在
+`--no-open`（以及沒有 `--open` 的單純 `build`）下，app 根本不會啟動，因此還談不上註冊。此時輪詢會被略過，CLI 改為印出
 `open` 指令。
+
+## 讀取記錄
+
+一個 Safari dev 工作階段對 [`logs`](/zh-Hant/docs/commands/logs) 來說就是一般的工作階段：
+
+```bash
+extension logs --browser safari --follow
+```
+
+background 的記錄列與 content script 的記錄列會進入同一個串流，和在 Chromium 上一樣，`--context`、`--level` 與 `--output` 篩選器也都相同。
+
+{/* TODO(version): name the release that ships logs and the control bridge for Safari sessions. */}
+
+如果編輯之後串流一片安靜，那就是下一節描述的症狀：background 情境已經不在了，而不是記錄不受支援。
+
+## 一個呼叫就能殺掉 Safari 的 background
+
+在 background 腳本 **最外層** 有一個沒有保護、只有 Chromium 才有的呼叫，在 Safari 上就會丟出例外。Safari 接著會丟棄這個 background 情境，於是你拿不到記錄、拿不到重新載入，任何地方也看不到錯誤。擴充功能看起來就是死的。
+
+```js
+// Kills the background on Safari: sidePanel does not exist there.
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+```
+
+請保護這個呼叫，或在建置期分支：
+
+```js
+// Optional chaining is enough for a call you can skip.
+chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
+
+// Or keep the code out of the Safari bundle entirely.
+if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "safari") {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+```
+
+同樣的程式碼寫在事件監聽器裡是可以承受的，因為只有那個回呼會丟出例外。寫在最外層則會把整個情境一起帶走。下面描述的建置期警告正是為了抓住這種情況，所以在你開始除錯一個從不出聲的 background 之前，先讀它們。
+
+各個目標上的 `EXTENSION_PUBLIC_BROWSER` 值，請見 [環境變數](/zh-Hant/docs/features/environment-variables)。
+
+## Safari 建置會更動你的 manifest 哪些地方
+
+### 使用 background 頁面，而不是 service worker
+
+Safari 建置產出的是非持續性的 background **頁面**（`background: {scripts: [...]}`），而不是 service worker。Extension.js 會把 `background.service_worker` 條目翻譯成這種形狀，和它為 Firefox 所做的翻譯一樣。
+
+原因是量測出來的，不是風格選擇。在 Safari 26.5.2 上，測試中 Manifest V3 的 service worker 從未啟動過，包括以 Apple 自己的轉換工具建置的擴充功能，而 background 頁面則會立刻執行。WebKit 有意偏好頁面形式（[WebKit bug 270750](https://bugs.webkit.org/show_bug.cgi?id=270750)）。
+
+只撰寫一個 `background.service_worker`，它就能在 Chromium、Firefox 與 Safari 上載入。兩個方向的翻譯請見 [Background scripts](/zh-Hant/docs/implementation-guide/background)。
+
+{/* TODO(version): name the release that ships the Safari background-page emission. */}
+
+### Safari 無法使用的鍵與權限
+
+Safari 沒有實作的 manifest 鍵與權限，會從 Safari 建置中自動移除。建置會為每個被移除的鍵印出一行，說明是哪個鍵、以及為什麼被移除。沒有任何東西被靜默丟棄，你的來源 `manifest.json` 也不會被更動。
+
+`content_scripts[].world` 是刻意 **保留** 的，因為 Safari 從 Safari 18 起就支援它。
+
+只針對 Safari 的覆寫請使用 `safari:` 與 `webkit:` manifest 前綴。它們勝過 Safari 原本繼承的 `chromium:` 家族鍵。請見 [瀏覽器專屬 manifest 欄位](/zh-Hant/docs/features/browser-specific-fields)。
+
+{/* TODO(version): name the release that ships the dropped-key report. */}
+
+### Safari 沒有的 API
+
+建置會針對 Safari 缺少的擴充功能 API 發出警告，並指名它在你程式碼中找到的每個命名空間。總共涵蓋十二個命名空間：`sidePanel`、`offscreen`、`tabGroups`、`management`、`identity`、`notifications`、`bookmarks`、`history`、`downloads`、`idle`、`omnibox` 與 `userScripts`。這些警告在正式建置與 `dev` 中都會執行。
+
+警告不是建置失敗。用到這些命名空間的程式碼仍然會被打包，要保護它、依目標分支，還是接受這個功能在 Safari 上不存在，由你決定。
+
+{/* TODO(version): name the release that ships the Safari API warnings. */}
 
 ## 在 Safari 中除錯
 
-Safari 不支援 `--logs` 集中式記錄器(它沒有自動化通道),但 Web Inspector 涵蓋了每一種擴充功能情境:
+Web Inspector 涵蓋了每一種擴充功能情境。當你要的是除錯器而不是記錄串流時，它就是正確的工具：
 
-- **背景 / service worker**:Safari ▸ 開發 ▸ Web Extension Background
+- **background**：Safari ▸ 開發 ▸ Web Extension Background
   Content ▸ _你的擴充功能_。
-- **popup / options / sidebar 頁面**:開啟該介面,然後按右鍵 ▸
-  檢查元素(或 開發 ▸ _你的 Mac_ ▸ 該頁面)。
-- **content script**:檢查宿主頁面,擴充功能的 script 情境會出現在 Sources 分頁的 Extension Scripts 底下。
+- **popup / options / sidebar 頁面**：開啟該介面，然後按右鍵 ▸
+  檢查元素（或 開發 ▸ _你的 Mac_ ▸ 該頁面）。
+- **content script**：檢查宿主頁面，擴充功能的 script 情境會出現在 Sources 分頁的 Extension Scripts 底下。
 
-如果建置失敗,CLI 會印出失敗的 `xcrun`/`xcodebuild`
-輸出尾端,限制在最後 50 行與 8 KB 以內,讓診斷資訊保持可讀。傳入
-`--debug`(或設定 `EXTENSION_DEBUG=true`)可以改為即時串流完整的工具輸出。轉換工具的相容性警告(Safari
-不支援的 manifest 鍵)會在打包期間以警告形式呈現。
+如果建置失敗，CLI 會印出失敗的 `xcrun`/`xcodebuild`
+輸出尾端，限制在最後 50 行與 8 KB 以內，讓診斷資訊保持可讀。傳入
+`--debug`（或設定 `EXTENSION_DEBUG=true`）可以改為即時串流完整的工具輸出。
 
 ## 引擎目標
 
-`safari` 有一個對應 `chromium-based` 與 `gecko-based` 的引擎別名:**`webkit-based`**:
+`safari` 有一個對應 `chromium-based` 與 `gecko-based` 的引擎別名：**`webkit-based`**：
 
 ```bash
 npx extension build --browser=webkit-based
@@ -248,11 +318,11 @@ npx extension build --browser=webkit-based
 | 指令      | Safari 支援                                               |
 | --------- | --------------------------------------------------------- |
 | `build`   | ✅ 建置並打包 Safari 應用程式。                           |
-| `dev`     | ✅ 監看 + 增量重建(在 Safari 中重新整理以套用變更)。      |
-| `preview` | ❌ 不支援 — Safari 擴充功能無法自動載入到執行中的瀏覽器。 |
-| `start`   | ❌ 不支援 — 原因與 `preview` 相同。                       |
+| `dev`     | ✅ 監看、增量重建、記錄與自動重新載入。                   |
+| `preview` | ❌ 不支援。會以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 結束。 |
+| `start`   | ❌ 不支援。原因與 `preview` 相同。                        |
 
-`preview` 與 `start` 的目的是把你的擴充功能載入到執行中的瀏覽器。由於 Safari 需要上述手動的安全控制步驟,這兩個指令會拒絕 Safari 目標,並引導你改用 `build`。在 `--output json` 下,`preview` 會以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 失敗(Safari 是受支援的瀏覽器,只是這個指令沒有 Safari 路徑),`start` 則以 `E_UNSUPPORTED_BROWSER` 失敗。
+`preview` 與 `start` 的目的，是把一個已經建置好的擴充功能載入到執行中的瀏覽器。Safari 這條路走的是 WebDriver，而它已經被量測過：`safaridriver` 確實能載入未封裝的資料夾，background 也確實會執行，但 Safari 給這個擴充功能的主機來源是 **零個**。content script 永遠不會注入，之後也沒有任何 API 呼叫可以補上這個存取權。一個看起來健康、實際什麼都沒測到的工作階段沒有意義，所以這兩個指令會拒絕 Safari 目標，並引導你改用 `dev` 與 `build`。
 
 <Frame>
   <iframe
@@ -267,37 +337,39 @@ npx extension build --browser=webkit-based
 
 ## 限制
 
-- **打包僅限 macOS。** Xcode 步驟需要 macOS 與完整的 Xcode 應用程式。(在其他平台上 `build` 仍會產出 `dist/safari`;`dev` 則需要 macOS。)
-- **沒有即時重新載入。** 重建很快,但需要在 Safari 中重新整理才會套用變更。
-- **首次需手動啟用。** 啟用擴充功能與授予網站存取權都屬於 Safari 的安全控制,無法自動化。在 ad-hoc 建置上,允許未簽章擴充功能是第三個同樣規則的控制項。
-- **簽章止於開發階段。** `--development-team` 會以你的開發憑證為本機 app 簽章。發行用簽章、公證與 App Store 上架是此工作流程之外的獨立步驟(見下文)。
+- **打包僅限 macOS。** Xcode 步驟需要 macOS 與完整的 Xcode 應用程式。（在其他平台上 `build` 仍會產出 `dist/safari`，而 `dev` 需要 macOS。）
+- **`preview` 與 `start` 沒有 Safari 路徑。** 量測到的結論請見上面的「指令支援」。
+- **啟用動作是手動的。** 啟用擴充功能與授予網站存取權都屬於 Safari 的安全控制，無法自動化。兩者都會在重新啟動後保留，所以你只需付出一次。
+- **簽章止於開發階段。** `--development-team` 會以你的開發憑證為本機 app 簽章。發行用簽章、公證與 App Store 上架是此工作流程之外的獨立步驟（見下文）。
 - **僅支援 macOS 目標。** 目前不會由此流程產生 iOS app。
 
-## dev 之後:上架 App Store
+## dev 之後：上架 App Store
 
-上述 Safari 工作流程最後產出的是一個本機簽章的 app,ad-hoc 或開發簽章皆然。要把它發行出去(上架 Mac App
-Store,或作為經過公證的直接下載)是另一條流程,Extension.js 計畫透過
+上述 Safari 工作流程最後產出的是一個本機簽章的 app，ad-hoc 或開發簽章皆然。要把它發行出去（上架 Mac App
+Store，或作為經過公證的直接下載）是另一條流程，Extension.js 計畫透過
 [extension.dev](https://extension.dev?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam)
-平台提供。在那之前,請依循 Apple 自己的指南:
+平台提供。在那之前，請依循 Apple 自己的指南：
 
-- [發行你的 Safari web extension](https://developer.apple.com/documentation/safariservices/safari_web_extensions/distributing_your_safari_web_extension)(Apple Developer Program、簽章、App Store Connect)。
+- [發行你的 Safari web extension](https://developer.apple.com/documentation/safariservices/safari_web_extensions/distributing_your_safari_web_extension)（Apple Developer Program、簽章、App Store Connect）。
 - 非 App Store 發行請參考 [公證 macOS 軟體](https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution)。
 
-從 Extension.js 這一端,有兩件事能讓那條路走得順。請盡早完成:
+從 Extension.js 這一端，有兩件事能讓那條路走得順。請盡早完成：
 
-1. **設定你自己的 `--bundle-id`**(反向 DNS,使用你擁有的網域),從第一次建置就開始。bundle
+1. **設定你自己的 `--bundle-id`**（反向 DNS，使用你擁有的網域），從第一次建置就開始。bundle
    id 就是擴充功能在 Apple 平台上的身分。
-2. **在 Xcode 中設定一次你的 `DEVELOPMENT_TEAM`**:它會隨專案重新產生自動保留,`CODE_SIGN_STYLE`
+2. **在 Xcode 中設定一次你的 `DEVELOPMENT_TEAM`**：它會隨專案重新產生自動保留，`CODE_SIGN_STYLE`
    與 `PROVISIONING_PROFILE_SPECIFIER` 也一樣。
 
 ## 最佳實務
 
-- **正常建置其他目標**:Safari 是附加選項 — 持續在 `chromium`/`firefox` 上迭代,需要驗證 Safari 時再加上 `--browser=safari`。
-- **使用瀏覽器專屬欄位**處理真正的行為差異。Safari 會解析 chromium 家族的前綴 `chromium:`,而在 Safari 目標上,帶 `safari:`/`webkit:` 前綴的鍵會勝過它,`--browser=safari` 與 `--browser=webkit-based` 皆然。`chrome:` 與 `edge:` 鍵不會套用到 Safari。
-- **保留產生的專案**,除非你需要乾淨重來 — 重新產生會丟棄被保留的簽章設定以外的所有 Xcode 端客製。
+- **先讀建置警告。** 它們會指名 Safari 沒有的 API 與 manifest 鍵，這是找出一個起不來的 background 最省事的方法。
+- **保護最外層的 Chromium 專屬呼叫**，在 background 與 content script 中使用選擇性串連，或依 `EXTENSION_PUBLIC_BROWSER` 分支。
+- **使用瀏覽器專屬欄位**處理真正的行為差異。Safari 會解析 chromium 家族的前綴 `chromium:`，而在 Safari 目標上，帶 `safari:`/`webkit:` 前綴的鍵會勝過它，`--browser=safari` 與 `--browser=webkit-based` 皆然。`chrome:` 與 `edge:` 鍵不會套用到 Safari。
+- **保留產生的專案**，除非你需要乾淨重來，因為重新產生會丟棄被保留的簽章設定以外的所有 Xcode 端客製。
 
 ## 後續步驟
 
 - 查看所有 [支援的瀏覽器](/zh-Hant/docs/browsers/browsers-available)。
+- 以 [`logs`](/zh-Hant/docs/commands/logs) 串流一個 Safari 工作階段。
 - 使用 [瀏覽器專屬 manifest 欄位](/zh-Hant/docs/features/browser-specific-fields)。
 - 參考 [多平台建置](/zh-Hant/docs/features/multi-platform-builds)。

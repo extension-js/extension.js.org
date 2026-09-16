@@ -136,6 +136,30 @@ Firefox 不會執行 MV3 的 `background.service_worker`（載入此類擴充功
 
 只要出現 `background.scripts`，Chromium MV3 就會拒絕整個擴充功能，即使旁邊還有一個有效的 `service_worker` 也一樣。因此 Extension.js 一律會從輸出的 Chromium MV3 manifest 中移除 `scripts` 鍵。當來源同時宣告這兩個欄位時，既有的 `service_worker` 條目勝出。
 
+## Safari：使用 background 頁面，而不是 service worker
+
+Safari 建置產出的是非持續性的 background 頁面。Extension.js 會把 `background.service_worker` 條目翻譯成 `background: {scripts: [...]}`，和它為 Firefox 所做的翻譯一樣。
+
+原因是在 Safari 26.5.2 上量測出來的：測試中 Manifest V3 的 service worker 從未啟動過，包括以 Apple 自己的轉換工具建置的擴充功能，而 background 頁面則會立刻執行。WebKit 有意偏好頁面形式（[WebKit bug 270750](https://bugs.webkit.org/show_bug.cgi?id=270750)）。
+
+<Warning>
+  在 background 腳本 **最外層** 有一個沒有保護、只有 Chromium
+  才有的呼叫，在 Safari 上就會丟出例外，Safari 接著會丟棄這個 background
+  情境。你拿不到記錄、拿不到重新載入，也看不到任何錯誤，擴充功能看起來就是死的。請保護這個呼叫，或在建置期分支。
+</Warning>
+
+```js
+// Throws on Safari and takes the whole background context with it.
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+
+// Safe on every target.
+chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
+```
+
+Safari 建置也會針對 Safari 缺少的擴充功能 API 發出警告，這是在你開始除錯之前找出問題最省事的方法。請見 [建置 Safari 擴充功能](/zh-Hant/docs/browsers/safari)。
+
+{/* TODO(version): name the release that ships the Safari background-page emission and the build-time API warnings. Merged as 0508e40cd, unreleased as of 4.1.19. */}
+
 ## MV3 service worker 生命週期
 
 `background.service_worker` 依瀏覽器的 service worker 生命週期執行，不是長期執行的常駐程序。

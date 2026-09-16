@@ -1,6 +1,6 @@
 ---
 title: "用 Extension.js 构建 Safari 扩展"
-description: "用 Extension.js 在 macOS 上把 web 扩展构建为 Safari 应用。涵盖前置要求、dev 与 build 工作流，以及已知限制。"
+description: "用 Extension.js 在 macOS 上开发并构建 Safari 应用形态的 web 扩展。涵盖前置要求、dev 循环、日志、重载，以及已知限制。"
 keywords:
   [
     "extension.js",
@@ -15,16 +15,21 @@ keywords:
   ]
 ---
 
-在 macOS 上把现有的 web 扩展打包成原生
-Safari 应用——无需自己手动维护单独的 Xcode 工程。
+在 macOS 上针对 Safari 开发 web 扩展，无需自己手动维护单独的 Xcode 工程。
 
 <Note>
-  Safari **仅支持 macOS**，且需要完整的 Xcode 应用。build → 转换 →
-  `xcodebuild` → 打开的流水线覆盖 `build` 与 `dev`；不支持 `preview` 与
-  `start`，目前也没有实时重载。
+  Safari **仅支持 macOS**，且需要完整的 Xcode 应用。`dev` 与 `build` 都可用。
+  `preview` 与 `start` 不可用，原因见下方的「命令支持情况」。
 </Note>
 
-使用 `--browser=safari`，可以把你发往 Chrome 和 Firefox 的同一个扩展转换为 Safari App Extension。Extension.js 会打包你的代码，运行 Apple 的 `safari-web-extension-converter`，再用 `xcodebuild` 编译生成的 app，并引导你启用它。
+`extension dev --browser safari` 会打包你的代码，用 Apple 的 `safari-web-extension-converter` 转换它，再用 `xcodebuild` 构建并签名一个 app，然后打开它。你只需要在 Safari 设置中启用一次扩展。之后 `extension logs` 会流式输出 background 与 content 的日志行，控制通道会连上，每次保存都会在 Safari 中重载扩展。
+
+{/* TODO(version): name the release that ships the Safari dev loop (logs, control bridge, automatic reload) in the Note and the paragraph above. Merged as 0508e40cd, unreleased as of 4.1.19. */}
+
+<Note>
+  本页描述的行为测量自 macOS 26.5.2、Safari 26.5.2 与 Xcode 26.6。Safari 27
+  已经存在，但没有重新测量。
+</Note>
 
 <Frame>
   <iframe
@@ -37,9 +42,9 @@ Safari 应用——无需自己手动维护单独的 Xcode 工程。
   />
 </Frame>
 
-## 前置要求
+## 你需要准备什么
 
-Safari 仅支持 **macOS**，并且需要 **完整的 Xcode app**——不能只装 Command Line Tools。转换器（`safari-web-extension-converter`）与 `xcodebuild` 都包含在 `Xcode.app` 中。
+Safari **仅支持 macOS**，并且需要 **完整的 Xcode app**，不能只装 Command Line Tools。转换器（`safari-web-extension-converter`）与 `xcodebuild` 都包含在 `Xcode.app` 中。
 
 ```bash
 # Install Xcode from the Mac App Store, then point the toolchain at it:
@@ -47,7 +52,9 @@ sudo xcode-select --switch /Applications/Xcode.app
 xcodebuild -runFirstLaunch
 ```
 
-如果缺少 Xcode，`extension build` / `dev --browser=safari` 会在打包之前就快速失败，并给出指引，而不是后续抛出一个含糊的错误。
+付费的 Apple Developer 账号 **不是** 必需的。不带 `--development-team` 时 app 为临时（ad-hoc）签名，而 Safari 接受临时签名的 app：它会像列出其他扩展一样列出它，并且「开发」菜单里的 **允许未签名的扩展** 处于关闭状态。那个开关属于另一条路径，见下方的「临时扩展（不用 Xcode）」。
+
+如果缺少 Xcode，Safari 目标的 `extension dev` 与 `extension build` 会在打包之前就快速失败，并给出指引，而不是后续抛出一个含糊的错误。
 
 ## 产物
 
@@ -118,28 +125,18 @@ macOS，因为没有打包步骤的 Safari 开发循环没有任何东西可运�
 
 ## 在 Safari 中启用扩展
 
-如何启用扩展取决于 app 是如何签名的。app 打开时（`dev`，或
-`build --open`），Extension.js 会打印与你这次构建相匹配的步骤，并在 macOS
-注册扩展后给出确认。
+app 打开时（`dev`，或 `build --open`），Extension.js 会打印与你这次构建相匹配的步骤，并在 macOS 注册扩展后给出确认。
 
-### 已签名的构建（推荐）
-
-带上 `--development-team` 和你的 Apple Developer team id，app 就会用你自己的证书签名：
-
-```bash
-extension dev --browser safari --development-team A1B2C3D4E5
-```
-
-之后 Safari 会像列出其他扩展一样列出它，只需要一步：
+无论是团队签名还是临时签名，这个一次性操作都一样：
 
 1. Safari ▸ 设置 ▸ 扩展 ▸ 开启你的扩展。
 
-这个开关在重启后仍然保留，所以每台机器只需要做一次。
+这个开关在 Safari 重启后仍然保留，所以每台机器真的只需要做一次，而不是每次启动都做一次。
 
 把扩展 **打开，并不等于给了它访问页面的权限**。Safari
 会单独询问网站访问权限，在你授予之前，内容脚本根本不会运行：扩展被列出、已启用，却什么都不做。
 即使你的 manifest 在 `content_scripts.matches` 和 `host_permissions`
-里都声明了 `<all_urls>`，情况也是如此——这正是从 Chrome
+里都声明了 `<all_urls>`，情况也是如此，这正是从 Chrome
 过来的人最容易意外的地方，因为在 Chrome 里安装即授予。
 
 在同一个面板的 **权限（Permissions）** 下，使用：
@@ -149,24 +146,27 @@ extension dev --browser safari --development-team A1B2C3D4E5
 
 如果你的扩展加载了但页面上毫无反应，几乎总是这个原因。先检查权限，再去翻你的代码。
 
+### 用 Apple Developer 团队签名的构建
+
+带上 `--development-team` 和你的 Apple Developer team id，app 就会用你自己的证书签名：
+
+```bash
+extension dev --browser safari --development-team A1B2C3D4E5
+```
+
 要查找你的 team id，运行 `xcrun security find-identity -v -p codesigning`。证书名称里那个十位字符的代码就是你的 team id，它也出现在你 Apple Developer 账号的 Membership 页面上。
+
+团队签名是分发时需要的。对日常开发来说，它不会改变 Safari 列出或运行扩展的方式。
 
 ### 临时签名的构建（没有 Apple Developer 账号）
 
-不带 `--development-team` 时构建为临时签名，Safari 会把它视为未签名。它仍然可以运行，只是需要三步：
+不带 `--development-team` 时 app 为临时签名。Safari 会列出并运行它，上面那个启用操作就是全部设置。这是在 Safari ▸ 开发 ▸ **允许未签名的扩展** **关闭** 的状态下测量的。
 
-1. Safari ▸ 设置 ▸ 高级 ▸ 勾选 **"显示网页开发者功能"**。
-2. Safari ▸ 开发 ▸ **允许未签名的扩展**（每次重启 Safari 时这一项都会被重置）。
-3. Safari ▸ 设置 ▸ 扩展 ▸ 开启你的扩展。
-4. 按上面所述授予网站访问权限。只是启用并不能让内容脚本运行。
+### 临时扩展（不用 Xcode）
 
-<Note>
-  "允许未签名的扩展" 每次启动 Safari 时都会被重置，而且无法脚本化，也无法保存到偏好设置里，所以每次重启都要重来这三步。
-  如果你有 Apple Developer 账号，`--development-team`
-  在日常开发中就已经值回票价了，而不只是发布时才有用。
-</Note>
+Safari 还有第二条路径，Extension.js 不会驱动它：Safari ▸ 设置 ▸ 开发者 ▸ **添加临时扩展…**，它会加载一个未打包的目录（例如 `dist/safari`），完全不需要 Xcode 步骤。它需要 **允许未签名的扩展**，而且扩展会在 Safari 退出时消失，或者在 24 小时后消失。想快速看一眼产物时用它。想要一个重启后仍然存在的开发循环，请用 `extension dev`。
 
-## 使用 `dev` 进行开发
+## dev 循环
 
 `extension dev --browser=safari` 会运行一个 watch 循环：
 
@@ -174,12 +174,14 @@ extension dev --browser safari --development-team A1B2C3D4E5
 npx extension dev --browser=safari
 ```
 
-- **首次编译**——完整流程：转换、构建、打开 app，并打印启用步骤。
-- **之后每次保存**——增量 `xcodebuild` 重新同步（通常几秒钟），用刚刚重新构建的 `dist/safari` 更新 app 的资源。
+- **首次编译**：完整流程：转换、构建、打开 app，并打印启用步骤。
+- **之后每次保存**：一次增量 `xcodebuild` 重新同步，用刚刚重新构建的 `dist/safari` 更新 app 的资源，并在 Safari 中重载扩展。
+
+扩展启用之后，这个循环不再需要你点任何东西。在 Safari 26.5.2 上测量，从保存到扩展完成重载大约需要 4 秒。
+
+### 一次保存的成本
 
 重新同步在后台运行，因此打包循环永远不会被阻塞。连续的多次保存会合并成针对最新产物的一次后续同步，所以五次快速保存只需一次重建，而不是五次。如果首次完整打包失败，下一次编译会重跑完整流程，而不是去同步一个从未构建成功的工程。
-
-Safari 没有像 Chromium 或 Firefox 那样的实时重载通道，所以重新构建后，**在 Safari 中刷新页面（或切换一下扩展）** 才能拿到新改动。
 
 ### Xcode 工程何时会重新生成
 
@@ -193,7 +195,7 @@ Xcode 工程只生成一次，之后的重新同步都复用它。是否过期�
 重新生成会替换整个工程：你在 Xcode 里做的定制（entitlements、capabilities、新增的文件或
 target）都会被 **丢弃**。只有这几项签名设置会被自动保留：`DEVELOPMENT_TEAM`、`CODE_SIGN_STYLE`
 和 `PROVISIONING_PROFILE_SPECIFIER`。每次要重新生成一个已存在的工程时，Extension.js
-都会先发出警告；如果你在 Xcode 里做过定制，请先备份。删除 `dist/safari-xcode` 可以从头来过。
+都会先发出警告。如果你在 Xcode 里做过定制，请先备份。删除 `dist/safari-xcode` 可以从头来过。
 
 ### bundle id 是如何被强制生效的
 
@@ -205,7 +207,7 @@ id，扩展 target 拿到 `<bundle-id>.Extension`。这样保留的是你配置�
 ### `xcodebuild` 具体做了什么
 
 编译步骤使用 `Release` 配置，derived data 写入
-`dist/safari-xcode/.derived`——这个目录值得加进 `.gitignore`。签名设置取决于
+`dist/safari-xcode/.derived`，这个目录值得加进 `.gitignore`。签名设置取决于
 `--development-team`。带 team id 时，构建会传入
 `DEVELOPMENT_TEAM=<id>`、`CODE_SIGN_STYLE=Automatic` 和
 `-allowProvisioningUpdates`，因此 Xcode 无需打开就能生成所需的 provisioning
@@ -216,15 +218,84 @@ Apple Developer 账号，内嵌的 `.appex` 也能通过校验。对仅 macOS
 ### 注册确认
 
 打开 app 之后，Extension.js 会轮询 `pluginkit`
-查询扩展的注册状态，大约在 5 秒内尝试 6 次，然后打印确认或一条"尚未注册"的提示。在
+查询扩展的注册状态，大约在 5 秒内尝试 6 次，然后打印确认或一条「尚未注册」的提示。在
 `--no-open`（以及不带 `--open` 的普通 `build`）下，app 根本不会启动，因此还谈不上注册。这时轮询会被跳过，CLI 改为打印
 `open` 命令。
 
+## 读取日志
+
+一个 Safari dev 会话对 [`logs`](/zh-Hans/docs/commands/logs) 来说就是一个普通会话：
+
+```bash
+extension logs --browser safari --follow
+```
+
+background 的日志行与内容脚本的日志行会进入同一个流，和在 Chromium 上一样，`--context`、`--level` 与 `--output` 过滤器也都一样。
+
+{/* TODO(version): name the release that ships logs and the control bridge for Safari sessions. */}
+
+如果编辑之后日志流一片安静，那就是下一节描述的症状：background 上下文已经没了，而不是日志不受支持。
+
+## 一个调用就能杀死 Safari 的 background
+
+在 background 脚本 **顶层** 有一个没有保护的、仅 Chromium 才有的调用，在 Safari 上就会抛错。Safari 随后会丢弃这个 background 上下文，于是你拿不到日志、拿不到重载，任何地方也看不到错误。扩展看上去就是死的。
+
+```js
+// Kills the background on Safari: sidePanel does not exist there.
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+```
+
+请保护这个调用，或者在构建期分支：
+
+```js
+// Optional chaining is enough for a call you can skip.
+chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
+
+// Or keep the code out of the Safari bundle entirely.
+if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "safari") {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+```
+
+同样的代码写在事件监听器里是可以承受的，因为只有那个回调会抛错。写在顶层则会把整个上下文一起带走。下面描述的构建期警告正是为了抓住这种情况，所以在你开始调试一个从不出声的 background 之前，先读它们。
+
+各个目标上的 `EXTENSION_PUBLIC_BROWSER` 取值，见 [环境变量](/zh-Hans/docs/features/environment-variables)。
+
+## Safari 构建会改动你的 manifest 的哪些地方
+
+### 用 background 页面，而不是 service worker
+
+Safari 构建产出的是一个非持久的 background **页面**（`background: {scripts: [...]}`），而不是 service worker。Extension.js 会把 `background.service_worker` 条目翻译成这种形状，和它为 Firefox 做的翻译一样。
+
+原因是测量出来的，而不是风格选择。在 Safari 26.5.2 上，测试中 Manifest V3 的 service worker 从未启动过，包括用 Apple 自己的转换器构建的扩展，而 background 页面则会立即运行。WebKit 有意偏好页面形式（[WebKit bug 270750](https://bugs.webkit.org/show_bug.cgi?id=270750)）。
+
+只编写一处 `background.service_worker`，它就能在 Chromium、Firefox 与 Safari 上加载。两个方向的翻译见 [Background 脚本](/zh-Hans/docs/implementation-guide/background)。
+
+{/* TODO(version): name the release that ships the Safari background-page emission. */}
+
+### Safari 用不了的键与权限
+
+Safari 没有实现的 manifest 键与权限会从 Safari 构建里自动移除。构建会为每个被移除的键打印一行，说明是哪个键、为什么被移除。没有任何东西被静默丢弃，你的源 `manifest.json` 也不会被改动。
+
+`content_scripts[].world` 是被 **保留** 的，因为从 Safari 18 起 Safari 就支持它。
+
+只针对 Safari 的覆盖请使用 `safari:` 与 `webkit:` manifest 前缀。它们优先于 Safari 默认继承的 `chromium:` 家族键。详见 [按浏览器划分的 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)。
+
+{/* TODO(version): name the release that ships the dropped-key report. */}
+
+### Safari 没有的 API
+
+构建会对 Safari 缺少的扩展 API 发出警告，并指名它在你代码里找到的每个命名空间。一共覆盖十二个命名空间：`sidePanel`、`offscreen`、`tabGroups`、`management`、`identity`、`notifications`、`bookmarks`、`history`、`downloads`、`idle`、`omnibox` 与 `userScripts`。这些警告在生产构建和 `dev` 中都会运行。
+
+警告不是构建失败。用到这些命名空间的代码仍然会被打包，是否保护它、按目标分支，还是接受这个功能在 Safari 上缺失，由你决定。
+
+{/* TODO(version): name the release that ships the Safari API warnings. */}
+
 ## 在 Safari 中调试
 
-Safari 不支持 `--logs` 集中式日志（它没有自动化通道），但 Web Inspector 覆盖了每一种扩展上下文：
+Web Inspector 覆盖了每一种扩展上下文。当你想要的是调试器而不是日志流时，它是正确的工具：
 
-- **后台 / service worker**：Safari ▸ 开发 ▸ Web Extension Background
+- **background**：Safari ▸ 开发 ▸ Web Extension Background
   Content ▸ _你的扩展_。
 - **popup / options / sidebar 页面**：打开对应界面，然后右键 ▸
   检查元素（或 开发 ▸ _你的 Mac_ ▸ 该页面）。
@@ -232,8 +303,7 @@ Safari 不支持 `--logs` 集中式日志（它没有自动化通道），但 We
 
 如果构建失败，CLI 会打印失败的 `xcrun` / `xcodebuild`
 输出的末尾部分，限制在最后 50 行和 8 KB 以内，让诊断信息保持可读。传入
-`--debug`（或设置 `EXTENSION_DEBUG=true`）可以改为实时输出完整的工具日志。转换器的兼容性警告（Safari
-不支持的 manifest 键）会在打包过程中以警告形式呈现。
+`--debug`（或设置 `EXTENSION_DEBUG=true`）可以改为实时输出完整的工具日志。
 
 ## 引擎目标
 
@@ -248,11 +318,11 @@ npx extension build --browser=webkit-based
 | 命令      | Safari 支持情况                                            |
 | --------- | ---------------------------------------------------------- |
 | `build`   | ✅ 构建并打包 Safari 应用。                                |
-| `dev`     | ✅ Watch + 增量重新构建（在 Safari 中刷新以应用）。        |
-| `preview` | ❌ 不支持——Safari 扩展无法被自动加载到正在运行的浏览器中。 |
-| `start`   | ❌ 不支持——原因同 `preview`。                              |
+| `dev`     | ✅ watch、增量重建、日志与自动重载。                       |
+| `preview` | ❌ 不支持。以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 退出。    |
+| `start`   | ❌ 不支持。原因同 `preview`。                              |
 
-`preview` 与 `start` 的存在是为了在正在运行的浏览器中启动你的扩展。Safari 要求上面那一步带有安全限制的手动启用，所以这两个命令会拒绝 Safari 目标，并把你引导到 `build`。在 `--output json` 下，`preview` 以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 失败（Safari 是受支持的浏览器，只是这个命令没有 Safari 路径），`start` 以 `E_UNSUPPORTED_BROWSER` 失败。
+`preview` 与 `start` 的存在是为了在正在运行的浏览器中启动一个已经构建好的扩展。Safari 这条路走的是 WebDriver，而它已经被测量过：`safaridriver` 确实能加载一个未打包的目录，background 也确实会运行，但 Safari 给这个扩展的主机来源是 **零个**。内容脚本永远不会注入，之后也没有任何 API 调用可以补上这个权限。一个看起来健康、实际什么都没测到的会话毫无意义，所以这两个命令会拒绝 Safari 目标，并把你引导到 `dev` 与 `build`。
 
 <Frame>
   <iframe
@@ -267,15 +337,15 @@ npx extension build --browser=webkit-based
 
 ## 限制
 
-- **打包仅限 macOS。** Xcode 步骤需要 macOS 与完整的 Xcode app。（在其他平台上 `build` 仍会产出 `dist/safari`；`dev` 则需要 macOS。）
-- **没有实时重载。** 重新构建很快，但你需要在 Safari 中刷新才能应用更新。
-- **首次启用为手动操作。** 把扩展打开、以及授予网站访问权限，都是 Safari 的安全控制项，无法自动化。在临时签名的构建上，允许未签名的扩展是第三个同样规则的控制项。
+- **打包仅限 macOS。** Xcode 步骤需要 macOS 与完整的 Xcode app。（在其他平台上 `build` 仍会产出 `dist/safari`，而 `dev` 需要 macOS。）
+- **`preview` 与 `start` 没有 Safari 路径。** 测量到的结论见上面的「命令支持情况」。
+- **启用操作是手动的。** 把扩展打开、以及授予网站访问权限，都是 Safari 的安全控制项，无法自动化。两者都能在重启后保留，所以你只付出一次。
 - **签名止步于开发阶段。** `--development-team` 用你的开发证书为本地 app 签名。用于分发的签名、公证（notarization）与 App Store 提交是这条工作流之外的另一步（见下文）。
 - **仅产出 macOS 目标。** 目前这条工作流不会生成 iOS 应用。
 
 ## dev 之后：发布到 App Store
 
-上面的 Safari 工作流最终得到的是一个本地签名的 app——临时签名或开发签名。把它分发出去（上架 Mac App
+上面的 Safari 工作流最终得到的是一个本地签名的 app，临时签名或开发签名。把它分发出去（上架 Mac App
 Store，或作为经过公证的直接下载）是另一条流水线，Extension.js 计划通过
 [extension.dev](https://extension.dev?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-seam)
 平台提供。在那之前，请遵循 Apple 自己的指南：
@@ -292,12 +362,14 @@ Store，或作为经过公证的直接下载）是另一条流水线，Extension
 
 ## 最佳实践
 
-- **其他目标照常构建**：Safari 是增量加入的——继续在 `chromium` / `firefox` 中迭代，需要验证 Safari 时再运行 `--browser=safari`。
+- **先读构建警告。** 它们会指名 Safari 没有的 API 与 manifest 键，这是发现一个起不来的 background 最省事的办法。
+- **保护顶层的仅 Chromium 调用**，在 background 与内容脚本里用可选链，或按 `EXTENSION_PUBLIC_BROWSER` 分支。
 - **使用按浏览器划分的字段** 来处理真正的行为差异。Safari 会解析 chromium 系的家族前缀 `chromium:`，而在 Safari 目标上，带 `safari:` / `webkit:` 前缀的键优先于它，`--browser=safari` 和 `--browser=webkit-based` 都是如此。`chrome:` 和 `edge:` 键不会进入 Safari。
-- **保留生成的工程**，除非你确实需要一个全新的工程——重新生成会丢弃被保留的签名设置之外的所有 Xcode 侧定制。
+- **保留生成的工程**，除非你确实需要一个全新的工程，因为重新生成会丢弃被保留的签名设置之外的所有 Xcode 侧定制。
 
 ## 下一步
 
 - 查看所有 [支持的浏览器](/zh-Hans/docs/browsers/browsers-available)。
+- 用 [`logs`](/zh-Hans/docs/commands/logs) 流式读取一个 Safari 会话。
 - 使用 [按浏览器划分的 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)。
 - 了解 [多平台构建](/zh-Hans/docs/features/multi-platform-builds)。
