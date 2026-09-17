@@ -411,13 +411,16 @@ console.log(`API URL for the current environment: ${apiUrl}`);
 
 ### 執行階段的 `import.meta.url`
 
-在 4.1.19 之前，打包工具會把 `import.meta.url` 替換成原始檔的 `file://` 路徑。這個路徑會把建置機器上的資料夾名稱帶進發佈的 bundle。從 4.1.19 起，Extension.js 改為在執行階段解析裸的 `import.meta.url`：
+在 4.1.19 之前，打包工具會把 `import.meta.url` 替換成原始檔的 `file://` 路徑。這個路徑會把建置機器上的資料夾名稱帶進發佈的 bundle。從 4.1.19 起，Extension.js 改為在執行階段解析裸的 `import.meta.url`，在 `dev` 與正式建置中都是如此，而且這個值永遠不會包含建置機器的路徑：
 
 | 程式碼執行的位置                                   | `import.meta.url` 的值                     |
 | -------------------------------------------------- | ------------------------------------------ |
-| 擴充功能頁面與 worker（service worker、popup、options） | 該頁面或 worker 的 URL                     |
+| 擴充功能頁面（popup、options、sidebar、devtools）  | 該頁面的 URL                               |
 | content script                                     | 擴充功能根目錄，與 `runtime.getURL("/")` 相同 |
 | `MAIN` world 中的腳本                              | 網頁的 URL                                 |
+| 因為在執行階段被載入而由建置編譯的模組             | 該模組的 URL，從 4.1.21 起                 |
+
+當你的程式碼透過 `chrome.runtime.getURL`、`importScripts`、`executeScript({files})` 或根絕對路徑的 `<script src>` 載入一個模組時，這個模組就算是在執行階段被載入。在 4.1.21 之前，這樣的模組得到的是載入它的那個情境的值。
 
 `new URL("./image.png", import.meta.url)` 仍然可用。打包工具會輸出該檔案，並讓 URL 指向輸出後的副本。在擴充功能程式碼中，`import.meta.dirname` 與 `import.meta.filename` 為 `undefined`，因為執行階段不存在檔案系統路徑。
 

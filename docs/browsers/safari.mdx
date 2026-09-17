@@ -24,9 +24,7 @@ to maintain by hand.
   in [Command support](#command-support).
 </Note>
 
-`extension dev --browser safari` bundles your code, converts it with Apple's `safari-web-extension-converter`, builds and signs an app with `xcodebuild`, and opens it. You enable the extension once in Safari Settings. After that, `extension logs` streams background and content rows, the control bridge attaches, and every save reloads the extension in Safari.
-
-{/* TODO(version): name the release that ships the Safari dev loop (logs, control bridge, automatic reload) in the Note and the paragraph above. Merged as 0508e40cd, unreleased as of 4.1.19. */}
+`extension dev --browser safari` bundles your code, converts it with Apple's `safari-web-extension-converter`, builds and signs an app with `xcodebuild`, and opens it. You enable the extension once in Safari Settings. After that, `extension logs` streams background and content rows, the control bridge attaches, and every save reloads the extension in Safari. That dev loop ships from 4.1.20.
 
 <Note>
   The behavior on this page was measured on macOS 26.5.2, Safari 26.5.2, and
@@ -215,7 +213,7 @@ Resyncs run in the background, so the bundler loop is never blocked. A burst of 
 
 The Xcode project is generated once and reused for resyncs. Staleness is decided
 by a fingerprint file, `dist/safari-xcode/.manifest-fingerprint`. The v4
-fingerprint stores the identity inputs (app name, bundle id, and the macOS-only
+fingerprint, written from 4.1.20, stores the identity inputs (app name, bundle id, and the macOS-only
 setting), the top-level entries of `dist/safari`, and the manifest `icons` set.
 Of the manifest itself it stores only the surface the converter judges. That
 surface is the top-level key names, the `permissions` and `optional_permissions`
@@ -224,8 +222,6 @@ manifest bytes stay out, so the content-hashed script names that change on every
 save do not re-run the converter. The converter runs again when the stored
 fingerprint no longer matches, or when you pass `--force-regenerate`. Cosmetic
 manifest edits (key order, whitespace) do not trigger it.
-
-{/* TODO(version): the v4 fingerprint shape above. Merged as 0508e40cd, unreleased as of 4.1.19, which still writes the v2 shape. */}
 
 Regeneration replaces the project: customizations made in
 Xcode (entitlements, capabilities, added files or targets) are **discarded**.
@@ -267,15 +263,13 @@ skipped and the CLI prints the `open` command instead.
 
 ## Reading logs
 
-A Safari dev session is a normal session for [`logs`](/docs/commands/logs):
+From 4.1.20, a Safari dev session is a normal session for [`logs`](/docs/commands/logs):
 
 ```bash
 extension logs --browser safari --follow
 ```
 
 Background rows and content-script rows arrive in the same stream as they do on Chromium, with the same `--context`, `--level`, and `--output` filters.
-
-{/* TODO(version): name the release that ships logs and the control bridge for Safari sessions. */}
 
 A silent stream after an edit is the symptom described in the next section. It means the background context is gone, not that logging is unsupported.
 
@@ -314,7 +308,7 @@ See [Environment variables](/docs/features/environment-variables) for the
 
 ### Background page instead of a service worker
 
-Safari builds emit a non-persistent background **page** (`background: {scripts: [...]}`), not a service worker. Extension.js translates a `background.service_worker` entry into that shape, the same translation it runs for Firefox.
+From 4.1.20, Safari builds emit a non-persistent background **page** (`background: {scripts: [...]}`), not a service worker. Extension.js translates a `background.service_worker` entry into that shape, the same translation it runs for Firefox.
 
 The reason is measured, not stylistic. On Safari 26.5.2, a Manifest V3 service
 worker never started in testing, including for extensions built by Apple's own
@@ -325,31 +319,45 @@ Author one `background.service_worker` and it loads on Chromium, Firefox, and
 Safari. See [Background scripts](/docs/implementation-guide/background) for the
 translation in both directions.
 
-{/* TODO(version): name the release that ships the Safari background-page emission. */}
-
 ### Keys and permissions Safari cannot use
 
-Manifest keys and permissions that Safari does not implement are dropped from the Safari build automatically. The build prints one line per dropped key, naming the key and why it went. Nothing is dropped silently, and your source `manifest.json` is untouched.
+Manifest keys and permissions that Safari does not implement are dropped from the Safari build automatically. From 4.1.20, the build prints one line per dropped key, naming the key and why it went. Nothing is dropped silently, and your source `manifest.json` is untouched.
 
 `content_scripts[].world` is deliberately **kept**, because Safari has supported it since Safari 18.
 
 For Safari-only overrides, use the `safari:` and `webkit:` manifest prefixes. They win over the `chromium:` family keys that Safari otherwise inherits. See [Browser-specific manifest fields](/docs/features/browser-specific-fields).
 
-{/* TODO(version): name the release that ships the dropped-key report. */}
-
 ### APIs Safari does not have
 
-The build warns about extension APIs that Safari lacks, naming each namespace it
-finds in your code. Twelve namespaces are covered: `sidePanel`, `offscreen`,
-`tabGroups`, `management`, `identity`, `notifications`, `bookmarks`, `history`,
-`downloads`, `idle`, `omnibox`, and `userScripts`. The warnings run in
-production builds and in `dev`.
+From 4.1.20, the build warns about extension APIs that Safari lacks, naming
+each namespace or member it finds in your code. Twelve namespaces are covered:
+`sidePanel`, `offscreen`, `tabGroups`, `management`, `identity`,
+`notifications`, `bookmarks`, `history`, `downloads`, `idle`, `omnibox`, and
+`userScripts`. The warnings run in production builds and in `dev`.
 
-A warning is not a build failure. Code that reaches one of these namespaces
+The build also warns on 21 members of namespaces that Safari does ship, where
+the namespace resolves and the throw waits one level deeper:
+`action.getUserSettings`, `action.getBadgeTextColor`,
+`action.setBadgeTextColor`, `action.onUserSettingsChanged`, `storage.managed`,
+`runtime.getContexts`, `runtime.onSuspend`, `runtime.onSuspendCanceled`,
+`runtime.onUpdateAvailable`, `declarativeNetRequest.getAvailableStaticRuleCount`,
+`declarativeNetRequest.getDisabledRuleIds`,
+`declarativeNetRequest.updateStaticRules`,
+`declarativeNetRequest.testMatchOutcome`,
+`declarativeNetRequest.onRuleMatchedDebug`, `tabs.group`, `tabs.ungroup`,
+`webNavigation.onCreatedNavigationTarget`,
+`webNavigation.onHistoryStateUpdated`,
+`webNavigation.onReferenceFragmentUpdated`, `webNavigation.onTabReplaced`, and
+`windows.onBoundsChanged`.
+
+The scan is textual. A mention of one of these names in a comment or in a
+string literal triggers it too. Optional chaining silences it:
+`chrome.sidePanel?.setPanelBehavior()` for a namespace, and
+`chrome.tabs.group?.()` for a member.
+
+A warning is not a build failure. Code that reaches one of these APIs
 still ships. It is your call whether to guard it, branch on the target, or
 accept that the feature is absent on Safari.
-
-{/* TODO(version): name the release that ships the Safari API warnings. */}
 
 ## Debugging in Safari
 
@@ -385,7 +393,7 @@ npx extension build --browser=webkit-based
 | `preview` | ❌ Not supported. Exits with `E_COMMAND_UNSUPPORTED_FOR_TARGET`.      |
 | `start`   | ❌ Not supported. Same reason as `preview`.                           |
 
-`preview` and `start` exist to launch an already-built extension in a running browser. The Safari route for that is WebDriver, and it was measured. `safaridriver` does load an unpacked folder, and the background even runs, but Safari grants the extension **zero host origins**. Content scripts never inject, and no API call can grant the access afterwards. A session that looks healthy would test nothing, so both commands refuse Safari targets instead and point at `dev` and `build`.
+`preview` and `start` exist to launch an already-built extension in a running browser. The Safari route for that is WebDriver, and it was measured. `safaridriver` does load an unpacked folder, and the background even runs, but Safari grants the extension **zero host origins**. Content scripts never inject, and no API call can grant the access afterwards. A session that looks healthy would test nothing, so both commands refuse Safari targets instead and point at `extension dev --browser safari` or `extension build --browser safari --open`.
 
 <Frame>
   <iframe

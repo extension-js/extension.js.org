@@ -22,9 +22,7 @@ keywords:
   都可以使用。`preview` 與 `start` 不行，原因請見下方的「指令支援」。
 </Note>
 
-`extension dev --browser safari` 會打包你的程式碼、以 Apple 的 `safari-web-extension-converter` 轉換它，再用 `xcodebuild` 建置並簽章一個 app，然後開啟它。你只需要在 Safari 設定中啟用擴充功能一次。之後 `extension logs` 會串流 background 與 content 的記錄列，控制通道會接上，而且每次儲存都會在 Safari 中重新載入擴充功能。
-
-{/* TODO(version): name the release that ships the Safari dev loop (logs, control bridge, automatic reload) in the Note and the paragraph above. Merged as 0508e40cd, unreleased as of 4.1.19. */}
+`extension dev --browser safari` 會打包你的程式碼、以 Apple 的 `safari-web-extension-converter` 轉換它，再用 `xcodebuild` 建置並簽章一個 app，然後開啟它。你只需要在 Safari 設定中啟用擴充功能一次。之後 `extension logs` 會串流 background 與 content 的記錄列，控制通道會接上，而且每次儲存都會在 Safari 中重新載入擴充功能。這個 dev 迴圈從 4.1.20 起提供。
 
 <Note>
   本頁描述的行為量測自 macOS 26.5.2、Safari 26.5.2 與 Xcode 26.6。Safari 27
@@ -194,7 +192,7 @@ npx extension dev --browser=safari
 ### Xcode 專案何時會重新產生
 
 Xcode 專案只會產生一次，之後的同步都重複使用它。是否過期由一個指紋檔
-`dist/safari-xcode/.manifest-fingerprint` 判定。v4
+`dist/safari-xcode/.manifest-fingerprint` 判定。從 4.1.20 起寫入的 v4
 指紋會記錄身分輸入（app 名稱、bundle id 與僅 macOS 設定）、`dist/safari`
 的頂層項目，以及 manifest 的 `icons` 集合。至於 manifest
 本身，它只記錄轉換工具會判斷的那部分：頂層鍵名、`permissions` 與
@@ -202,8 +200,6 @@ Xcode 專案只會產生一次，之後的同步都重複使用它。是否過�
 的鍵名。manifest 的其餘位元組不參與，因此每次儲存都會變動的內容雜湊腳本名不會讓轉換工具重跑。當儲存的指紋不再吻合，或你傳入
 `--force-regenerate` 時，轉換工具會再次執行。純外觀性的 manifest
 變更（鍵順序、空白）不會觸發它。
-
-{/* TODO(version): the v4 fingerprint shape above. Merged as 0508e40cd, unreleased as of 4.1.19, which still writes the v2 shape. */}
 
 重新產生會替換整個專案：你在 Xcode 中所做的客製（entitlements、capabilities、新增的檔案或
 target）都會被 **丟棄**。只有這幾項簽章設定會自動保留：`DEVELOPMENT_TEAM`、`CODE_SIGN_STYLE`
@@ -237,15 +233,13 @@ profile。沒有時則傳入 ad-hoc 設定（`CODE_SIGN_IDENTITY=-`、`CODE_SIGN
 
 ## 讀取記錄
 
-一個 Safari dev 工作階段對 [`logs`](/zh-Hant/docs/commands/logs) 來說就是一般的工作階段：
+從 4.1.20 起，一個 Safari dev 工作階段對 [`logs`](/zh-Hant/docs/commands/logs) 來說就是一般的工作階段：
 
 ```bash
 extension logs --browser safari --follow
 ```
 
 background 的記錄列與 content script 的記錄列會進入同一個串流，和在 Chromium 上一樣，`--context`、`--level` 與 `--output` 篩選器也都相同。
-
-{/* TODO(version): name the release that ships logs and the control bridge for Safari sessions. */}
 
 如果編輯之後串流一片安靜，那就是下一節描述的症狀：background 情境已經不在了，而不是記錄不受支援。
 
@@ -278,31 +272,29 @@ if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "safari") {
 
 ### 使用 background 頁面，而不是 service worker
 
-Safari 建置產出的是非持續性的 background **頁面**（`background: {scripts: [...]}`），而不是 service worker。Extension.js 會把 `background.service_worker` 條目翻譯成這種形狀，和它為 Firefox 所做的翻譯一樣。
+從 4.1.20 起，Safari 建置產出的是非持續性的 background **頁面**（`background: {scripts: [...]}`），而不是 service worker。Extension.js 會把 `background.service_worker` 條目翻譯成這種形狀，和它為 Firefox 所做的翻譯一樣。
 
 原因是量測出來的，不是風格選擇。在 Safari 26.5.2 上，測試中 Manifest V3 的 service worker 從未啟動過，包括以 Apple 自己的轉換工具建置的擴充功能，而 background 頁面則會立刻執行。WebKit 有意偏好頁面形式（[WebKit bug 270750](https://bugs.webkit.org/show_bug.cgi?id=270750)）。
 
 只撰寫一個 `background.service_worker`，它就能在 Chromium、Firefox 與 Safari 上載入。兩個方向的翻譯請見 [Background scripts](/zh-Hant/docs/implementation-guide/background)。
 
-{/* TODO(version): name the release that ships the Safari background-page emission. */}
-
 ### Safari 無法使用的鍵與權限
 
-Safari 沒有實作的 manifest 鍵與權限，會從 Safari 建置中自動移除。建置會為每個被移除的鍵印出一行，說明是哪個鍵、以及為什麼被移除。沒有任何東西被靜默丟棄，你的來源 `manifest.json` 也不會被更動。
+Safari 沒有實作的 manifest 鍵與權限，會從 Safari 建置中自動移除。從 4.1.20 起，建置會為每個被移除的鍵印出一行，說明是哪個鍵、以及為什麼被移除。沒有任何東西被靜默丟棄，你的來源 `manifest.json` 也不會被更動。
 
 `content_scripts[].world` 是刻意 **保留** 的，因為 Safari 從 Safari 18 起就支援它。
 
 只針對 Safari 的覆寫請使用 `safari:` 與 `webkit:` manifest 前綴。它們勝過 Safari 原本繼承的 `chromium:` 家族鍵。請見 [瀏覽器專屬 manifest 欄位](/zh-Hant/docs/features/browser-specific-fields)。
 
-{/* TODO(version): name the release that ships the dropped-key report. */}
-
 ### Safari 沒有的 API
 
-建置會針對 Safari 缺少的擴充功能 API 發出警告，並指名它在你程式碼中找到的每個命名空間。總共涵蓋十二個命名空間：`sidePanel`、`offscreen`、`tabGroups`、`management`、`identity`、`notifications`、`bookmarks`、`history`、`downloads`、`idle`、`omnibox` 與 `userScripts`。這些警告在正式建置與 `dev` 中都會執行。
+從 4.1.20 起，建置會針對 Safari 缺少的擴充功能 API 發出警告，並指名它在你程式碼中找到的每個命名空間或成員。總共涵蓋十二個命名空間：`sidePanel`、`offscreen`、`tabGroups`、`management`、`identity`、`notifications`、`bookmarks`、`history`、`downloads`、`idle`、`omnibox` 與 `userScripts`。這些警告在正式建置與 `dev` 中都會執行。
 
-警告不是建置失敗。用到這些命名空間的程式碼仍然會被打包，要保護它、依目標分支，還是接受這個功能在 Safari 上不存在，由你決定。
+建置也會針對 Safari 已有命名空間中缺少的 21 個成員發出警告，這些命名空間能解析，拋錯發生在更深一層：`action.getUserSettings`、`action.getBadgeTextColor`、`action.setBadgeTextColor`、`action.onUserSettingsChanged`、`storage.managed`、`runtime.getContexts`、`runtime.onSuspend`、`runtime.onSuspendCanceled`、`runtime.onUpdateAvailable`、`declarativeNetRequest.getAvailableStaticRuleCount`、`declarativeNetRequest.getDisabledRuleIds`、`declarativeNetRequest.updateStaticRules`、`declarativeNetRequest.testMatchOutcome`、`declarativeNetRequest.onRuleMatchedDebug`、`tabs.group`、`tabs.ungroup`、`webNavigation.onCreatedNavigationTarget`、`webNavigation.onHistoryStateUpdated`、`webNavigation.onReferenceFragmentUpdated`、`webNavigation.onTabReplaced` 與 `windows.onBoundsChanged`。
 
-{/* TODO(version): name the release that ships the Safari API warnings. */}
+這個掃描是文字掃描。註解或字串字面值裡提到這些名稱之一，同樣會觸發警告。可選串連能讓它安靜：命名空間用 `chrome.sidePanel?.setPanelBehavior()`，成員用 `chrome.tabs.group?.()`。
+
+警告不是建置失敗。用到這些 API 的程式碼仍然會被打包，要保護它、依目標分支，還是接受這個功能在 Safari 上不存在，由你決定。
 
 ## 在 Safari 中除錯
 
@@ -335,7 +327,7 @@ npx extension build --browser=webkit-based
 | `preview` | ❌ 不支援。會以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 結束。 |
 | `start`   | ❌ 不支援。原因與 `preview` 相同。                        |
 
-`preview` 與 `start` 的目的，是把一個已經建置好的擴充功能載入到執行中的瀏覽器。Safari 這條路走的是 WebDriver，而它已經被量測過：`safaridriver` 確實能載入未封裝的資料夾，background 也確實會執行，但 Safari 給這個擴充功能的主機來源是 **零個**。content script 永遠不會注入，之後也沒有任何 API 呼叫可以補上這個存取權。一個看起來健康、實際什麼都沒測到的工作階段沒有意義，所以這兩個指令會拒絕 Safari 目標，並引導你改用 `dev` 與 `build`。
+`preview` 與 `start` 的目的，是把一個已經建置好的擴充功能載入到執行中的瀏覽器。Safari 這條路走的是 WebDriver，而它已經被量測過：`safaridriver` 確實能載入未封裝的資料夾，background 也確實會執行，但 Safari 給這個擴充功能的主機來源是 **零個**。content script 永遠不會注入，之後也沒有任何 API 呼叫可以補上這個存取權。一個看起來健康、實際什麼都沒測到的工作階段沒有意義，所以這兩個指令會拒絕 Safari 目標，並引導你改用 `extension dev --browser safari` 或 `extension build --browser safari --open`。
 
 <Frame>
   <iframe

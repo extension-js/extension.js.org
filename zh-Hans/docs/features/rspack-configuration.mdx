@@ -98,7 +98,11 @@ export default {
 
 ## 在多个入口之间共享模块
 
-Extension.js 有意把 `optimization.splitChunks` 设为 `false`。manifest 和每个 HTML 页面都只指向一个入口文件，所以被三个入口导入的模块会被复制进三个 bundle。要只保留一份，请在需要它的页面里用 `import()` 加载该模块。Rspack 会为它输出一个 chunk，每个页面按需从扩展自身的 origin 获取这个 chunk。cacheGroup 可以给这个 chunk 一个稳定的名字：
+Extension.js 只拆分 HTML 页面。默认的 `optimization.splitChunks` 会给页面两个稳定的同级文件：`shared/framework.js` 存放 UI 框架的运行时，`shared/commons.js` 存放被两个或更多页面导入的任何模块。框架分组覆盖 React、Preact、Vue、Svelte 与 Lit。这两个名字都不带哈希，所以 manifest 条目或公共资源可以一直指向它们。
+
+其他每个界面都只保留一个文件。manifest 为 background worker、content script 或注入脚本各指定一个脚本，这些界面永远不会加载同级文件。
+
+这就是为什么在页面与 content script 之间共享模块仍然需要 `import()`。Rspack 会为它输出一个 chunk，每个调用方按需从扩展自身的 origin 获取这个 chunk。cacheGroup 可以给这个 chunk 一个稳定的名字：
 
 ```js
 export default {

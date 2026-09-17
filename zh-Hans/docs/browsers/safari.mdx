@@ -22,9 +22,7 @@ keywords:
   `preview` 与 `start` 不可用，原因见下方的「命令支持情况」。
 </Note>
 
-`extension dev --browser safari` 会打包你的代码，用 Apple 的 `safari-web-extension-converter` 转换它，再用 `xcodebuild` 构建并签名一个 app，然后打开它。你只需要在 Safari 设置中启用一次扩展。之后 `extension logs` 会流式输出 background 与 content 的日志行，控制通道会连上，每次保存都会在 Safari 中重载扩展。
-
-{/* TODO(version): name the release that ships the Safari dev loop (logs, control bridge, automatic reload) in the Note and the paragraph above. Merged as 0508e40cd, unreleased as of 4.1.19. */}
+`extension dev --browser safari` 会打包你的代码，用 Apple 的 `safari-web-extension-converter` 转换它，再用 `xcodebuild` 构建并签名一个 app，然后打开它。你只需要在 Safari 设置中启用一次扩展。之后 `extension logs` 会流式输出 background 与 content 的日志行，控制通道会连上，每次保存都会在 Safari 中重载扩展。这个 dev 循环从 4.1.20 起提供。
 
 <Note>
   本页描述的行为测量自 macOS 26.5.2、Safari 26.5.2 与 Xcode 26.6。Safari 27
@@ -194,7 +192,7 @@ npx extension dev --browser=safari
 ### Xcode 工程何时会重新生成
 
 Xcode 工程只生成一次，之后的重新同步都复用它。是否过期由一个指纹文件
-`dist/safari-xcode/.manifest-fingerprint` 决定。v4
+`dist/safari-xcode/.manifest-fingerprint` 决定。从 4.1.20 起写入的 v4
 指纹记录了身份输入（app 名称、bundle id 和仅 macOS 设置）、`dist/safari`
 的顶层条目，以及 manifest 的 `icons` 集合。至于 manifest
 本身，它只记录转换器会判断的那部分：顶层键名、`permissions` 与
@@ -202,8 +200,6 @@ Xcode 工程只生成一次，之后的重新同步都复用它。是否过期�
 的键名。manifest 的其余字节不参与，因此每次保存都会变化的内容哈希脚本名不会让转换器重跑。当存储的指纹不再匹配，或你传入
 `--force-regenerate` 时，转换器会再次运行。纯外观性的 manifest
 改动（键顺序、空白）不会触发它。
-
-{/* TODO(version): the v4 fingerprint shape above. Merged as 0508e40cd, unreleased as of 4.1.19, which still writes the v2 shape. */}
 
 重新生成会替换整个工程：你在 Xcode 里做的定制（entitlements、capabilities、新增的文件或
 target）都会被 **丢弃**。只有这几项签名设置会被自动保留：`DEVELOPMENT_TEAM`、`CODE_SIGN_STYLE`
@@ -237,15 +233,13 @@ Apple Developer 账号，内嵌的 `.appex` 也能通过校验。对仅 macOS
 
 ## 读取日志
 
-一个 Safari dev 会话对 [`logs`](/zh-Hans/docs/commands/logs) 来说就是一个普通会话：
+从 4.1.20 起，一个 Safari dev 会话对 [`logs`](/zh-Hans/docs/commands/logs) 来说就是一个普通会话：
 
 ```bash
 extension logs --browser safari --follow
 ```
 
 background 的日志行与内容脚本的日志行会进入同一个流，和在 Chromium 上一样，`--context`、`--level` 与 `--output` 过滤器也都一样。
-
-{/* TODO(version): name the release that ships logs and the control bridge for Safari sessions. */}
 
 如果编辑之后日志流一片安静，那就是下一节描述的症状：background 上下文已经没了，而不是日志不受支持。
 
@@ -278,31 +272,29 @@ if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "safari") {
 
 ### 用 background 页面，而不是 service worker
 
-Safari 构建产出的是一个非持久的 background **页面**（`background: {scripts: [...]}`），而不是 service worker。Extension.js 会把 `background.service_worker` 条目翻译成这种形状，和它为 Firefox 做的翻译一样。
+从 4.1.20 起，Safari 构建产出的是一个非持久的 background **页面**（`background: {scripts: [...]}`），而不是 service worker。Extension.js 会把 `background.service_worker` 条目翻译成这种形状，和它为 Firefox 做的翻译一样。
 
 原因是测量出来的，而不是风格选择。在 Safari 26.5.2 上，测试中 Manifest V3 的 service worker 从未启动过，包括用 Apple 自己的转换器构建的扩展，而 background 页面则会立即运行。WebKit 有意偏好页面形式（[WebKit bug 270750](https://bugs.webkit.org/show_bug.cgi?id=270750)）。
 
 只编写一处 `background.service_worker`，它就能在 Chromium、Firefox 与 Safari 上加载。两个方向的翻译见 [Background 脚本](/zh-Hans/docs/implementation-guide/background)。
 
-{/* TODO(version): name the release that ships the Safari background-page emission. */}
-
 ### Safari 用不了的键与权限
 
-Safari 没有实现的 manifest 键与权限会从 Safari 构建里自动移除。构建会为每个被移除的键打印一行，说明是哪个键、为什么被移除。没有任何东西被静默丢弃，你的源 `manifest.json` 也不会被改动。
+Safari 没有实现的 manifest 键与权限会从 Safari 构建里自动移除。从 4.1.20 起，构建会为每个被移除的键打印一行，说明是哪个键、为什么被移除。没有任何东西被静默丢弃，你的源 `manifest.json` 也不会被改动。
 
 `content_scripts[].world` 是被 **保留** 的，因为从 Safari 18 起 Safari 就支持它。
 
 只针对 Safari 的覆盖请使用 `safari:` 与 `webkit:` manifest 前缀。它们优先于 Safari 默认继承的 `chromium:` 家族键。详见 [按浏览器划分的 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)。
 
-{/* TODO(version): name the release that ships the dropped-key report. */}
-
 ### Safari 没有的 API
 
-构建会对 Safari 缺少的扩展 API 发出警告，并指名它在你代码里找到的每个命名空间。一共覆盖十二个命名空间：`sidePanel`、`offscreen`、`tabGroups`、`management`、`identity`、`notifications`、`bookmarks`、`history`、`downloads`、`idle`、`omnibox` 与 `userScripts`。这些警告在生产构建和 `dev` 中都会运行。
+从 4.1.20 起，构建会对 Safari 缺少的扩展 API 发出警告，并指名它在你代码里找到的每个命名空间或成员。一共覆盖十二个命名空间：`sidePanel`、`offscreen`、`tabGroups`、`management`、`identity`、`notifications`、`bookmarks`、`history`、`downloads`、`idle`、`omnibox` 与 `userScripts`。这些警告在生产构建和 `dev` 中都会运行。
 
-警告不是构建失败。用到这些命名空间的代码仍然会被打包，是否保护它、按目标分支，还是接受这个功能在 Safari 上缺失，由你决定。
+构建还会对 Safari 已有命名空间中缺少的 21 个成员发出警告，这些命名空间能解析，抛错发生在更深一层：`action.getUserSettings`、`action.getBadgeTextColor`、`action.setBadgeTextColor`、`action.onUserSettingsChanged`、`storage.managed`、`runtime.getContexts`、`runtime.onSuspend`、`runtime.onSuspendCanceled`、`runtime.onUpdateAvailable`、`declarativeNetRequest.getAvailableStaticRuleCount`、`declarativeNetRequest.getDisabledRuleIds`、`declarativeNetRequest.updateStaticRules`、`declarativeNetRequest.testMatchOutcome`、`declarativeNetRequest.onRuleMatchedDebug`、`tabs.group`、`tabs.ungroup`、`webNavigation.onCreatedNavigationTarget`、`webNavigation.onHistoryStateUpdated`、`webNavigation.onReferenceFragmentUpdated`、`webNavigation.onTabReplaced` 与 `windows.onBoundsChanged`。
 
-{/* TODO(version): name the release that ships the Safari API warnings. */}
+这个扫描是文本扫描。注释或字符串字面量里提到这些名字之一，同样会触发警告。可选链能让它安静：命名空间用 `chrome.sidePanel?.setPanelBehavior()`，成员用 `chrome.tabs.group?.()`。
+
+警告不是构建失败。用到这些 API 的代码仍然会被打包，是否保护它、按目标分支，还是接受这个功能在 Safari 上缺失，由你决定。
 
 ## 在 Safari 中调试
 
@@ -335,7 +327,7 @@ npx extension build --browser=webkit-based
 | `preview` | ❌ 不支持。以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 退出。    |
 | `start`   | ❌ 不支持。原因同 `preview`。                              |
 
-`preview` 与 `start` 的存在是为了在正在运行的浏览器中启动一个已经构建好的扩展。Safari 这条路走的是 WebDriver，而它已经被测量过：`safaridriver` 确实能加载一个未打包的目录，background 也确实会运行，但 Safari 给这个扩展的主机来源是 **零个**。内容脚本永远不会注入，之后也没有任何 API 调用可以补上这个权限。一个看起来健康、实际什么都没测到的会话毫无意义，所以这两个命令会拒绝 Safari 目标，并把你引导到 `dev` 与 `build`。
+`preview` 与 `start` 的存在是为了在正在运行的浏览器中启动一个已经构建好的扩展。Safari 这条路走的是 WebDriver，而它已经被测量过：`safaridriver` 确实能加载一个未打包的目录，background 也确实会运行，但 Safari 给这个扩展的主机来源是 **零个**。内容脚本永远不会注入，之后也没有任何 API 调用可以补上这个权限。一个看起来健康、实际什么都没测到的会话毫无意义，所以这两个命令会拒绝 Safari 目标，并把你引导到 `extension dev --browser safari` 或 `extension build --browser safari --open`。
 
 <Frame>
   <iframe

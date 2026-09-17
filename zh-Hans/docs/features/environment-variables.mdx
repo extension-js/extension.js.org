@@ -412,13 +412,16 @@ console.log(`API URL for the current environment: ${apiUrl}`);
 
 ### 运行时的 `import.meta.url`
 
-在 4.1.19 之前，打包器会把 `import.meta.url` 替换为源文件的 `file://` 路径。这个路径会把构建机器上的文件夹名称带进发布的 bundle。从 4.1.19 起，Extension.js 改为在运行时解析裸的 `import.meta.url`：
+在 4.1.19 之前，打包器会把 `import.meta.url` 替换为源文件的 `file://` 路径。这个路径会把构建机器上的文件夹名称带进发布的 bundle。从 4.1.19 起，Extension.js 改为在运行时解析裸的 `import.meta.url`，在 `dev` 与生产构建中都是如此，并且这个值永远不会包含构建机器的路径：
 
 | 代码运行的位置                                   | `import.meta.url` 的值                     |
 | ------------------------------------------------ | ------------------------------------------ |
-| 扩展页面与 worker(service worker、popup、options) | 该页面或 worker 的 URL                     |
+| 扩展页面（popup、options、sidebar、devtools）    | 该页面的 URL                               |
 | content script                                   | 扩展根目录，与 `runtime.getURL("/")` 相同 |
 | `MAIN` world 中的脚本                            | 网页的 URL                                 |
+| 因为在运行时被加载而由构建编译的模块             | 该模块的 URL，从 4.1.21 起                 |
+
+当你的代码通过 `chrome.runtime.getURL`、`importScripts`、`executeScript({files})` 或根绝对路径的 `<script src>` 加载一个模块时，这个模块就算在运行时被加载。在 4.1.21 之前，这样的模块得到的是加载它的那个上下文的值。
 
 `new URL("./image.png", import.meta.url)` 仍然可用。打包器会输出该文件，并让 URL 指向输出后的副本。在扩展代码中，`import.meta.dirname` 与 `import.meta.filename` 为 `undefined`，因为运行时不存在文件系统路径。
 
