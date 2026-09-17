@@ -412,13 +412,16 @@ Reading a key that no env file defines yields `undefined` instead of crashing: E
 
 ### `import.meta.url` at runtime
 
-Before 4.1.19, the bundler replaced `import.meta.url` with the source file's `file://` path. That path put folder names from the build machine into the shipped bundle. From 4.1.19, Extension.js resolves a bare `import.meta.url` at runtime instead:
+Before 4.1.19, the bundler replaced `import.meta.url` with the source file's `file://` path. That path put folder names from the build machine into the shipped bundle. From 4.1.19, Extension.js resolves a bare `import.meta.url` at runtime instead, in `dev` and in production builds alike, and the value never contains a build machine path:
 
 | Where the code runs                                         | Value of `import.meta.url`                          |
 | ----------------------------------------------------------- | --------------------------------------------------- |
-| Extension pages and workers (service worker, popup, options) | The URL of that page or worker                      |
+| Extension pages (popup, options, sidebar, devtools)         | The URL of that page                                |
 | Content scripts                                             | The extension root, the same as `runtime.getURL("/")` |
 | Scripts in the `MAIN` world                                 | The URL of the web page                             |
+| A module the build compiles because it is loaded at runtime | The URL of that module, from 4.1.21                 |
+
+A module counts as loaded at runtime when your code reaches it through `chrome.runtime.getURL`, `importScripts`, `executeScript({files})`, or a root-absolute `<script src>`. Before 4.1.21 such a module took the value of the context that loaded it.
 
 `new URL("./image.png", import.meta.url)` still works. The bundler emits the file and points the URL at the emitted copy. `import.meta.dirname` and `import.meta.filename` are `undefined` in extension code, because no file system path exists at runtime.
 
