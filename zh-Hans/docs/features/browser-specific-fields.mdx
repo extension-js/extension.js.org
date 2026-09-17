@@ -138,6 +138,30 @@ Safari 没有实现的键与权限会从 Safari 构建里自动移除，并且�
 
 家族分类先匹配一份已知分支清单，再退回到子串检查。`chrome`、`edge`、`brave`、`opera`、`vivaldi` 和 `yandex` 按名字归类为 Chromium 系，任何其他包含 `chromium` 的名字也一样。`firefox`、`waterfox` 和 `librewolf` 按名字归类为 Gecko 系，任何其他包含 `gecko` 或 `firefox` 的名字也一样。这就是 `chromium-based` 和 `gecko-based` 别名，以及基于它们构造的任意 `*-based` 名字，都能继承所属家族带前缀键的原因。
 
+### 带前缀的 `manifest_version` 需要一个不带前缀的兜底值
+
+`chrome:` 和 `edge:` 是精确前缀，所以只作用于某一个厂商的 `manifest_version` 会让其他所有构建都没有这个字段。下面这份 manifest 给了 Firefox 和 Chrome 一个版本号，却没有给 Edge：
+
+```json
+{
+  "firefox:manifest_version": 2,
+  "chrome:manifest_version": 3
+}
+```
+
+没有 `manifest_version` 的 manifest 任何浏览器都不会加载。从 4.1.21 开始，构建会用一条点名被丢弃键的错误拒绝这种情况，例如 `chrome:manifest_version applies only to Chrome builds, so the edge build has no manifest_version.`。到 4.1.20 为止，构建会照常写出 manifest，浏览器随后才拒绝它。
+
+请写一个不带前缀的 `manifest_version` 作为基础值，只给例外情况加前缀：
+
+```json
+{
+  "manifest_version": 3,
+  "firefox:manifest_version": 2
+}
+```
+
+当整个 Chromium 家族需要共用一个与普通键不同的值时，使用 `chromium:manifest_version`。
+
 ## 最佳实践
 
 - **共享默认值保持无前缀**：把通用字段写在普通 manifest 键中，只对浏览器差异的部分加前缀。

@@ -199,6 +199,14 @@ npx extension dev --browser=safari
 Once the extension is enabled, the loop needs no further clicking. Measured on
 Safari 26.5.2, a save reaches a reloaded extension in roughly 4 seconds.
 
+A plain `extension dev --browser safari` opens the container app that the converter built, not Safari itself. Safari is where you enable and use the extension, so open it yourself, or pass `--safari-binary` and the session opens Safari beside the app.
+
+Each save prints what it did. A resync ends with `Rebuilt <App>.`, and a content script change follows it with `Reloading content_script (content.ts)…`. When the extension is not connected at that moment, the line reads `Queued content_script (content.ts) for the extension to apply when it reconnects.` instead. A background or manifest edit prints only `Rebuilt`, because Safari restarts the extension itself after the resync, and there is nothing left to dispatch.
+
+After a conversion, the converter's own warning list is printed, one line per manifest key that it does not know. A key that the build keeps on purpose is annotated under `Extension.js kept one of these keys on purpose:`. Today that is `world`, with the reason `Safari has honored the MAIN world since Safari 18, so the key stays`.
+
+In dev, the bridge parks early errors. An error thrown before the extension's socket to the dev server opens is stored in the extension's `chrome.storage.local` under `__extjsPendingErrors` and replayed once the socket connects, so `extension logs` still shows it.
+
 ### What one save costs
 
 Resyncs run in the background, so the bundler loop is never blocked. A burst of saves collapses to a single follow-up resync against the newest output, so five quick saves cost one rebuild, not five. If the first full package fails, the next compile retries the full flow instead of resyncing a project that was never built.
@@ -416,6 +424,21 @@ Two things from the Extension.js side make that path smooth. Do them early:
 2. **Set your `DEVELOPMENT_TEAM` in Xcode once**: it survives project
    regeneration automatically, along with `CODE_SIGN_STYLE` and
    `PROVISIONING_PROFILE_SPECIFIER`.
+
+## What a session leaves behind
+
+The ready contract at `dist/extension-js/safari/ready.json` carries Safari-specific values:
+
+| Field              | Value on Safari                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `browserPid`       | The container app's process id. With `--safari-binary`, Safari's own process id.                       |
+| `extensionId`      | `<bundle id>.Extension`, the id of the extension target inside the app.                                |
+| `runtime`          | `attached` once the extension's background connects to the dev server, `detached` after it disconnects. |
+| `binaryProvenance` | `system` for the container app, `pinned` with `--safari-binary`.                                       |
+
+`extension logs`, `extension eval`, `extension reload`, and `extension doctor --browser safari` attach to the session through that contract, the same way they do on Chromium.
+
+Ctrl+C stops the dev server only. The container app stays open, Safari stays open, the extension stays registered with macOS and enabled in Safari Settings, and `dist/safari-xcode/` stays on disk. The next `dev` reuses that project. Delete `dist/safari-xcode/` for a clean slate, which makes the next run convert and build from scratch.
 
 ## Best practices
 

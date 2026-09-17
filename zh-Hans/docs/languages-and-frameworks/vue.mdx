@@ -236,6 +236,33 @@ createApp(App).mount("#extension-root");
 - 尽量在 SFC 中使用 scoped 样式，减少扩展页面里的样式泄漏。
 - 对于大型 UI，拆分组件并抽取共享的 composable，让 content script 保持精简。
 
+## 运行时构建与 Options API
+
+从 4.1.19 开始，Vue 项目打包的是仅含运行时的构建 `vue.runtime.esm-bundler.js`，也就是 `vue` 包在 `module` 入口里指定的文件。Extension.js 会把 `vue$`、`@vue/runtime-dom`、`@vue/runtime-core` 和 `@vue/shared` 都别名到那个构建，这样你的应用和任何被转译的工作区依赖共用同一个 Vue 实例。完整构建带有模板编译器，扩展的 CSP 无法运行它，而且它的 `innerHTML` 和 `Function` 调用会通不过 addons.mozilla.org 的商店检查。
+
+运行时构建没有模板编译器，所以模板必须预先编译。单文件组件正好提供这一点：`vue-loader` 在构建时编译每一个 `<template>`。DOM 内模板和字符串形式的 `template:` 选项不受支持。Vue 会在控制台里发出警告，并且对这样的组件不渲染任何内容。
+
+要保留运行时编译，请在 `extension.config.js` 中把 `vue$` 别名到完整构建：
+
+```js extension.config.js
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      vue$: "vue/dist/vue.esm-bundler.js",
+    };
+    return config;
+  },
+};
+```
+
+那个构建用 `new Function` 编译模板，这需要扩展 CSP 里有 `unsafe-eval`。Manifest V3 的扩展页面禁止它，所以这个别名只对 Manifest V2 项目有帮助。
+
+Options API 在生产环境保持开启。Extension.js 在每种模式下都把 `__VUE_OPTIONS_API__` 设为 `true`，所以用 `data()`、`methods` 或 `computed` 写的组件在发布的 bundle 里照常工作。`__VUE_PROD_DEVTOOLS__` 和 hydration 不匹配的详情在生产环境是关闭的。
+
+还有一条 define 适用于每一个 bundle、每一种框架。自由标识符 `global` 被定义为 `globalThis`，Rspack 自己的 global 辅助代码被关闭。那段辅助代码会回退到 `Function("return this")`，通不过 addons.mozilla.org 的商店检查，所以你的 bundle 里不会出现这样的 shim。
+
 ## 下一步
 
 - 进一步了解 [TypeScript 支持](/zh-Hans/docs/languages-and-frameworks/typescript)。
