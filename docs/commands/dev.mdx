@@ -225,6 +225,8 @@ When `--wait` sees a stale `ready.json` from a dead process (`pid` no longer ali
 `--wait` requires a local project path. Passing a remote URL exits with `E_ARGS`.
 If you pass both `--wait` and `--no-browser` in the same command invocation, `--wait` takes precedence. The command runs in wait-only mode.
 
+From 4.1.21, a `--wait` that reads `ready.json` while the producer is still writing it treats the half-written file as one more transient state and keeps polling. Up to 4.1.20, one torn read failed the wait with a JSON parse error. A file that never parses still ends in `E_READY_TIMEOUT`, and the timeout message names the cause: `The last read of the file failed to parse as JSON`, followed by the parser's own error.
+
 ### Machine output with `--output json`
 
 `--output json` prints a schema-1 envelope on stdout:
@@ -277,6 +279,20 @@ When several candidates exist, it lists them so you can point at the one you mea
 
 ```bash
 extension dev packages/my-extension
+```
+
+### pnpm workspace members install from the root
+
+From 4.1.18, when the project is a member of a pnpm workspace and its dependencies are missing, the automatic install runs from the workspace root instead of the package folder. The install is filtered to the member and its workspace dependencies:
+
+```bash
+pnpm install --filter {packages/my-extension}...
+```
+
+The lockfile and the linker layout stay the workspace's, so the result matches a `pnpm install` at the root. The session prints one info line before the install runs:
+
+```plaintext
+This project is a pnpm workspace member, installing from the workspace root at /home/dev/monorepo.
 ```
 
 ## Examples

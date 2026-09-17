@@ -222,6 +222,8 @@ extension dev --no-open
 `--wait` 需要本地專案路徑。傳入遠端 URL 會以 `E_ARGS` 結束。
 如果你在同一次指令中同時傳入 `--wait` 與 `--no-browser`,`--wait` 優先,指令會以「僅等待」模式執行。
 
+從 4.1.21 開始，當 `--wait` 在產生者還在寫入 `ready.json` 時讀到它，會把這個寫到一半的檔案當作又一種暫態，繼續輪詢。到 4.1.20 為止，一次撕裂讀取會讓等待以 JSON 解析錯誤失敗。始終無法解析的檔案仍會以 `E_READY_TIMEOUT` 結束，逾時訊息會點明原因：`The last read of the file failed to parse as JSON`，後面接著解析器自己的錯誤。
+
 ### 用 `--output json` 取得機器輸出
 
 `--output json` 會在 stdout 印出 schema-1 信封,每行一個 JSON 物件:
@@ -274,6 +276,20 @@ Workspace root detected — resolved extension package: packages/my-extension
 
 ```bash
 extension dev packages/my-extension
+```
+
+### pnpm workspace 成員從根目錄安裝
+
+從 4.1.18 開始，當專案是 pnpm workspace 的成員且相依套件缺少時，自動安裝會從 workspace 根目錄執行，而不是從套件資料夾執行。安裝範圍過濾為該成員及其 workspace 相依套件：
+
+```bash
+pnpm install --filter {packages/my-extension}...
+```
+
+鎖定檔與 linker 配置仍然屬於 workspace，所以結果與在根目錄執行 `pnpm install` 一致。安裝執行之前，工作階段會印出一行 info：
+
+```plaintext
+This project is a pnpm workspace member, installing from the workspace root at /home/dev/monorepo.
 ```
 
 ## 範例

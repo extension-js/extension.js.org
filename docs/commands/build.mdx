@@ -116,6 +116,8 @@ dist/
 | `--zip-source [boolean]` | -               | Includes source files in zip output.                                                                        | `false`                  |
 | `--zip-filename <name>`  | -               | Sets custom zip filename.                                                                                   | sanitized extension name + version |
 | `--silent [boolean]`     | -               | Suppresses build logs.                                                                                      | `false`                  |
+| `--addon-lint [boolean]` | -               | Checks Firefox production builds against addons.mozilla.org rules with addons-linter when it is installed. Findings print as warnings. See [Store check for Firefox builds](#store-check-for-firefox-builds). | `true`                   |
+| `--no-addon-lint`        | -               | Skips the addons.mozilla.org check.                                                                         | check enabled            |
 | `--mode <mode>`          | -               | Bundler mode override (`development`, `production`, or `none`). Also sets `NODE_ENV`.                       | `production`             |
 | `--extensions <list>`    | -               | Comma-separated companion extensions or store URLs.                                                         | unset                    |
 | `--install [boolean]`    | -               | Internal flag. Install project dependencies when missing. Lifecycle scripts stay disabled unless `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`. | installs when `node_modules` is missing |
@@ -308,6 +310,31 @@ machine contract.
 - A failed build prints one `ok: false` frame with `status: "build-failed"` and `error.code: "E_COMPILE"` before the process exits `1`.
 
 Every build also writes `dist/extension-js/<browser>/build-summary.json`. Scripts that shell out to `extension build` can read structured warnings there. Guard against stale files by checking the file's modification time.
+
+## Store check for Firefox builds
+
+From 4.1.18, a production build for a Gecko target (`firefox`, `gecko-based`, and the Gecko forks) runs [addons-linter](https://github.com/mozilla/addons-linter) over `dist/<browser>` when that package is installed in your project. The linter is what addons.mozilla.org runs on a submission, so the check surfaces a rejection before you upload.
+
+Every finding prints as a warning. The build never fails because of one, and the exit code stays `0`. A summary line comes first, then one line per finding with the linter's code, message, and location:
+
+```plaintext
+Store check for addons.mozilla.org: addons-linter found 1 error and 2 warnings in dist/firefox
+AMO <error|warning> <CODE>: <message> (<file>:<line>)
+```
+
+The output is capped at 20 findings, and the linter gets 10 seconds. Past 20, one line names how many more there are and points at `npx addons-linter dist/firefox` for the full report. A linter that runs past 10 seconds is dropped, and the build goes on without the check.
+
+A finding in a chunk that bundles a dependency is attributed, because the file name alone can point at the wrong author. The line ends with `- this file is bundled dependency code (react, react-dom), not yours` when nothing of yours is in that chunk, or `- this file also bundles react, react-dom, so the finding may be theirs` when the chunk mixes both.
+
+When addons-linter is not installed, the build prints one info line per project and skips the check:
+
+```plaintext
+Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter or pass --no-addon-lint to silence this.
+```
+
+The install command is phrased for the package manager that your project uses.
+
+Turn the check off with `--no-addon-lint`, or with `commands.build.addonLint: false` in `extension.config.js`. Non-production modes skip it, because a dev artifact carries dev-only grants that the linter would flag for nothing. `extension start` skips it too, since `start` previews a build rather than shipping one.
 
 ## Best practices
 
