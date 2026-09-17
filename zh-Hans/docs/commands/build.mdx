@@ -116,6 +116,8 @@ dist/
 | `--zip-source [boolean]` | -               | 在 zip 输出中包含源代码文件。                                                              | `false`         |
 | `--zip-filename <name>`  | -               | 设置自定义的 zip 文件名。                                                                  | 清洗过的扩展名 + 版本号 |
 | `--silent [boolean]`     | -               | 抑制构建日志。                                                                             | `false`         |
+| `--addon-lint [boolean]` | -               | 当项目里装有 addons-linter 时，按 addons.mozilla.org 的规则检查 Firefox 生产构建。发现的问题以警告形式打印。见 [Firefox 构建的商店检查](#firefox-构建的商店检查)。 | `true`          |
+| `--no-addon-lint`        | -               | 跳过 addons.mozilla.org 检查。                                                             | 检查默认开启    |
 | `--mode <mode>`          | -               | 覆盖打包器的模式（`development`、`production` 或 `none`）。同时会设置 `NODE_ENV`。         | `production`    |
 | `--extensions <list>`    | -               | 用逗号分隔的协同扩展或商店 URL。                                                           | 未设置          |
 | `--install [boolean]`    | -               | 内部 flag。缺失依赖时安装项目依赖。除非设置 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`，否则生命周期脚本保持关闭。 | `node_modules` 缺失时安装 |
@@ -306,6 +308,31 @@ extension build ./my-extension --zip --zip-source
 - 失败的构建会在进程以 `1` 退出前打印一个 `ok: false` 帧，其 `status: "build-failed"`、`error.code: "E_COMPILE"`。
 
 每次构建还会写出 `dist/extension-js/<browser>/build-summary.json`。通过 shell 调用 `extension build` 的脚本可以从那里读取结构化的警告。请检查文件的修改时间，避免读到过期文件。
+
+## Firefox 构建的商店检查
+
+从 4.1.18 开始，面向 Gecko 目标（`firefox`、`gecko-based` 以及各 Gecko 分支）的生产构建会在项目里装有 [addons-linter](https://github.com/mozilla/addons-linter) 时，用它检查 `dist/<browser>`。这个 linter 正是 addons.mozilla.org 审核提交时运行的工具，所以这项检查能在你上传之前暴露出会被拒绝的问题。
+
+每一条发现都以警告形式打印。构建永远不会因此失败，退出码保持为 `0`。先打印一行汇总，然后每条发现各占一行，带上 linter 的代码、消息和位置：
+
+```plaintext
+Store check for addons.mozilla.org: addons-linter found 1 error and 2 warnings in dist/firefox
+AMO <error|warning> <CODE>: <message> (<file>:<line>)
+```
+
+输出最多打印 20 条发现，linter 最多运行 10 秒。超过 20 条时，会有一行说明还有多少条没显示，并指向 `npx addons-linter dist/firefox` 查看完整报告。运行超过 10 秒的 linter 会被放弃，构建在没有这项检查的情况下继续。
+
+落在打包了依赖的 chunk 里的发现会标注归属，因为单看文件名可能指向错误的作者。当该 chunk 里没有你自己的代码时，这一行以 `- this file is bundled dependency code (react, react-dom), not yours` 结尾。当该 chunk 两者混合时，以 `- this file also bundles react, react-dom, so the finding may be theirs` 结尾。
+
+当没有安装 addons-linter 时，构建会为每个项目打印一行 info 并跳过检查：
+
+```plaintext
+Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter or pass --no-addon-lint to silence this.
+```
+
+安装命令会按你项目使用的包管理器来措辞。
+
+用 `--no-addon-lint`，或在 `extension.config.js` 中设置 `commands.build.addonLint: false`，即可关闭检查。非生产模式会跳过它，因为开发产物带有仅供开发的授权，linter 会白白地标记它们。`extension start` 也会跳过它，因为 `start` 是预览构建，而不是发布构建。
 
 ## 最佳实践
 

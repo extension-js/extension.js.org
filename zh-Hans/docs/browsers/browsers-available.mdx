@@ -199,6 +199,32 @@ npx extension dev --browser=chrome,firefox
 - 基于引擎的目标会被路由到同样的 Chromium / Firefox 运行器，并具有引擎感知的行为。
 - 作为 `build` 目标时，引擎目标拥有独立的 `dist/<target>` 目录、`.env.<target>` 解析、`EXTENSION_BROWSER` 值与 manifest 前缀——见[引擎目标对 `build` 意味着什么](/zh-Hans/docs/commands/build#引擎目标对-build-意味着什么)。
 
+## Firefox 构建会对仅 Chromium 可用的 API 发出警告
+
+从 4.1.18 开始，面向 Gecko 目标的生产构建会扫描输出的 bundle，查找两种会被 addons-linter 报告为 `UNSUPPORTED_API` 的调用：任何 manifest 版本上的 `chrome.sidePanel.*`，以及 Manifest V2 上的 `chrome.action.*`。每次命中都会打印一条点名文件的警告。构建仍然成功。
+
+```plaintext
+background.ts uses chrome.sidePanel, which is Chromium only.
+Firefox opens a sidebar through the sidebar_action manifest key on every manifest version, and addons-linter flags the call as UNSUPPORTED_API.
+Move the call behind a build-time branch on import.meta.env.EXTENSION_PUBLIC_BROWSER so the Firefox bundle drops it.
+```
+
+```plaintext
+background.ts uses chrome.action, which Manifest V2 does not have on Firefox.
+Firefox Manifest V2 exposes the toolbar button as browserAction, and addons-linter flags the call as UNSUPPORTED_API.
+Use browserAction behind a build-time branch on import.meta.env.EXTENSION_PUBLIC_BROWSER, or declare Manifest V3 for Firefox with firefox:manifest_version.
+```
+
+修复方式是一个由打包器在构建时解析的分支，这样 Firefox 的 bundle 会把这个调用整个去掉：
+
+```js
+if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "firefox") {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+```
+
+像 `chrome.sidePanel?.setPanelBehavior()` 这样的运行时防护仍然会触发警告。addons-linter 匹配的是对命名空间的静态读取，而不是实际运行的代码，所以只有构建时分支才能消除这条发现。各目标上 `EXTENSION_PUBLIC_BROWSER` 的取值见[环境变量](/zh-Hans/docs/features/environment-variables)。
+
 ## 最佳实践
 
 - **日常迭代用具名浏览器**：`chrome`、`edge` 与 `firefox` 是常规测试中最快的路径。

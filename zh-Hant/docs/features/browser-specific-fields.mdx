@@ -138,6 +138,30 @@ Safari 沒有實作的鍵與權限，會從 Safari 建置中自動移除，而�
 
 家族分類會先比對一份已知分支清單，再退回到子字串檢查。`chrome`、`edge`、`brave`、`opera`、`vivaldi` 與 `yandex` 依名稱歸類為 Chromium 家族，其他任何包含 `chromium` 的名稱也一樣。`firefox`、`waterfox` 與 `librewolf` 依名稱歸類為 Gecko 家族，其他任何包含 `gecko` 或 `firefox` 的名稱也一樣。這就是 `chromium-based` 與 `gecko-based` 別名，以及以它們為基礎的任意 `*-based` 名稱，都能繼承所屬家族帶前綴鍵的原因。
 
+### 帶前綴的 `manifest_version` 需要一個不帶前綴的備援值
+
+`chrome:` 與 `edge:` 是精確前綴，所以只作用於某一個廠商的 `manifest_version` 會讓其他所有建置都沒有這個欄位。下面這份 manifest 給了 Firefox 與 Chrome 一個版本號，卻沒有給 Edge：
+
+```json
+{
+  "firefox:manifest_version": 2,
+  "chrome:manifest_version": 3
+}
+```
+
+沒有 `manifest_version` 的 manifest 任何瀏覽器都不會載入。從 4.1.21 開始，建置會用一則點名被丟棄鍵的錯誤拒絕這種情況，例如 `chrome:manifest_version applies only to Chrome builds, so the edge build has no manifest_version.`。到 4.1.20 為止，建置會照常寫出 manifest，瀏覽器之後才拒絕它。
+
+請寫一個不帶前綴的 `manifest_version` 作為基礎值，只給例外情況加前綴：
+
+```json
+{
+  "manifest_version": 3,
+  "firefox:manifest_version": 2
+}
+```
+
+當整個 Chromium 家族需要共用一個與一般鍵不同的值時，使用 `chromium:manifest_version`。
+
 ## 最佳實務
 
 - **共用預設值不加前綴**：把共用欄位放在一般的 manifest 鍵中，只對瀏覽器專屬的差異加上前綴。

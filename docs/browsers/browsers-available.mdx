@@ -197,6 +197,32 @@ Use comma-separated values to run multiple named targets in sequence (for exampl
 - Engine-based targets route to the same Chromium/Firefox runners with engine-aware behavior.
 - As `build` targets, engine targets get their own `dist/<target>` folder, `.env.<target>` resolution, `EXTENSION_BROWSER` value, and manifest prefix. See [What engine targets mean for `build`](/docs/commands/build#what-engine-targets-mean-for-build).
 
+## Firefox builds warn about Chromium-only APIs
+
+From 4.1.18, a production build for a Gecko target scans the emitted bundle for two calls that addons-linter reports as `UNSUPPORTED_API`: `chrome.sidePanel.*` on any manifest version, and `chrome.action.*` on Manifest V2. Each hit prints a warning that names the file. The build still succeeds.
+
+```plaintext
+background.ts uses chrome.sidePanel, which is Chromium only.
+Firefox opens a sidebar through the sidebar_action manifest key on every manifest version, and addons-linter flags the call as UNSUPPORTED_API.
+Move the call behind a build-time branch on import.meta.env.EXTENSION_PUBLIC_BROWSER so the Firefox bundle drops it.
+```
+
+```plaintext
+background.ts uses chrome.action, which Manifest V2 does not have on Firefox.
+Firefox Manifest V2 exposes the toolbar button as browserAction, and addons-linter flags the call as UNSUPPORTED_API.
+Use browserAction behind a build-time branch on import.meta.env.EXTENSION_PUBLIC_BROWSER, or declare Manifest V3 for Firefox with firefox:manifest_version.
+```
+
+The fix is a branch that the bundler resolves at build time, so the Firefox bundle drops the call entirely:
+
+```js
+if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "firefox") {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+```
+
+A runtime guard such as `chrome.sidePanel?.setPanelBehavior()` still warns. addons-linter matches the static read of the namespace, not what runs, so only a build-time branch clears the finding. See [Environment variables](/docs/features/environment-variables) for the `EXTENSION_PUBLIC_BROWSER` value on each target.
+
 ## Best practices
 
 - **Use named browsers for daily iteration**: `chrome`, `edge`, and `firefox` are the fastest path for regular testing.

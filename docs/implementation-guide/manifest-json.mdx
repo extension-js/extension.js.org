@@ -115,6 +115,34 @@ Extension.js also normalizes content scripts by manifest entry index:
 
 Those emitted paths are what the browser actually loads. Use source paths in authoring, then let Extension.js rewrite them for output.
 
+### Manifest V2 builds fold host permissions and flatten the CSP
+
+From 4.1.18, every build with `manifest_version: 2` reshapes two Manifest V3 keys, on every browser target. Your source manifest stays as you wrote it.
+
+`host_permissions` folds into `permissions`, and `optional_host_permissions` folds into `optional_permissions`. Each list is deduplicated, and the two MV3 keys are dropped from the emitted manifest. Manifest V2 reads match patterns from `permissions`, so this is where Firefox expects them.
+
+`content_security_policy` is emitted as one string, taken from the `extension_pages` slot of the object form. Manifest V2 has no place for the `sandbox` slot, so that policy is dropped with a warning:
+
+```plaintext
+firefox reads a Manifest V2 content_security_policy as one string, so the sandbox slot has nowhere to go.
+The build wrote the extension_pages policy as that string and dropped the sandbox policy from the built manifest. Scope the object form with the chromium: prefix, or declare a Manifest V3 build for this browser.
+```
+
+For example, this source:
+
+```json
+{
+  "manifest_version": 2,
+  "permissions": ["storage"],
+  "host_permissions": ["https://example.com/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'"
+  }
+}
+```
+
+emits `"permissions": ["storage", "https://example.com/*"]` and `"content_security_policy": "script-src 'self'"`, with no `host_permissions` key.
+
 ## Development behavior
 
 - When `manifest.json` changes, Extension.js recompiles and triggers extension hard reload flow.

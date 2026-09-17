@@ -236,6 +236,33 @@ createApp(App).mount("#extension-root");
 - Use scoped styles in SFCs when possible to reduce style leaks in extension pages.
 - For large UIs, split components and shared composables to keep content scripts small.
 
+## Runtime build and the Options API
+
+From 4.1.19, a Vue project bundles the runtime-only build, `vue.runtime.esm-bundler.js`, the file that the `vue` package names as its `module` entry. Extension.js aliases `vue$`, `@vue/runtime-dom`, `@vue/runtime-core`, and `@vue/shared` to that build, so your app and any transpiled workspace dependency share one Vue instance. The full build ships the template compiler, which an extension CSP cannot run, and its `innerHTML` and `Function` calls fail the addons.mozilla.org store check.
+
+The runtime build has no template compiler, so templates must be precompiled. Single-file components give you that: `vue-loader` compiles each `<template>` at build time. In-DOM templates and string `template:` options are not supported. Vue warns in the console and renders nothing for such a component.
+
+To keep runtime compilation, alias `vue$` to the full build in `extension.config.js`:
+
+```js extension.config.js
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      vue$: "vue/dist/vue.esm-bundler.js",
+    };
+    return config;
+  },
+};
+```
+
+That build compiles templates with `new Function`, which needs `unsafe-eval` in the extension CSP. Manifest V3 extension pages forbid it, so the alias only helps a Manifest V2 project.
+
+The Options API stays on in production. Extension.js sets `__VUE_OPTIONS_API__` to `true` in every mode, so a component written with `data()`, `methods`, or `computed` works in the shipped bundle. `__VUE_PROD_DEVTOOLS__` and hydration mismatch details are off in production.
+
+One more define applies to every bundle, for every framework. The free identifier `global` is defined as `globalThis`, and Rspack's own global helper is off. That helper falls back to `Function("return this")`, which fails the addons.mozilla.org store check, so no such shim reaches your bundle.
+
 ## Next steps
 
 - Learn more about [TypeScript support](/docs/languages-and-frameworks/typescript).

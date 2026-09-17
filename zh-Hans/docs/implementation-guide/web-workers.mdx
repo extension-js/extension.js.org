@@ -104,6 +104,20 @@ Policy directive: "worker-src 'self'". The action has been blocked.
 - 内容脚本加 blob 需要一条清单条目，以及宽松的页面 CSP。
 - 内容脚本直接用扩展 URL 会被拒绝，没有办法改变。
 
+## 构建会对什么发出警告
+
+从 4.1.21 开始，构建会扫描每一个内容脚本和注入脚本，查找从扩展 URL 启动的 worker。在这两种界面中的任何一处写 `new Worker(new URL("./worker.js", import.meta.url))`，都会打印下面这条警告，构建继续进行：
+
+```plaintext
+content_scripts/content-0.js starts a worker from an extension URL, which the browser refuses in a content script.
+SCRIPT content_scripts/content-0.js
+The worker file ships, but a worker script must be same-origin with the document that starts it, and this document is the page, so the worker never runs. Chromium throws a SecurityError and Firefox fires an error event on the worker.
+- Fetch the worker file first and start the worker from a blob: new Worker(URL.createObjectURL(new Blob([await (await fetch(chrome.runtime.getURL('worker.js'))).text()])))
+- Or start the worker from an extension page, where the document is the extension and this spelling works as written.
+```
+
+注入脚本会得到同样的警告，只是第一行写的是 `in an injected script`。警告里那一行配方就是[上面的 blob 变通方案](#blob-变通方案及其两个前提)，两个前提也一样：worker 文件必须是 web accessible，宿主页面的 CSP 必须允许 blob worker。当工作不必留在页面里时，优先走扩展页面那条路。
+
 ## 后续步骤
 
 - 阅读 [Offscreen 文档](/zh-Hans/docs/implementation-guide/offscreen-documents)，了解无可见页面的后台工作。

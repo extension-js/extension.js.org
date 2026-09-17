@@ -115,6 +115,34 @@ Extension.js 还会按 manifest 入口索引归一化 content script：
 
 那些输出路径才是浏览器实际加载的内容。在编写时使用源路径，让 Extension.js 在输出时重写它们。
 
+### Manifest V2 构建会合并 host permissions 并把 CSP 压平
+
+从 4.1.18 开始，每一个 `manifest_version: 2` 的构建都会重塑两个 Manifest V3 键，对任何浏览器目标都是如此。你的源 manifest 保持原样。
+
+`host_permissions` 会合并进 `permissions`，`optional_host_permissions` 会合并进 `optional_permissions`。每个列表都会去重，两个 MV3 键会从输出的 manifest 中移除。Manifest V2 从 `permissions` 里读取匹配模式，Firefox 也正是在那里找它们。
+
+`content_security_policy` 会输出为一个字符串，取自对象形式里的 `extension_pages` 槽位。Manifest V2 没有地方放 `sandbox` 槽位，所以那条策略会被带警告地丢弃：
+
+```plaintext
+firefox reads a Manifest V2 content_security_policy as one string, so the sandbox slot has nowhere to go.
+The build wrote the extension_pages policy as that string and dropped the sandbox policy from the built manifest. Scope the object form with the chromium: prefix, or declare a Manifest V3 build for this browser.
+```
+
+例如，这份源文件：
+
+```json
+{
+  "manifest_version": 2,
+  "permissions": ["storage"],
+  "host_permissions": ["https://example.com/*"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'"
+  }
+}
+```
+
+会输出 `"permissions": ["storage", "https://example.com/*"]` 和 `"content_security_policy": "script-src 'self'"`，且不含 `host_permissions` 键。
+
 ## 开发期行为
 
 - 当 `manifest.json` 发生变化时，Extension.js 会重新编译并触发扩展的硬重载流程。

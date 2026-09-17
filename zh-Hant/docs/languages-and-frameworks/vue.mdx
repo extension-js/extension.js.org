@@ -236,6 +236,33 @@ createApp(App).mount("#extension-root");
 - 在 SFC 中盡量使用 scoped 樣式，降低擴充功能頁面的樣式外洩。
 - 對於較大的 UI，將元件與共用 composable 拆分，讓 content script 保持精簡。
 
+## 執行階段建置與 Options API
+
+從 4.1.19 開始，Vue 專案打包的是僅含執行階段的建置 `vue.runtime.esm-bundler.js`，也就是 `vue` 套件在 `module` 進入點指定的檔案。Extension.js 會把 `vue$`、`@vue/runtime-dom`、`@vue/runtime-core` 與 `@vue/shared` 都別名到那個建置，這樣你的應用程式與任何被轉譯的 workspace 相依套件共用同一個 Vue 實例。完整建置帶有範本編譯器，擴充功能的 CSP 無法執行它，而且它的 `innerHTML` 與 `Function` 呼叫會通不過 addons.mozilla.org 的商店檢查。
+
+執行階段建置沒有範本編譯器，所以範本必須預先編譯。單檔元件正好提供這一點：`vue-loader` 在建置時編譯每一個 `<template>`。DOM 內範本與字串形式的 `template:` 選項不受支援。Vue 會在主控台發出警告，並且對這樣的元件不渲染任何內容。
+
+要保留執行階段編譯，請在 `extension.config.js` 中把 `vue$` 別名到完整建置：
+
+```js extension.config.js
+export default {
+  config: (config) => {
+    config.resolve = config.resolve || {};
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      vue$: "vue/dist/vue.esm-bundler.js",
+    };
+    return config;
+  },
+};
+```
+
+那個建置用 `new Function` 編譯範本，這需要擴充功能 CSP 裡有 `unsafe-eval`。Manifest V3 的擴充功能頁面禁止它，所以這個別名只對 Manifest V2 專案有幫助。
+
+Options API 在正式環境保持開啟。Extension.js 在每種模式下都把 `__VUE_OPTIONS_API__` 設為 `true`，所以用 `data()`、`methods` 或 `computed` 寫的元件在出貨的 bundle 裡照常運作。`__VUE_PROD_DEVTOOLS__` 與 hydration 不一致的詳情在正式環境是關閉的。
+
+還有一條 define 適用於每一個 bundle、每一種框架。自由識別字 `global` 被定義為 `globalThis`，Rspack 自己的 global 輔助程式碼被關閉。那段輔助程式碼會退回到 `Function("return this")`，通不過 addons.mozilla.org 的商店檢查，所以你的 bundle 裡不會出現這樣的 shim。
+
 ## 下一步
 
 - 進一步了解 [TypeScript 支援](/zh-Hant/docs/languages-and-frameworks/typescript)。

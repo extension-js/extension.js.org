@@ -104,6 +104,20 @@ Policy directive: "worker-src 'self'". The action has been blocked.
 - 內容指令碼加 blob 需要一條資訊清單條目，以及寬鬆的頁面 CSP。
 - 內容指令碼直接用擴充功能 URL 會被拒絕，沒有辦法改變。
 
+## 建置會對什麼發出警告
+
+從 4.1.21 開始，建置會掃描每一個內容指令碼與注入指令碼，尋找從擴充功能 URL 啟動的 worker。在這兩種介面中的任何一處寫 `new Worker(new URL("./worker.js", import.meta.url))`，都會印出下面這則警告，建置繼續進行：
+
+```plaintext
+content_scripts/content-0.js starts a worker from an extension URL, which the browser refuses in a content script.
+SCRIPT content_scripts/content-0.js
+The worker file ships, but a worker script must be same-origin with the document that starts it, and this document is the page, so the worker never runs. Chromium throws a SecurityError and Firefox fires an error event on the worker.
+- Fetch the worker file first and start the worker from a blob: new Worker(URL.createObjectURL(new Blob([await (await fetch(chrome.runtime.getURL('worker.js'))).text()])))
+- Or start the worker from an extension page, where the document is the extension and this spelling works as written.
+```
+
+注入指令碼會得到同樣的警告，只是第一行寫的是 `in an injected script`。警告裡那一行做法就是[上面的 blob 變通做法](#blob-變通做法與它的兩個前提)，兩個前提也一樣：worker 檔案必須是 web accessible，宿主頁面的 CSP 必須允許 blob worker。當工作不必留在頁面裡時，優先走擴充功能頁面那條路。
+
 ## 後續步驟
 
 - 閱讀 [Offscreen 文件](/zh-Hant/docs/implementation-guide/offscreen-documents)，了解沒有可見頁面的背景工作。

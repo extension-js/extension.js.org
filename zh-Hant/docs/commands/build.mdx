@@ -115,6 +115,8 @@ dist/
 | `--zip-source [boolean]` | -               | 在 zip 輸出中包含原始檔。                                                           | `false`             |
 | `--zip-filename <name>`  | -               | 設定自訂 zip 檔名。                                                                 | 清理過的擴充功能名稱 + 版本 |
 | `--silent [boolean]`     | -               | 隱藏建置記錄。                                                                      | `false`             |
+| `--addon-lint [boolean]` | -               | 當專案裡裝有 addons-linter 時，依 addons.mozilla.org 的規則檢查 Firefox 正式建置。發現的問題以警告印出。見 [Firefox 建置的商店檢查](#firefox-建置的商店檢查)。 | `true`              |
+| `--no-addon-lint`        | -               | 略過 addons.mozilla.org 檢查。                                                      | 檢查預設啟用        |
 | `--mode <mode>`          | -               | 覆寫打包工具模式(`development`、`production` 或 `none`),同時會設定 `NODE_ENV`。     | `production`        |
 | `--extensions <list>`    | -               | 以逗號分隔的搭配擴充功能或 store URL。                                              | 未設                |
 | `--install [boolean]`    | -               | 內部旗標。當缺少時安裝專案相依套件。除非設定 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`,否則生命週期指令碼維持停用。 | `node_modules` 缺少時安裝 |
@@ -305,6 +307,31 @@ extension build ./my-extension --zip --zip-source
 - 失敗的建置會在行程以 `1` 結束前印出一個 `ok: false` 框,其 `status: "build-failed"`、`error.code: "E_COMPILE"`。
 
 每次建置也會寫出 `dist/extension-js/<browser>/build-summary.json`。以 shell 呼叫 `extension build` 的指令碼可以從那裡讀取結構化的警告。請檢查檔案的修改時間,以免讀到過期檔案。
+
+## Firefox 建置的商店檢查
+
+從 4.1.18 開始，針對 Gecko 目標（`firefox`、`gecko-based` 以及各 Gecko 分支）的正式建置會在專案裡裝有 [addons-linter](https://github.com/mozilla/addons-linter) 時，用它檢查 `dist/<browser>`。這個 linter 正是 addons.mozilla.org 審核提交時執行的工具，所以這項檢查能在你上傳之前揭露會被拒絕的問題。
+
+每一條發現都以警告印出。建置永遠不會因此失敗，結束碼保持為 `0`。先印一行摘要，然後每條發現各佔一行，帶著 linter 的代碼、訊息與位置：
+
+```plaintext
+Store check for addons.mozilla.org: addons-linter found 1 error and 2 warnings in dist/firefox
+AMO <error|warning> <CODE>: <message> (<file>:<line>)
+```
+
+輸出最多印 20 條發現，linter 最多執行 10 秒。超過 20 條時，會有一行說明還有多少條沒顯示，並指向 `npx addons-linter dist/firefox` 查看完整報告。執行超過 10 秒的 linter 會被放棄，建置在沒有這項檢查的情況下繼續。
+
+落在打包了相依套件的 chunk 裡的發現會標注歸屬，因為單看檔名可能指向錯誤的作者。當該 chunk 裡沒有你自己的程式碼時，這一行以 `- this file is bundled dependency code (react, react-dom), not yours` 結尾。當該 chunk 兩者混合時，以 `- this file also bundles react, react-dom, so the finding may be theirs` 結尾。
+
+當沒有安裝 addons-linter 時，建置會為每個專案印一行 info 並略過檢查：
+
+```plaintext
+Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter or pass --no-addon-lint to silence this.
+```
+
+安裝指令會依你專案使用的套件管理器來措辭。
+
+用 `--no-addon-lint`，或在 `extension.config.js` 中設定 `commands.build.addonLint: false`，即可關閉檢查。非正式模式會略過它，因為開發產物帶有僅供開發的授權，linter 會白白地標記它們。`extension start` 也會略過它，因為 `start` 是預覽建置，而不是出貨建置。
 
 ## 最佳實務
 
