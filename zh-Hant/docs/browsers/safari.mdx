@@ -179,6 +179,14 @@ npx extension dev --browser=safari
 
 擴充功能啟用之後，這個迴圈不再需要你點任何東西。在 Safari 26.5.2 上量測，從儲存到擴充功能完成重新載入大約需要 4 秒。
 
+單純的 `extension dev --browser safari` 開啟的是轉換器建置出的容器 app，而不是 Safari 本身。啟用與使用擴充功能都在 Safari 裡，所以請自己開啟它，或者傳入 `--safari-binary`，工作階段就會在 app 之外一併開啟 Safari。
+
+每次儲存都會印出它做了什麼。一次同步以 `Rebuilt <App>.` 結束，內容指令碼的改動會緊接著印出 `Reloading content_script (content.ts)…`。如果那一刻擴充功能沒有連線，這一行會改為 `Queued content_script (content.ts) for the extension to apply when it reconnects.`。background 或 manifest 的改動只會印出 `Rebuilt`，因為 Safari 會在同步之後自己重新啟動擴充功能，沒有什麼需要再派送的了。
+
+轉換之後，轉換器自己的警告清單會被印出來，它不認識的每個 manifest 鍵各佔一行。建置刻意保留的鍵會在 `Extension.js kept one of these keys on purpose:` 下面加註。目前那就是 `world`，理由是 `Safari has honored the MAIN world since Safari 18, so the key stays`。
+
+在 dev 模式下，橋接器會暫存早期錯誤。在擴充功能連到 dev 伺服器的 socket 開啟之前拋出的錯誤，會存進擴充功能的 `chrome.storage.local` 裡的 `__extjsPendingErrors`，等 socket 連上後再重播，所以 `extension logs` 仍然能看到它。
+
 ### 一次儲存的成本
 
 同步在背景執行，因此打包迴圈永遠不會被阻塞。連續多次儲存會收斂成一次針對最新產物的後續同步，所以五次快速儲存只花一次重建，而不是五次。如果第一次完整打包失敗，下一次編譯會重跑完整流程，而不是去同步一個從未成功建置過的專案。
@@ -364,6 +372,21 @@ Store，或作為經過公證的直接下載）是另一條流程，Extension.js
    id 就是擴充功能在 Apple 平台上的身分。
 2. **在 Xcode 中設定一次你的 `DEVELOPMENT_TEAM`**：它會隨專案重新產生自動保留，`CODE_SIGN_STYLE`
    與 `PROVISIONING_PROFILE_SPECIFIER` 也一樣。
+
+## 一次工作階段會留下什麼
+
+`dist/extension-js/safari/ready.json` 的就緒契約帶有 Safari 專屬的值：
+
+| 欄位               | 在 Safari 上的值                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `browserPid`       | 容器 app 的程序 id。帶 `--safari-binary` 時，是 Safari 自己的程序 id。                                 |
+| `extensionId`      | `<bundle id>.Extension`，也就是 app 內擴充功能 target 的 id。                                          |
+| `runtime`          | 擴充功能的 background 連上 dev 伺服器後為 `attached`，斷線後為 `detached`。                            |
+| `binaryProvenance` | 容器 app 為 `system`，帶 `--safari-binary` 時為 `pinned`。                                             |
+
+`extension logs`、`extension eval`、`extension reload` 與 `extension doctor --browser safari` 都透過這份契約附著到工作階段上，方式與 Chromium 上相同。
+
+Ctrl+C 只會停止 dev 伺服器。容器 app 保持開啟，Safari 保持開啟，擴充功能仍然註冊在 macOS 上並在 Safari 設定裡保持啟用，`dist/safari-xcode/` 也留在磁碟上。下一次 `dev` 會重用那個專案。想要乾淨的起點，刪除 `dist/safari-xcode/`，下一次執行就會從頭轉換並建置。
 
 ## 最佳實務
 

@@ -103,6 +103,20 @@ A `try`/`catch` around `new Worker` never sees it. Attach an `onerror` handler a
 - A content script with a blob needs a manifest entry and a permissive page CSP.
 - A content script with an extension URL is refused, and nothing changes that.
 
+## What the build warns about
+
+From 4.1.21, the build scans every content script and injected script for a worker that starts from an extension URL. A `new Worker(new URL("./worker.js", import.meta.url))` in either surface prints this warning, and the build goes on:
+
+```plaintext
+content_scripts/content-0.js starts a worker from an extension URL, which the browser refuses in a content script.
+SCRIPT content_scripts/content-0.js
+The worker file ships, but a worker script must be same-origin with the document that starts it, and this document is the page, so the worker never runs. Chromium throws a SecurityError and Firefox fires an error event on the worker.
+- Fetch the worker file first and start the worker from a blob: new Worker(URL.createObjectURL(new Blob([await (await fetch(chrome.runtime.getURL('worker.js'))).text()])))
+- Or start the worker from an extension page, where the document is the extension and this spelling works as written.
+```
+
+An injected script gets the same warning with `in an injected script` in the first line. The one-line recipe in the warning is the [blob workaround above](#the-blob-workaround-and-its-two-conditions), and it keeps the same two conditions: the worker file must be web accessible, and the host page CSP must allow blob workers. Prefer the extension page route when the work does not have to stay in the page.
+
 ## Next steps
 
 - Read [Offscreen documents](/docs/implementation-guide/offscreen-documents) for background work without a visible page.
