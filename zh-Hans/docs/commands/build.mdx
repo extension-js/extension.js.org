@@ -118,6 +118,8 @@ dist/
 | `--silent [boolean]`     | -               | 抑制构建日志。                                                                             | `false`         |
 | `--addon-lint [boolean]` | -               | 当项目里装有 addons-linter 时，按 addons.mozilla.org 的规则检查 Firefox 生产构建。发现的问题以警告形式打印。见 [Firefox 构建的商店检查](#firefox-构建的商店检查)。 | `true`          |
 | `--no-addon-lint`        | -               | 跳过 addons.mozilla.org 检查。                                                             | 检查默认开启    |
+| `--minify [boolean]`     | -               | 在生产构建中压缩第一方代码。见 [面向 Opera Add-ons 的可读输出](#面向-opera-add-ons-的可读输出)。 | `true`，`opera` 为 `false` |
+| `--no-minify`            | -               | 输出可读的第一方代码。                                                                     | 压缩，`opera` 除外 |
 | `--mode <mode>`          | -               | 覆盖打包器的模式（`development`、`production` 或 `none`）。同时会设置 `NODE_ENV`。         | `production`    |
 | `--extensions <list>`    | -               | 用逗号分隔的协同扩展或商店 URL。                                                           | 未设置          |
 | `--install [boolean]`    | -               | 内部 flag。缺失依赖时安装项目依赖。除非设置 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`，否则生命周期脚本保持关闭。 | `node_modules` 缺失时安装 |
@@ -333,6 +335,16 @@ Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it 
 安装命令会按你项目使用的包管理器来措辞。
 
 用 `--no-addon-lint`，或在 `extension.config.js` 中设置 `commands.build.addonLint: false`，即可关闭检查。非生产模式会跳过它，因为开发产物带有仅供开发的授权，linter 会白白地标记它们。`extension start` 也会跳过它，因为 `start` 是预览构建，而不是发布构建。
+
+## 面向 Opera Add-ons 的可读输出
+
+Opera 的[审核标准](https://help.opera.com/en/extensions/acceptance-criteria/)要求审核者能读懂代码：扩展自身的代码若被压缩或混淆会被拒绝，第三方库则可以保持压缩。因此生产模式下的 `extension build --browser=opera` 不做压缩，并打印一行提示：
+
+```plaintext
+Opera Add-ons reviews readable source, so this build does not minify first-party code. Pass --minify to minify it anyway.
+```
+
+构建会对整个产物关闭压缩，包括依赖在内，因为一个打包后的 chunk 可能把你的代码和依赖的代码混在一起。传入 `--minify` 可以覆盖这一默认值，也可以在 `extension.config.js` 中设置 `commands.build.minify`。同一个选项对其他目标反向生效：当审核者要求时，`--no-minify` 会让 Chrome 或 Firefox 构建保持可读。
 
 ## 最佳实践
 
