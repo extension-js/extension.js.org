@@ -118,6 +118,8 @@ dist/
 | `--silent [boolean]`     | -               | Suppresses build logs.                                                                                      | `false`                  |
 | `--addon-lint [boolean]` | -               | Checks Firefox production builds against addons.mozilla.org rules with addons-linter when it is installed. Findings print as warnings. See [Store check for Firefox builds](#store-check-for-firefox-builds). | `true`                   |
 | `--no-addon-lint`        | -               | Skips the addons.mozilla.org check.                                                                         | check enabled            |
+| `--minify [boolean]`     | -               | Minifies first-party code in production builds. See [Readable output for Opera Add-ons](#readable-output-for-opera-add-ons). | `true`, `false` for `opera` |
+| `--no-minify`            | -               | Ships readable first-party code.                                                                            | minified, except `opera` |
 | `--mode <mode>`          | -               | Bundler mode override (`development`, `production`, or `none`). Also sets `NODE_ENV`.                       | `production`             |
 | `--extensions <list>`    | -               | Comma-separated companion extensions or store URLs.                                                         | unset                    |
 | `--install [boolean]`    | -               | Internal flag. Install project dependencies when missing. Lifecycle scripts stay disabled unless `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`. | installs when `node_modules` is missing |
@@ -335,6 +337,16 @@ Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it 
 The install command is phrased for the package manager that your project uses.
 
 Turn the check off with `--no-addon-lint`, or with `commands.build.addonLint: false` in `extension.config.js`. Non-production modes skip it, because a dev artifact carries dev-only grants that the linter would flag for nothing. `extension start` skips it too, since `start` previews a build rather than shipping one.
+
+## Readable output for Opera Add-ons
+
+Opera's [acceptance criteria](https://help.opera.com/en/extensions/acceptance-criteria/) require code the reviewers can read: an extension whose own code is minified or obfuscated is rejected, while third-party libraries may stay minified. So `extension build --browser=opera` in production mode does not minify, and prints one info line:
+
+```plaintext
+Opera Add-ons reviews readable source, so this build does not minify first-party code. Pass --minify to minify it anyway.
+```
+
+The build turns minification off for the whole bundle, dependencies included, because a bundled chunk can mix your code with theirs. Pass `--minify` to override it, or set `commands.build.minify` in `extension.config.js`. The same option works the other way for every other target: `--no-minify` keeps a Chrome or Firefox build readable when a reviewer asks for it.
 
 ## Best practices
 
