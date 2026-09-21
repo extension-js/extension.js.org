@@ -44,8 +44,8 @@ export const UsedByGrid = ({ locale = "en" }) => {
         "zh-Hant":
           "透過電子郵件同步，把目前分頁中的文件傳送到 PocketBook 電子閱讀器。",
       },
-      users: 290,
-      statsCheckedAt: "2026-09-15",
+      users: 310,
+      statsCheckedAt: "2026-09-21",
     },
     {
       slug: "better-trello",
