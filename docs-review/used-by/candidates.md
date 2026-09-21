@@ -14,9 +14,8 @@ None found.
 
 | Repository                                                                                                 | Package                       | Extension.js | Users | Stores                                                                                                                      |
 | ---------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------ | ----- | --------------------------------------------------------------------------------------------------------------------------- |
-| [autonome/cmd](https://github.com/autonome/cmd)                                                            | `package.json`                | `latest`     | 6     | [firefox](https://addons.mozilla.org/firefox/addon/cmd/)                                                                    |
+| [autonome/cmd](https://github.com/autonome/cmd)                                                            | `package.json`                | `latest`     | 7     | [firefox](https://addons.mozilla.org/firefox/addon/cmd/)                                                                    |
 | [nimeshnayaju/lexical-devtools](https://github.com/nimeshnayaju/lexical-devtools/tree/main/apps/extension) | `apps/extension/package.json` | `^1.8.0`     | 26    | [chrome](https://chromewebstore.google.com/detail/dmbopeepjkdlplkjcjbnfiikajiddhnd) (root README links chrome, not counted) |
-| [SpreadSheets600/TidyTabs](https://github.com/SpreadSheets600/TidyTabs)                                    | `package.json`                | `^3.0.0`     | 3     | [chrome](https://chromewebstore.google.com/detail/cpmlaapifmhgklniidiijogjgnnhcbmn)                                         |
 
 ## No store listing found
 
