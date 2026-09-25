@@ -77,6 +77,19 @@ The Wasm plugin configures:
 
 This reduces boilerplate when importing Wasm modules from extension scripts/pages.
 
+## Ship a `.wasm` file as an asset
+
+A plain `import` of a `.wasm` file instantiates it as an async WebAssembly module, which is what `wasm-bindgen` and `wasm-pack` output expects. Some libraries ship an Emscripten loader instead, one whose `init()` wants the file's URL or bytes. For those, add `?url`: the build copies the binary into `assets/` and gives your code its URL, with no change to `extension.config.js`.
+
+```js
+import codecUrl from './codec.wasm?url'
+
+const response = await fetch(codecUrl)
+const bytes = await response.arrayBuffer()
+```
+
+The URL resolves inside the extension in every context, pages and the service worker included. This is the same `?url` contract the build offers for images, fonts and stylesheets.
+
 ## How to use
 
 Use Wasm modules in your extension code as part of regular development/build flows:
