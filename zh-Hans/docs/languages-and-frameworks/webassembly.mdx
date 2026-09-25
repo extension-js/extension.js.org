@@ -77,6 +77,19 @@ Wasm 插件会配置：
 
 这减少了从扩展脚本/页面里导入 Wasm 模块时的样板代码。
 
+## 把 `.wasm` 文件作为资源打包
+
+直接 `import` 一个 `.wasm` 文件会把它实例化为异步 WebAssembly 模块，这正是 `wasm-bindgen` 和 `wasm-pack` 产物所期望的。有些库则附带 Emscripten 加载器，其 `init()` 需要文件的 URL 或字节。对于这类库，加上 `?url`：构建会把二进制文件复制到 `assets/` 并把它的 URL 交给你的代码，不需要改动 `extension.config.js`。
+
+```js
+import codecUrl from './codec.wasm?url'
+
+const response = await fetch(codecUrl)
+const bytes = await response.arrayBuffer()
+```
+
+这个 URL 在扩展的每个上下文中都能解析，包括页面和 service worker。它与构建为图片、字体和样式表提供的 `?url` 约定完全一致。
+
 ## 用法
 
 把 Wasm 模块作为常规开发/构建流程的一部分使用：
