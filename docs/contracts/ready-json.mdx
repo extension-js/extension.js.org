@@ -80,6 +80,7 @@ Fields that appear when known:
 | `extensionVersion` | string   | The extension's version, as build provenance.                                    |
 | `browserExitedAt`  | ISO string | Stamped when the browser exits mid-session without being asked. Preserved across recompiles. |
 | `browserExitCode`  | number or null | The exit code beside `browserExitedAt`.                                    |
+| `browserExitSignal` | string or null | The signal beside `browserExitedAt` when the browser died of one, such as `SIGTRAP` for a crash. A crash carries no exit code, so this is the one clue about why it went. |
 | `runtime`          | `"attached"` or `"detached"` | `attached` once the service worker has connected and can be driven. From 4.1.20, `detached` once the last connected extension context disconnects, and `attached` again on reconnect. |
 | `executorAttachedAt` | ISO string | When the service worker first connected. Kept as provenance after a detach.  |
 | `executorDetachedAt` | ISO string | From 4.1.20, when the last connected extension context disconnected.          |
@@ -113,7 +114,7 @@ A timeout exits with `E_READY_TIMEOUT`. A contract in `error` status fails the w
 
 The same directory holds `events.ndjson` (compile timeline) and `logs.ndjson` (extension console output). Every row in both carries the `runId` from `ready.json`.
 
-`events.ndjson` is truncated at every run start, so it only ever describes the current run. Event types are `compile_start`, `compile_success`, `compile_error`, and `shutdown`.
+`events.ndjson` is truncated at every run start, so it only ever describes the current run. Event types are `compile_start`, `compile_success`, `compile_error`, `browser_exited`, and `shutdown`. A `browser_exited` row mirrors the launcher's exit stamp, with `exitCode`, `exitSignal`, and `browserExitedAt`, so the timeline says when and how the browser went. After it, every act verb answers `E_CONTROL_UNAVAILABLE` naming the exit and the restart, since no service worker reconnects until a new `dev` session relaunches the browser.
 
 ## Example
 
