@@ -77,6 +77,19 @@ Wasm plugin 會設定：
 
 這能減少從擴充功能 script/頁面匯入 Wasm 模組時的樣板程式碼。
 
+## 將 `.wasm` 檔案當作資源打包
+
+直接 `import` 一個 `.wasm` 檔案會把它實例化為非同步 WebAssembly 模組，這正是 `wasm-bindgen` 與 `wasm-pack` 產物所預期的。有些函式庫則附帶 Emscripten 載入器，其 `init()` 需要檔案的 URL 或位元組。對於這類函式庫，加上 `?url`：建置會把二進位檔複製到 `assets/` 並把它的 URL 交給你的程式碼，不需要更動 `extension.config.js`。
+
+```js
+import codecUrl from './codec.wasm?url'
+
+const response = await fetch(codecUrl)
+const bytes = await response.arrayBuffer()
+```
+
+這個 URL 在擴充功能的每個 context 中都能解析，包括頁面與 service worker。它與建置為圖片、字型和樣式表提供的 `?url` 約定完全一致。
+
 ## 使用方式
 
 在一般的開發／建置流程中使用擴充功能裡的 Wasm 模組：
