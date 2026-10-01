@@ -125,7 +125,8 @@ npx extension dev
 npx extension build --browser=firefox
 ```
 
-Load `dist/chrome` as an unpacked extension and compare it with the old output. For Firefox,
+Load the folder that the build names under `dist/` as an unpacked extension and compare it
+with the old output. For Firefox,
 the build warns when the manifest lacks `browser_specific_settings.gecko.data_collection_permissions`.
 New add-ons on addons.mozilla.org need that key, so add it before you submit. See
 [Multi-platform builds](/docs/features/multi-platform-builds) for the exact field.
@@ -207,6 +208,21 @@ HTML once and commit the result. Or add a loader rule for `.pug` files in the `c
 If `manifest.json` names the extension `__MSG_extensionName__`, the terminal card prints
 that placeholder as written. The browser shows the translated name. Nothing is wrong with
 the build.
+
+### npm refuses the install next to css-loader 6
+
+With `css-loader` 6 in `devDependencies`, `npm install -D extension` fails with `ERESOLVE`.
+That release declares an optional peer on `@rspack/core` 0.x or 1.x, and Extension.js brings
+Rspack 2. Remove `css-loader` with the rest of the old build, since Extension.js handles CSS
+on its own. If another tool still needs it, move to `css-loader` 7.1.4 or newer, which accepts
+Rspack 2:
+
+```bash
+npm install -D css-loader@latest
+```
+
+`npm install --legacy-peer-deps` also gets past the error, but it hides every other peer
+conflict in the project, so treat it as the last resort.
 
 ### Native dependencies and npm 12
 

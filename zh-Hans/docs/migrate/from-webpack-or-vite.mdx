@@ -109,7 +109,7 @@ npx extension dev
 npx extension build --browser=firefox
 ```
 
-把 `dist/chrome` 作为未打包扩展加载，并与旧的输出对比。对于 Firefox，当 manifest 缺少 `browser_specific_settings.gecko.data_collection_permissions` 时，构建会给出警告。addons.mozilla.org 上的新扩展需要这个键，所以请在提交前加上。确切字段见[多平台构建](/zh-Hans/docs/features/multi-platform-builds)。
+把构建输出所指的 `dist/` 子目录作为未打包扩展加载，并与旧的输出对比。对于 Firefox，当 manifest 缺少 `browser_specific_settings.gecko.data_collection_permissions` 时，构建会给出警告。addons.mozilla.org 上的新扩展需要这个键，所以请在提交前加上。确切字段见[多平台构建](/zh-Hans/docs/features/multi-platform-builds)。
 
 ## 真实迁移中最耗时的问题
 
@@ -179,6 +179,16 @@ Extension.js 不内置 Pug loader。二选一：把模板一次性渲染成静�
 ### 终端里的本地化名称
 
 如果 `manifest.json` 把扩展命名为 `__MSG_extensionName__`，终端卡片会原样打印这个占位符。浏览器显示的是翻译后的名称。构建本身没有问题。
+
+### 安装时 npm 因 css-loader 6 而拒绝
+
+当 `devDependencies` 里有 `css-loader` 6 时，`npm install -D extension` 会以 `ERESOLVE` 失败。那个版本声明了对 `@rspack/core` 0.x 或 1.x 的可选 peer 依赖，而 Extension.js 带来的是 Rspack 2。请连同旧构建一起移除 `css-loader`，因为 Extension.js 自己处理 CSS。如果其他工具仍然需要它，升级到 `css-loader` 7.1.4 或更新版本，它接受 Rspack 2：
+
+```bash
+npm install -D css-loader@latest
+```
+
+`npm install --legacy-peer-deps` 也能绕过这个错误，但它会掩盖项目里所有其他的 peer 冲突，所以只作为最后手段。
 
 ### 原生依赖与 npm 12
 
