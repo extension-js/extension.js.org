@@ -1,0 +1,231 @@
+---
+title: "Migrate from webpack or Vite"
+description: "Move a browser extension with a hand-written webpack or Vite config to Extension.js. Map entries to manifest.json, keep your loaders and plugins, and avoid the traps that cost real migrations time."
+keywords:
+  [
+    "webpack extension migration",
+    "vite extension migration",
+    "webpack to extension.js",
+    "vite to extension.js",
+    "migrate browser extension build",
+    "webpack.config.js extension",
+    "vite.config.ts extension",
+    "webpackIgnore",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+Many extensions carry their own `webpack.config.js` or `vite.config.ts`, with one entry per
+script and a copy step for the manifest. Extension.js turns that around: `manifest.json` is
+the source of truth, and the build reads every entry from it. This guide maps a hand-written
+config to Extension.js and lists the problems that came up in real migrations. If your
+project uses WXT, CRXJS or Plasmo, start from [Compare and migrate](/docs/compare) instead.
+
+## What changes, what stays
+
+**Stays the same:** your source files, your UI components, your tests, and your `chrome.*`
+or `browser.*` API calls.
+
+**Changes:**
+
+- The `entry` map in your config goes away. The manifest and the special folders name
+  every entry.
+- The output folder is always `dist/<browser>`, one folder per browser target.
+- Loaders and plugins move into `extension.config.js`.
+- `DefinePlugin` constants and `.env` values become `EXTENSION_PUBLIC_*` variables.
+- `webpack serve` or `vite build --watch` become `extension dev`.
+
+## Step 1: install Extension.js
+
+```bash
+npm install extension@latest --save-dev
+```
+
+Keep the loaders that your code still needs, such as a Sass or SVG loader. Remove `webpack`,
+`webpack-cli`, `vite` and the plugins that only wired up the old build.
+
+## Step 2: let the manifest own the entries
+
+Point every manifest field at a source file. TypeScript, JSX and framework files are fine
+there, because the build compiles them and rewrites the paths in the output.
+
+| Old `entry` key          | Where it goes now                                                      |
+| ------------------------ | ---------------------------------------------------------------------- |
+| `background`             | `"background": {"service_worker": "background.ts"}`                    |
+| `popup`                  | `"action": {"default_popup": "popup/index.html"}`, scripts in the HTML |
+| `content`                | `"content_scripts": [{"js": ["content/scripts.ts"]}]`                  |
+| `options`                | `"options_ui": {"page": "options/index.html"}`                         |
+| A script with no field   | `scripts/my-script.ts` in the [`scripts/` folder](/docs/features/special-folders) |
+| An HTML page with no field | `pages/my-page.html` in the [`pages/` folder](/docs/features/special-folders) |
+| Copied static files      | `public/`, served from the extension root                              |
+
+The `CopyWebpackPlugin` step that moved `manifest.json` and icons into the output is not
+needed. The build emits the manifest, the icons and the `_locales` folder on its own.
+
+## Step 3: move loaders and plugins
+
+Create `extension.config.js` at the project root. The `config` hook receives the generated
+[Rspack](https://rspack.dev) configuration, and you patch it the way you patched webpack.
+
+```js
+import { DefinePlugin } from "@rspack/core";
+
+export default {
+  config: (config) => {
+    config.module.rules.push({
+      test: /\.graphql$/,
+      type: "asset/source",
+    });
+
+    config.plugins.push(
+      new DefinePlugin({
+        __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+      }),
+    );
+
+    return config;
+  },
+};
+```
+
+Most webpack loaders run unchanged. Plugins that reach into webpack internals may not, so
+prefer the Rspack version of a plugin when one exists. See
+[Rspack configuration](/docs/features/rspack-configuration) for the full surface.
+
+## Step 4: update package.json scripts
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "build:firefox": "extension build --browser=firefox",
+    "zip": "extension build --zip"
+  }
+}
+```
+
+`extension dev` opens a browser with the extension loaded and reloads on save. See
+[Reload and HMR](/docs/features/reload-and-hmr) for what reloads and what does not.
+
+## Step 5: move environment variables
+
+Rename the variables in your `.env` files to the `EXTENSION_PUBLIC_` prefix. Read them as
+`process.env.EXTENSION_PUBLIC_API_URL` or `import.meta.env.EXTENSION_PUBLIC_API_URL`, both
+work. Variables without the prefix never reach extension code. See
+[Environment variables](/docs/features/environment-variables).
+
+## Step 6: verify
+
+```bash
+npx extension dev
+npx extension build --browser=firefox
+```
+
+Load `dist/chrome` as an unpacked extension and compare it with the old output. For Firefox,
+the build warns when the manifest lacks `browser_specific_settings.gecko.data_collection_permissions`.
+New add-ons on addons.mozilla.org need that key, so add it before you submit. See
+[Multi-platform builds](/docs/features/multi-platform-builds) for the exact field.
+
+## Problems that cost real migrations time
+
+Each of these came up at least once while moving existing extensions. None is a defect in
+your project, and each has a short answer.
+
+### A dynamic import of a runtime URL
+
+Code like `import(chrome.runtime.getURL("worker.js"))` asks the bundler to resolve a string
+that only exists in the browser. Mark it so the bundler leaves it alone:
+
+```js
+const mod = await import(
+  /* webpackIgnore: true */ chrome.runtime.getURL("worker.js")
+);
+```
+
+Put the target file in `public/` so that it ships unchanged, and list it under
+`web_accessible_resources` if a web page loads it.
+
+### A bundle that must exist before the main build
+
+Some extensions inline one compiled script into another as a string, for example a script
+that is injected into the page document. The inner file has to be built first. Add a plugin
+that runs a separate compiler before each build, in both the `beforeRun` and `watchRun` hooks:
+
+```js
+import path from "node:path";
+import { promisify } from "node:util";
+import { rspack } from "@rspack/core";
+
+const inner = {
+  mode: "production",
+  entry: "./src/inline/document.ts",
+  output: {
+    path: path.resolve(process.cwd(), ".inline"),
+    filename: "document.js",
+  },
+};
+
+const buildInnerFirst = {
+  apply(compiler) {
+    const run = async () => {
+      const child = rspack(inner);
+      await promisify(child.run.bind(child))();
+      await promisify(child.close.bind(child))();
+    };
+
+    compiler.hooks.beforeRun.tapPromise("build-inner-first", run);
+    compiler.hooks.watchRun.tapPromise("build-inner-first", run);
+  },
+};
+
+export default {
+  config: (config) => {
+    config.plugins.push(buildInnerFirst);
+    return config;
+  },
+};
+```
+
+The main build then imports `.inline/document.js` as a raw string with `type: "asset/source"`.
+
+### A custom loader file is not watched
+
+A loader that you wrote yourself and reference from `extension.config.js` is not part of the
+watch set. After you edit the loader, restart `extension dev`.
+
+### Pug or other HTML templates
+
+Extension.js ships no Pug loader. Choose one of two paths. Render the templates to static
+HTML once and commit the result. Or add a loader rule for `.pug` files in the `config` hook.
+
+### A localized name in the terminal
+
+If `manifest.json` names the extension `__MSG_extensionName__`, the terminal card prints
+that placeholder as written. The browser shows the translated name. Nothing is wrong with
+the build.
+
+### Native dependencies and npm 12
+
+Since npm 12, `npm install` skips the install scripts of dependencies unless you approve
+them. A package such as `canvas` or `pngquant-bin` then installs without its binary, and
+the build fails later with `ENOENT`. Approve the packages that need their scripts:
+
+```bash
+npm approve-scripts canvas pngquant-bin
+```
+
+The command records them under `allowScripts` in `package.json`. Extension.js also installs
+missing dependencies on its own with `--ignore-scripts`. Set `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`
+when that step must run the scripts too.
+
+## See also
+
+- [Compare and migrate](/docs/compare)
+- [Extension configuration](/docs/features/extension-configuration)
+- [Rspack configuration](/docs/features/rspack-configuration)
+- [Special folders](/docs/features/special-folders)
+- [Environment variables](/docs/features/environment-variables)
