@@ -1,0 +1,132 @@
+---
+title: "UnoCSS in browser extensions"
+description: "Style browser extension pages and content scripts with UnoCSS utility classes through the UnoCSS PostCSS plugin. The Vite virtual module does not apply here, the @unocss directive does."
+keywords:
+  [
+    "unocss browser extension",
+    "unocss extension.js",
+    "unocss postcss",
+    "uno.css virtual module",
+    "atomic css browser extension",
+    "utility css extension",
+    "extension.js",
+    "postcss",
+    "content script",
+    "popup",
+    "docs",
+    "integrations",
+  ]
+---
+
+[UnoCSS](https://unocss.dev) is an atomic CSS engine that generates only the utility classes
+that your source files use. Extension.js runs it through PostCSS, the same pipeline that
+Tailwind uses here.
+
+## The Vite convention does not apply
+
+In a Vite project, UnoCSS is a bundler plugin and `import "uno.css"` or `virtual:uno.css`
+resolves to a generated virtual module. Extension.js builds with Rspack, and the UnoCSS
+webpack plugin does not resolve that module there. A project that imports `uno.css` fails
+with `Can't resolve 'uno.css'`.
+
+Use the PostCSS plugin instead. It replaces an `@unocss;` directive inside a real CSS file
+with the generated styles, so there is no virtual module to resolve.
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install -D unocss @unocss/postcss
+```
+
+```bash pnpm
+pnpm add -D unocss @unocss/postcss
+```
+
+```bash yarn
+yarn add -D unocss @unocss/postcss
+```
+
+```bash bun
+bun add --dev unocss @unocss/postcss
+```
+
+```bash deno
+deno add -D npm:unocss npm:@unocss/postcss
+```
+
+</CodeGroup>
+
+## Configuration
+
+Create `postcss.config.mjs` at the project root:
+
+```js
+import UnoCSS from "@unocss/postcss";
+
+export default {
+  plugins: [UnoCSS()],
+};
+```
+
+Create `uno.config.ts` next to it. The `content.filesystem` globs tell UnoCSS which files
+to scan for class names, because no bundler plugin feeds it the module graph here:
+
+```ts
+import { defineConfig, presetWind3 } from "unocss";
+
+export default defineConfig({
+  content: {
+    filesystem: ["src/**/*.{html,js,ts,jsx,tsx,vue,svelte}"],
+  },
+  presets: [presetWind3()],
+});
+```
+
+## Usage
+
+Create a stylesheet that carries the directive. UnoCSS replaces it with the generated CSS:
+
+```css
+/* src/styles/uno.css */
+@unocss;
+```
+
+Import that file from every entry that uses utility classes:
+
+```tsx
+import "../styles/uno.css";
+
+export default function Sidebar() {
+  return <h1 className="text-2xl font-bold text-blue-600">Hello, Extension.</h1>;
+}
+```
+
+For a content script, import the same file from the content-script entry. Extension.js
+routes content-script CSS through its content-script style pipeline and ships it with the
+script under `content_scripts/`.
+
+## Verify
+
+```bash
+npx extension build
+```
+
+Open the emitted stylesheet for the page under `dist/chromium` and look for the classes
+that your markup uses. If the file holds no utility rules, the `content.filesystem` globs do not
+cover the file that uses them.
+
+## Best practices
+
+- Keep the directive stylesheet small. Global resets and tokens belong in a separate file.
+- Scope the `content.filesystem` globs to source folders. A glob that reaches
+  `node_modules` or `dist` slows every build down.
+- Import the directive stylesheet once per entry, not once per component.
+
+## Next steps
+
+- [PostCSS](/docs/integrations/postcss): detection rules and the configuration files that
+  Extension.js reads.
+- [Tailwind CSS](/docs/integrations/tailwindcss): the same pipeline with Tailwind.
+- [CSS](/docs/implementation-guide/css): how page and content-script styles are emitted.
