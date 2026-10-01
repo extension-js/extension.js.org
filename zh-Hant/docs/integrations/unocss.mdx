@@ -1,0 +1,119 @@
+---
+title: "在瀏覽器擴充功能中使用 UnoCSS"
+description: "透過 UnoCSS 的 PostCSS 外掛，用 UnoCSS 工具類為瀏覽器擴充功能頁面和內容腳本設定樣式。Vite 的虛擬模組在這裡不適用，@unocss 指令適用。"
+keywords:
+  [
+    "unocss browser extension",
+    "unocss extension.js",
+    "unocss postcss",
+    "uno.css virtual module",
+    "atomic css browser extension",
+    "utility css extension",
+    "extension.js",
+    "postcss",
+    "content script",
+    "popup",
+    "docs",
+    "integrations",
+  ]
+---
+
+[UnoCSS](https://unocss.dev) 是一個原子化 CSS 引擎，只產生原始檔實際用到的工具類。Extension.js 透過 PostCSS 執行它，與這裡的 Tailwind 走同一條管線。
+
+## Vite 的慣例在這裡不適用
+
+在 Vite 專案裡，UnoCSS 是一個打包器外掛，`import "uno.css"` 或 `virtual:uno.css` 會解析成一個產生的虛擬模組。Extension.js 用 Rspack 建置，UnoCSS 的 webpack 外掛在這裡解析不了那個模組。匯入 `uno.css` 的專案會以 `Can't resolve 'uno.css'` 失敗。
+
+請改用 PostCSS 外掛。它會把真實 CSS 檔案裡的 `@unocss;` 指令替換成產生的樣式，因此沒有需要解析的虛擬模組。
+
+## 安裝
+
+<CodeGroup>
+
+```bash npm
+npm install -D unocss @unocss/postcss
+```
+
+```bash pnpm
+pnpm add -D unocss @unocss/postcss
+```
+
+```bash yarn
+yarn add -D unocss @unocss/postcss
+```
+
+```bash bun
+bun add --dev unocss @unocss/postcss
+```
+
+```bash deno
+deno add -D npm:unocss npm:@unocss/postcss
+```
+
+</CodeGroup>
+
+## 設定
+
+在專案根目錄建立 `postcss.config.mjs`：
+
+```js
+import UnoCSS from "@unocss/postcss";
+
+export default {
+  plugins: [UnoCSS()],
+};
+```
+
+在它旁邊建立 `uno.config.ts`。`content.filesystem` 的 glob 告訴 UnoCSS 去哪些檔案裡掃描類別名稱，因為這裡沒有打包器外掛把模組圖餵給它：
+
+```ts
+import { defineConfig, presetWind3 } from "unocss";
+
+export default defineConfig({
+  content: {
+    filesystem: ["src/**/*.{html,js,ts,jsx,tsx,vue,svelte}"],
+  },
+  presets: [presetWind3()],
+});
+```
+
+## 用法
+
+建立一個帶有該指令的樣式表。UnoCSS 會把它替換成產生的 CSS：
+
+```css
+/* src/styles/uno.css */
+@unocss;
+```
+
+在每個使用工具類的進入點裡匯入這個檔案：
+
+```tsx
+import "../styles/uno.css";
+
+export default function Sidebar() {
+  return <h1 className="text-2xl font-bold text-blue-600">Hello, Extension.</h1>;
+}
+```
+
+對於內容腳本，在內容腳本進入點裡匯入同一個檔案。Extension.js 把內容腳本的 CSS 交給內容腳本樣式管線處理，並隨腳本一起輸出到 `content_scripts/` 下。
+
+## 驗證
+
+```bash
+npx extension build
+```
+
+開啟 `dist/chromium` 下頁面對應的樣式表，尋找你的標記裡用到的類別。如果檔案裡沒有工具類規則，表示 `content.filesystem` 的 glob 沒有涵蓋使用它們的檔案。
+
+## 最佳實務
+
+- 保持指令樣式表精簡。全域重設和設計權杖放在單獨的檔案裡。
+- 把 `content.filesystem` 的 glob 限定在原始碼目錄。涵蓋到 `node_modules` 或 `dist` 的 glob 會拖慢每次建置。
+- 每個進入點匯入一次指令樣式表，而不是每個元件匯入一次。
+
+## 後續步驟
+
+- [PostCSS](/zh-Hant/docs/integrations/postcss)：偵測規則，以及 Extension.js 讀取的設定檔。
+- [Tailwind CSS](/zh-Hant/docs/integrations/tailwindcss)：同一條管線上的 Tailwind。
+- [CSS](/zh-Hant/docs/implementation-guide/css)：頁面樣式和內容腳本樣式如何輸出。
