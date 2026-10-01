@@ -1,0 +1,199 @@
+---
+title: "从 webpack 或 Vite 迁移"
+description: "把一个手写 webpack 或 Vite 配置的浏览器扩展迁移到 Extension.js。把入口映射到 manifest.json、保留你的 loader 与插件，并避开真实迁移中最耗时的坑。"
+keywords:
+  [
+    "webpack extension migration",
+    "vite extension migration",
+    "webpack to extension.js",
+    "vite to extension.js",
+    "migrate browser extension build",
+    "webpack.config.js extension",
+    "vite.config.ts extension",
+    "webpackIgnore",
+    "extension.js",
+    "browser extension framework",
+    "manifest v3",
+    "cross-browser extension",
+  ]
+---
+
+很多扩展自带 `webpack.config.js` 或 `vite.config.ts`：每个脚本一个入口，再加一步复制 manifest。Extension.js 把这个关系反过来：`manifest.json` 是事实来源，构建会从它读取每一个入口。本指南把手写配置映射到 Extension.js，并列出真实迁移中遇到的问题。如果你的项目使用 WXT、CRXJS 或 Plasmo，请从[对比与迁移](/zh-Hans/docs/compare)开始。
+
+## 哪些会变，哪些不变
+
+**保持不变：** 你的源文件、UI 组件、测试，以及 `chrome.*` 或 `browser.*` API 调用。
+
+**会改变：**
+
+- 配置里的 `entry` 映射不再需要。manifest 和特殊文件夹负责命名每一个入口。
+- 输出目录固定为 `dist/<browser>`，每个浏览器目标一个目录。
+- loader 和插件移入 `extension.config.js`。
+- `DefinePlugin` 常量和 `.env` 值变成 `EXTENSION_PUBLIC_*` 变量。
+- `webpack serve` 或 `vite build --watch` 变成 `extension dev`。
+
+## 第 1 步：安装 Extension.js
+
+```bash
+npm install extension@latest --save-dev
+```
+
+保留代码仍然需要的 loader，比如 Sass 或 SVG loader。移除 `webpack`、`webpack-cli`、`vite`，以及只为旧构建接线的插件。
+
+## 第 2 步：让 manifest 拥有入口
+
+把 manifest 的每个字段指向源文件。TypeScript、JSX 和框架文件都可以直接写在那里，因为构建会编译它们并重写输出里的路径。
+
+| 旧的 `entry` 键          | 现在放在哪里                                                            |
+| ------------------------ | ----------------------------------------------------------------------- |
+| `background`             | `"background": {"service_worker": "background.ts"}`                     |
+| `popup`                  | `"action": {"default_popup": "popup/index.html"}`，脚本写在 HTML 里     |
+| `content`                | `"content_scripts": [{"js": ["content/scripts.ts"]}]`                   |
+| `options`                | `"options_ui": {"page": "options/index.html"}`                          |
+| 没有字段的脚本           | 放进 [`scripts/` 文件夹](/zh-Hans/docs/features/special-folders) 的 `scripts/my-script.ts` |
+| 没有字段的 HTML 页面     | 放进 [`pages/` 文件夹](/zh-Hans/docs/features/special-folders) 的 `pages/my-page.html` |
+| 复制的静态文件           | `public/`，从扩展根目录提供                                             |
+
+那一步把 `manifest.json` 和图标复制到输出目录的 `CopyWebpackPlugin` 不再需要。构建会自行输出 manifest、图标和 `_locales` 文件夹。
+
+## 第 3 步：迁移 loader 和插件
+
+在项目根目录创建 `extension.config.js`。`config` 钩子会收到生成好的 [Rspack](https://rspack.dev) 配置，你可以像修改 webpack 配置一样修改它。
+
+```js
+import { DefinePlugin } from "@rspack/core";
+
+export default {
+  config: (config) => {
+    config.module.rules.push({
+      test: /\.graphql$/,
+      type: "asset/source",
+    });
+
+    config.plugins.push(
+      new DefinePlugin({
+        __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+      }),
+    );
+
+    return config;
+  },
+};
+```
+
+大多数 webpack loader 可以原样运行。触及 webpack 内部实现的插件可能不行，所以有 Rspack 版本的插件时优先使用它。完整说明见 [Rspack 配置](/zh-Hans/docs/features/rspack-configuration)。
+
+## 第 4 步：更新 package.json 脚本
+
+```json
+{
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "build:firefox": "extension build --browser=firefox",
+    "zip": "extension build --zip"
+  }
+}
+```
+
+`extension dev` 会打开一个已加载扩展的浏览器，并在保存时重新加载。哪些会重载、哪些不会，见[重载与 HMR](/zh-Hans/docs/features/reload-and-hmr)。
+
+## 第 5 步：迁移环境变量
+
+把 `.env` 文件里的变量重命名为 `EXTENSION_PUBLIC_` 前缀。用 `process.env.EXTENSION_PUBLIC_API_URL` 或 `import.meta.env.EXTENSION_PUBLIC_API_URL` 读取，两种都可以。没有该前缀的变量不会进入扩展代码。参见[环境变量](/zh-Hans/docs/features/environment-variables)。
+
+## 第 6 步：验证
+
+```bash
+npx extension dev
+npx extension build --browser=firefox
+```
+
+把 `dist/chrome` 作为未打包扩展加载，并与旧的输出对比。对于 Firefox，当 manifest 缺少 `browser_specific_settings.gecko.data_collection_permissions` 时，构建会给出警告。addons.mozilla.org 上的新扩展需要这个键，所以请在提交前加上。确切字段见[多平台构建](/zh-Hans/docs/features/multi-platform-builds)。
+
+## 真实迁移中最耗时的问题
+
+下面每一条都在迁移现有扩展时至少出现过一次。它们都不是你项目的缺陷，而且都有简短的答案。
+
+### 对运行时 URL 的动态 import
+
+像 `import(chrome.runtime.getURL("worker.js"))` 这样的代码，要求打包器解析一个只在浏览器里才存在的字符串。给它加上标记，让打包器跳过它：
+
+```js
+const mod = await import(
+  /* webpackIgnore: true */ chrome.runtime.getURL("worker.js")
+);
+```
+
+把目标文件放进 `public/`，这样它会原样随扩展发布；如果网页会加载它，再把它列进 `web_accessible_resources`。
+
+### 必须先于主构建存在的 bundle
+
+有些扩展会把一个已编译的脚本当作字符串内联进另一个脚本，比如注入页面文档的脚本。内层文件必须先构建。添加一个插件，在每次构建前运行一个独立的编译器，同时挂在 `beforeRun` 和 `watchRun` 钩子上：
+
+```js
+import path from "node:path";
+import { promisify } from "node:util";
+import { rspack } from "@rspack/core";
+
+const inner = {
+  mode: "production",
+  entry: "./src/inline/document.ts",
+  output: {
+    path: path.resolve(process.cwd(), ".inline"),
+    filename: "document.js",
+  },
+};
+
+const buildInnerFirst = {
+  apply(compiler) {
+    const run = async () => {
+      const child = rspack(inner);
+      await promisify(child.run.bind(child))();
+      await promisify(child.close.bind(child))();
+    };
+
+    compiler.hooks.beforeRun.tapPromise("build-inner-first", run);
+    compiler.hooks.watchRun.tapPromise("build-inner-first", run);
+  },
+};
+
+export default {
+  config: (config) => {
+    config.plugins.push(buildInnerFirst);
+    return config;
+  },
+};
+```
+
+随后主构建用 `type: "asset/source"` 把 `.inline/document.js` 作为原始字符串导入。
+
+### 自定义 loader 文件不被监听
+
+你自己编写、并从 `extension.config.js` 引用的 loader 不在监听范围内。编辑 loader 之后，重启 `extension dev`。
+
+### Pug 或其他 HTML 模板
+
+Extension.js 不内置 Pug loader。二选一：把模板一次性渲染成静态 HTML 并提交结果，或者在 `config` 钩子里为 `.pug` 文件添加一条 loader 规则。
+
+### 终端里的本地化名称
+
+如果 `manifest.json` 把扩展命名为 `__MSG_extensionName__`，终端卡片会原样打印这个占位符。浏览器显示的是翻译后的名称。构建本身没有问题。
+
+### 原生依赖与 npm 12
+
+从 npm 12 起，`npm install` 会跳过依赖的安装脚本，除非你批准它们。像 `canvas` 或 `pngquant-bin` 这样的包会在没有二进制文件的情况下装好，构建随后以 `ENOENT` 失败。批准需要运行脚本的包：
+
+```bash
+npm approve-scripts canvas pngquant-bin
+```
+
+这条命令会把它们记录到 `package.json` 的 `allowScripts` 下。Extension.js 自己安装缺失依赖时也带着 `--ignore-scripts`。当那一步也必须运行脚本时，设置 `EXTENSION_ALLOW_INSTALL_SCRIPTS=true`。
+
+## 另请参阅
+
+- [对比与迁移](/zh-Hans/docs/compare)
+- [扩展配置](/zh-Hans/docs/features/extension-configuration)
+- [Rspack 配置](/zh-Hans/docs/features/rspack-configuration)
+- [特殊文件夹](/zh-Hans/docs/features/special-folders)
+- [环境变量](/zh-Hans/docs/features/environment-variables)
