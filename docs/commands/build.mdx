@@ -114,7 +114,7 @@ dist/
 | `--no-polyfill`          | -               | Disables the cross-browser polyfill.                                                                        | polyfill disabled        |
 | `--zip [boolean]`        | -               | Creates a packaged zip artifact in any mode.                                                                | `false`                  |
 | `--zip-source [boolean]` | -               | Includes source files in zip output.                                                                        | `false`                  |
-| `--zip-filename <name>`  | -               | Sets custom zip filename.                                                                                   | sanitized extension name + version |
+| `--zip-filename <name>`  | -               | Names both the distribution and the source archive. The browser is inserted when you build more than one.    | sanitized extension name, version and browser |
 | `--silent [boolean]`     | -               | Suppresses build logs.                                                                                      | `false`                  |
 | `--addon-lint [boolean]` | -               | Checks Firefox production builds against addons.mozilla.org rules with addons-linter when it is installed. Findings print as warnings. See [Store check for Firefox builds](#store-check-for-firefox-builds). | `true`                   |
 | `--no-addon-lint`        | -               | Skips the addons.mozilla.org check.                                                                         | check enabled            |
@@ -187,7 +187,9 @@ A development-mode build is shippable. It keeps the CSP and permissions you wrot
 | `--zip-filename` | Sets custom zip name                    | CI naming conventions                |
 | `--zip-source`   | Adds source archive alongside artifacts | Compliance/review pipelines          |
 
-Each zip lands inside its own `dist/<browser>` folder, next to the unpacked output. Without `--zip-filename`, the name is the manifest `name` lowercased with every character outside `a-z0-9` and spaces removed, remaining spaces turned into dashes, then the manifest `version`. A manifest named `My Extension+` at version `1.0.0` packages as `dist/chrome/my-extension-1.0.0.zip`. Because the name is rewritten, read the emitted path from the build output instead of composing it from the manifest name.
+Each zip lands in `dist/`, beside the `dist/<browser>` folder rather than inside it, because `dist/<browser>` is what a store upload or a load-unpacked takes whole. Without `--zip-filename`, the name is the manifest `name` lowercased with every character outside `a-z0-9` and spaces removed, remaining spaces turned into dashes, then the manifest `version` and the browser. A manifest named `My Extension+` at version `1.0.0` packages as `dist/my-extension-1.0.0-chrome.zip`. Because the name is rewritten, read the emitted path from the build output instead of composing it from the manifest name. Under `--output json`, each archive is listed in `zip_artifacts` with its path and size.
+
+`--zip-filename` names both archives. Passing `--zip-filename=review-bundle.zip` with `--zip-source` writes `dist/review-bundle.zip` and `dist/review-bundle-source.zip`. When you build more than one browser, the browser is inserted so one target cannot overwrite another, so `--browser=edge,chrome --zip-filename=my-extension.zip` writes `dist/my-extension-edge.zip` and `dist/my-extension-chrome.zip`.
 
 ## Examples
 
@@ -228,7 +230,7 @@ extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-ext
 
 </CodeGroup>
 
-In this example, the build targets Edge and Chrome, zips the output, and saves it as `my-extension.zip`.
+In this example, the build targets Edge and Chrome and zips both outputs. Because two browsers are built, the archives are saved as `dist/my-extension-edge.zip` and `dist/my-extension-chrome.zip`.
 
 ### Building with polyfill support
 
