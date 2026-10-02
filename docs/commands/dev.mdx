@@ -107,6 +107,7 @@ These cover the 80% case. Skip to the [full reference](#arguments-and-flags) for
 | `--port <port>`                | -                  | Requested dev server port. Use `0` for an OS-assigned port. See [how the port resolves](#how-the-port-resolves).                                 | `8080`                                          |
 | `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/dev containers.                                                                         | `127.0.0.1`                                     |
 | `--public-host <host>`         | -                  | Connectable host the browser dials for HMR and the reload bridge, when it differs from the bind `--host` (remote/dev container).                 | bind host (`127.0.0.1` when bound to `0.0.0.0`) |
+| `--allowed-hosts <list>`       | -                  | Comma-separated host names the dev server answers besides localhost, IP addresses and `--public-host` (docker service names, tunnels, `*.local`). A leading dot allows every subdomain. Also `commands.dev.allowedHosts` in `extension.config.js`. See [bind host vs. connectable host](#bind-host-vs-connectable-host). | none                                            |
 | `--no-open`                    | -                  | Launch the browser, but do not open a tab for your extension. The browser still starts and loads it. See [stop the browser from launching](#stop-the-browser-from-launching). | a tab opens on launch                           |
 | `--no-browser`                 | -                  | Stop the browser from launching. The dev server still starts and keeps rebuilding. See [stop the browser from launching](#stop-the-browser-from-launching). | browser launch enabled                          |
 | `--no-reload`                  | -                  | Skip the content-script reload runtime and on-rebuild reload dispatch. Reload tabs manually to see changes.                                      | reload runtime enabled                          |
@@ -249,7 +250,7 @@ These flags are experimental and may change between minor releases.
 | Flag                                                 | What it does                                                                                 | Default            |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
 | `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | Minimum log level.                                                                           | `off`              |
-| `--log-context <list\|all>`                          | Context filter (`background`, `content`, `page`, `sidebar`, `popup`, `options`, `devtools`). | `all`              |
+| `--log-context <list\|all>`                          | Context filter (`background`, `content`, `page`, `popup`, `options`, `sidebar`, `devtools`, `newtab`, `history`, `bookmarks`). | `all`              |
 | `--log-format <pretty\|json\|ndjson>`                | Logger output format.                                                                        | `pretty`           |
 | `--no-log-timestamps`                                | Disable timestamps in pretty mode.                                                           | timestamps enabled |
 | `--no-log-color`                                     | Disable color in pretty mode.                                                                | color enabled      |
@@ -496,6 +497,14 @@ extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
 </CodeGroup>
 
 When `--host` is a concrete address already (for example `--host 192.168.1.50`), that value is connectable as-is and is used directly. `--public-host` is only needed when the bind host and the browser-facing host differ.
+
+The dev server checks the `Host` header of every request, as a defense against DNS rebinding. It answers `localhost`, IP addresses, the bind host and `--public-host`. A request under any other name gets `403` with a plain-text body that names the refused host and the fix, and the terminal prints one line per refused host. Allow extra names with `--allowed-hosts`, a comma-separated list where a leading dot allows every subdomain, or with `commands.dev.allowedHosts` in `extension.config.js` (an array or a comma string). Use it when the dev server is reached under a docker service name, a tunnel hostname or an mDNS name, without changing what the browser dials.
+
+```bash
+extension dev ./my-extension --host 0.0.0.0 --allowed-hosts web,.ngrok.app
+```
+
+`--host 0.0.0.0` alone does not allow every name. The bind address and the allowed names are separate settings.
 
 ### Running in Brave as a custom binary
 

@@ -203,7 +203,7 @@ Extension.js 在编译时注入内置变量，因此你总能在扩展代码里�
 | 变量                              | 用途                                                                                                  | 典型用法                                                          |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | `EXTENSION_AUTO_EXIT_MS`          | N 毫秒后自动退出 dev 进程                                                                             | CI 中的强制停止控制                                               |
-| `EXTENSION_FORCE_KILL_MS`         | 强制 kill 超时兜底                                                                                    | CI 清理的健壮性                                                   |
+| `EXTENSION_FORCE_KILL_MS`         | 启动后 N 毫秒硬退出（默认：auto-exit + 4000）。只有在它截断了一次 auto-exit 的收尾时才以 `1` 退出，先于收尾触发时以 `0` 退出 | CI 清理的健壮性                                                   |
 | `EXTENSION_VERBOSE`               | 在所选流程中输出详细诊断                                                                              | 调试 CLI 行为                                                     |
 | `EXTENSION_DEBUG`                 | 启用调试输出通道（设为 `1`/`true`），等价于传入 `--debug`                                             | 不改动命令即可诊断 CLI 行为                                       |
 | `EXTENSION_AUTHOR_MODE`           | `EXTENSION_DEBUG` 的旧别名；显式设置的 `EXTENSION_DEBUG` 值优先                                       | 已被取代，请改用 `EXTENSION_DEBUG`                                |
@@ -441,7 +441,7 @@ console.log(`API URL for the current environment: ${apiUrl}`);
 - **只暴露必须发布的值：** 只给客户端安全的键加 `EXTENSION_PUBLIC_` 前缀。
 - **用 `.env.defaults` 共享团队默认值：** 在保留可预测默认值的同时，允许本地/系统覆盖。
 - **不要把密钥放进静态占位符：** 避免在 HTML/JSON 模板里放敏感的 `$EXTENSION_*` 标记。
-- **版本控制卫生：** 提交 `.env.example` 作为文档(构建永远不会把它作为值来源读取)，并忽略真实的 env 文件(`.env`、`.env.local`、浏览器/模式变体)。
+- **版本控制卫生：** 提交 `.env.example` 作为文档(构建永远不会把它作为值来源读取)，并忽略真实的 env 文件(`.env`、`.env.local`、浏览器/模式变体)。`extension create` 生成的脚手架已经这样做了：它的 `.gitignore` 会忽略所有 `.env*` 文件，再重新放行 `.env.example`、`.env.*.example` 以及模板自身附带的 `.env.<name>` 文件。
 
 ## 下一步
 

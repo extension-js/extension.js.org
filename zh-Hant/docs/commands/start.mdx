@@ -87,7 +87,7 @@ extension start [path-or-url] [options]
 | `--output <pretty\|json>`      | -                  | 結果格式。`json` 會在 stdout 上印出 schema-1 信封。            | `pretty`        |
 | `--port <port>`                | -                  | 啟用 runner 時的 runner/devtools 埠號。設 `0` 讓作業系統指定。 | `8080`          |
 | `--host <host>`                | -                  | 開發伺服器要綁定的主機。Docker/dev container 請用 `0.0.0.0`。  | `127.0.0.1`     |
-| `--public-host <host>`         | -                  | 當瀏覽器要連的主機與綁定用的 `--host` 不同時(遠端/dev container),改用這個可連線的主機。 | 綁定的主機(綁到 `0.0.0.0` 時為 `127.0.0.1`) |
+| `--public-host <host>`         | -                  | 為了與 `dev` 保持一致而接受,這樣在兩者之間共用旗標的腳本不會被拒絕。`start` 不提供任何服務,所以這個值沒有效果。 | 未設定                                      |
 | `--extensions <list>`          | -                  | 以逗號分隔的搭配擴充功能或 store URL。                         | 未設            |
 | `--install [boolean]`          | -                  | 內部旗標。當缺少時安裝專案相依套件。                           | 依指令行為而定  |
 | `--debug`                      | -                  | 啟用維護者診斷。                                               | 停用            |
@@ -151,9 +151,9 @@ extension start --no-open
 
 `--output json` 會在 stdout 印出 schema-1 信封,每行一個 JSON 物件:
 
-- 一般的 `start` 執行會在建置前印出一個 `status: "started"` 影格。它帶有專案路徑、瀏覽器清單、要求的埠號與 `pid`。
+- 一般的 `start` 執行會在建置前印出一個 `status: "started"` 影格。它帶有專案路徑、瀏覽器清單、`pid` 與 `port: null`,因為只執行不建置的工作階段不會綁定任何埠號。
 - `start --wait` 執行成功時會印出一個 `status: "ready"` 影格。它的 `value.results` 陣列會按瀏覽器帶出完整的就緒契約。
-- 建置失敗時會印出一個 `ok: false` 影格,其中 `status: "build-failed"`、`error.code: "E_COMPILE"`,接著程序以 `1` 結束。
+- 建置失敗時會印出一個 `ok: false` 影格,其中 `status: "build-failed"`,接著程序以 `1` 結束。編譯錯誤帶 `error.code: "E_COMPILE"`。專案資料夾不存在帶 `E_PROJECT_NOT_FOUND`,資料夾裡沒有 manifest 帶 `E_MANIFEST_NOT_FOUND`,manifest 無法解析帶 `E_MANIFEST_INVALID`。
 
 ## 記錄旗標
 
@@ -162,7 +162,7 @@ extension start --no-open
 | 旗標                                                 | 用途                                                                                   | 預設值         |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------- |
 | `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | 最低記錄等級。                                                                         | `off`          |
-| `--log-context <list\|all>`                          | 情境過濾(`background`、`content`、`page`、`sidebar`、`popup`、`options`、`devtools`)。 | `all`          |
+| `--log-context <list\|all>`                          | 情境過濾(`background`、`content`、`page`、`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`)。 | `all`          |
 | `--log-format <pretty\|json\|ndjson>`                | logger 輸出格式。                                                                      | `pretty`       |
 | `--no-log-timestamps`                                | 在 pretty 模式停用時間戳。                                                             | 預設啟用時間戳 |
 | `--no-log-color`                                     | 在 pretty 模式停用顏色。                                                               | 預設啟用顏色   |

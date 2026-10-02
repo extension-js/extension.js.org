@@ -104,6 +104,7 @@ extension dev [path-or-url] [options]
 | `--port <port>`                | -                  | 請求的開發伺服器埠號。設 `0` 讓作業系統指定。參見[埠號如何決定](#埠號如何決定)。                                   | `8080`                  |
 | `--host <host>`                | -                  | 開發伺服器要綁定的主機。Docker/dev container 請用 `0.0.0.0`。                                                      | `127.0.0.1`             |
 | `--public-host <host>`         | -                  | 當可連線的主機與綁定用的 `--host` 不同時(遠端/dev container),瀏覽器為 HMR 與重新載入橋接所撥號的主機。            | 綁定主機(綁到 `0.0.0.0` 時為 `127.0.0.1`) |
+| `--allowed-hosts <list>`       | -                  | 以逗號分隔的主機名稱,開發伺服器除 localhost、IP 位址與 `--public-host` 之外另外回應它們(docker 服務名稱、隧道、`*.local`)。前導的點允許所有子網域。也可以寫在 `extension.config.js` 的 `commands.dev.allowedHosts` 裡。參見[綁定主機與可連線主機](#綁定主機與可連線主機)。 | 無                      |
 | `--no-open`                    | -                  | 啟動瀏覽器,但不為你的擴充功能開啟分頁。瀏覽器仍會啟動並載入擴充功能。見[阻止瀏覽器啟動](#阻止瀏覽器啟動)。 | 啟動時會開啟分頁 |
 | `--no-browser`                 | -                  | 不啟動瀏覽器。開發伺服器仍會啟動並持續重新建置。見[阻止瀏覽器啟動](#阻止瀏覽器啟動)。 | 預設啟動瀏覽器 |
 | `--no-reload`                  | -                  | 略過 content script 的重新載入執行階段與重建時的 reload dispatch。需手動重新整理分頁才能看到變更。                 | 預設啟用 reload runtime |
@@ -246,7 +247,7 @@ dev 建置會輸出 `cheap-module-source-map` 類型的 source map，描述的�
 | 旗標                                                 | 用途                                                                                   | 預設值         |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------- |
 | `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | 最低記錄等級。                                                                         | `off`          |
-| `--log-context <list\|all>`                          | 情境過濾(`background`、`content`、`page`、`sidebar`、`popup`、`options`、`devtools`)。 | `all`          |
+| `--log-context <list\|all>`                          | 情境過濾(`background`、`content`、`page`、`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`)。 | `all`          |
 | `--log-format <pretty\|json\|ndjson>`                | logger 輸出格式。                                                                      | `pretty`       |
 | `--no-log-timestamps`                                | 在 pretty 模式停用時間戳。                                                             | 預設啟用時間戳 |
 | `--no-log-color`                                     | 在 pretty 模式停用顏色。                                                               | 預設啟用顏色   |
@@ -493,6 +494,14 @@ extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
 </CodeGroup>
 
 當 `--host` 本身已經是具體位址時(例如 `--host 192.168.1.50`),那個值本來就可連線,會被直接使用。只有在綁定主機與瀏覽器面對的主機不同時,才需要 `--public-host`。
+
+開發伺服器會檢查每個請求的 `Host` 標頭,作為對 DNS 重新綁定的防禦。它回應 `localhost`、IP 位址、綁定主機與 `--public-host`。用其他任何名稱送來的請求都會得到 `403`,純文字內文寫明被拒絕的主機與修正方式,終端機上也會為每個被拒絕的主機印出一行。用 `--allowed-hosts` 放行更多名稱,它是逗號分隔的清單,前導的點允許所有子網域,也可以寫在 `extension.config.js` 的 `commands.dev.allowedHosts` 裡(陣列或逗號分隔的字串)。當開發伺服器是透過 docker 服務名稱、隧道主機名稱或 mDNS 名稱被連到、而瀏覽器撥號的目標不該改變時,就用它。
+
+```bash
+extension dev ./my-extension --host 0.0.0.0 --allowed-hosts web,.ngrok.app
+```
+
+單獨的 `--host 0.0.0.0` 不會放行所有名稱。綁定位址與放行的名稱是兩個獨立的設定。
 
 ### 將 Brave 作為自訂執行檔執行
 

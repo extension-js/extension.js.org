@@ -114,7 +114,7 @@ dist/
 | `--no-polyfill`          | -               | 关闭跨浏览器 polyfill。                                                                    | polyfill 默认关闭 |
 | `--zip [boolean]`        | -               | 在任何模式下都创建打包好的 zip 产物。                                                                    | `false`         |
 | `--zip-source [boolean]` | -               | 在 zip 输出中包含源代码文件。                                                              | `false`         |
-| `--zip-filename <name>`  | -               | 设置自定义的 zip 文件名。                                                                  | 清洗过的扩展名 + 版本号 |
+| `--zip-filename <name>`  | -               | 同时命名分发归档与源代码归档。分发归档总会追加浏览器名。                                    | 清洗过的扩展名、版本号和浏览器 |
 | `--silent [boolean]`     | -               | 抑制构建日志。                                                                             | `false`         |
 | `--addon-lint [boolean]` | -               | 当项目里装有 addons-linter 时，按 addons.mozilla.org 的规则检查 Firefox 生产构建。发现的问题以警告形式打印。见 [Firefox 构建的商店检查](#firefox-构建的商店检查)。 | `true`          |
 | `--no-addon-lint`        | -               | 跳过 addons.mozilla.org 检查。                                                             | 检查默认开启    |
@@ -187,7 +187,9 @@ development 模式的构建是可以直接发布的。它保留你在 manifest �
 | `--zip-filename` | 设置自定义 zip 名称        | CI 命名规范         |
 | `--zip-source`   | 在产物旁额外加上源代码归档 | 合规 / 审核流水线   |
 
-每个 zip 都落在它自己的 `dist/<browser>` 目录里，与解包后的输出放在一起。不带 `--zip-filename` 时，名称由 manifest 的 `name` 转小写、去掉 `a-z0-9` 与空格以外的所有字符、把剩下的空格换成连字符，再接上 manifest 的 `version` 得到。一个名为 `My Extension+`、版本为 `1.0.0` 的 manifest 会打包成 `dist/chrome/my-extension-1.0.0.zip`。因为名称被改写过，请从构建输出里读取实际路径，而不要用 manifest 名称自行拼接。
+每个 zip 都落在 `dist/` 里，与 `dist/<browser>` 目录并列而不是放在它里面，因为 `dist/<browser>` 是商店上传或 load-unpacked 整个取走的目录。不带 `--zip-filename` 时，名称由 manifest 的 `name` 转小写、去掉 `a-z0-9` 与空格以外的所有字符、把剩下的空格换成连字符，再接上 manifest 的 `version` 和浏览器得到。一个名为 `My Extension+`、版本为 `1.0.0` 的 manifest 会打包成 `dist/my-extension-1.0.0-chrome.zip`。因为名称被改写过，请从构建输出里读取实际路径，而不要用 manifest 名称自行拼接。在 `--output json` 下，每个归档都会列在 `zip_artifacts` 里，带有路径和大小。
+
+`--zip-filename` 同时命名两个归档，而且分发归档总会追加浏览器名，所以在不同运行里用同一个名字构建两个浏览器时，彼此不会互相覆盖。在 Chrome 构建里传入 `--zip-filename=review-bundle.zip` 与 `--zip-source` 会写出 `dist/review-bundle-chrome.zip` 与 `dist/review-bundle-source.zip`。源代码归档对每个浏览器都一样，所以它的名字不带浏览器，一次构建只写一个源代码归档。已经以浏览器名结尾的名字会保持原样。`--browser=edge,chrome --zip-filename=my-extension.zip` 会写出 `dist/my-extension-edge.zip` 与 `dist/my-extension-chrome.zip`。
 
 ## 示例
 
@@ -228,7 +230,7 @@ extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-ext
 
 </CodeGroup>
 
-在这个示例中，构建以 Edge 与 Chrome 为目标，对输出进行打包，并保存为 `my-extension.zip`。
+在这个示例中，构建以 Edge 与 Chrome 为目标，并对两个输出进行打包。归档会保存为 `dist/my-extension-edge.zip` 与 `dist/my-extension-chrome.zip`，因为每个分发归档都会追加浏览器名，即使只构建一个目标也一样。
 
 ### 带 polyfill 支持的构建
 
@@ -307,7 +309,7 @@ extension build ./my-extension --zip --zip-source
 `--output json` 会在 stdout 上打印一个 schema-1 信封，并把给人看的构建日志转到 stderr。stdout 始终可以作为一份 JSON 文档解析。
 
 - 成功的运行会打印一个 `status: "built"` 帧。它的 `value` 携带构建出的浏览器、解析出的模式，以及每个浏览器一份汇总。每份汇总记录输出路径、资源总量、警告文本，以及相关时的 Safari 应用标识。
-- 失败的构建会在进程以 `1` 退出前打印一个 `ok: false` 帧，其 `status: "build-failed"`、`error.code: "E_COMPILE"`。
+- 失败的构建会在进程以 `1` 退出前打印一个 `ok: false` 帧，其 `status: "build-failed"`。编译错误带 `error.code: "E_COMPILE"`。项目目录不存在带 `E_PROJECT_NOT_FOUND`，目录里没有 manifest 带 `E_MANIFEST_NOT_FOUND`，manifest 无法解析带 `E_MANIFEST_INVALID`。
 
 每次构建还会写出 `dist/extension-js/<browser>/build-summary.json`。通过 shell 调用 `extension build` 的脚本可以从那里读取结构化的警告。请检查文件的修改时间，避免读到过期文件。
 

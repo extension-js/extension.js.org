@@ -167,7 +167,7 @@ deno run -A npm:extension build --browser=chrome,edge,firefox
 | ----------------------- | --------------------------------------------------------- |
 | `--browser=<target>`    | 为特定浏览器或引擎家族构建。                              |
 | `--zip`                 | 为每个目标产物生成发布用 zip。                            |
-| `--zip-filename=<name>` | 覆盖默认 zip 文件名。                                     |
+| `--zip-filename=<name>` | 同时命名两个归档。分发归档总会追加浏览器名。              |
 | `--zip-source`          | 在产物旁额外生成源码归档。                                |
 | `--polyfill`            | 为 Chromium 系目标中使用 `browser.*` API 启用兼容性行为。 |
 
@@ -199,9 +199,9 @@ deno run -A npm:extension build --zip
 
 </CodeGroup>
 
-默认情况下，zip 名使用清洗后的 manifest `name` + `version`，例如：
+默认情况下，zip 名使用清洗后的 manifest `name` + `version` + 浏览器，例如：
 
-- `my-extension-1.0.0.zip`
+- `dist/my-extension-1.0.0-chrome.zip`
 
 自定义文件名：
 
@@ -229,7 +229,7 @@ deno run -A npm:extension build --zip --zip-filename=my-release
 
 </CodeGroup>
 
-这会在对应的 `dist/<browser>` 目录中生成 `my-release.zip`。
+这会生成 `dist/my-release-chrome.zip`，与 `dist/<browser>` 目录并列而不是放在它里面。浏览器名总会被追加，所以即使两次构建共用一个名字，每个目标也保有自己的归档。
 
 ## 包含源码归档
 
@@ -237,7 +237,7 @@ deno run -A npm:extension build --zip --zip-filename=my-release
 
 `--zip-source` 会生成：
 
-- `dist/<name>-<version>-source.zip`
+- `dist/<name>-<version>-source.zip`，传入 `--zip-filename` 时则是 `dist/<your-name>-source.zip`。源代码对每个浏览器都一样，所以一次构建只写一个源代码归档，它的名字不带浏览器。
 
 ## Firefox 商店审核的数据收集权限
 
