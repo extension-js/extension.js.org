@@ -144,9 +144,9 @@ extension preview --no-open
 - 运行成功时打印一个 `status: "ready"` 帧。它的 `value` 携带项目路径以及被预览的浏览器列表。
 - 项目路径不存在时，会打印 `ok: false`，并带有 `status: "usage"` 与 `error.code: "E_PROJECT_NOT_FOUND"`。目录存在但没有 manifest 时，状态相同，代码为 `E_MANIFEST_NOT_FOUND`。这两种帧都不带提示。
 - 项目存在、但输出路径下没有未打包的扩展时，该帧为 `ok: false`，并带有 `status: "not-found"` 与 `error.code: "E_PREVIEW_NO_DIST"`。它的提示会让你先运行 `extension build`。
-- `--chromium-binary` 或 `--gecko-binary` 指向不存在的路径时，会打印 `ok: false`，并带有 `status: "usage"` 与 `error.code: "E_BROWSER_BINARY_INVALID"`。
-- 远程 URL 没有给出可用的归档时，会打印 `ok: false` 与 `status: "usage"`。返回的不是 ZIP 归档或归档已损坏时代码为 `E_REMOTE_ZIP_INVALID`，超时为 `E_REMOTE_FETCH_TIMEOUT`，连接被拒绝或 HTTP 错误为 `E_REMOTE_DOWNLOAD`。
-- 浏览器无法启动时会打印 `ok: false` 与 `status: "failed"`。二进制文件无法运行或 Firefox 在调试器应答之前就退出时代码为 `E_BROWSER_LAUNCH`，Firefox 在运行但调试器始终没有应答时为 `E_BROWSER_CONNECT`。配置文件加载失败时以同样的状态打印 `E_CONFIG_LOAD`。
+- `--chromium-binary` 或 `--gecko-binary` 固定的二进制有问题时，会打印 `ok: false`，并带有 `status: "usage"` 与 `error.code: "E_BROWSER_BINARY_INVALID"`。这包括路径不存在、文件不可执行，以及二进制在 10 秒内没有应答版本探测。命令随即结束，不会留下任何运行中的进程。
+- 远程 URL 没有给出可用的归档时，会打印 `ok: false` 与 `status: "failed"`。返回的不是 ZIP 归档、归档已损坏或含有位于其文件夹之外的条目时代码为 `E_REMOTE_ZIP_INVALID`，超时为 `E_REMOTE_FETCH_TIMEOUT`，连接被拒绝或 HTTP 错误为 `E_REMOTE_DOWNLOAD`。
+- 浏览器无法启动时会打印 `ok: false` 与 `status: "failed"`。二进制文件可执行但系统无法启动它，或 Firefox 在调试器应答之前就退出时代码为 `E_BROWSER_LAUNCH`，Firefox 在运行但调试器始终没有应答时为 `E_BROWSER_CONNECT`。配置文件加载失败时以同样的状态打印 `E_CONFIG_LOAD`。
 - 其他失败会打印 `ok: false` 与 `status: "failed"`，随后进程以 `1` 退出。
 
 ## 日志 flag

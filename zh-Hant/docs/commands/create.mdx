@@ -84,7 +84,7 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 
 從 4.1.19 起，範本 URL 必須使用 `https://`。`create` 會在寫入專案之前拒絕一般的 `http://` URL，以及重新導向到 `http://` 的下載。如果要在你信任的網路中允許 `http://`，請設定 `EXTENSION_ALLOW_HTTP_TEMPLATE=true`。
 
-範本目錄共有 6 組 53 個範本:starters、sidebar、content scripts、new tab、toolbar action 以及特殊資料夾。執行 `extension create --help` 可看到完整清單。預設的 `typescript` 範本和其他名稱一樣會下載範本目錄的壓縮檔。只有 `javascript` 範本內建於 CLI。當你省略 `--template` 而下載失敗時,`create` 會退回內建的 `javascript` 範本並明確說明,同時給出網路錯誤,因此離線的機器仍能得到一個專案。明確指定的 `--template` 下載失敗則會直接報錯。
+範本目錄共有 6 組 53 個範本:starters、sidebar、content scripts、new tab、toolbar action 以及特殊資料夾。執行 `extension create --help` 可看到完整清單。預設的 `typescript` 範本和其他名稱一樣會下載範本目錄的壓縮檔。只有 `javascript` 範本內建於 CLI。當你省略 `--template`、沒有設定 `EXTENSION_CREATE_TEMPLATE_URL` 而下載失敗時,`create` 會退回內建的 `javascript` 範本並明確說明,同時給出網路錯誤,因此離線的機器仍能得到一個專案。明確指定的 `--template` 下載失敗則會直接報錯。
 
 一個建立出來的專案只有一個套件管理器。起始範本的 `packageManager` 固定值(或它隨附的 `pnpm-workspace.yaml`)決定它,否則由呼叫 `create` 的套件管理器決定。寫入 `package.json` 的 `packageManager` 欄位、`--install` 的安裝過程與印出的後續步驟都指向同一個套件管理器。
 
@@ -93,7 +93,7 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 範本目錄的下載會固定在 examples 儲存庫的某一個不可變 commit 上。因此同一個版本的兩次建立會產生完全相同的位元組。有兩個環境變數可以覆寫這個固定:
 
 - `EXTENSION_CREATE_TEMPLATE_REF` 指向另一個 ref。設為 `main` 可恢復浮動行為。
-- `EXTENSION_CREATE_TEMPLATE_URL` 指向另一個完全不同的壓縮檔 URL。
+- `EXTENSION_CREATE_TEMPLATE_URL` 指向另一個完全不同的壓縮檔 URL。設定了它而該封存檔無法使用時,`create` 會直接失敗,永遠不會退回內建範本。
 
 每次建立都會在專案中寫入一個 `.extension-create.json` 來源紀錄檔。它記下 create 的版本、範本與來源,當範本來自範本目錄壓縮檔時還會記下解析出的 ref,讓範本漂移隨時可稽核。內建的 `javascript` 起始範本記錄的是 `"source": "bundled"`,而且沒有 ref。
 
@@ -103,7 +103,10 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 
 - 成功的執行會印出 `status: "created"` 訊框。它的 `value` 帶有 `projectPath`、`projectName`、`template` 與 `depsInstalled`。
 - 失敗會印出 `ok: false` 以及一個 `error.code`:未知的範本名稱對應 `E_TEMPLATE_NOT_FOUND`,下載失敗(連線遭拒、HTTP 錯誤或逾時)對應 `E_NETWORK`,目標資料夾的問題對應 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`。
-- 範本 URL 回傳的不是 ZIP 封存檔,或回傳的封存檔已損毀時,會以 `E_REMOTE_ZIP_INVALID` 失敗,而且不會在磁碟上留下任何內容。`EXTENSION_CREATE_TEMPLATE_URL` 指向的封存檔也是如此。這種失敗永遠不會退回內建的 `javascript` 範本。
+- 範本 URL 回傳的不是 ZIP 封存檔,或回傳的封存檔已損毀時,會以 `E_REMOTE_ZIP_INVALID` 失敗,而且不會在磁碟上留下任何內容。
+- 封存檔含有位於其資料夾之外的條目時,同樣以 `E_REMOTE_ZIP_INVALID` 失敗,無論它來自範本 URL 還是 `EXTENSION_CREATE_TEMPLATE_URL`。`create` 會在寫入任何條目之前檢查每一個條目,所以訊息會說明該封存檔遭拒、點名該條目,也不會建議重試。
+- `EXTENSION_CREATE_TIMEOUT_MS` 限制整個範本擷取的時間,包括重試。逾時的擷取以 `E_NETWORK` 失敗,原因為 `No answer within N seconds`。
+- 失敗的 `EXTENSION_CREATE_TEMPLATE_URL` 永遠不會退回內建的 `javascript` 範本。回傳網頁或損毀的封存檔時以 `E_REMOTE_ZIP_INVALID` 失敗,連線遭拒、HTTP 錯誤或逾時則以 `E_NETWORK` 失敗。訊息會點名這個變數,而且不會在磁碟上留下任何內容。
 - 未設定 `EXTENSION_ALLOW_HTTP_TEMPLATE=true` 時,一般的 `http://` 範本 URL 會以 `E_INVALID_OPTION` 失敗。
 
 ## 共用全域選項

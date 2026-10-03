@@ -99,7 +99,7 @@ attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也�
 | `extension_load_refused` | 工作階段還在跑,但瀏覽器把擴充功能丟了出去。其他每一個介面看起來都健康,只有契約會告訴你。會帶 `extensionLoadRefusedAt` 與 `extensionLoadRefusedReason`。 |
 | `profile_locked`         | 另一個活著的工作階段占著這個設定檔,所以瀏覽器根本沒有啟動。會帶 `profileLockedAt` 與一個含 `host` 和 `pid` 的 `profileLockOwner`。                      |
 | `browser_exited`         | 瀏覽器處理程序死了。`start` 與 `preview` 會翻成 `error`。`dev` 只有在瀏覽器先於擴充功能載入就結束時才翻成 `error`。過了那個點,`dev` 會保留它的編譯狀態,只蓋上 `browserExitedAt`。Firefox 在除錯器回應之前就結束時,大約一秒內會落到這裡。 |
-| `browser_launch_failed`  | 沒有任何瀏覽器處理程序起來:執行檔不存在、無法執行,或固定的路徑不對。Firefox 在執行但除錯器始終沒有回應時也會落到這裡,Extension.js 會結束那個處理程序。`dev`、`start` 與 `preview` 都會翻成 `error`。會帶 `browserLaunchFailedAt` 與 `browserLaunchFailedReason`。 |
+| `browser_launch_failed`  | 沒有任何瀏覽器處理程序起來:執行檔不存在、無法執行,或固定的路徑不對。Firefox 在執行但除錯器始終沒有回應時也會落到這裡,Extension.js 會結束那個處理程序。`dev`、`start` 與 `preview` 都會翻成 `error`。會帶 `browserLaunchFailedAt` 與 `browserLaunchFailedReason`。因固定的 `--chromium-binary` 或 `--gecko-binary` 有問題而遭拒的啟動還會帶 `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"`。 |
 
 一次載入被拒會活過下一次成功編譯。只有一次新的執行(`starting`)或一次真正的執行器 attach 才能把它清掉。
 
@@ -127,6 +127,8 @@ attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也�
 | `profile_locked`          | `E_PROFILE_LOCKED`         |
 | `extension_load_refused`  | `E_EXTENSION_LOAD_REFUSED` |
 | 不在這張表裡的代碼        | `E_READY_ERROR_STATUS`     |
+
+帶 `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"` 的 `browser_launch_failed` 契約會讓等待以該代碼與 `status: "usage"` 失敗,而不是 `E_BROWSER_LAUNCH`。
 
 ## 把工作階段檔案串起來
 
