@@ -84,7 +84,7 @@ When you want the default TypeScript starter, omit `--template` entirely. Add `-
 
 From 4.1.19, a template URL must use `https://`. `create` refuses a plain `http://` URL, and a download that redirects to `http://`, before it writes the project. To allow `http://` on a network that you trust, set `EXTENSION_ALLOW_HTTP_TEMPLATE=true`.
 
-The catalog holds 53 templates in 6 groups: starters, sidebar, content scripts, new tab, toolbar action, and special folders. Run `extension create --help` for the full list. The default `typescript` template downloads the catalog archive like every other name. Only the `javascript` template ships inside the CLI. When you omit `--template` and the download fails, `create` falls back to that bundled `javascript` template and says so, naming the network error, so an offline machine still gets a project. An explicit `--template` that fails to download fails loudly instead.
+The catalog holds 53 templates in 6 groups: starters, sidebar, content scripts, new tab, toolbar action, and special folders. Run `extension create --help` for the full list. The default `typescript` template downloads the catalog archive like every other name. Only the `javascript` template ships inside the CLI. When you omit `--template`, `EXTENSION_CREATE_TEMPLATE_URL` is not set, and the download fails, `create` falls back to that bundled `javascript` template and says so, naming the network error, so an offline machine still gets a project. An explicit `--template` that fails to download fails loudly instead.
 
 A scaffold has one package manager. A starter's `packageManager` pin (or a `pnpm-workspace.yaml` it ships) decides it, otherwise the manager that invoked `create` does. The `packageManager` field written to `package.json`, the `--install` run, and the printed next steps all name that same manager.
 
@@ -93,7 +93,7 @@ A scaffold has one package manager. A starter's `packageManager` pin (or a `pnpm
 Catalog downloads are pinned to one immutable commit of the examples repository. Two scaffolds of the same version therefore produce the same bytes. Two environment variables override the pin:
 
 - `EXTENSION_CREATE_TEMPLATE_REF` points at another ref. Set it to `main` to restore floating behavior.
-- `EXTENSION_CREATE_TEMPLATE_URL` points at another archive URL entirely.
+- `EXTENSION_CREATE_TEMPLATE_URL` points at another archive URL entirely. When it is set and that archive cannot be used, `create` fails and never falls back to the bundled template.
 
 Each scaffold writes a `.extension-create.json` provenance file into the project. It records the create version, the template, and the source, plus the resolved ref when the template came from the catalog archive, so template drift stays auditable. The bundled `javascript` starter records `"source": "bundled"` and no ref.
 
@@ -103,7 +103,10 @@ Each scaffold writes a `.extension-create.json` provenance file into the project
 
 - A successful run prints a `status: "created"` frame. Its `value` carries `projectPath`, `projectName`, `template`, and `depsInstalled`.
 - Failures print `ok: false` with an `error.code`: `E_TEMPLATE_NOT_FOUND` for an unknown catalog name, `E_NETWORK` for a failed download (a refused connection, an HTTP error, or a timeout), `E_DESTINATION_NOT_EMPTY` or `E_DESTINATION_NOT_WRITABLE` for destination problems.
-- A template URL that answers with something other than a ZIP archive, or with a damaged one, fails with `E_REMOTE_ZIP_INVALID` and leaves nothing on disk. The same goes for an `EXTENSION_CREATE_TEMPLATE_URL` archive. That failure never falls back to the bundled `javascript` template.
+- A template URL that answers with something other than a ZIP archive, or with a damaged one, fails with `E_REMOTE_ZIP_INVALID` and leaves nothing on disk.
+- An archive with an entry outside its folder fails with `E_REMOTE_ZIP_INVALID` too, from a template URL or from `EXTENSION_CREATE_TEMPLATE_URL`. `create` checks every entry before it writes one, so the message says the archive was refused, names the entry, and gives no advice to try again.
+- `EXTENSION_CREATE_TIMEOUT_MS` bounds the whole template fetch, retry included. A fetch that runs out of time fails with `E_NETWORK` and the reason `No answer within N seconds`.
+- An `EXTENSION_CREATE_TEMPLATE_URL` that fails never falls back to the bundled `javascript` template. A page or a damaged archive fails with `E_REMOTE_ZIP_INVALID`, and a refused connection, an HTTP error, or a timeout fails with `E_NETWORK`. The message names the variable, and nothing is left on disk.
 - A plain `http://` template URL without `EXTENSION_ALLOW_HTTP_TEMPLATE=true` fails with `E_INVALID_OPTION`.
 
 ## Shared global options
