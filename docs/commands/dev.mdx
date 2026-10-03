@@ -163,7 +163,7 @@ Treat `ready.json` as the readiness contract:
 
 - `status: "starting"` while booting
 - `status: "ready"` when the build compiled
-- `status: "error"` for startup/compile failures
+- `status: "error"` for startup/compile failures, and for a browser that never started (`code: "browser_launch_failed"`) or exited before the extension loaded (`code: "browser_exited"`)
 - `status: "stopped"` after the session shut down, so a dead session never advertises `ready`
 - `runtime: "attached"` (with `executorAttachedAt`) once the service worker connected. Act verbs should wait for this, not for `ready`
 - `runtime: "detached"` (with `executorDetachedAt`) from 4.1.20, once the last connected extension context disconnects. `executorAttachedAt` stays as provenance, and the value goes back to `"attached"` on reconnect
@@ -223,7 +223,7 @@ For Playwright/CI/AI workflows:
 `--wait` targets a second process (or CI step) and exits non-zero on `error`/timeout.
 When `--wait` sees a stale `ready.json` from a dead process (`pid` no longer alive), it keeps waiting for a live producer.
 `--wait` requires a local project path. Passing a remote URL exits with `E_ARGS`.
-If you pass both `--wait` and `--no-browser` in the same command invocation, `--wait` takes precedence. The command runs in wait-only mode.
+Passing both `--wait` and `--no-browser` in the same command invocation exits with `E_INVALID_OPTION`, because `--wait` only reads a contract that another process writes. Run them as two processes, as in the steps above.
 
 From 4.1.21, a `--wait` that reads `ready.json` while the producer is still writing it treats the half-written file as one more transient state and keeps polling. Up to 4.1.20, one torn read failed the wait with a JSON parse error. A file that never parses still ends in `E_READY_TIMEOUT`, and the timeout message names the cause: `The last read of the file failed to parse as JSON`, followed by the parser's own error.
 
@@ -233,7 +233,7 @@ From 4.1.21, a `--wait` that reads `ready.json` while the producer is still writ
 
 - A plain `dev` run prints one `status: "started"` frame as the first stdout line. It carries the project path, browser list, requested port, and the dev server `pid`. `dev` never terminates on its own, so no result frame follows, and unlike `build` a long-running session keeps writing its human progress lines to stdout after that frame. Parse the first line, then read `ready.json` for the live state.
 - A `dev --wait` run prints one `status: "ready"` frame on success. Its `value.results` array carries the full ready contract per browser.
-- Failures print one `ok: false` frame with an `error.code` (for example `E_READY_TIMEOUT`) before the process exits `1`.
+- Failures print one `ok: false` frame with an `error.code` (for example `E_READY_TIMEOUT`) before the process exits `1`. A contract in `error` status names its cause: `E_BROWSER_LAUNCH` when the browser never started, `E_BROWSER_EXITED` when it exited before the extension loaded, and `E_COMPILE` for a compile error. See [the ready.json contract](/docs/contracts/ready-json) for the full list.
 
 ### `--no-reload` for a clean dev bundle
 

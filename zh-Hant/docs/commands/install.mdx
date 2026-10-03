@@ -150,6 +150,7 @@ extension install [browser-name] [options]
 - 成功的安裝會印出一個 `status: "installed"` 框,已安裝的瀏覽器在 `value.browsers` 中。
 - `--where` 會印出一個 `status: "located"` 框,解析後的路徑在 `value.paths` 中。
 - 下載失敗會在行程以 `1` 結束前印出 `ok: false`,其 `error.code: "E_BROWSER_DOWNLOAD"`。
+- 下載結束了卻沒有留下可用的瀏覽器執行檔時,也以同樣的方式失敗。見[行為說明](#行為說明)。
 
 ## 範例
 
@@ -207,6 +208,7 @@ extension install chrome --where
 
 - `chrome` 會安裝 Chrome for Testing,而不是依賴系統的 Google Chrome 應用程式。
 - `edge` 在 Linux 上可能需要具備權限的互動式工作階段。
+- `install` 在回報成功之前會檢查目標資料夾。當安裝程式正常結束,但資料夾裡沒有一個非空且可執行的瀏覽器執行檔時(例如下載被中斷之後),指令會以 `E_BROWSER_DOWNLOAD` 失敗並以 `1` 結束。它會刪掉不完整的檔案,所以下一次 `extension install` 從乾淨的狀態開始。
 - 在 Deno 上，`install` 需要 `PATH` 裡有 Node.js。瀏覽器安裝器會呼叫 `npx`（或啟動 CLI 的那個套件管理器）來執行下載引擎，而 `deno` 沒有這樣的執行器。沒有 Node.js 時，指令會在下載步驟失敗。其他指令只靠 Deno 就能執行。
 
 ## 後續步驟

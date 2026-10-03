@@ -145,7 +145,7 @@ extension start --no-open
 `--wait` 在 `error` / 超时时以非零状态退出，并会忽略来自已死进程（`pid` 已不存在）的过期契约。
 因为 `start` 可能很快就结束，所以只要时间戳落在 60 秒的窗口内，已完成运行留下的契约同样算数。
 `--wait` 需要一个本地项目路径。传入远程 URL 会以 `E_ARGS` 退出。
-如果你在同一次调用中同时传入 `--wait` 与 `--no-browser`，`--wait` 优先。命令会以 wait-only 模式运行。
+在同一次调用中同时传入 `--wait` 与 `--no-browser` 会以 `E_INVALID_OPTION` 退出，因为 `--wait` 只读取另一个进程写出的契约。请像上面的步骤那样把它们作为两个进程运行。
 
 ### 用 `--output json` 输出机器可读结果
 
@@ -153,6 +153,7 @@ extension start --no-open
 
 - 普通的 `start` 运行会在构建前打印一个 `status: "started"` 帧。它带有项目路径、浏览器列表、`pid` 和 `port: null`，因为只运行不构建的会话不会绑定任何端口。
 - `start --wait` 运行成功时会打印一个 `status: "ready"` 帧。它的 `value.results` 数组按浏览器带出完整的就绪契约。
+- `start --wait` 读到处于 `error` 状态的契约时，会打印一个指明原因的 `ok: false` 帧，例如浏览器根本没有启动时的 `E_BROWSER_LAUNCH`，或浏览器退出时的 `E_BROWSER_EXITED`。完整列表见 [ready.json 契约](/zh-Hans/docs/contracts/ready-json)。
 - 构建失败时会打印一个 `ok: false` 帧，其中 `status: "build-failed"`，随后进程以 `1` 退出。编译错误带 `error.code: "E_COMPILE"`。项目目录不存在带 `E_PROJECT_NOT_FOUND`，目录里没有 manifest 带 `E_MANIFEST_NOT_FOUND`，manifest 无法解析带 `E_MANIFEST_INVALID`。
 
 ## 日志 flag

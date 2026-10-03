@@ -160,7 +160,7 @@ extension dev [path-or-url] [options]
 
 - 啟動中:`status: "starting"`
 - 建置編譯完成:`status: "ready"`
-- 啟動/編譯失敗:`status: "error"`
+- 啟動/編譯失敗:`status: "error"`,瀏覽器根本沒有啟動(`code: "browser_launch_failed"`)或在擴充功能載入之前就結束(`code: "browser_exited"`)時也是
 - 工作階段關閉後:`status: "stopped"`,因此已經死掉的工作階段不會再宣稱自己 `ready`
 - service worker 連上之後為 `runtime: "attached"`(並附上 `executorAttachedAt`)。act verb 應該等待它,而不是等待 `ready`
 - 從 4.1.20 起,最後一個已連線的擴充功能情境斷線後為 `runtime: "detached"`(並附上 `executorDetachedAt`)。`executorAttachedAt` 會作為來源記錄保留,重新連線後該值會回到 `"attached"`
@@ -220,7 +220,7 @@ extension dev --no-open
 `--wait` 是為第二個程序(或 CI 步驟)而設,並在 `error`/逾時時以非零碼結束。
 當 `--wait` 看到死掉程序(`pid` 已不存在)留下的過期 `ready.json` 時,它會持續等待一個仍在運作的產生者。
 `--wait` 需要本地專案路徑。傳入遠端 URL 會以 `E_ARGS` 結束。
-如果你在同一次指令中同時傳入 `--wait` 與 `--no-browser`,`--wait` 優先,指令會以「僅等待」模式執行。
+在同一次指令中同時傳入 `--wait` 與 `--no-browser` 會以 `E_INVALID_OPTION` 結束,因為 `--wait` 只讀取另一個程序寫出的契約。請像上面的步驟那樣把它們當成兩個程序執行。
 
 從 4.1.21 開始，當 `--wait` 在產生者還在寫入 `ready.json` 時讀到它，會把這個寫到一半的檔案當作又一種暫態，繼續輪詢。到 4.1.20 為止，一次撕裂讀取會讓等待以 JSON 解析錯誤失敗。始終無法解析的檔案仍會以 `E_READY_TIMEOUT` 結束，逾時訊息會點明原因：`The last read of the file failed to parse as JSON`，後面接著解析器自己的錯誤。
 
@@ -230,7 +230,7 @@ extension dev --no-open
 
 - 一般的 `dev` 執行會在啟動時印出一個 `status: "started"` 訊框。它帶有專案路徑、瀏覽器清單、請求的埠號,以及開發伺服器的 `pid`。`dev` 不會自行結束,所以後面不會再有結果訊框。即時狀態請讀 `ready.json`。
 - `dev --wait` 成功時會印出一個 `status: "ready"` 訊框。它的 `value.results` 陣列會逐一瀏覽器帶出完整的就緒契約。
-- 失敗時會在程序以 `1` 結束前,印出一個帶有 `error.code`(例如 `E_READY_TIMEOUT`)的 `ok: false` 訊框。
+- 失敗時會在程序以 `1` 結束前,印出一個帶有 `error.code`(例如 `E_READY_TIMEOUT`)的 `ok: false` 訊框。處於 `error` 狀態的契約會指明原因:瀏覽器根本沒有啟動時是 `E_BROWSER_LAUNCH`,在擴充功能載入之前就結束時是 `E_BROWSER_EXITED`,編譯錯誤是 `E_COMPILE`。完整清單見 [ready.json 契約](/zh-Hant/docs/contracts/ready-json)。
 
 ### 用 `--no-reload` 取得乾淨的開發包
 
