@@ -71,7 +71,7 @@ By default, `logs` prints the records already on disk and exits. Add `--follow` 
 | `[project-path]`                  | Path to the extension project root.                                                                 | `process.cwd()`                  |
 | `--browser <browser>`             | Which session to read (`chrome`, `chromium`, `edge`, `firefox`, `safari`).                          | `chromium`                       |
 | `--follow`                        | Stream live over the control channel instead of printing and exiting.                               | off                              |
-| `--context <list>`                | Comma-separated contexts (`background`, `content`, `popup`, `options`, `sidebar`, `devtools`, `page`). | all contexts                     |
+| `--context <list>`                | Comma-separated contexts (`background`, `content`, `page`, `popup`, `options`, `sidebar`, `devtools`, `newtab`, `history`, `bookmarks`). A name outside this list is refused with `E_INVALID_OPTION`. | all contexts                     |
 | `--level <level>`                 | Minimum severity (`off`, `error`, `warn`, `info`, `debug`, `trace`, `all`).                         | `all`                            |
 | `--signals-only`                  | Experimental. Show only structured `dx.signal` diagnostics. No emitter ships yet, so this currently prints nothing. | off                              |
 | `--since <seq\|iso>`              | Only show events after this sequence number, or after this ISO timestamp by the event clock.        | unset                            |
@@ -88,6 +88,8 @@ From 4.1.20, a Safari session is read the same way. `extension logs --browser sa
 Without `--follow`, the command reads `dist/extension-js/<browser>/logs.ndjson` directly and needs no live connection. The dev session appends every record to that file, so a one-shot read works even after you close the browser.
 
 If the file does not exist, `logs` prints a hint to start `extension dev` first and exits with code `1`. Machine formats also emit a failure envelope with code `E_LOGS_NOT_FOUND` (see [Result envelope](/docs/contracts/result-envelope)).
+
+When the session dropped records, the file holds a gap record in their place. An unfiltered `ndjson` or `json` read prints that record on stdout as it is. Once any filter narrows the read (`--context`, `--level`, `--since`, `--url`, `--tab`), stdout carries log records only, and the loss is reported as one line on stderr with the drop count and reason, in every output format.
 
 ## Follow mode
 

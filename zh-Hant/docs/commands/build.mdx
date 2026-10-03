@@ -113,7 +113,7 @@ dist/
 | `--no-polyfill`          | -               | 關閉跨瀏覽器 polyfill。                                                             | polyfill 預設停用   |
 | `--zip [boolean]`        | -               | 在任何模式下都產生打包好的 zip 產物。                                                             | `false`             |
 | `--zip-source [boolean]` | -               | 在 zip 輸出中包含原始檔。                                                           | `false`             |
-| `--zip-filename <name>`  | -               | 設定自訂 zip 檔名。                                                                 | 清理過的擴充功能名稱 + 版本 |
+| `--zip-filename <name>`  | -               | 同時命名發佈壓縮檔與原始碼壓縮檔。發佈壓縮檔一定會附加瀏覽器名稱。                      | 清理過的擴充功能名稱、版本與瀏覽器 |
 | `--silent [boolean]`     | -               | 隱藏建置記錄。                                                                      | `false`             |
 | `--addon-lint [boolean]` | -               | 當專案裡裝有 addons-linter 時，依 addons.mozilla.org 的規則檢查 Firefox 正式建置。發現的問題以警告印出。見 [Firefox 建置的商店檢查](#firefox-建置的商店檢查)。 | `true`              |
 | `--no-addon-lint`        | -               | 略過 addons.mozilla.org 檢查。                                                      | 檢查預設啟用        |
@@ -186,7 +186,9 @@ development 模式的建置是可以直接發布的。它保留你在 manifest �
 | `--zip-filename` | 設定自訂 zip 名稱        | CI 的命名規則       |
 | `--zip-source`   | 在產物旁附加原始碼壓縮檔 | 合規 / 審查流程     |
 
-每個 zip 都落在它自己的 `dist/<browser>` 資料夾裡,與未壓縮的輸出放在一起。沒有 `--zip-filename` 時,名稱是 manifest 的 `name` 轉小寫、移除 `a-z0-9` 與空白以外的所有字元、把剩下的空白換成連字號,再接上 manifest 的 `version`。一個名為 `My Extension+`、版本為 `1.0.0` 的 manifest 會打包成 `dist/chrome/my-extension-1.0.0.zip`。因為名稱經過改寫,請從建置輸出讀取實際路徑,而不要用 manifest 名稱自行組合。
+每個 zip 都落在 `dist/` 裡,與 `dist/<browser>` 資料夾並列而不是放在它裡面,因為 `dist/<browser>` 是商店上傳或 load-unpacked 整個取走的資料夾。沒有 `--zip-filename` 時,名稱是 manifest 的 `name` 轉小寫、移除 `a-z0-9` 與空白以外的所有字元、把剩下的空白換成連字號,再接上 manifest 的 `version` 與瀏覽器。一個名為 `My Extension+`、版本為 `1.0.0` 的 manifest 會打包成 `dist/my-extension-1.0.0-chrome.zip`。因為名稱經過改寫,請從建置輸出讀取實際路徑,而不要用 manifest 名稱自行組合。在 `--output json` 下,每個壓縮檔都會列在 `zip_artifacts` 裡,附上路徑與大小。
+
+`--zip-filename` 同時命名兩個壓縮檔,而且發佈壓縮檔一定會附加瀏覽器名稱,所以在不同次執行裡用同一個名稱建置兩個瀏覽器時,彼此不會互相覆寫。在 Chrome 建置裡傳入 `--zip-filename=review-bundle.zip` 與 `--zip-source` 會寫出 `dist/review-bundle-chrome.zip` 與 `dist/review-bundle-source.zip`。原始碼壓縮檔對每個瀏覽器都一樣,所以它的名稱不帶瀏覽器,一次建置只寫一個原始碼壓縮檔。已經以瀏覽器名稱結尾的名稱會保持原樣。`--browser=edge,chrome --zip-filename=my-extension.zip` 會寫出 `dist/my-extension-edge.zip` 與 `dist/my-extension-chrome.zip`。
 
 ## 範例
 
@@ -227,7 +229,7 @@ extension build ./my-extension --browser=edge,chrome --zip --zip-filename=my-ext
 
 </CodeGroup>
 
-此範例的建置會以 Edge 與 Chrome 為目標,將輸出壓縮成 zip,並儲存為 `my-extension.zip`。
+此範例的建置會以 Edge 與 Chrome 為目標,並將兩個輸出壓縮成 zip。壓縮檔會儲存為 `dist/my-extension-edge.zip` 與 `dist/my-extension-chrome.zip`,因為每個發佈壓縮檔都會附加瀏覽器名稱,即使只建置一個目標也一樣。
 
 ### 帶有 polyfill 支援的建置
 
@@ -306,7 +308,7 @@ extension build ./my-extension --zip --zip-source
 `--output json` 會在 stdout 印出一個 schema-1 信封,並把給人看的建置訊息導到 stderr。stdout 始終可以當作單一份 JSON 文件解析。
 
 - 成功的執行會印出一個 `status: "built"` 框。它的 `value` 帶著建置出的瀏覽器、解析後的模式,以及每個瀏覽器一份摘要。每份摘要記錄輸出路徑、資源總量、警告文字,以及相關時的 Safari 應用程式識別。
-- 失敗的建置會在行程以 `1` 結束前印出一個 `ok: false` 框,其 `status: "build-failed"`、`error.code: "E_COMPILE"`。
+- 失敗的建置會在行程以 `1` 結束前印出一個 `ok: false` 框,其 `status: "build-failed"`。編譯錯誤帶 `error.code: "E_COMPILE"`。專案資料夾不存在帶 `E_PROJECT_NOT_FOUND`,資料夾裡沒有 manifest 帶 `E_MANIFEST_NOT_FOUND`,manifest 無法解析帶 `E_MANIFEST_INVALID`。
 
 每次建置也會寫出 `dist/extension-js/<browser>/build-summary.json`。以 shell 呼叫 `extension build` 的指令碼可以從那裡讀取結構化的警告。請檢查檔案的修改時間,以免讀到過期檔案。
 

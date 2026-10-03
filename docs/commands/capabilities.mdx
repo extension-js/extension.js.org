@@ -61,7 +61,7 @@ This is the only command that defaults to `json`. A handshake exists for machine
 
 ## What it returns
 
-The JSON output is a schema-1 envelope (see [Result envelope](/docs/contracts/result-envelope)) whose `value` carries five fields:
+The JSON output is a schema-1 envelope (see [Result envelope](/docs/contracts/result-envelope)) whose `value` carries six fields:
 
 ```json
 {
@@ -74,24 +74,26 @@ The JSON output is a schema-1 envelope (see [Result envelope](/docs/contracts/re
     "version": "4.0.22",
     "envelopeSchema": 1,
     "readySchemaVersion": 2,
-    "outputJsonCommands": ["build", "capabilities", "dev", "doctor", "eval", "..."]
+    "outputJsonCommands": ["build", "capabilities", "dev", "doctor", "eval", "..."],
+    "recordStreamCommands": ["logs"]
   },
   "error": null,
   "warnings": []
 }
 ```
 
-| Field                | What it tells you                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| `name`               | The CLI package name.                                                                |
-| `version`            | The CLI version that answered.                                                       |
-| `envelopeSchema`     | The result envelope schema this CLI writes.                                          |
-| `readySchemaVersion` | The `ready.json` contract version this CLI's bundled engine writes.                  |
-| `outputJsonCommands` | Every command that accepts `--output json`, sorted.                                  |
+| Field                  | What it tells you                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `name`                 | The CLI package name.                                                                                    |
+| `version`              | The CLI version that answered.                                                                           |
+| `envelopeSchema`       | The result envelope schema this CLI writes.                                                              |
+| `readySchemaVersion`   | The `ready.json` contract version this CLI's bundled engine writes.                                      |
+| `outputJsonCommands`   | Every command that accepts `--output json`, sorted. `logs` is in this list.                              |
+| `recordStreamCommands` | The subset whose `--output json` success path streams one record per line instead of one envelope.      |
 
-`outputJsonCommands` is read off the live command registrations, never a hand-kept list, so it cannot drift from what the CLI actually accepts. Treat the example above as illustrative and parse the real answer.
+`outputJsonCommands` and `recordStreamCommands` are read off the live command registrations, never a hand-kept list, so they cannot drift from what the CLI actually accepts. Treat the example above as illustrative and parse the real answer. A reader that expects one envelope on stdout must skip the commands in `recordStreamCommands`, which print log records on success and an envelope only on failure.
 
-Pretty output prints the same facts as four labeled lines. Both formats exit with code `0`.
+Pretty output prints the same facts as five labeled lines. Both formats exit with code `0`.
 
 ## Typical agent flow
 

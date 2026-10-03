@@ -104,6 +104,7 @@ extension dev [path-or-url] [options]
 | `--port <port>`                | -                  | 请求的 dev 服务器端口。用 `0` 让 OS 自动分配端口。见[端口如何确定](#端口如何确定)。                                              | `8080`             |
 | `--host <host>`                | -                  | 绑定 dev 服务器的主机。Docker / dev container 中可用 `0.0.0.0`。                                                                 | `127.0.0.1`        |
 | `--public-host <host>`         | -                  | 当浏览器可连接的主机与绑定用的 `--host` 不同时（远程 / dev container），浏览器为 HMR 与重载桥拨号的主机。                        | 绑定主机（绑定到 `0.0.0.0` 时为 `127.0.0.1`） |
+| `--allowed-hosts <list>`       | -                  | 用逗号分隔的主机名，开发服务器除 localhost、IP 地址与 `--public-host` 之外额外应答它们（docker 服务名、隧道、`*.local`）。前导的点允许所有子域名。也可以写在 `extension.config.js` 的 `commands.dev.allowedHosts` 里。见[绑定主机与可连接主机](#绑定主机与可连接主机)。 | 无                 |
 | `--no-open`                    | -                  | 启动浏览器，但不为你的扩展打开标签页。浏览器仍会启动并加载扩展。见[阻止浏览器启动](#阻止浏览器启动)。 | 启动时会打开标签页 |
 | `--no-browser`                 | -                  | 不启动浏览器。dev 服务器仍会启动并持续重新构建。见[阻止浏览器启动](#阻止浏览器启动)。 | 默认会启动浏览器   |
 | `--no-reload`                  | -                  | 跳过 content script 重载运行时与重建时的重载派发。需要手动重载标签页才能看到改动。                                               | 默认启用重载运行时 |
@@ -246,7 +247,7 @@ dev 构建会输出 `cheap-module-source-map` 类型的 source map，描述的�
 | flag                                                 | 作用                                                                                       | 默认值         |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------- |
 | `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | 最低日志级别。                                                                             | `off`          |
-| `--log-context <list\|all>`                          | 上下文过滤（`background`、`content`、`page`、`sidebar`、`popup`、`options`、`devtools`）。 | `all`          |
+| `--log-context <list\|all>`                          | 上下文过滤（`background`、`content`、`page`、`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）。 | `all`          |
 | `--log-format <pretty\|json\|ndjson>`                | 日志器输出格式。                                                                           | `pretty`       |
 | `--no-log-timestamps`                                | 在 pretty 模式下关闭时间戳。                                                               | 默认启用时间戳 |
 | `--no-log-color`                                     | 在 pretty 模式下关闭颜色。                                                                 | 默认启用颜色   |
@@ -493,6 +494,14 @@ extension dev ./my-extension --host 0.0.0.0 --public-host devbox.local
 </CodeGroup>
 
 当 `--host` 本身已经是一个具体地址时（例如 `--host 192.168.1.50`），这个值本来就可连接，会被直接使用。只有在绑定主机与浏览器面向的主机不同的时候，才需要 `--public-host`。
+
+开发服务器会检查每个请求的 `Host` 头，作为对 DNS 重绑定的防御。它应答 `localhost`、IP 地址、绑定主机与 `--public-host`。用其他任何名字发来的请求都会得到 `403`，纯文本正文里写明被拒绝的主机和修复方法，终端上也会为每个被拒绝的主机打印一行。用 `--allowed-hosts` 放行更多名字，它是逗号分隔的列表，前导的点允许所有子域名，也可以写在 `extension.config.js` 的 `commands.dev.allowedHosts` 里（数组或逗号分隔的字符串）。当开发服务器是通过 docker 服务名、隧道主机名或 mDNS 名称被访问、而浏览器拨号的目标不该改变时，就用它。
+
+```bash
+extension dev ./my-extension --host 0.0.0.0 --allowed-hosts web,.ngrok.app
+```
+
+单独的 `--host 0.0.0.0` 不会放行所有名字。绑定地址与放行的名字是两个独立的设置。
 
 ### 用 Brave 作为自定义二进制运行
 

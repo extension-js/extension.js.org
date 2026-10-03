@@ -87,7 +87,7 @@ If you omit the path, the command uses the current working folder.
 | `--output <pretty\|json>`      | -                  | Result format. `json` prints a schema-1 envelope on stdout.                                       | `pretty`                                        |
 | `--port <port>`                | -                  | Runner/devtools port when runner is enabled. Use `0` for OS-assigned port.                        | `8080`                                          |
 | `--host <host>`                | -                  | Host to bind the dev server to. Use `0.0.0.0` for Docker/dev containers.                          | `127.0.0.1`                                     |
-| `--public-host <host>`         | -                  | Connectable host the browser dials when it differs from the bind `--host` (remote/dev container). | bind host (`127.0.0.1` when bound to `0.0.0.0`) |
+| `--public-host <host>`         | -                  | Accepted for parity with `dev`, so a script that shares flags between the two is not refused. `start` serves nothing, so the value has no effect. | unset                                           |
 | `--extensions <list>`          | -                  | Comma-separated companion extensions or store URLs.                                               | unset                                           |
 | `--install [boolean]`          | -                  | Internal flag. Install project dependencies when missing.                                         | command behavior default                        |
 | `--debug`                      | -                  | Enable maintainer diagnostics.                                                                    | disabled                                        |
@@ -151,9 +151,9 @@ If you pass both `--wait` and `--no-browser` in the same invocation, `--wait` ta
 
 `--output json` prints schema-1 envelopes on stdout, one JSON object per line:
 
-- A plain `start` run prints one `status: "started"` frame before the build. It carries the project path, browser list, requested port, and `pid`.
+- A plain `start` run prints one `status: "started"` frame before the build. It carries the project path, browser list, `pid`, and `port: null`, because a run-only session binds no port.
 - A `start --wait` run prints one `status: "ready"` frame on success. Its `value.results` array carries the full ready contract per browser.
-- A failed build prints one `ok: false` frame with `status: "build-failed"` and `error.code: "E_COMPILE"` before the process exits `1`.
+- A failed build prints one `ok: false` frame with `status: "build-failed"` before the process exits `1`. A compile error carries `error.code: "E_COMPILE"`. A missing project folder carries `E_PROJECT_NOT_FOUND`, a folder with no manifest carries `E_MANIFEST_NOT_FOUND`, and a manifest that does not parse carries `E_MANIFEST_INVALID`.
 
 ## Logging flags
 
@@ -162,7 +162,7 @@ These flags are experimental and may change between minor releases.
 | Flag                                                 | What it does                                                                                 | Default            |
 | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------ |
 | `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | Minimum log level.                                                                           | `off`              |
-| `--log-context <list\|all>`                          | Context filter (`background`, `content`, `page`, `sidebar`, `popup`, `options`, `devtools`). | `all`              |
+| `--log-context <list\|all>`                          | Context filter (`background`, `content`, `page`, `popup`, `options`, `sidebar`, `devtools`, `newtab`, `history`, `bookmarks`). | `all`              |
 | `--log-format <pretty\|json\|ndjson>`                | Logger output format.                                                                        | `pretty`           |
 | `--no-log-timestamps`                                | Disable timestamps in pretty mode.                                                           | timestamps enabled |
 | `--no-log-color`                                     | Disable color in pretty mode.                                                                | color enabled      |
