@@ -102,7 +102,9 @@ Each scaffold writes a `.extension-create.json` provenance file into the project
 `--output json` prints one schema-1 envelope on stdout and routes scaffold progress lines to stderr:
 
 - A successful run prints a `status: "created"` frame. Its `value` carries `projectPath`, `projectName`, `template`, and `depsInstalled`.
-- Failures print `ok: false` with an `error.code`: `E_TEMPLATE_NOT_FOUND` for an unknown catalog name, `E_NETWORK` for a failed download, `E_DESTINATION_NOT_EMPTY` or `E_DESTINATION_NOT_WRITABLE` for destination problems.
+- Failures print `ok: false` with an `error.code`: `E_TEMPLATE_NOT_FOUND` for an unknown catalog name, `E_NETWORK` for a failed download (a refused connection, an HTTP error, or a timeout), `E_DESTINATION_NOT_EMPTY` or `E_DESTINATION_NOT_WRITABLE` for destination problems.
+- A template URL that answers with something other than a ZIP archive, or with a damaged one, fails with `E_REMOTE_ZIP_INVALID` and leaves nothing on disk. The same goes for an `EXTENSION_CREATE_TEMPLATE_URL` archive. That failure never falls back to the bundled `javascript` template.
+- A plain `http://` template URL without `EXTENSION_ALLOW_HTTP_TEMPLATE=true` fails with `E_INVALID_OPTION`.
 
 ## Shared global options
 

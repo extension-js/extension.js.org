@@ -151,10 +151,11 @@ Passing both `--wait` and `--no-browser` in the same invocation exits with `E_IN
 
 `--output json` prints schema-1 envelopes on stdout, one JSON object per line:
 
-- A plain `start` run prints one `status: "started"` frame before the build. It carries the project path, browser list, `pid`, and `port: null`, because a run-only session binds no port.
+- A plain `start` run prints one `status: "started"` frame once the build finished and the browser launched. It carries the project path, browser list, `pid`, and `port: null`, because a run-only session binds no port. A run that fails prints only its failure frame, never a `started` frame before it.
 - A `start --wait` run prints one `status: "ready"` frame on success. Its `value.results` array carries the full ready contract per browser.
 - A `start --wait` run that reads a contract in `error` status prints one `ok: false` frame that names the cause, for example `E_BROWSER_LAUNCH` when the browser never started or `E_BROWSER_EXITED` when it exited. See [the ready.json contract](/docs/contracts/ready-json) for the full list.
-- A failed build prints one `ok: false` frame with `status: "build-failed"` before the process exits `1`. A compile error carries `error.code: "E_COMPILE"`. A missing project folder carries `E_PROJECT_NOT_FOUND`, a folder with no manifest carries `E_MANIFEST_NOT_FOUND`, and a manifest that does not parse carries `E_MANIFEST_INVALID`.
+- A failed build prints one `ok: false` frame with `status: "build-failed"` before the process exits `1`. A compile error carries `error.code: "E_COMPILE"`. A missing project folder carries `E_PROJECT_NOT_FOUND`, a folder with no manifest carries `E_MANIFEST_NOT_FOUND`, and a manifest that does not parse carries `E_MANIFEST_INVALID`. A config file that fails to load carries `E_CONFIG_LOAD`, and a remote URL that gives no usable archive carries `E_REMOTE_ZIP_INVALID`, `E_REMOTE_FETCH_TIMEOUT`, or `E_REMOTE_DOWNLOAD`.
+- A browser that cannot start prints one `ok: false` frame with `status: "failed"`. The code is `E_BROWSER_BINARY_INVALID` when the `--chromium-binary` or `--gecko-binary` path does not exist, `E_BROWSER_LAUNCH` when the binary cannot run or Firefox exits before its debugger answers, and `E_BROWSER_CONNECT` when Firefox runs but its debugger never answers.
 
 ## Logging flags
 

@@ -102,7 +102,9 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 `--output json` 会在 stdout 上打印一个 schema-1 信封，并把生成过程的进度行送到 stderr：
 
 - 成功的运行会打印一个 `status: "created"` 帧。它的 `value` 里带有 `projectPath`、`projectName`、`template` 和 `depsInstalled`。
-- 失败会打印 `ok: false` 以及一个 `error.code`：未知的模板名对应 `E_TEMPLATE_NOT_FOUND`，下载失败对应 `E_NETWORK`，目标目录的问题对应 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`。
+- 失败会打印 `ok: false` 以及一个 `error.code`：未知的模板名对应 `E_TEMPLATE_NOT_FOUND`，下载失败（连接被拒绝、HTTP 错误或超时）对应 `E_NETWORK`，目标目录的问题对应 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`。
+- 模板 URL 返回的不是 ZIP 归档，或返回的归档已损坏时，会以 `E_REMOTE_ZIP_INVALID` 失败，并且不会在磁盘上留下任何内容。`EXTENSION_CREATE_TEMPLATE_URL` 指向的归档也是如此。这种失败永远不会回退到内置的 `javascript` 模板。
+- 未设置 `EXTENSION_ALLOW_HTTP_TEMPLATE=true` 时，普通的 `http://` 模板 URL 会以 `E_INVALID_OPTION` 失败。
 
 ## 共享的全局选项
 

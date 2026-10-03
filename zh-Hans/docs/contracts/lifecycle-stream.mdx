@@ -43,7 +43,7 @@ EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-bro
 
 | 状态             | `ok`  | 什么时候到达                                                              |
 | ---------------- | ----- | ------------------------------------------------------------------------- |
-| `starting`       | true  | 只有一次，会话开始时。携带 `requestedPort` 和实际绑定的 `port`。          |
+| `starting`       | true  | 只有一次，会话开始时，即配置加载完成、编译器已创建之后。携带 `requestedPort` 和实际绑定的 `port`。 |
 | `compiled`       | true  | 第一次编译成功。携带 `assets` 和 `durationMs`。                           |
 | `recompiled`     | true  | 之后每一次编译成功。                                                      |
 | `compile-failed` | false | 一次编译带着错误结束，无论是第一次还是之后。                              |
@@ -52,6 +52,8 @@ EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-bro
 | `failed`         | false | 会话级别的失败，例如服务器始终没能绑定，或者 `ready.json` 报告 `error`。 |
 
 每个帧的 `value` 都携带会话身份：`command`、`browser`、`distPath`、`pid`、`port`，以及已知时的 `readyPath`、`eventsPath`、`runId`、`instanceId` 和 `toolchainVersion`。
+
+在会话开始之前就被拒绝的运行只发送一个 `failed` 帧，不会有 `starting` 帧。缺少 manifest、配置文件加载失败，以及远程 URL 没有可用的归档，都以这种方式结束。
 
 ## 编译失败
 
@@ -72,7 +74,7 @@ EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-bro
 
 这种情况下，流改为发出一个错误码为 `E_READY_ERROR_STATUS` 的 `failed` 帧，并由 `value.readyCode` 指出契约自身的错误码。
 
-浏览器根本没有启动，或者在扩展加载之前就退出时，到达的也是同一个帧。这时 `value.readyCode` 是 `browser_launch_failed` 或 `browser_exited`。
+浏览器根本没有启动，或者在扩展加载之前就退出时，到达的也是同一个帧。这时 `value.readyCode` 是 `browser_launch_failed` 或 `browser_exited`。Firefox 的调试器始终没有应答时，按启动失败处理。
 
 ## 浏览器退出
 

@@ -38,7 +38,7 @@ Top-level keys:
 | `transpilePackages` | Packages to compile before bundling (useful for monorepo/workspace setups). |
 | `perfBudgets`       | Per-category asset size budgets in bytes, overridable per browser and per command. |
 | `define`            | Compile-time constants inlined into every bundle, overridable per browser and per command. |
-| `folders`           | Where the special folders live, or `false` to turn one off.                 |
+| `folders`           | Where the special folders live, or `false` to turn one off, overridable per browser and per command. |
 | `config`            | Hook to extend/override the generated Rspack config.                        |
 | `configResolved`    | Hook that runs once the Rspack config is final, with every loader rule attached. |
 
@@ -154,6 +154,7 @@ Notes:
 
 - `extensions`, `transpilePackages`, and `perfBudgets` layer from weakest to strongest on every command: top-level, then `browser.<vendor>`, then `commands.<cmd>`, then a CLI flag.
 - `define` merges key by key across the same layers: top-level, then `browser.<vendor>`, then `commands.<cmd>` on `dev`, `start`, and `build`.
+- `folders` never merges key by key. `browser.<vendor>.folders` replaces the top-level object, and `commands.<cmd>.folders` on `dev`, `start`, and `build` replaces both.
 - `commands.build.browser`, `commands.start.browser`, and `commands.preview.browser` pick the target for those commands. A `--browser` flag still wins.
 - The `start` command runs `build` then `preview` internally. Extension.js applies settings from `commands.start`, including browser-launch options like `profile`, `browserFlags`, and `startingUrl`. You can also put build-specific settings in `commands.build`.
 
@@ -177,6 +178,7 @@ Notes:
 | `allowedHosts`        | `dev`                              | Extra `Host` names the dev server answers, as an array or a comma string. A leading dot allows every subdomain. |
 | `noBrowser`           | `dev`, `start`, `preview`          | Disables browser launch (`commands.<cmd>.noBrowser`).          |
 | `extensions`          | `dev`, `start`, `preview`, `build` | Loads companion extensions (or extension list).                |
+| `folders`             | `dev`, `start`, `build`            | Special folder locations for this command. Replaces the top-level and per-browser `folders`. |
 | `install`             | `dev`, `start`, `build`            | Installs missing dependencies before running.                  |
 | `transpilePackages`   | `dev`, `start`, `preview`, `build` | Transpiles listed workspace/external packages.                 |
 
@@ -250,8 +252,11 @@ export default {
 
 - A moved `scripts` or `pages` folder must keep its name. Extension.js does not read a path such as `src/injected`.
 - `false` turns the folder off. Extension.js stops compiling its files as entrypoints, and stops copying a `public` folder.
+  - A script in a turned-off `scripts` folder that your code names, for example in `chrome.scripting.executeScript({files})`, still ships. Extension.js compiles it like a script in any other folder, without the content script wrapper.
+  - Nothing inside a turned-off `public` folder ships, and a root path such as `/icon.png` no longer reaches into it. If the manifest still names a file there, the build fails and lists each file. If a page or a stylesheet references one, the build prints a warning for each reference. Turn the folder back on, or move the files out of `public/`.
+- A moved folder behaves exactly like the default one. Scripts in a moved `scripts` folder get the content script wrapper and reload in place during `dev`, pages in a moved `pages` folder build to the same `pages/` output, and a page, a stylesheet, or the manifest reaches a file in a moved `public` folder by the same root path, such as `/logo.png`.
 - When `public` names a path, Extension.js copies from that folder only.
-- `browser.<vendor>.folders` replaces the top-level object as a whole. It does not merge key by key.
+- `browser.<vendor>.folders` replaces the top-level object as a whole, and `commands.<cmd>.folders` replaces both. Neither merges key by key.
 
 ### Rspack configuration
 
@@ -285,7 +290,9 @@ export default {
 };
 ```
 
-Change `module` or `resolve` in place, or return a new configuration object. The hook may be async, and a hook that returns nothing keeps the configuration as it is. `entry`, `plugins`, `context`, and `mode` are fixed by then, so a returned value for any of them is ignored. Set those in `config`.
+The hook can change `module`, `resolve`, `resolveLoader`, `node`, `optimization.minimize`, `optimization.minimizer`, and the `output` options that Rspack reads when the build starts, such as file names and `environment`. Change them in place, or return a new configuration object. The hook may be async, and a hook that returns nothing keeps the configuration as it is.
+
+Rspack has already consumed every other key by then. That covers keys such as `entry`, `plugins`, `context`, `mode`, `target`, `devtool`, `externals`, `experiments`, and `performance`, every `optimization` key other than `minimize` and `minimizer`, and these `output` keys: `path`, `module`, `library`, `enabledLibraryTypes`, `chunkFormat`, `chunkLoading`, `enabledChunkLoadingTypes`, `wasmLoading`, `enabledWasmLoadingTypes`, `workerChunkLoading`, `workerWasmLoading`, `workerPublicPath`, `pathinfo`, `sourceMapFilename`, `devtoolModuleFilenameTemplate`, `devtoolFallbackModuleFilenameTemplate`, `devtoolNamespace`, and `bundlerInfo`. Extension.js undoes a change to any of them, including one made deep inside a value, and prints one warning that names each key by its path. Set those in `config`.
 
 ## Full sample
 

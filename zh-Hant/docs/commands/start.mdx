@@ -151,10 +151,11 @@ extension start --no-open
 
 `--output json` 會在 stdout 印出 schema-1 信封,每行一個 JSON 物件:
 
-- 一般的 `start` 執行會在建置前印出一個 `status: "started"` 影格。它帶有專案路徑、瀏覽器清單、`pid` 與 `port: null`,因為只執行不建置的工作階段不會綁定任何埠號。
+- 一般的 `start` 執行會在建置完成、瀏覽器啟動之後印出一個 `status: "started"` 影格。它帶有專案路徑、瀏覽器清單、`pid` 與 `port: null`,因為只執行不建置的工作階段不會綁定任何埠號。失敗的執行只會印出它的失敗影格,前面永遠不會有 `started` 影格。
 - `start --wait` 執行成功時會印出一個 `status: "ready"` 影格。它的 `value.results` 陣列會按瀏覽器帶出完整的就緒契約。
 - `start --wait` 讀到處於 `error` 狀態的契約時,會印出一個指明原因的 `ok: false` 影格,例如瀏覽器根本沒有啟動時的 `E_BROWSER_LAUNCH`,或瀏覽器結束時的 `E_BROWSER_EXITED`。完整清單見 [ready.json 契約](/zh-Hant/docs/contracts/ready-json)。
-- 建置失敗時會印出一個 `ok: false` 影格,其中 `status: "build-failed"`,接著程序以 `1` 結束。編譯錯誤帶 `error.code: "E_COMPILE"`。專案資料夾不存在帶 `E_PROJECT_NOT_FOUND`,資料夾裡沒有 manifest 帶 `E_MANIFEST_NOT_FOUND`,manifest 無法解析帶 `E_MANIFEST_INVALID`。
+- 建置失敗時會印出一個 `ok: false` 影格,其中 `status: "build-failed"`,接著程序以 `1` 結束。編譯錯誤帶 `error.code: "E_COMPILE"`。專案資料夾不存在帶 `E_PROJECT_NOT_FOUND`,資料夾裡沒有 manifest 帶 `E_MANIFEST_NOT_FOUND`,manifest 無法解析帶 `E_MANIFEST_INVALID`。設定檔載入失敗帶 `E_CONFIG_LOAD`,遠端 URL 沒有提供可用的封存檔帶 `E_REMOTE_ZIP_INVALID`、`E_REMOTE_FETCH_TIMEOUT` 或 `E_REMOTE_DOWNLOAD`。
+- 瀏覽器無法啟動時會印出一個 `ok: false` 影格,其中 `status: "failed"`。`--chromium-binary` 或 `--gecko-binary` 指向不存在的路徑時代碼為 `E_BROWSER_BINARY_INVALID`,二進位檔無法執行或 Firefox 在除錯器回應之前就結束時為 `E_BROWSER_LAUNCH`,Firefox 在執行但除錯器始終沒有回應時為 `E_BROWSER_CONNECT`。
 
 ## 記錄旗標
 

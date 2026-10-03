@@ -43,7 +43,7 @@ EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-bro
 
 | 狀態             | `ok`  | 何時送出                                                                    |
 | ---------------- | ----- | --------------------------------------------------------------------------- |
-| `starting`       | true  | 只有一次，工作階段開始時。帶有 `requestedPort` 與實際綁定的 `port`。        |
+| `starting`       | true  | 只有一次，工作階段開始時，也就是設定載入完成、編譯器已建立之後。帶有 `requestedPort` 與實際綁定的 `port`。 |
 | `compiled`       | true  | 第一次成功編譯。帶有 `assets` 與 `durationMs`。                             |
 | `recompiled`     | true  | 之後每一次成功編譯。                                                        |
 | `compile-failed` | false | 一次編譯帶著錯誤結束，無論是第一次或之後。                                  |
@@ -52,6 +52,8 @@ EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-bro
 | `failed`         | false | 工作階段層級的失敗，例如伺服器始終沒能綁定，或 `ready.json` 回報 `error`。 |
 
 每個影格的 `value` 都帶有工作階段身分：`command`、`browser`、`distPath`、`pid`、`port`，以及已知時的 `readyPath`、`eventsPath`、`runId`、`instanceId` 與 `toolchainVersion`。
+
+在工作階段開始之前就被拒絕的執行只會送出一個 `failed` 影格，不會有 `starting` 影格。缺少 manifest、設定檔載入失敗，以及遠端 URL 沒有可用的封存檔，都會以這種方式結束。
 
 ## 編譯失敗
 
@@ -72,7 +74,7 @@ EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-bro
 
 這種情況下，串流改為發出一個錯誤碼為 `E_READY_ERROR_STATUS` 的 `failed` 影格，並由 `value.readyCode` 指出契約自身的錯誤碼。
 
-瀏覽器根本沒有啟動，或在擴充功能載入之前就結束時，送達的也是同一個影格。這時 `value.readyCode` 是 `browser_launch_failed` 或 `browser_exited`。
+瀏覽器根本沒有啟動，或在擴充功能載入之前就結束時，送達的也是同一個影格。這時 `value.readyCode` 是 `browser_launch_failed` 或 `browser_exited`。Firefox 的除錯器始終沒有回應時，視為啟動失敗。
 
 ## 瀏覽器結束
 
