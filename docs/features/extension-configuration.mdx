@@ -37,7 +37,10 @@ Top-level keys:
 | `extensions`        | Companion extensions applied across commands (load-only).                   |
 | `transpilePackages` | Packages to compile before bundling (useful for monorepo/workspace setups). |
 | `perfBudgets`       | Per-category asset size budgets in bytes, overridable per browser and per command. |
+| `define`            | Compile-time constants inlined into every bundle, overridable per browser and per command. |
+| `folders`           | Where the special folders live, or `false` to turn one off.                 |
 | `config`            | Hook to extend/override the generated Rspack config.                        |
+| `configResolved`    | Hook that runs once the Rspack config is final, with every loader rule attached. |
 
 ### Type-safe configuration
 
@@ -110,6 +113,8 @@ Common browser fields:
 | `extensions`          | Loads companion extensions together with the main extension.             |
 | `transpilePackages`   | Packages to compile for this browser. Outranks the top-level list.      |
 | `perfBudgets`         | Asset budgets for this browser. Outranks the top-level budgets.          |
+| `define`              | Constants for this browser. Adds to the top-level map and overrides the keys it repeats. |
+| `folders`             | Special folder locations for this browser. Replaces the top-level `folders` object. |
 
 ### Commands configuration
 
@@ -148,6 +153,7 @@ export default {
 Notes:
 
 - `extensions`, `transpilePackages`, and `perfBudgets` layer from weakest to strongest on every command: top-level, then `browser.<vendor>`, then `commands.<cmd>`, then a CLI flag.
+- `define` merges key by key across the same layers: top-level, then `browser.<vendor>`, then `commands.<cmd>` on `dev`, `start`, and `build`.
 - `commands.build.browser`, `commands.start.browser`, and `commands.preview.browser` pick the target for those commands. A `--browser` flag still wins.
 - The `start` command runs `build` then `preview` internally. Extension.js applies settings from `commands.start`, including browser-launch options like `profile`, `browserFlags`, and `startingUrl`. You can also put build-specific settings in `commands.build`.
 
@@ -204,6 +210,49 @@ Notes:
 | `logUrl`        | `dev`, `start`, `preview` | Filters logs by URL pattern.                             |
 | `logTab`        | `dev`, `start`, `preview` | Filters logs by tab ID.                                  |
 
+### Compile-time constants
+
+Use `define` to inline constants into every bundle. Extension.js serializes each value as JSON, so strings, numbers, booleans, and plain objects all work:
+
+```js
+export default {
+  define: {
+    __APP_VERSION__: "1.4.0",
+    __IS_FIREFOX__: false,
+  },
+  browser: {
+    firefox: { define: { __IS_FIREFOX__: true } },
+  },
+};
+```
+
+Your code reads `__APP_VERSION__` as a bare identifier, and the build replaces it with the value. In a TypeScript project, each key also gets an ambient declaration in the generated `extension-env.d.ts`, so `__APP_VERSION__` type-checks as a `string`.
+
+### Special folder locations
+
+Use `folders` to move a [special folder](/docs/features/special-folders) or to turn one off. Paths resolve from the project root:
+
+```js
+export default {
+  folders: {
+    scripts: "src/scripts",
+    public: "src/assets",
+    pages: false,
+  },
+};
+```
+
+| Key       | Default    | Accepts                                        |
+| --------- | ---------- | ---------------------------------------------- |
+| `scripts` | `scripts/` | A path to a folder named `scripts`, or `false` |
+| `pages`   | `pages/`   | A path to a folder named `pages`, or `false`   |
+| `public`  | `public/`  | A path to any folder, or `false`               |
+
+- A moved `scripts` or `pages` folder must keep its name. Extension.js does not read a path such as `src/injected`.
+- `false` turns the folder off. Extension.js stops compiling its files as entrypoints, and stops copying a `public` folder.
+- When `public` names a path, Extension.js copies from that folder only.
+- `browser.<vendor>.folders` replaces the top-level object as a whole. It does not merge key by key.
+
 ### Rspack configuration
 
 Need advanced bundler customization? Use `config` to patch the generated Rspack configuration:
@@ -221,6 +270,22 @@ export default {
 ```
 
 `config` may also be an object, which Extension.js merges on top of the generated config.
+
+`config` runs before Extension.js attaches its loader rules. To read or change the final configuration, use `configResolved`. It runs once per `dev`, `build`, or `start` run, right before the first compile, and receives the Rspack configuration with every loader rule attached:
+
+```js
+export default {
+  configResolved: (config) => {
+    config.module.rules.push({
+      test: /\.graphql$/,
+      type: "asset/source",
+    });
+    return config;
+  },
+};
+```
+
+Change `module` or `resolve` in place, or return a new configuration object. The hook may be async, and a hook that returns nothing keeps the configuration as it is. `entry`, `plugins`, `context`, and `mode` are fixed by then, so a returned value for any of them is ignored. Set those in `config`.
 
 ## Full sample
 
