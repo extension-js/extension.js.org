@@ -37,7 +37,10 @@ keywords:
 | `extensions`        | 在各命令中应用的附属扩展(仅加载)。                       |
 | `transpilePackages` | 在打包前需要编译的包(对 monorepo/workspace 设置很有用)。 |
 | `perfBudgets`       | 按类别设置的资源体积预算(字节)，可按浏览器与命令覆盖。 |
+| `define`            | 内联进每个 bundle 的编译期常量，可按浏览器与命令覆盖。   |
+| `folders`           | 特殊文件夹所在的位置，或用 `false` 关掉其中一个。        |
 | `config`            | 用于扩展/覆盖生成的 Rspack 配置的钩子。                  |
+| `configResolved`    | 在 Rspack 配置最终确定、所有 loader 规则都已挂上之后运行的钩子。 |
 
 ### 类型安全的配置
 
@@ -110,6 +113,8 @@ export default {
 | `extensions`          | 与主扩展一起加载附属扩展。                             |
 | `transpilePackages`   | 为该浏览器编译的包。优先于顶层列表。                   |
 | `perfBudgets`         | 该浏览器的资源预算。优先于顶层预算。                   |
+| `define`              | 该浏览器的常量。追加到顶层映射上，并覆盖重复的键。     |
+| `folders`             | 该浏览器的特殊文件夹位置。整体替换顶层的 `folders` 对象。 |
 
 ### 命令配置
 
@@ -148,6 +153,7 @@ export default {
 说明：
 
 - `extensions`、`transpilePackages` 与 `perfBudgets` 在每个命令上都按从弱到强分层：顶层，然后是 `browser.<vendor>`，然后是 `commands.<cmd>`，最后是 CLI flag。
+- `define` 在同样的层上逐键合并：顶层，然后是 `browser.<vendor>`，然后是 `dev`、`start` 和 `build` 上的 `commands.<cmd>`。
 - `commands.build.browser`、`commands.start.browser` 与 `commands.preview.browser` 决定这些命令的目标浏览器。`--browser` flag 仍然优先。
 - `start` 命令在内部会先运行 `build`，然后 `preview`。Extension.js 会应用 `commands.start` 中的设置，包括 `profile`、`browserFlags`、`startingUrl` 等浏览器启动选项。你也可以把构建相关的设置放进 `commands.build`。
 
@@ -204,6 +210,49 @@ export default {
 | `logUrl`        | `dev`、`start`、`preview` | 按 URL 模式过滤日志。                          |
 | `logTab`        | `dev`、`start`、`preview` | 按 tab ID 过滤日志。                           |
 
+### 编译期常量
+
+用 `define` 把常量内联进每个 bundle。Extension.js 会把每个值序列化为 JSON，所以字符串、数字、布尔值和普通对象都可以：
+
+```js
+export default {
+  define: {
+    __APP_VERSION__: "1.4.0",
+    __IS_FIREFOX__: false,
+  },
+  browser: {
+    firefox: { define: { __IS_FIREFOX__: true } },
+  },
+};
+```
+
+你的代码把 `__APP_VERSION__` 当作一个裸标识符来读取，构建会把它替换成对应的值。在 TypeScript 项目里，每个键还会在生成的 `extension-env.d.ts` 中得到一条环境声明，所以 `__APP_VERSION__` 会按 `string` 通过类型检查。
+
+### 特殊文件夹的位置
+
+用 `folders` 移动某个[特殊文件夹](/zh-Hans/docs/features/special-folders)，或者把它关掉。路径从项目根目录解析：
+
+```js
+export default {
+  folders: {
+    scripts: "src/scripts",
+    public: "src/assets",
+    pages: false,
+  },
+};
+```
+
+| 键        | 默认值     | 接受的值                                 |
+| --------- | ---------- | ---------------------------------------- |
+| `scripts` | `scripts/` | 指向名为 `scripts` 的文件夹的路径，或 `false` |
+| `pages`   | `pages/`   | 指向名为 `pages` 的文件夹的路径，或 `false`   |
+| `public`  | `public/`  | 指向任意文件夹的路径，或 `false`         |
+
+- 移动后的 `scripts` 或 `pages` 文件夹必须保留原名。Extension.js 不会读取 `src/injected` 这样的路径。
+- `false` 会关掉这个文件夹。Extension.js 不再把其中的文件编译成入口，也不再复制 `public` 文件夹。
+- 当 `public` 指定了路径时，Extension.js 只从那个文件夹复制。
+- `browser.<vendor>.folders` 会整体替换顶层对象，不会逐键合并。
+
 ### Rspack 配置
 
 需要更高级的打包器自定义？用 `config` 给生成的 Rspack 配置打补丁：
@@ -221,6 +270,22 @@ export default {
 ```
 
 `config` 也可以是一个对象，Extension.js 会把它合并到生成的配置之上。
+
+`config` 在 Extension.js 挂上它的 loader 规则之前运行。要读取或修改最终的配置，请使用 `configResolved`。它在每次 `dev`、`build` 或 `start` 运行中只执行一次，就在第一次编译之前，并收到已挂上所有 loader 规则的 Rspack 配置：
+
+```js
+export default {
+  configResolved: (config) => {
+    config.module.rules.push({
+      test: /\.graphql$/,
+      type: "asset/source",
+    });
+    return config;
+  },
+};
+```
+
+可以就地修改 `module` 或 `resolve`，也可以返回一个新的配置对象。这个钩子可以是异步的，什么都不返回的钩子会让配置保持原样。`entry`、`plugins`、`context` 和 `mode` 到这时已经固定，所以为它们返回的值会被忽略。请在 `config` 里设置它们。
 
 ## 完整示例
 

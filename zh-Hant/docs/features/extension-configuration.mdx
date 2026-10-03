@@ -37,7 +37,10 @@ keywords:
 | `extensions`        | 跨指令套用的附屬擴充功能（僅載入）。                          |
 | `transpilePackages` | 打包前要先編譯的套件（在 monorepo／workspace 設定中很實用）。 |
 | `perfBudgets`       | 依類別設定的資源體積預算（位元組），可依瀏覽器與指令覆寫。 |
+| `define`            | 內嵌進每個 bundle 的編譯期常數，可依瀏覽器與指令覆寫。        |
+| `folders`           | 特殊資料夾所在的位置，或用 `false` 關掉其中一個。             |
 | `config`            | 用來擴充／覆寫產生出的 Rspack 設定的 hook。                   |
+| `configResolved`    | 在 Rspack 設定最終確定、所有 loader 規則都已掛上之後執行的 hook。 |
 
 ### 型別安全的設定
 
@@ -110,6 +113,8 @@ export default {
 | `extensions`          | 與主擴充功能一起載入附屬擴充功能。              |
 | `transpilePackages`   | 為此瀏覽器編譯的套件。優先於頂層清單。                 |
 | `perfBudgets`         | 此瀏覽器的資源預算。優先於頂層預算。                   |
+| `define`              | 此瀏覽器的常數。附加到頂層對應表上，並覆寫重複的鍵。   |
+| `folders`             | 此瀏覽器的特殊資料夾位置。整個取代頂層的 `folders` 物件。 |
 
 ### 指令設定
 
@@ -148,6 +153,7 @@ export default {
 注意事項：
 
 - `extensions`、`transpilePackages` 與 `perfBudgets` 在每個指令上都依由弱到強分層：頂層，接著是 `browser.<vendor>`，接著是 `commands.<cmd>`，最後是 CLI 旗標。
+- `define` 在同樣的層上逐鍵合併：頂層，接著是 `browser.<vendor>`，接著是 `dev`、`start` 與 `build` 上的 `commands.<cmd>`。
 - `commands.build.browser`、`commands.start.browser` 與 `commands.preview.browser` 決定這些指令的目標瀏覽器。`--browser` 旗標仍然優先。
 - `start` 指令會在內部依序執行 `build` 與 `preview`。Extension.js 會套用 `commands.start` 中的設定，包括 `profile`、`browserFlags` 與 `startingUrl` 等瀏覽器啟動選項。你也可以把建置專屬的設定放在 `commands.build`。
 
@@ -204,6 +210,49 @@ export default {
 | `logUrl`        | `dev`、`start`、`preview` | 依 URL 模式過濾記錄。                          |
 | `logTab`        | `dev`、`start`、`preview` | 依分頁 ID 過濾記錄。                           |
 
+### 編譯期常數
+
+使用 `define` 把常數內嵌進每個 bundle。Extension.js 會把每個值序列化為 JSON，所以字串、數字、布林值與一般物件都可以：
+
+```js
+export default {
+  define: {
+    __APP_VERSION__: "1.4.0",
+    __IS_FIREFOX__: false,
+  },
+  browser: {
+    firefox: { define: { __IS_FIREFOX__: true } },
+  },
+};
+```
+
+你的程式碼把 `__APP_VERSION__` 當成一個裸識別字來讀取，建置會把它換成對應的值。在 TypeScript 專案裡，每個鍵還會在產生的 `extension-env.d.ts` 中得到一條環境宣告，所以 `__APP_VERSION__` 會以 `string` 通過型別檢查。
+
+### 特殊資料夾的位置
+
+使用 `folders` 移動某個[特殊資料夾](/zh-Hant/docs/features/special-folders)，或把它關掉。路徑從專案根目錄解析：
+
+```js
+export default {
+  folders: {
+    scripts: "src/scripts",
+    public: "src/assets",
+    pages: false,
+  },
+};
+```
+
+| 鍵        | 預設值     | 接受的值                                   |
+| --------- | ---------- | ------------------------------------------ |
+| `scripts` | `scripts/` | 指向名為 `scripts` 的資料夾的路徑，或 `false` |
+| `pages`   | `pages/`   | 指向名為 `pages` 的資料夾的路徑，或 `false`   |
+| `public`  | `public/`  | 指向任意資料夾的路徑，或 `false`           |
+
+- 移動後的 `scripts` 或 `pages` 資料夾必須保留原名。Extension.js 不會讀取 `src/injected` 這樣的路徑。
+- `false` 會關掉這個資料夾。Extension.js 不再把其中的檔案編譯成進入點，也不再複製 `public` 資料夾。
+- 當 `public` 指定了路徑時，Extension.js 只從那個資料夾複製。
+- `browser.<vendor>.folders` 會整個取代頂層物件，不會逐鍵合併。
+
 ### Rspack 設定
 
 需要進階的 bundler 客製化？使用 `config` 來修補產生出的 Rspack 設定：
@@ -221,6 +270,22 @@ export default {
 ```
 
 `config` 也可以是物件，Extension.js 會把它合併到產生出的設定之上。
+
+`config` 在 Extension.js 掛上它的 loader 規則之前執行。要讀取或修改最終的設定，請使用 `configResolved`。它在每次 `dev`、`build` 或 `start` 執行中只跑一次，就在第一次編譯之前，並收到已掛上所有 loader 規則的 Rspack 設定：
+
+```js
+export default {
+  configResolved: (config) => {
+    config.module.rules.push({
+      test: /\.graphql$/,
+      type: "asset/source",
+    });
+    return config;
+  },
+};
+```
+
+可以就地修改 `module` 或 `resolve`，也可以回傳一個新的設定物件。這個 hook 可以是非同步的，什麼都不回傳的 hook 會讓設定維持原樣。`entry`、`plugins`、`context` 與 `mode` 到這時已經固定，所以為它們回傳的值會被忽略。請在 `config` 裡設定它們。
 
 ## 完整範例
 
