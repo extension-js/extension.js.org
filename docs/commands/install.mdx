@@ -150,6 +150,7 @@ extension install [browser-name] [options]
 - A successful install prints a `status: "installed"` frame with the installed browsers in `value.browsers`.
 - `--where` prints a `status: "located"` frame with the resolved paths in `value.paths`.
 - A failed download prints `ok: false` with `error.code: "E_BROWSER_DOWNLOAD"` before the process exits `1`.
+- A download that finishes without leaving a usable browser binary fails the same way. See [Behavior notes](#behavior-notes).
 
 ## Examples
 
@@ -207,6 +208,7 @@ Set `EXTENSIONJS_BINARIES_IN_DIST=1` to make the run commands resolve managed bi
 
 - `chrome` installs Chrome for Testing rather than relying on the system Google Chrome app.
 - `edge` may require a privileged interactive session on Linux.
+- `install` checks the destination before it reports success. When the installer exits cleanly but the folder holds no browser binary that is a non-empty executable file, as after an interrupted download, the command fails with `E_BROWSER_DOWNLOAD` and exits `1`. It removes the incomplete files, so the next `extension install` starts clean.
 - On Deno, `install` needs Node.js on your `PATH`. The browser installer shells out to `npx`, or to the package manager that launched the CLI, to run the download engine, and `deno` has no such runner. Without Node.js the command fails at the download step. The other commands run on Deno alone.
 
 ## Next steps

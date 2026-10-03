@@ -24,7 +24,7 @@ keywords:
 | ---------- | -------------------------------------------------------------------------------------- |
 | `starting` | 這次執行開始了。檔案會重設,`events.ndjson` 也會為本次執行清空。                        |
 | `ready`    | 最近一次編譯成功,輸出已經在磁碟上。                                                    |
-| `error`    | 編譯失敗,或瀏覽器拒絕了、弄丟了這個擴充功能。                                          |
+| `error`    | 編譯失敗,瀏覽器根本沒有啟動或在擴充功能載入之前就結束了,或瀏覽器拒絕了、弄丟了這個擴充功能。 |
 | `stopped`  | 監看已關閉。會蓋上 `code: "shutdown"`,這樣一個死掉的工作階段永遠不會宣稱自己 `ready`。 |
 
 ## 兩階段就緒
@@ -80,6 +80,9 @@ attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也�
 | `extensionVersion`   | string         | 擴充功能的版本,作為建置來源資訊。                                                                                                                      |
 | `browserExitedAt`    | ISO string     | 瀏覽器在工作階段中途、沒被要求就結束時蓋上。跨重新編譯保留。                                                                                           |
 | `browserExitCode`    | number 或 null | 與 `browserExitedAt` 並列的結束碼。                                                                                                                    |
+| `browserExitSignal`  | string 或 null | 瀏覽器死於某個訊號時,與 `browserExitedAt` 並列的訊號,例如當機時的 `SIGTRAP`。當機不帶結束碼,所以這是說明它為什麼結束的唯一線索。 |
+| `browserLaunchFailedAt` | ISO string | 根本沒有任何瀏覽器處理程序起來時蓋上。跨重新編譯保留。 |
+| `browserLaunchFailedReason` | string | 與 `browserLaunchFailedAt` 並列的原因,寫成一行純文字,例如帶著執行檔路徑的 spawn 錯誤。 |
 | `runtime`            | `"attached"` 或 `"detached"` | service worker 連上且可被驅動後為 `attached`。從 4.1.20 起,最後一個已連線的擴充功能情境斷線後為 `detached`,重新連線後又回到 `attached`。 |
 | `executorAttachedAt` | ISO string     | service worker 第一次連上的時間。斷線後會作為來源記錄保留。 |
 | `executorDetachedAt` | ISO string     | 從 4.1.20 起,最後一個已連線的擴充功能情境斷線的時間。 |
@@ -87,15 +90,18 @@ attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也�
 
 ## 錯誤狀態
 
-`code` 欄位為失敗類別命名。對自動化來說有三個代碼要緊:
+`code` 欄位為失敗類別命名。對自動化來說有四個代碼要緊:
 
 | `code`                   | 發生了什麼                                                                                                                                              |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `extension_load_refused` | 工作階段還在跑,但瀏覽器把擴充功能丟了出去。其他每一個介面看起來都健康,只有契約會告訴你。會帶 `extensionLoadRefusedAt` 與 `extensionLoadRefusedReason`。 |
 | `profile_locked`         | 另一個活著的工作階段占著這個設定檔,所以瀏覽器根本沒有啟動。會帶 `profileLockedAt` 與一個含 `host` 和 `pid` 的 `profileLockOwner`。                      |
-| `browser_exited`         | 瀏覽器處理程序死了。`start` 與 `preview` 會翻成 `error`。`dev` 會保留它的編譯狀態,只蓋上 `browserExitedAt`。                                            |
+| `browser_exited`         | 瀏覽器處理程序死了。`start` 與 `preview` 會翻成 `error`。`dev` 只有在瀏覽器先於擴充功能載入就結束時才翻成 `error`。過了那個點,`dev` 會保留它的編譯狀態,只蓋上 `browserExitedAt`。 |
+| `browser_launch_failed`  | 沒有任何瀏覽器處理程序起來:執行檔不存在、無法執行,或固定的路徑不對。`dev`、`start` 與 `preview` 都會翻成 `error`。會帶 `browserLaunchFailedAt` 與 `browserLaunchFailedReason`。 |
 
 一次載入被拒會活過下一次成功編譯。只有一次新的執行(`starting`)或一次真正的執行器 attach 才能把它清掉。
+
+瀏覽器在擴充功能載入之前就結束的 `dev` 工作階段,會跨重新編譯一直停在 `error`,因為重新編譯不會把瀏覽器帶回來。啟動失敗同樣會活過重新編譯,直到真的有一個瀏覽器啟動,或開始一次新的執行。
 
 ## 用 --wait 等待
 
@@ -107,13 +113,24 @@ attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也�
 2. `pid` 必須還活著。對 `dev` 而言,產生者已死一定代表檔案過期,所以會繼續輪詢。
 3. 對 `start` 而言,只有契約夠新鮮時才接受一個已死的 pid。新鮮的意思是 `ts`、`compiledAt` 或 `startedAt` 落在最近 60 秒內。
 
-逾時會以 `E_READY_TIMEOUT` 結束。處於 `error` 狀態的契約會帶著它的 message 讓等待失敗。
+逾時會以 `E_READY_TIMEOUT` 結束。處於 `error` 狀態的契約會帶著它的 message 讓等待失敗,結果裡的 `error.code` 由契約自身的代碼解析而來:
+
+| 契約的 `code`             | `--wait` 的錯誤碼          |
+| ------------------------- | -------------------------- |
+| `compile_error`           | `E_COMPILE`                |
+| `compile_failed`          | `E_COMPILE_FATAL`          |
+| `dev_server_start_failed` | `E_DEV_SERVER_START`       |
+| `browser_launch_failed`   | `E_BROWSER_LAUNCH`         |
+| `browser_exited`          | `E_BROWSER_EXITED`         |
+| `profile_locked`          | `E_PROFILE_LOCKED`         |
+| `extension_load_refused`  | `E_EXTENSION_LOAD_REFUSED` |
+| 不在這張表裡的代碼        | `E_READY_ERROR_STATUS`     |
 
 ## 把工作階段檔案串起來
 
 同一個資料夾裡還有 `events.ndjson`(編譯時間軸)與 `logs.ndjson`(擴充功能的主控台輸出)。兩者的每一列都帶著來自 `ready.json` 的 `runId`。
 
-`events.ndjson` 在每次執行開始時被清空,所以它永遠只描述目前這次執行。事件型別有 `compile_start`、`compile_success`、`compile_error` 與 `shutdown`。
+`events.ndjson` 在每次執行開始時被清空,所以它永遠只描述目前這次執行。事件型別有 `compile_start`、`compile_success`、`compile_error`、`browser_exited`、`browser_launch_failed` 與 `shutdown`。`browser_exited` 這一列對應啟動器蓋下的結束標記,帶 `exitCode`、`exitSignal` 與 `browserExitedAt`,所以時間軸會說明瀏覽器是什麼時候、怎麼走的。在它之後,每個 act verb 都會回答 `E_CONTROL_UNAVAILABLE`,並指出這次結束與需要的重新啟動,因為在新的 `dev` 工作階段重新啟動瀏覽器之前,不會有 service worker 重新連上。`browser_launch_failed` 這一列對應啟動失敗的標記,帶 `browserLaunchFailedAt` 與 `reason`。
 
 ## 範例
 

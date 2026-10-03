@@ -24,7 +24,7 @@ keywords:
 | ---------- | --------------------------------------------------------------------------------------- |
 | `starting` | 这次运行开始了。文件被重置，`events.ndjson` 也为本次运行清空。                          |
 | `ready`    | 最近一次编译成功，输出已经在磁盘上。                                                    |
-| `error`    | 编译失败，或者浏览器拒绝了、丢掉了这个扩展。                                            |
+| `error`    | 编译失败，浏览器根本没有启动或在扩展加载之前就退出了，或者浏览器拒绝了、丢掉了这个扩展。 |
 | `stopped`  | 监听已关闭。会盖上 `code: "shutdown"`，这样一个已经死掉的会话永远不会宣称自己 `ready`。 |
 
 ## 两阶段就绪
@@ -80,6 +80,9 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `extensionVersion`   | string         | 扩展的版本，作为构建溯源信息。                                                                                                                                     |
 | `browserExitedAt`    | ISO string     | 浏览器在会话中途、没被要求就退出时盖上。跨重新编译保留。                                                                                                           |
 | `browserExitCode`    | number 或 null | 与 `browserExitedAt` 并列的退出码。                                                                                                                                |
+| `browserExitSignal`  | string 或 null | 浏览器死于某个信号时，与 `browserExitedAt` 并列的信号，比如崩溃时的 `SIGTRAP`。崩溃不带退出码，所以这是说明它为什么退出的唯一线索。 |
+| `browserLaunchFailedAt` | ISO string | 根本没有任何浏览器进程起来时盖上。跨重新编译保留。 |
+| `browserLaunchFailedReason` | string | 与 `browserLaunchFailedAt` 并列的原因，写成一行纯文本，比如带着二进制路径的 spawn 错误。 |
 | `runtime`            | `"attached"` 或 `"detached"` | service worker 连上并且可以被驱动后为 `attached`。从 4.1.20 起，最后一个已连接的扩展上下文断开后为 `detached`，重新连接后又回到 `attached`。 |
 | `executorAttachedAt` | ISO string     | service worker 第一次连上的时间。断开后会作为来源记录保留。 |
 | `executorDetachedAt` | ISO string     | 从 4.1.20 起，最后一个已连接的扩展上下文断开的时间。 |
@@ -87,15 +90,18 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 
 ## 错误状态
 
-`code` 字段给失败类别命名。对自动化来说有三个代码要紧：
+`code` 字段给失败类别命名。对自动化来说有四个代码要紧：
 
 | `code`                   | 发生了什么                                                                                                                                    |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `extension_load_refused` | 会话在跑，但浏览器把扩展扔了出去。其他每一个界面看起来都正常，只有契约会告诉你。带 `extensionLoadRefusedAt` 与 `extensionLoadRefusedReason`。 |
 | `profile_locked`         | 另一个活着的会话占着这个配置文件，所以浏览器根本没有启动。带 `profileLockedAt` 和一个含 `host` 与 `pid` 的 `profileLockOwner`。               |
-| `browser_exited`         | 浏览器进程死了。`start` 和 `preview` 会翻成 `error`。`dev` 保持它的编译状态，只盖上 `browserExitedAt`。                                       |
+| `browser_exited`         | 浏览器进程死了。`start` 和 `preview` 会翻成 `error`。`dev` 只有在浏览器先于扩展加载就退出时才翻成 `error`。过了那个点，`dev` 保持它的编译状态，只盖上 `browserExitedAt`。 |
+| `browser_launch_failed`  | 没有任何浏览器进程起来：二进制不存在、无法执行，或者固定的路径不对。`dev`、`start` 和 `preview` 都会翻成 `error`。带 `browserLaunchFailedAt` 与 `browserLaunchFailedReason`。 |
 
 一次加载被拒会活过下一次成功编译。只有一次新的运行（`starting`）或者一次真正的执行器 attach 才能把它清掉。
+
+浏览器在扩展加载之前就退出的 `dev` 会话，会跨重新编译一直停在 `error`，因为重新编译不会把浏览器带回来。启动失败同样会活过重新编译，直到真的有一个浏览器启动，或者开始一次新的运行。
 
 ## 用 --wait 等待
 
@@ -107,13 +113,24 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 2. `pid` 必须还活着。对 `dev` 来说，生产者已死就一定意味着文件过期，所以轮询会继续。
 3. 对 `start` 来说，只有当契约足够新鲜时，才接受一个已死的 pid。新鲜的意思是 `ts`、`compiledAt` 或 `startedAt` 在最近 60 秒之内。
 
-超时会以 `E_READY_TIMEOUT` 退出。处于 `error` 状态的契约会带着它的 message 让等待失败。
+超时会以 `E_READY_TIMEOUT` 退出。处于 `error` 状态的契约会带着它的 message 让等待失败，结果里的 `error.code` 由契约自身的代码解析而来：
+
+| 契约的 `code`             | `--wait` 的错误码          |
+| ------------------------- | -------------------------- |
+| `compile_error`           | `E_COMPILE`                |
+| `compile_failed`          | `E_COMPILE_FATAL`          |
+| `dev_server_start_failed` | `E_DEV_SERVER_START`       |
+| `browser_launch_failed`   | `E_BROWSER_LAUNCH`         |
+| `browser_exited`          | `E_BROWSER_EXITED`         |
+| `profile_locked`          | `E_PROFILE_LOCKED`         |
+| `extension_load_refused`  | `E_EXTENSION_LOAD_REFUSED` |
+| 不在这张表里的代码        | `E_READY_ERROR_STATUS`     |
 
 ## 把会话文件连起来
 
 同一个目录里还放着 `events.ndjson`（编译时间线）和 `logs.ndjson`（扩展的控制台输出）。这两个文件里的每一行都带着来自 `ready.json` 的 `runId`。
 
-`events.ndjson` 在每次运行开始时被清空，所以它永远只描述当前这次运行。事件类型有 `compile_start`、`compile_success`、`compile_error` 和 `shutdown`。
+`events.ndjson` 在每次运行开始时被清空，所以它永远只描述当前这次运行。事件类型有 `compile_start`、`compile_success`、`compile_error`、`browser_exited`、`browser_launch_failed` 和 `shutdown`。`browser_exited` 这一行对应启动器盖下的退出戳，带 `exitCode`、`exitSignal` 和 `browserExitedAt`，所以时间线会说明浏览器是什么时候、怎么走的。在它之后，每个 act verb 都会回答 `E_CONTROL_UNAVAILABLE`，并指出这次退出和需要的重启，因为在新的 `dev` 会话重新启动浏览器之前，不会有 service worker 重新连上。`browser_launch_failed` 这一行对应启动失败的戳，带 `browserLaunchFailedAt` 和 `reason`。
 
 ## 示例
 

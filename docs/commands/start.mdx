@@ -145,7 +145,7 @@ For production-oriented Playwright, continuous integration (CI), and AI workflow
 `--wait` exits non-zero on `error`/timeout and ignores stale contracts from dead processes (`pid` no longer alive).
 Because `start` can finish quickly, a contract from a completed run still counts when its timestamp is within a 60 second window.
 `--wait` requires a local project path. Passing a remote URL exits with `E_ARGS`.
-If you pass both `--wait` and `--no-browser` in the same invocation, `--wait` takes precedence. The command runs in wait-only mode.
+Passing both `--wait` and `--no-browser` in the same invocation exits with `E_INVALID_OPTION`, because `--wait` only reads a contract that another process writes. Run them as two processes, as in the steps above.
 
 ### Machine output with `--output json`
 
@@ -153,6 +153,7 @@ If you pass both `--wait` and `--no-browser` in the same invocation, `--wait` ta
 
 - A plain `start` run prints one `status: "started"` frame before the build. It carries the project path, browser list, `pid`, and `port: null`, because a run-only session binds no port.
 - A `start --wait` run prints one `status: "ready"` frame on success. Its `value.results` array carries the full ready contract per browser.
+- A `start --wait` run that reads a contract in `error` status prints one `ok: false` frame that names the cause, for example `E_BROWSER_LAUNCH` when the browser never started or `E_BROWSER_EXITED` when it exited. See [the ready.json contract](/docs/contracts/ready-json) for the full list.
 - A failed build prints one `ok: false` frame with `status: "build-failed"` before the process exits `1`. A compile error carries `error.code: "E_COMPILE"`. A missing project folder carries `E_PROJECT_NOT_FOUND`, a folder with no manifest carries `E_MANIFEST_NOT_FOUND`, and a manifest that does not parse carries `E_MANIFEST_INVALID`.
 
 ## Logging flags
