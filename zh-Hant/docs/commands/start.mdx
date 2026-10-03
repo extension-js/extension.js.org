@@ -145,7 +145,7 @@ extension start --no-open
 `--wait` 在 `error`/逾時時以非零碼結束,並會忽略來自已死程序(`pid` 不存在)的過期契約。
 因為 `start` 可能很快就結束,只要時間戳落在 60 秒的視窗內,已完成執行留下的契約一樣算數。
 `--wait` 需要本地專案路徑。傳入遠端 URL 會以 `E_ARGS` 結束。
-如果你在同一次指令中同時傳入 `--wait` 與 `--no-browser`,`--wait` 優先,指令會以「僅等待」模式執行。
+在同一次指令中同時傳入 `--wait` 與 `--no-browser` 會以 `E_INVALID_OPTION` 結束,因為 `--wait` 只讀取另一個程序寫出的契約。請像上面的步驟那樣把它們當成兩個程序執行。
 
 ### 用 `--output json` 取得機器可讀輸出
 
@@ -153,6 +153,7 @@ extension start --no-open
 
 - 一般的 `start` 執行會在建置前印出一個 `status: "started"` 影格。它帶有專案路徑、瀏覽器清單、`pid` 與 `port: null`,因為只執行不建置的工作階段不會綁定任何埠號。
 - `start --wait` 執行成功時會印出一個 `status: "ready"` 影格。它的 `value.results` 陣列會按瀏覽器帶出完整的就緒契約。
+- `start --wait` 讀到處於 `error` 狀態的契約時,會印出一個指明原因的 `ok: false` 影格,例如瀏覽器根本沒有啟動時的 `E_BROWSER_LAUNCH`,或瀏覽器結束時的 `E_BROWSER_EXITED`。完整清單見 [ready.json 契約](/zh-Hant/docs/contracts/ready-json)。
 - 建置失敗時會印出一個 `ok: false` 影格,其中 `status: "build-failed"`,接著程序以 `1` 結束。編譯錯誤帶 `error.code: "E_COMPILE"`。專案資料夾不存在帶 `E_PROJECT_NOT_FOUND`,資料夾裡沒有 manifest 帶 `E_MANIFEST_NOT_FOUND`,manifest 無法解析帶 `E_MANIFEST_INVALID`。
 
 ## 記錄旗標
