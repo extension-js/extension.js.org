@@ -18,6 +18,8 @@ keywords:
 
 每一次 `dev`、`start`、`preview` 和 `build` 运行，都会在每次编译时原子地写入 `dist/extension-js/<browser>/ready.json`。当前契约是 `schemaVersion: 2`。
 
+没有构建产物的 `preview` 会加载源码目录，但仍然把契约写到项目的 `dist/extension-js/<browser>/ready.json`，并带有已构建的 preview 所带的全部浏览器字段。
+
 ## 状态
 
 | 状态       | 含义                                                                                    |
@@ -96,8 +98,8 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `extension_load_refused` | 会话在跑，但浏览器把扩展扔了出去。其他每一个界面看起来都正常，只有契约会告诉你。带 `extensionLoadRefusedAt` 与 `extensionLoadRefusedReason`。 |
 | `profile_locked`         | 另一个活着的会话占着这个配置文件，所以浏览器根本没有启动。带 `profileLockedAt` 和一个含 `host` 与 `pid` 的 `profileLockOwner`。               |
-| `browser_exited`         | 浏览器进程死了。`start` 和 `preview` 会翻成 `error`。`dev` 只有在浏览器先于扩展加载就退出时才翻成 `error`。过了那个点，`dev` 保持它的编译状态，只盖上 `browserExitedAt`。 |
-| `browser_launch_failed`  | 没有任何浏览器进程起来：二进制不存在、无法执行，或者固定的路径不对。`dev`、`start` 和 `preview` 都会翻成 `error`。带 `browserLaunchFailedAt` 与 `browserLaunchFailedReason`。 |
+| `browser_exited`         | 浏览器进程死了。`start` 和 `preview` 会翻成 `error`。`dev` 只有在浏览器先于扩展加载就退出时才翻成 `error`。过了那个点，`dev` 保持它的编译状态，只盖上 `browserExitedAt`。Firefox 在调试器应答之前就退出时，大约一秒内落到这里。 |
+| `browser_launch_failed`  | 没有任何浏览器进程起来：二进制不存在、无法执行，或者固定的路径不对。Firefox 在运行但调试器始终没有应答时也落到这里，Extension.js 会结束那个进程。`dev`、`start` 和 `preview` 都会翻成 `error`。带 `browserLaunchFailedAt` 与 `browserLaunchFailedReason`。 |
 
 一次加载被拒会活过下一次成功编译。只有一次新的运行（`starting`）或者一次真正的执行器 attach 才能把它清掉。
 

@@ -38,7 +38,7 @@ keywords:
 | `transpilePackages` | 打包前要先編譯的套件（在 monorepo／workspace 設定中很實用）。 |
 | `perfBudgets`       | 依類別設定的資源體積預算（位元組），可依瀏覽器與指令覆寫。 |
 | `define`            | 內嵌進每個 bundle 的編譯期常數，可依瀏覽器與指令覆寫。        |
-| `folders`           | 特殊資料夾所在的位置，或用 `false` 關掉其中一個。             |
+| `folders`           | 特殊資料夾所在的位置，或用 `false` 關掉其中一個，可依瀏覽器與依指令覆寫。 |
 | `config`            | 用來擴充／覆寫產生出的 Rspack 設定的 hook。                   |
 | `configResolved`    | 在 Rspack 設定最終確定、所有 loader 規則都已掛上之後執行的 hook。 |
 
@@ -154,6 +154,7 @@ export default {
 
 - `extensions`、`transpilePackages` 與 `perfBudgets` 在每個指令上都依由弱到強分層：頂層，接著是 `browser.<vendor>`，接著是 `commands.<cmd>`，最後是 CLI 旗標。
 - `define` 在同樣的層上逐鍵合併：頂層，接著是 `browser.<vendor>`，接著是 `dev`、`start` 與 `build` 上的 `commands.<cmd>`。
+- `folders` 從不逐鍵合併。`browser.<vendor>.folders` 取代頂層物件，`dev`、`start` 與 `build` 上的 `commands.<cmd>.folders` 則同時取代這兩者。
 - `commands.build.browser`、`commands.start.browser` 與 `commands.preview.browser` 決定這些指令的目標瀏覽器。`--browser` 旗標仍然優先。
 - `start` 指令會在內部依序執行 `build` 與 `preview`。Extension.js 會套用 `commands.start` 中的設定，包括 `profile`、`browserFlags` 與 `startingUrl` 等瀏覽器啟動選項。你也可以把建置專屬的設定放在 `commands.build`。
 
@@ -177,6 +178,7 @@ export default {
 | `allowedHosts`        | `dev`                              | 開發伺服器額外回應的 `Host` 名稱，陣列或逗號分隔的字串。前導的點允許所有子網域。 |
 | `noBrowser`           | `dev`、`start`、`preview`          | 停用瀏覽器啟動（`commands.<cmd>.noBrowser`）。             |
 | `extensions`          | `dev`、`start`、`preview`、`build` | 載入附屬擴充功能（或擴充功能清單）。                       |
+| `folders`             | `dev`、`start`、`build`            | 此指令的特殊資料夾位置。取代頂層與依瀏覽器設定的 `folders`。 |
 | `install`             | `dev`、`start`、`build`            | 執行前先安裝缺少的依賴項。                                 |
 | `transpilePackages`   | `dev`、`start`、`preview`、`build` | 編譯指定的 workspace／外部套件。                           |
 
@@ -250,8 +252,11 @@ export default {
 
 - 移動後的 `scripts` 或 `pages` 資料夾必須保留原名。Extension.js 不會讀取 `src/injected` 這樣的路徑。
 - `false` 會關掉這個資料夾。Extension.js 不再把其中的檔案編譯成進入點，也不再複製 `public` 資料夾。
+  - 被關掉的 `scripts` 資料夾裡、由你的程式碼點名的腳本（例如在 `chrome.scripting.executeScript({files})` 中）仍然會發佈。Extension.js 會像編譯其他資料夾裡的腳本一樣編譯它，不加內容腳本包裝。
+  - 被關掉的 `public` 資料夾裡的任何內容都不會發佈，`/icon.png` 這樣的根路徑也不再指向那裡。如果 manifest 仍然點名那裡的檔案，建置會失敗並逐一列出這些檔案。如果頁面或樣式表參照了那裡的檔案，建置會為每處參照印出一則警告。請重新開啟這個資料夾，或把檔案移出 `public/`。
+- 移動後的資料夾與預設資料夾的行為完全一致。移動後的 `scripts` 資料夾裡的腳本會得到內容腳本包裝，並在 `dev` 中原地重新載入。移動後的 `pages` 資料夾裡的頁面會建置到同樣的 `pages/` 輸出。頁面、樣式表或 manifest 用同樣的根路徑（例如 `/logo.png`）就能存取移動後的 `public` 資料夾裡的檔案。
 - 當 `public` 指定了路徑時，Extension.js 只從那個資料夾複製。
-- `browser.<vendor>.folders` 會整個取代頂層物件，不會逐鍵合併。
+- `browser.<vendor>.folders` 會整個取代頂層物件，`commands.<cmd>.folders` 則同時取代這兩者。兩者都不會逐鍵合併。
 
 ### Rspack 設定
 
@@ -285,7 +290,9 @@ export default {
 };
 ```
 
-可以就地修改 `module` 或 `resolve`，也可以回傳一個新的設定物件。這個 hook 可以是非同步的，什麼都不回傳的 hook 會讓設定維持原樣。`entry`、`plugins`、`context` 與 `mode` 到這時已經固定，所以為它們回傳的值會被忽略。請在 `config` 裡設定它們。
+這個 hook 可以修改 `module`、`resolve`、`resolveLoader`、`node`、`optimization.minimize`、`optimization.minimizer`，以及 Rspack 在建置開始時才讀取的 `output` 選項，例如檔案名稱與 `environment`。可以就地修改它們，也可以回傳一個新的設定物件。這個 hook 可以是非同步的，什麼都不回傳的 hook 會讓設定維持原樣。
+
+到這時 Rspack 已經消耗了其餘所有鍵。這包括 `entry`、`plugins`、`context`、`mode`、`target`、`devtool`、`externals`、`experiments` 與 `performance` 這類鍵，`minimize` 與 `minimizer` 之外的所有 `optimization` 鍵，以及這些 `output` 鍵：`path`、`module`、`library`、`enabledLibraryTypes`、`chunkFormat`、`chunkLoading`、`enabledChunkLoadingTypes`、`wasmLoading`、`enabledWasmLoadingTypes`、`workerChunkLoading`、`workerWasmLoading`、`workerPublicPath`、`pathinfo`、`sourceMapFilename`、`devtoolModuleFilenameTemplate`、`devtoolFallbackModuleFilenameTemplate`、`devtoolNamespace`、`bundlerInfo`。對其中任何一個的修改，包括深入到值內部的修改，Extension.js 都會復原，並印出一則依路徑列出每個鍵的警告。請在 `config` 裡設定它們。
 
 ## 完整範例
 
