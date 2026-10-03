@@ -43,7 +43,7 @@ While the stream is on, human copy that shares stdout moves to stderr. Error cop
 
 | Status           | `ok`  | When it arrives                                                            |
 | ---------------- | ----- | -------------------------------------------------------------------------- |
-| `starting`       | true  | Once, when the session begins. Carries `requestedPort` and the bound `port`. |
+| `starting`       | true  | Once, when the session begins, after the config loads and the compiler exists. Carries `requestedPort` and the bound `port`. |
 | `compiled`       | true  | The first successful compile. Carries `assets` and `durationMs`.            |
 | `recompiled`     | true  | Every later successful compile.                                             |
 | `compile-failed` | false | A compile finished with errors, first or later.                             |
@@ -52,6 +52,8 @@ While the stream is on, human copy that shares stdout moves to stderr. Error cop
 | `failed`         | false | A session-level failure, for example the server never bound, or `ready.json` reports `error`. |
 
 Every frame's `value` carries the session identity: `command`, `browser`, `distPath`, `pid`, `port`, plus `readyPath`, `eventsPath`, `runId`, `instanceId`, and `toolchainVersion` when known.
+
+A run refused before the session begins sends one `failed` frame and no `starting` frame. A missing manifest, a config file that fails to load, and a remote URL with no usable archive all end that way.
 
 ## Compile failures
 
@@ -72,7 +74,7 @@ The `ready` frame reads `ready.json` before it fires. A compile can succeed whil
 
 In that case the stream emits a `failed` frame with code `E_READY_ERROR_STATUS` instead, and `value.readyCode` names the contract's own error code.
 
-The same frame arrives when the browser never started or exited before the extension loaded. `value.readyCode` is then `browser_launch_failed` or `browser_exited`.
+The same frame arrives when the browser never started or exited before the extension loaded. `value.readyCode` is then `browser_launch_failed` or `browser_exited`. A Firefox whose debugger never answers counts as a launch failure.
 
 ## Browser exits
 

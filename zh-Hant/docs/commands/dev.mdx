@@ -228,7 +228,9 @@ extension dev --no-open
 
 `--output json` 會在 stdout 印出 schema-1 信封,每行一個 JSON 物件:
 
-- 一般的 `dev` 執行會在啟動時印出一個 `status: "started"` 訊框。它帶有專案路徑、瀏覽器清單、請求的埠號,以及開發伺服器的 `pid`。`dev` 不會自行結束,所以後面不會再有結果訊框。即時狀態請讀 `ready.json`。
+- 一般的 `dev` 執行會在工作階段建立之後、緊接在 `starting` 訊框之前,把一個 `status: "started"` 訊框當作 stdout 的第一行印出。它帶有專案路徑、瀏覽器清單、請求的埠號,以及開發伺服器的 `pid`。`dev` 不會自行結束,所以後面不會再有結果訊框。接下來的 [生命週期訊框](/zh-Hant/docs/contracts/lifecycle-stream)(`starting`、`compiled`、`ready` 以及之後的訊框)同樣寫到 stdout,給人看的進度行則寫到 stderr,因此 stdout 的每一行都能以 JSON 解析。即時狀態請讀 `ready.json`。
+- 在工作階段建立之前就被拒絕的執行只會印出一個 `ok: false` 訊框,前面沒有 `started` 訊框。這包括缺少 manifest(`E_MANIFEST_NOT_FOUND`)、manifest 無法解析(`E_MANIFEST_INVALID`)、設定檔載入失敗(`E_CONFIG_LOAD`),以及遠端 URL 沒有提供可用的封存檔(`E_REMOTE_ZIP_INVALID`、`E_REMOTE_FETCH_TIMEOUT` 或 `E_REMOTE_DOWNLOAD`)。
+- `--chromium-binary` 或 `--gecko-binary` 指向不存在的路徑時,伺服器不會停止。契約會進入 `error`,代碼為 `browser_launch_failed`,並會有一個帶著該 `readyCode` 的 `failed` 訊框。
 - `dev --wait` 成功時會印出一個 `status: "ready"` 訊框。它的 `value.results` 陣列會逐一瀏覽器帶出完整的就緒契約。
 - 失敗時會在程序以 `1` 結束前,印出一個帶有 `error.code`(例如 `E_READY_TIMEOUT`)的 `ok: false` 訊框。處於 `error` 狀態的契約會指明原因:瀏覽器根本沒有啟動時是 `E_BROWSER_LAUNCH`,在擴充功能載入之前就結束時是 `E_BROWSER_EXITED`,編譯錯誤是 `E_COMPILE`。完整清單見 [ready.json 契約](/zh-Hant/docs/contracts/ready-json)。
 

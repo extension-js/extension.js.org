@@ -18,6 +18,8 @@ Poll one JSON file to know when a session is ready, broken, or gone.
 
 Every `dev`, `start`, `preview`, and `build` run writes `dist/extension-js/<browser>/ready.json` atomically on each compile. The current contract is `schemaVersion: 2`.
 
+A `preview` with no build loads the source folder and still writes its contract to the project's `dist/extension-js/<browser>/ready.json`, with every browser field a built preview carries.
+
 ## Statuses
 
 | Status     | Meaning                                                                       |
@@ -96,8 +98,8 @@ The `code` field names the failure class. Four codes matter for automation:
 | ------------------------- | ------------------------------------------------------------------------------------------ |
 | `extension_load_refused`  | The session runs, but the browser threw the extension out. Every other surface looks healthy, only the contract says so. Carries `extensionLoadRefusedAt` and `extensionLoadRefusedReason`. |
 | `profile_locked`          | Another live session holds the profile, so the browser never started. Carries `profileLockedAt` and a `profileLockOwner` with `host` and `pid`. |
-| `browser_exited`          | The browser process died. `start` and `preview` flip to `error`. `dev` flips to `error` only when the browser exits before the extension loaded. After that point `dev` keeps its compile status and only stamps `browserExitedAt`. |
-| `browser_launch_failed`   | No browser process came up: the binary is missing, cannot be executed, or the pin is wrong. `dev`, `start`, and `preview` all flip to `error`. Carries `browserLaunchFailedAt` and `browserLaunchFailedReason`. |
+| `browser_exited`          | The browser process died. `start` and `preview` flip to `error`. `dev` flips to `error` only when the browser exits before the extension loaded. After that point `dev` keeps its compile status and only stamps `browserExitedAt`. A Firefox that exits before its debugger answers lands here within about a second. |
+| `browser_launch_failed`   | No browser process came up: the binary is missing, cannot be executed, or the pin is wrong. A Firefox that runs but whose debugger never answers lands here too, and Extension.js stops that process. `dev`, `start`, and `preview` all flip to `error`. Carries `browserLaunchFailedAt` and `browserLaunchFailedReason`. |
 
 A load refusal outlives the next successful compile. Only a new run (`starting`) or a real executor attach clears it.
 

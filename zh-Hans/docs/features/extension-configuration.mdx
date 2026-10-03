@@ -38,7 +38,7 @@ keywords:
 | `transpilePackages` | 在打包前需要编译的包(对 monorepo/workspace 设置很有用)。 |
 | `perfBudgets`       | 按类别设置的资源体积预算(字节)，可按浏览器与命令覆盖。 |
 | `define`            | 内联进每个 bundle 的编译期常量，可按浏览器与命令覆盖。   |
-| `folders`           | 特殊文件夹所在的位置，或用 `false` 关掉其中一个。        |
+| `folders`           | 特殊文件夹所在的位置，或用 `false` 关掉其中一个，可按浏览器和按命令覆盖。 |
 | `config`            | 用于扩展/覆盖生成的 Rspack 配置的钩子。                  |
 | `configResolved`    | 在 Rspack 配置最终确定、所有 loader 规则都已挂上之后运行的钩子。 |
 
@@ -154,6 +154,7 @@ export default {
 
 - `extensions`、`transpilePackages` 与 `perfBudgets` 在每个命令上都按从弱到强分层：顶层，然后是 `browser.<vendor>`，然后是 `commands.<cmd>`，最后是 CLI flag。
 - `define` 在同样的层上逐键合并：顶层，然后是 `browser.<vendor>`，然后是 `dev`、`start` 和 `build` 上的 `commands.<cmd>`。
+- `folders` 从不逐键合并。`browser.<vendor>.folders` 替换顶层对象，`dev`、`start` 和 `build` 上的 `commands.<cmd>.folders` 则同时替换这两者。
 - `commands.build.browser`、`commands.start.browser` 与 `commands.preview.browser` 决定这些命令的目标浏览器。`--browser` flag 仍然优先。
 - `start` 命令在内部会先运行 `build`，然后 `preview`。Extension.js 会应用 `commands.start` 中的设置，包括 `profile`、`browserFlags`、`startingUrl` 等浏览器启动选项。你也可以把构建相关的设置放进 `commands.build`。
 
@@ -177,6 +178,7 @@ export default {
 | `allowedHosts`        | `dev`                              | 开发服务器额外应答的 `Host` 名称，数组或逗号分隔的字符串。前导的点允许所有子域名。 |
 | `noBrowser`           | `dev`、`start`、`preview`          | 禁用浏览器启动(`commands.<cmd>.noBrowser`)。            |
 | `extensions`          | `dev`、`start`、`preview`、`build` | 加载附属扩展(或扩展列表)。                              |
+| `folders`             | `dev`、`start`、`build`            | 该命令的特殊文件夹位置。替换顶层和按浏览器设置的 `folders`。 |
 | `install`             | `dev`、`start`、`build`            | 运行前安装缺失的依赖。                                  |
 | `transpilePackages`   | `dev`、`start`、`preview`、`build` | 编译列出的 workspace/外部包。                           |
 
@@ -250,8 +252,11 @@ export default {
 
 - 移动后的 `scripts` 或 `pages` 文件夹必须保留原名。Extension.js 不会读取 `src/injected` 这样的路径。
 - `false` 会关掉这个文件夹。Extension.js 不再把其中的文件编译成入口，也不再复制 `public` 文件夹。
+  - 被关掉的 `scripts` 文件夹里、由你的代码点名的脚本（例如在 `chrome.scripting.executeScript({files})` 中）仍然会发布。Extension.js 会像编译其他文件夹里的脚本一样编译它，不加内容脚本包装。
+  - 被关掉的 `public` 文件夹里的任何内容都不会发布，`/icon.png` 这样的根路径也不再指向那里。如果 manifest 仍然点名那里的文件，构建会失败并逐一列出这些文件。如果页面或样式表引用了那里的文件，构建会为每处引用打印一条警告。请重新打开这个文件夹，或者把文件移出 `public/`。
+- 移动后的文件夹与默认文件夹的行为完全一致。移动后的 `scripts` 文件夹里的脚本会得到内容脚本包装，并在 `dev` 中原地重载。移动后的 `pages` 文件夹里的页面会构建到同样的 `pages/` 输出。页面、样式表或 manifest 用同样的根路径（例如 `/logo.png`）就能访问移动后的 `public` 文件夹里的文件。
 - 当 `public` 指定了路径时，Extension.js 只从那个文件夹复制。
-- `browser.<vendor>.folders` 会整体替换顶层对象，不会逐键合并。
+- `browser.<vendor>.folders` 会整体替换顶层对象，`commands.<cmd>.folders` 则同时替换这两者。两者都不会逐键合并。
 
 ### Rspack 配置
 
@@ -285,7 +290,9 @@ export default {
 };
 ```
 
-可以就地修改 `module` 或 `resolve`，也可以返回一个新的配置对象。这个钩子可以是异步的，什么都不返回的钩子会让配置保持原样。`entry`、`plugins`、`context` 和 `mode` 到这时已经固定，所以为它们返回的值会被忽略。请在 `config` 里设置它们。
+这个钩子可以修改 `module`、`resolve`、`resolveLoader`、`node`、`optimization.minimize`、`optimization.minimizer`，以及 Rspack 在构建开始时才读取的 `output` 选项，例如文件名和 `environment`。可以就地修改它们，也可以返回一个新的配置对象。这个钩子可以是异步的，什么都不返回的钩子会让配置保持原样。
+
+到这时 Rspack 已经消费了其余所有键。这包括 `entry`、`plugins`、`context`、`mode`、`target`、`devtool`、`externals`、`experiments` 和 `performance` 这类键，`minimize` 与 `minimizer` 之外的所有 `optimization` 键，以及这些 `output` 键：`path`、`module`、`library`、`enabledLibraryTypes`、`chunkFormat`、`chunkLoading`、`enabledChunkLoadingTypes`、`wasmLoading`、`enabledWasmLoadingTypes`、`workerChunkLoading`、`workerWasmLoading`、`workerPublicPath`、`pathinfo`、`sourceMapFilename`、`devtoolModuleFilenameTemplate`、`devtoolFallbackModuleFilenameTemplate`、`devtoolNamespace`、`bundlerInfo`。对其中任何一个的修改，包括深入到值内部的修改，Extension.js 都会撤销，并打印一条按路径列出每个键的警告。请在 `config` 里设置它们。
 
 ## 完整示例
 
