@@ -84,7 +84,7 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 
 从 4.1.19 起，模板 URL 必须使用 `https://`。`create` 会在写入项目之前拒绝普通的 `http://` URL，以及重定向到 `http://` 的下载。如果要在你信任的网络中允许 `http://`，请设置 `EXTENSION_ALLOW_HTTP_TEMPLATE=true`。
 
-模板目录里共有 6 组 53 个模板：starters、sidebar、content scripts、new tab、toolbar action 以及特殊文件夹。运行 `extension create --help` 查看完整列表。默认的 `typescript` 模板和其他名称一样会下载模板目录的压缩包。只有 `javascript` 模板内置在 CLI 里。当你省略 `--template` 且下载失败时，`create` 会回退到内置的 `javascript` 模板并明确说明，同时给出网络错误，因此离线的机器也能得到一个项目。显式指定的 `--template` 下载失败则会直接报错。
+模板目录里共有 6 组 53 个模板：starters、sidebar、content scripts、new tab、toolbar action 以及特殊文件夹。运行 `extension create --help` 查看完整列表。默认的 `typescript` 模板和其他名称一样会下载模板目录的压缩包。只有 `javascript` 模板内置在 CLI 里。当你省略 `--template`、没有设置 `EXTENSION_CREATE_TEMPLATE_URL` 且下载失败时，`create` 会回退到内置的 `javascript` 模板并明确说明，同时给出网络错误，因此离线的机器也能得到一个项目。显式指定的 `--template` 下载失败则会直接报错。
 
 一个脚手架只有一个包管理器。起步模板的 `packageManager` 固定值（或它自带的 `pnpm-workspace.yaml`）决定它，否则由调用 `create` 的包管理器决定。写入 `package.json` 的 `packageManager` 字段、`--install` 的安装过程以及打印出的后续步骤都指向同一个包管理器。
 
@@ -93,7 +93,7 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 模板目录的下载被固定到 examples 仓库的某一个不可变 commit 上。因此同一个版本的两次生成会产生完全相同的字节。有两个环境变量可以覆盖这个固定：
 
 - `EXTENSION_CREATE_TEMPLATE_REF` 指向另一个 ref。设为 `main` 可以恢复浮动行为。
-- `EXTENSION_CREATE_TEMPLATE_URL` 指向另一个完全不同的压缩包 URL。
+- `EXTENSION_CREATE_TEMPLATE_URL` 指向另一个完全不同的压缩包 URL。设置了它而该归档无法使用时，`create` 会直接失败，永远不会回退到内置模板。
 
 每次生成都会在项目里写入一个 `.extension-create.json` 溯源文件。它记录 create 的版本、模板和来源，当模板来自模板目录的压缩包时还会记录解析出的 ref，让模板漂移始终可审计。内置的 `javascript` 起步模板记录的是 `"source": "bundled"`，不带 ref。
 
@@ -103,7 +103,10 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 
 - 成功的运行会打印一个 `status: "created"` 帧。它的 `value` 里带有 `projectPath`、`projectName`、`template` 和 `depsInstalled`。
 - 失败会打印 `ok: false` 以及一个 `error.code`：未知的模板名对应 `E_TEMPLATE_NOT_FOUND`，下载失败（连接被拒绝、HTTP 错误或超时）对应 `E_NETWORK`，目标目录的问题对应 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`。
-- 模板 URL 返回的不是 ZIP 归档，或返回的归档已损坏时，会以 `E_REMOTE_ZIP_INVALID` 失败，并且不会在磁盘上留下任何内容。`EXTENSION_CREATE_TEMPLATE_URL` 指向的归档也是如此。这种失败永远不会回退到内置的 `javascript` 模板。
+- 模板 URL 返回的不是 ZIP 归档，或返回的归档已损坏时，会以 `E_REMOTE_ZIP_INVALID` 失败，并且不会在磁盘上留下任何内容。
+- 归档含有位于其文件夹之外的条目时，同样以 `E_REMOTE_ZIP_INVALID` 失败，无论它来自模板 URL 还是 `EXTENSION_CREATE_TEMPLATE_URL`。`create` 会在写入任何条目之前检查每一个条目，所以消息会说明该归档被拒绝、点名该条目，也不会建议重试。
+- `EXTENSION_CREATE_TIMEOUT_MS` 限制整个模板拉取的时间，包括重试。超时的拉取以 `E_NETWORK` 失败，原因为 `No answer within N seconds`。
+- 失败的 `EXTENSION_CREATE_TEMPLATE_URL` 永远不会回退到内置的 `javascript` 模板。返回网页或损坏的归档时以 `E_REMOTE_ZIP_INVALID` 失败，连接被拒绝、HTTP 错误或超时则以 `E_NETWORK` 失败。消息会点名这个变量，并且不会在磁盘上留下任何内容。
 - 未设置 `EXTENSION_ALLOW_HTTP_TEMPLATE=true` 时，普通的 `http://` 模板 URL 会以 `E_INVALID_OPTION` 失败。
 
 ## 共享的全局选项

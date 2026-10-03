@@ -99,7 +99,7 @@ The `code` field names the failure class. Four codes matter for automation:
 | `extension_load_refused`  | The session runs, but the browser threw the extension out. Every other surface looks healthy, only the contract says so. Carries `extensionLoadRefusedAt` and `extensionLoadRefusedReason`. |
 | `profile_locked`          | Another live session holds the profile, so the browser never started. Carries `profileLockedAt` and a `profileLockOwner` with `host` and `pid`. |
 | `browser_exited`          | The browser process died. `start` and `preview` flip to `error`. `dev` flips to `error` only when the browser exits before the extension loaded. After that point `dev` keeps its compile status and only stamps `browserExitedAt`. A Firefox that exits before its debugger answers lands here within about a second. |
-| `browser_launch_failed`   | No browser process came up: the binary is missing, cannot be executed, or the pin is wrong. A Firefox that runs but whose debugger never answers lands here too, and Extension.js stops that process. `dev`, `start`, and `preview` all flip to `error`. Carries `browserLaunchFailedAt` and `browserLaunchFailedReason`. |
+| `browser_launch_failed`   | No browser process came up: the binary is missing, cannot be executed, or the pin is wrong. A Firefox that runs but whose debugger never answers lands here too, and Extension.js stops that process. `dev`, `start`, and `preview` all flip to `error`. Carries `browserLaunchFailedAt` and `browserLaunchFailedReason`. A launch refused for a bad `--chromium-binary` or `--gecko-binary` pin also carries `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"`. |
 
 A load refusal outlives the next successful compile. Only a new run (`starting`) or a real executor attach clears it.
 
@@ -127,6 +127,8 @@ A timeout exits with `E_READY_TIMEOUT`. A contract in `error` status fails the w
 | `profile_locked`          | `E_PROFILE_LOCKED`         |
 | `extension_load_refused`  | `E_EXTENSION_LOAD_REFUSED` |
 | A code outside this list  | `E_READY_ERROR_STATUS`     |
+
+A `browser_launch_failed` contract that carries `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"` fails the wait with that code and `status: "usage"` instead of `E_BROWSER_LAUNCH`.
 
 ## Joining the session files
 

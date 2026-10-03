@@ -144,9 +144,9 @@ For `--no-browser` flows, this provides deterministic command state:
 - A successful run prints a `status: "ready"` frame. Its `value` carries the list of previewed browsers, plus `projectPath` when you passed a path argument.
 - A project path that does not exist prints `ok: false` with `status: "usage"` and `error.code: "E_PROJECT_NOT_FOUND"`. A folder with no manifest prints the same status with `E_MANIFEST_NOT_FOUND`. Neither frame carries a hint.
 - When the project exists but the output path holds no unpacked extension, the frame is `ok: false` with `status: "not-found"` and `error.code: "E_PREVIEW_NO_DIST"`. Its hint says to run `extension build` first.
-- A `--chromium-binary` or `--gecko-binary` path that does not exist prints `ok: false` with `status: "usage"` and `error.code: "E_BROWSER_BINARY_INVALID"`.
-- A remote URL that gives no usable archive prints `ok: false` with `status: "usage"`. The code is `E_REMOTE_ZIP_INVALID` for a reply that is not a ZIP archive or a damaged one, `E_REMOTE_FETCH_TIMEOUT` for a timeout, and `E_REMOTE_DOWNLOAD` for a refused connection or an HTTP error.
-- A browser that cannot start prints `ok: false` with `status: "failed"`. The code is `E_BROWSER_LAUNCH` when the binary cannot run or Firefox exits before its debugger answers, and `E_BROWSER_CONNECT` when Firefox runs but its debugger never answers. A config file that fails to load prints the same status with `E_CONFIG_LOAD`.
+- A bad `--chromium-binary` or `--gecko-binary` pin prints `ok: false` with `status: "usage"` and `error.code: "E_BROWSER_BINARY_INVALID"`. That covers a path that does not exist, a file that is not executable, and a binary that does not answer its version probe within 10 seconds. The command ends and leaves nothing running.
+- A remote URL that gives no usable archive prints `ok: false` with `status: "failed"`. The code is `E_REMOTE_ZIP_INVALID` for a reply that is not a ZIP archive, a damaged one, or one with an entry outside its folder, `E_REMOTE_FETCH_TIMEOUT` for a timeout, and `E_REMOTE_DOWNLOAD` for a refused connection or an HTTP error.
+- A browser that cannot start prints `ok: false` with `status: "failed"`. The code is `E_BROWSER_LAUNCH` when the binary is executable but the system cannot start it or Firefox exits before its debugger answers, and `E_BROWSER_CONNECT` when Firefox runs but its debugger never answers. A config file that fails to load prints the same status with `E_CONFIG_LOAD`.
 - Other failures print `ok: false` with `status: "failed"` before the process exits `1`.
 
 ## Logging flags
