@@ -71,7 +71,7 @@ extension logs [project-path] [options]
 | `[project-path]`                  | 扩展项目根目录路径。                                                                                     | `process.cwd()`              |
 | `--browser <browser>`             | 读取哪个会话（`chrome`、`chromium`、`edge`、`firefox`、`safari`）。                                      | `chromium`                   |
 | `--follow`                        | 通过控制通道实时流式输出，而不是打印完就退出。                                                           | 关闭                         |
-| `--context <list>`                | 用逗号分隔的上下文（`background`、`content`、`popup`、`options`、`sidebar`、`devtools`、`page`）。       | 全部上下文                   |
+| `--context <list>`                | 用逗号分隔的上下文（`background`、`content`、`page`、`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）。不在这个列表里的名字会以 `E_INVALID_OPTION` 被拒绝。 | 全部上下文                   |
 | `--level <level>`                 | 最低严重级别（`off`、`error`、`warn`、`info`、`debug`、`trace`、`all`）。                                | `all`                        |
 | `--signals-only`                  | 实验性。只显示结构化的 `dx.signal` 诊断信息。目前还没有任何发射方，所以这个 flag 现在什么都不会打印。    | 关闭                         |
 | `--since <seq\|iso>`              | 只显示这个序列号之后的事件，或按事件时钟显示这个 ISO 时间戳之后的事件。其他值会被拒绝。                  | 未设置                       |
@@ -88,6 +88,8 @@ extension logs [project-path] [options]
 不加 `--follow` 时，命令直接读取 `dist/extension-js/<browser>/logs.ndjson`，不需要任何实时连接。开发会话会把每一条记录追加到那个文件，所以即使你已经关掉浏览器，一次性读取依然有效。
 
 如果该文件不存在，`logs` 会提示你先启动 `extension dev`，并以退出码 `1` 退出。机器可读格式还会输出一个错误码为 `E_LOGS_NOT_FOUND` 的失败信封（参见 [结果信封](/zh-Hans/docs/contracts/result-envelope)）。
+
+当会话丢弃过记录时，文件里会在对应位置保留一条 gap 记录。不带任何过滤的 `ndjson` 或 `json` 读取会把这条记录原样打印到 stdout。一旦有任何过滤条件收窄了读取范围（`--context`、`--level`、`--since`、`--url`、`--tab`），stdout 上就只有日志记录，丢失的情况会在 stderr 上以一行报告，带上丢弃条数和原因，所有输出格式都如此。
 
 ## 跟随模式
 

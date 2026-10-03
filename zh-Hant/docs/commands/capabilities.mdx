@@ -61,7 +61,7 @@ extension capabilities [options]
 
 ## 它會回傳什麼
 
-JSON 輸出是一個 schema-1 信封（參見 [結果信封](/zh-Hant/docs/contracts/result-envelope)），它的 `value` 帶有五個欄位：
+JSON 輸出是一個 schema-1 信封（參見 [結果信封](/zh-Hant/docs/contracts/result-envelope)），它的 `value` 帶有六個欄位：
 
 ```json
 {
@@ -74,7 +74,8 @@ JSON 輸出是一個 schema-1 信封（參見 [結果信封](/zh-Hant/docs/contr
     "version": "4.0.22",
     "envelopeSchema": 1,
     "readySchemaVersion": 2,
-    "outputJsonCommands": ["build", "capabilities", "dev", "doctor", "eval", "..."]
+    "outputJsonCommands": ["build", "capabilities", "dev", "doctor", "eval", "..."],
+    "recordStreamCommands": ["logs"]
   },
   "error": null,
   "warnings": []
@@ -87,11 +88,12 @@ JSON 輸出是一個 schema-1 信封（參見 [結果信封](/zh-Hant/docs/contr
 | `version`            | 作出回應的 CLI 版本。                           |
 | `envelopeSchema`     | 這個 CLI 寫出的結果信封 schema。                |
 | `readySchemaVersion` | 這個 CLI 內建引擎寫出的 `ready.json` 契約版本。 |
-| `outputJsonCommands` | 所有接受 `--output json` 的指令，已排序。       |
+| `outputJsonCommands` | 所有接受 `--output json` 的指令，已排序。`logs` 也在這個清單裡。 |
+| `recordStreamCommands` | 其中的一個子集：它們的 `--output json` 成功路徑逐行串流輸出記錄，而不是輸出一個信封。 |
 
-`outputJsonCommands` 是從即時的指令註冊資訊讀取而來，絕不是手工維護的清單，因此它不可能與 CLI 實際接受的指令產生落差。請把上面的範例當成示意，並解析真正回傳的內容。
+`outputJsonCommands` 與 `recordStreamCommands` 都是從即時的指令註冊資訊讀取而來，絕不是手工維護的清單，因此它們不可能與 CLI 實際接受的指令產生落差。請把上面的範例當成示意，並解析真正回傳的內容。期望 stdout 上只有一個信封的讀取方必須略過 `recordStreamCommands` 裡的指令，它們成功時印出日誌記錄，只在失敗時印出信封。
 
-pretty 輸出會把同樣的資訊印成四行帶標籤的文字。兩種格式的結束碼都是 `0`。
+pretty 輸出會把同樣的資訊印成五行帶標籤的文字。兩種格式的結束碼都是 `0`。
 
 ## 典型的 agent 流程
 

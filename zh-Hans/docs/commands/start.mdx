@@ -87,7 +87,7 @@ extension start [path-or-url] [options]
 | `--output <pretty\|json>`      | -                  | 结果格式。`json` 会在 stdout 上打印 schema-1 信封。                      | `pretty`           |
 | `--port <port>`                | -                  | 启用 runner 时使用的 runner / devtools 端口。用 `0` 让 OS 自动分配端口。 | `8080`             |
 | `--host <host>`                | -                  | 绑定 dev 服务器的主机。Docker / dev container 中可用 `0.0.0.0`。         | `127.0.0.1`        |
-| `--public-host <host>`         | -                  | 当浏览器要拨号的主机与绑定用的 `--host` 不同时（远程 / dev container），使用这个可连接的主机。 | 绑定的主机（绑定到 `0.0.0.0` 时为 `127.0.0.1`） |
+| `--public-host <host>`         | -                  | 为了与 `dev` 保持一致而接受，这样在两者之间共用 flag 的脚本不会被拒绝。`start` 不提供任何服务，所以这个值没有效果。 | 未设置                                          |
 | `--extensions <list>`          | -                  | 用逗号分隔的协同扩展或商店 URL。                                         | 未设置             |
 | `--install [boolean]`          | -                  | 内部 flag。缺失依赖时安装项目依赖。                                      | 按命令默认行为     |
 | `--debug`                      | -                  | 启用维护者诊断信息。                                                     | 关闭               |
@@ -151,9 +151,9 @@ extension start --no-open
 
 `--output json` 会在 stdout 上打印 schema-1 信封，每行一个 JSON 对象：
 
-- 普通的 `start` 运行会在构建前打印一个 `status: "started"` 帧。它带有项目路径、浏览器列表、请求的端口和 `pid`。
+- 普通的 `start` 运行会在构建前打印一个 `status: "started"` 帧。它带有项目路径、浏览器列表、`pid` 和 `port: null`，因为只运行不构建的会话不会绑定任何端口。
 - `start --wait` 运行成功时会打印一个 `status: "ready"` 帧。它的 `value.results` 数组按浏览器带出完整的就绪契约。
-- 构建失败时会打印一个 `ok: false` 帧，其中 `status: "build-failed"`、`error.code: "E_COMPILE"`，随后进程以 `1` 退出。
+- 构建失败时会打印一个 `ok: false` 帧，其中 `status: "build-failed"`，随后进程以 `1` 退出。编译错误带 `error.code: "E_COMPILE"`。项目目录不存在带 `E_PROJECT_NOT_FOUND`，目录里没有 manifest 带 `E_MANIFEST_NOT_FOUND`，manifest 无法解析带 `E_MANIFEST_INVALID`。
 
 ## 日志 flag
 
@@ -162,7 +162,7 @@ extension start --no-open
 | flag                                                 | 作用                                                                                       | 默认值         |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------- |
 | `--logs <off\|error\|warn\|info\|debug\|trace\|all>` | 最低日志级别。                                                                             | `off`          |
-| `--log-context <list\|all>`                          | 上下文过滤（`background`、`content`、`page`、`sidebar`、`popup`、`options`、`devtools`）。 | `all`          |
+| `--log-context <list\|all>`                          | 上下文过滤（`background`、`content`、`page`、`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）。 | `all`          |
 | `--log-format <pretty\|json\|ndjson>`                | 日志器输出格式。                                                                           | `pretty`       |
 | `--no-log-timestamps`                                | 在 pretty 模式下关闭时间戳。                                                               | 默认启用时间戳 |
 | `--no-log-color`                                     | 在 pretty 模式下关闭颜色。                                                                 | 默认启用颜色   |
