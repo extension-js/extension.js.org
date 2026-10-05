@@ -41,20 +41,24 @@ CLI 以字符串形式传递 flag 的值，因此 Extension.js 会先做归一�
 ### Firefox 及其他 Gecko 浏览器上的系统 profile 模式
 
 <Warning>
-  系统 profile 模式不会在 Firefox 或任何其他基于 Gecko 的浏览器中加载你的扩展。
+  Extension.js 拒绝在系统 profile 模式下启动 Firefox 或任何其他基于 Gecko 的浏览器。
   只在 Chromium 家族浏览器上使用它。
 </Warning>
 
-Extension.js 通过远程调试把附加组件安装进 Gecko 浏览器，而浏览器自己的 profile 默认关闭远程调试。因此在使用 `--profile=false`、`profile: false` 或 `EXTENSION_USE_SYSTEM_PROFILE=true` 时，浏览器会以你日常使用的 profile 打开，项目里的任何东西都不会被安装进去。这适用于 CLI 启动的每一个 Gecko 目标：`firefox`、`waterfox`、`librewolf`、`zen`、`floorp` 和 `gecko-based`，对 `dev`、`start` 和 `preview` 都一样。
+Extension.js 通过远程调试把附加组件安装进 Gecko 浏览器，而浏览器自己的 profile 默认关闭远程调试。因此在使用 `--profile=false`、`profile: false` 或 `EXTENSION_USE_SYSTEM_PROFILE=true` 时，`dev`、`start` 和 `preview` 会在浏览器启动之前停下，不会有任何东西以你日常使用的 profile 打开。这适用于 CLI 启动的每一个 Gecko 目标：`firefox`、`waterfox`、`librewolf`、`zen`、`floorp` 和 `gecko-based`。
 
-`extension dev` 会在原本输出就绪行的位置说明这一点。浏览器名称随你的目标而变：
+这三个命令都会输出一段说明，指出该设置的来源以及两条出路。浏览器名称随你的目标而变，`SET BY` 行会列出每一个生效的来源（`--profile=false`、`profile: false in extension.config.js` 或 `EXTENSION_USE_SYSTEM_PROFILE=true`）：
 
 ```text
-Firefox is running with its own profile, so the add-on was not installed and nothing is loaded.
-Drop --profile=false to let Extension.js manage the profile and install the add-on, or pass --profile=<path> to use a profile of your own.
+Firefox can't load the add-on in its own profile, so it was not launched.
+SET BY --profile=false
+Remote debugging is off in a browser's own profile, and the add-on can only be installed over it.
+To fix, drop --profile=false, then let Extension.js manage the profile or pass --profile=<path> to use a profile of your own.
 ```
 
-早期版本在这里仍会输出就绪行，尽管并没有加载任何附加组件。要得到可用的会话，请选择警告中给出的两条出路之一：
+`extension dev` 会让开发服务器继续运行并监听，`ready.json` 处于 `error`（代码 `browser_launch_failed`，`browserLaunchFailedCode: "E_FLAG_NOT_SUPPORTED_HERE"`）。`extension start` 和 `extension preview` 以退出码 1 结束。使用 `--output json` 时，每个命令都会以 `E_FLAG_NOT_SUPPORTED_HERE` 和 `status: "usage"` 失败。
+
+早期版本会以你自己的 profile 启动浏览器，但其中没有加载任何东西。要得到可用的会话，请选择这段说明中给出的两条出路之一：
 
 - 去掉 `--profile=false`（以及 `profile: false` 或 `EXTENSION_USE_SYSTEM_PROFILE`），让 Extension.js 管理 profile 并安装附加组件。加上 `persistProfile: true` 可以在多次运行之间保留登录和状态，也可以用 `copyFromProfile` 从已有 profile 为受管理 profile 播种。
 - 传入 `--profile=<path>`，用你自己的 profile 目录启动。Extension.js 会把附加组件安装进去。
@@ -180,7 +184,7 @@ extension dev --browser=chrome --profile=/path/to/custom/profile
 - **基线测试用受管理临时 profile**：减少隐藏状态，降低不稳定复现的概率。
 - **长时间调试会话用 `persistProfile`**：在多次运行之间保留 auth / 会话 / devtools 状态。
 - **按浏览器家族保持各自的自定义 profile**：避免跨浏览器互相污染。
-- **有意识地使用系统 profile 模式**：适合在 Chromium 家族浏览器上复现问题，但隔离性不如受管理 profile。它在 Gecko 浏览器中永远不会加载扩展。
+- **有意识地使用系统 profile 模式**：适合在 Chromium 家族浏览器上复现问题，但隔离性不如受管理 profile。Extension.js 会拒绝在这种模式下启动 Gecko 浏览器。
 
 ## 下一步
 
