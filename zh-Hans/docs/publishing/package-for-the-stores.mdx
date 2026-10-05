@@ -93,7 +93,7 @@ export default {
 | 商店                                                                                                  | 上传格式                                                                 | 构建命令                                                      | 另请阅读                                                                                                                                                    |
 | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Chrome Web Store](https://developer.chrome.com/docs/webstore/publish)                                | 一个 zip，最大 2 GB，`manifest.json` 位于根目录                            | `extension build --browser=chrome --zip`                      | 第一次上传是手动的，并会创建扩展 ID。参见 [Chrome 凭据](/zh-Hans/docs/publishing/chrome-credentials)。                                                       |
-| [Edge Add-ons](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension) | 一个 zip，在 Partner Center 上传                                          | `extension build --browser=edge --zip`                        | 从 manifest 里移除 `update_url`，名称和描述里不要出现“Chrome”。参见 [Edge 凭据](/zh-Hans/docs/publishing/edge-credentials)。                                 |
+| [Edge Add-ons](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension) | 一个 zip，在 Partner Center 上传                                          | `extension build --browser=edge --zip`                        |Edge 构建会为你去掉顶层的 `key` 字段。  从 manifest 里移除 `update_url`，名称和描述里不要出现“Chrome”。参见 [Edge 凭据](/zh-Hans/docs/publishing/edge-credentials)。                                 |
 | [Firefox Add-ons](https://extensionworkshop.com/documentation/publish/submitting-an-add-on/)         | `.zip`、`.xpi` 或 `.crx`，当代码经过压缩或打包时再加一份源码 zip           | `extension build --browser=firefox --zip --zip-source`        | 新附加组件要声明 `data_collection_permissions`。在审核者备注里说明构建方法。参见 [Firefox 凭据](/zh-Hans/docs/publishing/firefox-credentials)。              |
 | [Safari](https://developer.apple.com/documentation/safariservices/distributing-your-safari-web-extension) | 没有 zip。扩展随应用一起发布，由 Xcode 归档后送往 App Store Connect，或由你公证后在商店之外分发 | `extension build --browser=safari`   | 构建会转换 `dist/safari` 并运行 `xcodebuild` 输出到 `dist/safari-xcode`。参见 [Safari](/zh-Hans/docs/browsers/safari)。                                      |
 
@@ -113,6 +113,9 @@ Opera 的商店拒绝压缩过的代码，所以 `extension build --browser=oper
 
 `Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter or pass --no-addon-lint to silence this.`
 Firefox 构建完成但没有做 AMO 检查。zip 是完整的。安装 `addons-linter` 可以在上传前看到 AMO 会标记什么，或者传 `--no-addon-lint` 让这一行不再出现。
+
+`Edge Add-ons refuses a package whose manifest carries key, so the edge production build dropped it.`
+Edge 构建移除了顶层的 `key` 字段。Partner Center 会分配扩展 ID，所以这个字段在该包里没有用处。如果它只用于 Chrome Web Store 的构建，写成 `chrome:key`。
 
 `default_locale is set, but the _locales folder is missing.`
 manifest 检查在打包前停止了构建。商店会拒绝缺少默认语言环境的包，所以请恢复 `_locales/<default>/messages.json` 再重新构建。
