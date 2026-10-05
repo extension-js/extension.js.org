@@ -38,6 +38,27 @@ The CLI delivers flag values as strings, so Extension.js normalizes them:
 
 A relative `--profile` path resolves against the project (compilation context), not your shell's working directory. This keeps sequential runs of different projects from collapsing onto one shared profile.
 
+### System profile mode on Firefox and other Gecko browsers
+
+<Warning>
+  System profile mode does not load your extension in Firefox or any other
+  Gecko-based browser. Use it with Chromium-family browsers only.
+</Warning>
+
+Extension.js installs the add-on in a Gecko browser over remote debugging, and a browser's own profile keeps remote debugging off. So with `--profile=false`, `profile: false`, or `EXTENSION_USE_SYSTEM_PROFILE=true`, the browser opens on your everyday profile and nothing from your project is installed in it. This applies to every Gecko target the CLI launches: `firefox`, `waterfox`, `librewolf`, `zen`, `floorp`, and `gecko-based`. It applies to `dev`, `start`, and `preview` alike.
+
+`extension dev` says so in place of the ready line. The browser name follows your target:
+
+```text
+Firefox is running with its own profile, so the add-on was not installed and nothing is loaded.
+Drop --profile=false to let Extension.js manage the profile and install the add-on, or pass --profile=<path> to use a profile of your own.
+```
+
+Earlier versions printed the ready line here even though no add-on was loaded. To get a working session, take one of the two ways out the warning names:
+
+- Drop `--profile=false` (and `profile: false` or `EXTENSION_USE_SYSTEM_PROFILE`) so Extension.js manages the profile and installs the add-on. Add `persistProfile: true` to keep logins and state between runs, or seed the managed profile from an existing one with [`copyFromProfile`](#seeding-with-copyfromprofile).
+- Pass `--profile=<path>` to launch with a profile directory of your own. Extension.js installs the add-on into it.
+
 ## Profile capabilities
 
 | Config / option                      | What it does                                                          |
@@ -51,7 +72,7 @@ A relative `--profile` path resolves against the project (compilation context), 
 | `keepProfileChanges`                 | Keeps the managed profile and its changes across runs (same effect as `persistProfile`). |
 | `copyFromProfile`                    | Seeds the managed profile as a copy of an existing profile directory. |
 | `--profile=/abs/path`                | CLI override for explicit profile path.                               |
-| `--profile=false`                    | Launches the browser's own default profile (system mode).             |
+| `--profile=false`                    | Launches the browser's own default profile (system mode). Chromium family only, see above. |
 | `EXTENSION_USE_SYSTEM_PROFILE=true`  | Uses the OS/browser system profile instead of managed profiles.       |
 | `EXTJS_USE_SYSTEM_PROFILE=true`      | Alias of `EXTENSION_USE_SYSTEM_PROFILE`.                              |
 
@@ -66,7 +87,7 @@ A relative `--profile` path resolves against the project (compilation context), 
 | Managed ephemeral       | default                                         | clean runs with isolated state                |
 | Managed persistent      | `persistProfile: true` or `keepProfileChanges: true` | iterative debugging with stable browser state |
 | Explicit custom profile | `profile: "/abs/path"` or `--profile=/abs/path` | reuse an existing profile                     |
-| System profile          | `--profile=false` or `EXTENSION_USE_SYSTEM_PROFILE=true` | launch with OS/browser default profile        |
+| System profile          | `--profile=false` or `EXTENSION_USE_SYSTEM_PROFILE=true` | launch with OS/browser default profile (Chromium family only) |
 
 Extension.js creates managed profiles under:
 
@@ -160,7 +181,7 @@ A managed profile is a full browser profile. It holds cookies, history, and logi
 - **Use managed ephemeral profiles for baseline testing**: Reduces hidden state and flaky reproductions.
 - **Use `persistProfile` for long-lived debug sessions**: Keep auth/session/devtools state between runs.
 - **Keep custom profiles per browser family**: Avoid cross-browser contamination.
-- **Use system profile mode intentionally**: Useful for reproduction, but less isolated than managed profiles.
+- **Use system profile mode intentionally**: Useful for reproduction on Chromium-family browsers, but less isolated than managed profiles. It never loads the extension in a Gecko browser.
 
 ## Next steps
 
