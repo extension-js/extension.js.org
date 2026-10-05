@@ -97,6 +97,80 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 ```
 
+## 驗證 content script 與背景之間的訊息
+
+content script 執行在一個你無法控制的頁面裡。頁面可以透過 DOM 或 `window.postMessage` 把任何東西交給它，而 content script 再把這些資料轉發給背景。正因為如此，Chrome 的文件把 content script 列為比 service worker 更不可信的一方。請把到達背景的每一則訊息都當作不可信的輸入來對待，就像伺服器對待請求本文那樣。
+
+**檢查是誰在呼叫。** 每個監聽器都會收到一個 `sender` 物件，也就是 `runtime.MessageSender` 型別。以下是真正重要的欄位：
+
+| 欄位                  | 內容                                                                                   | 用途                                                                 |
+| --------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `sender.id`           | 送出這則訊息的擴充功能的 id                                                            | 在 `runtime.onMessageExternal` 上拒絕其他擴充功能                    |
+| `sender.url`          | 送出方頁面或 frame 的 URL，送出方在 iframe 裡時為該 iframe 的 URL                      | 把 `new URL(sender.url).origin` 與你預期的網站做比較                 |
+| `sender.origin`       | 送出方的 origin，可能與 `url` 不同（`about:blank`），也可能是 opaque（沙箱 iframe）    | 同樣的檢查，適用於會設定該欄位的瀏覽器                               |
+| `sender.tab`          | 送出方所在的 `tabs.Tab`，只有送出方是分頁時才存在                                      | 對只允許 content script 送出的訊息類型要求它存在                     |
+| `sender.frameId`      | 頂層 frame 為 `0`，子 frame 為正數，只與 `sender.tab` 一起出現                         | 拒絕來自 iframe 的特權請求                                           |
+
+`runtime.onMessage` 只會因你自己擴充功能的情境而觸發，所以在那裡 `sender.id` 永遠是你自己的 id。來自另一個擴充功能、或來自 `externally_connectable` 放行的網頁的訊息，會改為到達 `runtime.onMessageExternal`，而那裡才是由 `sender.id` 和 `sender.url` 決定一切的地方。
+
+**先驗證形狀，再採取行動。** 維護一份訊息類型允許清單，檢查每個欄位的型別和大小，其餘一律拒絕。絕不要把訊息裡的字串變成程式碼：不要 `eval`，不要 `new Function`，不要 `innerHTML`，也不要讓 `chrome.scripting.executeScript` 執行來自訊息的程式碼。寫入文字請用 `textContent`。
+
+```ts
+const ALLOWED_ORIGINS = new Set(["https://example.com"]);
+
+function isSaveNote(message: unknown): message is { type: "note:save"; text: string } {
+  if (typeof message !== "object" || message === null) return false;
+  const candidate = message as { type?: unknown; text?: unknown };
+  return (
+    candidate.type === "note:save" &&
+    typeof candidate.text === "string" &&
+    candidate.text.length <= 2000
+  );
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Only a content script sends this type, so a sender without a tab is wrong.
+  if (!sender.tab || !sender.url) {
+    sendResponse({ ok: false, error: "forbidden" });
+    return;
+  }
+
+  if (!ALLOWED_ORIGINS.has(new URL(sender.url).origin)) {
+    sendResponse({ ok: false, error: "forbidden" });
+    return;
+  }
+
+  if (!isSaveNote(message)) {
+    sendResponse({ ok: false, error: "invalid_message" });
+    return;
+  }
+
+  saveNote(sender.tab.id, message.text).then(() => sendResponse({ ok: true }));
+  return true;
+});
+```
+
+**決定誰可以從外部連線。** 沒有 `externally_connectable` 鍵時，其他每個擴充功能都可以向你的擴充功能傳訊息，而任何網頁都不行。宣告這個鍵來收窄或放寬這一點。`ids` 列出允許連線的擴充功能，`"*"` 放行全部擴充功能。`matches` 列出可以帶著你的擴充功能 id 呼叫 `runtime.sendMessage` 的網頁。這些訊息會落到 `runtime.onMessageExternal` 和 `runtime.onConnectExternal` 上，絕不會落到 `onMessage` 上，因此請給它們獨立的監聽器，並把 `sender.url` 與你宣告的模式做比較。
+
+```json
+{
+  "externally_connectable": {
+    "ids": ["abcdefghijklmnopabcdefghijklmnop"],
+    "matches": ["https://app.example.com/*"]
+  }
+}
+```
+
+**port 改變的是檢查的時機，而不是檢查的內容。** `runtime.onConnect` 和 `runtime.onConnectExternal` 交付的 port 上會設定 `port.sender`，因此在 port 開啟時檢查一次 `port.name` 和送出方即可。此後 port 的身分是固定的，但到達 `port.onMessage` 的每個酬載仍然是頁面資料，所以要讓它們經過同一個型別守衛。收到第一則壞訊息時就呼叫 `port.disconnect()`。
+
+Firefox 的不同之處：
+
+- `sender.origin` 從 Firefox 126 起才存在。請從 `sender.url` 推導 origin，一行程式碼同時涵蓋舊版本和 Chrome。
+- Firefox 不支援 `externally_connectable`，因此網頁永遠無法向 Firefox 擴充功能傳訊息，`runtime.onMessageExternal` 在那裡只會因另一個擴充功能而觸發。Safari 15.4 支援這個鍵，但只支援 `matches`。
+- `browser.runtime.onMessage` 會採納回傳的 Promise，下面的表格有說明。
+
+Extension.js 按原樣編譯這些監聽器，不加入任何自己的檢查，所以這部分是純粹的瀏覽器 API。有一個開發期的細節。在 `extension dev` 之下，重新載入橋接器會透過一個名為 `__extjs-bridge-log__` 的 port 把主控台輸出轉發到 service worker。devtools 頁面則改用 `runtime.sendMessage` 轉發，訊息是一個帶 `__extjsBridgeLog` 鍵的物件。一個會檢查 `port.name` 的 `runtime.onConnect` 監聽器，以及一個會拒絕沒有已知 `type` 的訊息的 `onMessage` 監聽器，會把兩者都忽略掉。`extension build` 的輸出不包含這些內容。
+
 ## 各瀏覽器差異
 
 | 能力                                   | Chromium                                             | Firefox                                                  | Safari             |

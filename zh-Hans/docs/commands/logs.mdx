@@ -121,6 +121,39 @@ pretty 模式每条记录打印一行：
 extension logs --context content | jq -r '.messageParts | join(" ")'
 ```
 
+## 区分 content script 的行与 service worker 的行
+
+没有 `logs` 时，这两种输出分别住在两个 DevTools 窗口里：service worker 的控制台藏在扩展管理页后面，content script 的控制台则在它所运行的页面里。`logs` 把它们合并成一条流，并给每条记录打上产生它的上下文标签，这样你就能按自己的方式再把它们分开。
+
+这个标签就是 `context` 字段，pretty 模式下打印在括号里。开发会话按编译后的条目分配它。`content_scripts/` 下的输出是 `content`，后台 service worker(或 Firefox 的后台脚本)是 `background`。`action/index.js` 是 `popup`，`options/index.js` 是 `options`，其余依此类推，覆盖 `--context` 接受的整个列表。
+
+```plaintext
+[142] LOG (background) [From the background context] Hello from the background worker/script!
+[143] LOG (content) [From the page context] Hello from content_scripts!
+```
+
+一次 `console.log` 调用打印为 `LOG`，按 `info` 过滤，因此 `--level info` 会保留它，`--level warn` 会丢弃它。
+
+除了标签之外，这两种行还有两处不同。content script 的记录还带有它所运行的页面(`url`、`tabId`、`frameId`)。content script 把输出转发给 service worker，而会话记录下了发送方。后台记录没有页面，所以这些字段一个都没有。这给了你两种分离两条流的方式：
+
+- `--context` 按标签选择。`--context background` 只显示 service worker，`--context content` 只显示 content script，逗号分隔的列表则把它们组合起来。列表之外的名字会被拒绝。
+- `--url` 和 `--tab` 按页面选择。后台行没有 URL 也没有标签页，所以任一过滤器都会把它丢掉，只留下 content 行。
+
+```bash
+extension logs --context background --follow
+extension logs --context content --tab 7 --follow
+```
+
+在两个终端里运行它们可以实时观察各自一侧，也可以从同一个文件里一次性读取。任一上下文里未捕获的错误和未处理的 rejection 都会作为 `error` 行到达，消息后面附有堆栈，因此跨两个上下文使用 `--level error` 是看清哪一侧抛错的最快方式。
+
+要在脚本里拆分这条流，请读取 `ndjson` 并按 `context` 字段分支。后台行上没有 `url` 字段：
+
+```bash
+extension logs --output ndjson | jq -r '[.context, (.url // "-"), (.messageParts | join(" "))] | @tsv'
+```
+
+同样的标签和过滤器也适用于 `dev` 通过 `--logs` 和 `--log-context` 在自己终端里打印的流。参见 [`dev`](/zh-Hans/docs/commands/dev)。
+
 ## 示例
 
 只看某个站点上 content script 的错误与警告：

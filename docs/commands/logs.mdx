@@ -121,6 +121,39 @@ Pretty mode prints one line per record:
 extension logs --context content | jq -r '.messageParts | join(" ")'
 ```
 
+## Tell content script rows from service worker rows
+
+Without `logs`, the two outputs live in two DevTools windows: the service worker console behind the extensions page, and the content script console inside the page that it runs in. `logs` merges them into one stream and labels every record with the context that produced it, so you can split them again on your terms.
+
+The label is the `context` field, printed in parentheses in pretty mode. The dev session assigns it per compiled entry. Output under `content_scripts/` is `content`, and the background service worker (or the Firefox background script) is `background`. `action/index.js` is `popup`, `options/index.js` is `options`, and so on through the list that `--context` accepts.
+
+```plaintext
+[142] LOG (background) [From the background context] Hello from the background worker/script!
+[143] LOG (content) [From the page context] Hello from content_scripts!
+```
+
+A `console.log` call prints as `LOG` and is filtered as `info`, so `--level info` keeps it and `--level warn` drops it.
+
+Two things differ between the rows beyond the label. A content script record also carries the page that it ran in (`url`, `tabId`, `frameId`). The content script relays its output to the service worker, and the session records the sender. A background record has no page, so it carries none of those fields. That gives you two ways to separate the streams:
+
+- `--context` chooses by label. `--context background` shows the service worker alone, `--context content` the content scripts alone, and a comma-separated list combines them. A name outside the list is refused.
+- `--url` and `--tab` choose by page. A background row has no URL or tab, so either filter drops it and leaves content rows only.
+
+```bash
+extension logs --context background --follow
+extension logs --context content --tab 7 --follow
+```
+
+Run those in two terminals to watch each side live, or read them one shot from the same file. Uncaught errors and unhandled rejections from either context arrive as `error` rows with the stack appended to the message, so `--level error` across both contexts is the fastest way to see which side threw.
+
+To split the stream in a script, read `ndjson` and branch on the `context` field. The `url` field is absent on background rows:
+
+```bash
+extension logs --output ndjson | jq -r '[.context, (.url // "-"), (.messageParts | join(" "))] | @tsv'
+```
+
+The same labels and filters apply to the stream that `dev` prints in its own terminal through `--logs` and `--log-context`. See [`dev`](/docs/commands/dev).
+
 ## Examples
 
 Show only errors and warnings from content scripts on a specific site:
