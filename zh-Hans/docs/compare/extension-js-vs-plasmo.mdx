@@ -1,0 +1,153 @@
+---
+title: "Extension.js vs Plasmo"
+description: "并排对比 Extension.js 与 Plasmo 用于构建浏览器扩展的差异：manifest 模型、打包器、浏览器目标、开发循环、打包，以及带日期的维护状态。"
+keywords:
+  [
+    "extension.js vs plasmo",
+    "plasmo vs extension.js",
+    "plasmo alternative",
+    "plasmo framework",
+    "is plasmo still maintained",
+    "browser extension framework comparison",
+    "plasmo",
+    "extension.js",
+    "cross-browser extension",
+    "chrome extension framework",
+    "parcel browser extension",
+  ]
+---
+
+Extension.js 与 [Plasmo](https://www.plasmo.com) 都能把现代源码编译成浏览器扩展，在你工作时重载它，并为商店打包。它们的差异在于 manifest 放在哪里、由哪个打包器干活，以及各自发布得有多活跃。本页是一份事实性的对比，让你能基于自己的项目情况而非营销话术做出选择。
+
+## TL;DR：你应该选哪个？
+
+<CardGroup cols={2}>
+  <Card title="如果以下情况，选 Extension.js……">
+    - 你希望 **`manifest.json` 作为唯一事实来源**，而不是从文件名生成。
+    - 你希望 CLI 替你启动浏览器并加载扩展。
+    - 你要从同一棵代码树面向 Chrome、Edge、Firefox 和 Safari，并得到按浏览器划分的 `dist/` 输出。
+    - 你想要一个仍在持续发版的打包器，以及助手可读的文档：文档 MCP 端点和 `llms.txt`（[详情](/zh-Hans/docs/ai-access)）。
+  </Card>
+  <Card title="如果以下情况，选 Plasmo……">
+    - 你更喜欢 **文件系统约定**（`popup.tsx`、`contents/`）而不是显式的 manifest。
+    - 你依赖 **CSUI**，它会替你把 React、Svelte 或 Vue 组件挂载进页面里的 shadow root。
+    - 你在用 `@plasmohq/storage` 和 `@plasmohq/messaging`，并且你的扩展在锁定的工具链上仍然正常工作。
+  </Card>
+</CardGroup>
+
+本页其余部分会逐项展开印证上面这份小结。
+
+## 一览
+
+| 维度                 | Extension.js                                                                 | Plasmo                                                                   |
+| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 打包器               | [Rspack](/zh-Hans/docs/features/rspack-configuration)（基于 Rust）           | Parcel，0.90.5 版 CLI 把 `@parcel/core` 锁定在 2.9.3                      |
+| Manifest             | 单一 `manifest.json`，编译时按浏览器前缀过滤键                               | 由文件约定加 `package.json` 里的 `manifest` 字段生成                     |
+| 入口点               | 由 `manifest.json` 引用的文件                                                | `popup.tsx`、`options.tsx`、`newtab.tsx`、`background.ts`、`contents/*`  |
+| 浏览器目标           | Chrome、Edge、Firefox、Safari（macOS，经由 Xcode）、Chromium、Gecko、自定义可执行文件 | `chrome-mv3`（默认）、`firefox-mv2`、`firefox-mv3`（实验性）      |
+| 其他 Chromium 浏览器 | Brave、Opera、Vivaldi、Yandex，以及通过 `--chromium-binary` 指定的任何可执行文件 | 作为 Chromium 构建“应该能用”，需手动加载                          |
+| Safari               | `extension build --browser=safari` 完成转换并运行 `xcodebuild`               | `safari-mv3` 目标，然后你自己运行 `safari-web-extension-converter`       |
+| Manifest V2          | 不作为主要目标支持                                                           | `firefox-mv2` 目标                                                       |
+| 开发循环             | 在全新 profile 上启动浏览器并加载构建                                        | 带实时重载的服务器，你手动把 `build/chrome-mv3-dev` 以未打包方式加载     |
+| 重载模型             | popup/options/devtools 使用 HMR，content script 和 worker 使用分类重载       | 实时重载加 React HMR                                                     |
+| 输出                 | `dist/<browser>`                                                             | `build/<target>-dev` 和 `build/<target>-prod`                            |
+| 打包                 | `extension build --zip`，加上 `--zip-source` 和 `--zip-filename`             | `plasmo package`，或 `plasmo build --zip`                                |
+| 商店提交             | 不属于 CLI，`extension publish` 是分享链接                                   | Browser Platform Publisher，一个读取 `keys.json` secret 的 GitHub Action |
+| 环境变量             | `EXTENSION_PUBLIC_*`                                                         | `PLASMO_PUBLIC_*`，可用 `.env.<browser>` 覆盖                            |
+| 模板                 | 目录里有 59 个，起步模板：init、javascript、typescript、react、preact、vue、svelte | React 和 TypeScript 一等公民，Svelte 和 Vue 可选                   |
+| AI 接入              | 文档 MCP 端点 + `llms.txt`（[详情](/zh-Hans/docs/ai-access)）                | 未见文档说明                                                             |
+
+## 心智模型
+
+**Extension.js 贴近平台。** 你编写 `manifest.json` 并引用真实文件。CLI 负责编译、按浏览器过滤并打包发布。如果你已经理解一个浏览器扩展是怎样组织的，框架不会挡你的路。
+
+**Plasmo 抽象了平台。** 一个名为 `popup.tsx` 的文件就成为 popup。`contents/` 下的文件成为 content script，它的 `matches` 来自导出的 `config` 对象。Plasmo 自己的文档把它描述为“浏览器扩展界的 Next.js”。manifest 在幕后由你的源文件和 `package.json` 里的 `manifest` 字段生成。
+
+两种方式没有绝对的好坏。选择取决于你想 **看见** 自己的 manifest，还是 **声明** 自己的 manifest。
+
+## CLI 体验
+
+### Extension.js
+
+```bash
+extension dev --browser=chrome,firefox
+extension build --browser=chrome,firefox --zip
+extension dev https://github.com/user/repo/tree/main/path
+```
+
+`extension dev` 在临时 profile 上启动浏览器并加载构建。参数可以是本地路径、GitHub URL 或 ZIP 压缩包。参见[立即开始](/zh-Hans/docs/getting-started/immediately)。
+
+### Plasmo
+
+```bash
+plasmo dev
+plasmo dev --target=firefox-mv2
+plasmo build --target=chrome-mv3
+plasmo package
+```
+
+`plasmo dev` 写出 `build/chrome-mv3-dev` 并启动一个实时重载服务器。把那个文件夹加载进浏览器是手动步骤：Plasmo 文档写着“我们计划将来把它自动化”。每一对浏览器与 manifest 版本对应一个 `--target` 值。
+
+## 跨浏览器策略
+
+两个框架都把一套代码发到多个浏览器，但机制不同：
+
+- **Extension.js** 在单一 `manifest.json` 里使用[浏览器前缀 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)（`chrome:`、`firefox:`、`gecko:` 等）。无前缀的键处处生效，有前缀的键只落到匹配的构建里。一次 `--browser=chrome,firefox` 运行就写出 `dist/chrome` 和 `dist/firefox`。
+- **Plasmo** 每次运行只构建一个目标。浏览器差异放在环境变量里：一个 `.env.firefox` 文件、代码里的 `process.env.PLASMO_BROWSER`，以及 `manifest` 覆盖里的环境占位符。解析不到值的占位符会把该字段从生成的 manifest 里移除。
+
+Plasmo 官方支持的目标是 `chrome-mv3`、`firefox-mv2` 和实验性的 `firefox-mv3`。它的 FAQ 说 Edge、Brave 和 Opera 因为是 Chromium 所以“应该能用”，Safari 则需要 `safari-mv3` 目标再手动运行 Apple 的转换器。Extension.js 把这些浏览器每一个都列为 `--browser` 的取值，而且 [Safari 构建](/zh-Hans/docs/browsers/safari)会替你运行转换器和 `xcodebuild`。
+
+## Plasmo 领先的地方
+
+迁移之前先坦诚面对这些：
+
+- **CSUI。** 从 content script 导出一个 React、Svelte 3 或 Vue 3 组件，Plasmo 就把它挂载到 shadow root 里，与宿主页面的样式隔离。在 Extension.js 里，容器和 shadow root 由你自己写，见 [Content scripts](/zh-Hans/docs/implementation-guide/content-scripts)。
+- **从仓库直接提交商店。** Plasmo 文档提供了一个 GitHub Action，Browser Platform Publisher，它读取 `keys.json` secret 并上传到各商店。Extension.js 负责构建压缩包（[为商店上传打包扩展](/zh-Hans/docs/publishing/package-for-the-stores)）。上传则交给你的 CI 对接各商店的 API。`extension publish` 命令生成的是 extension.dev 上的分享链接，不是商店提交。
+- **自带辅助库。** `@plasmohq/storage` 和 `@plasmohq/messaging` 封装了 `chrome.storage` 和 `chrome.runtime` 消息传递。Extension.js 没有对应的包。你直接调用浏览器 API，这也是迁移之后 `@plasmohq/storage` 仍能正常工作的原因。
+
+## 维护状态
+
+做决定之前自己核对这些信号。以下数值来自 2026 年 10 月 5 日的 npm 和 GitHub API。
+
+| 信号                                | Plasmo                                                   | Extension.js                        |
+| ----------------------------------- | -------------------------------------------------------- | ----------------------------------- |
+| 最新 npm 发布                       | 0.90.5，发布于 2025 年 5 月 17 日                        | 4.1.31，发布于 2026 年 10 月 4 日   |
+| `main` 上的最后一次提交             | 2025 年 5 月 17 日                                       | 2026 年 10 月 5 日                  |
+| 开放 issue                          | 347，另有 24 个开放的 pull request（GitHub 合计显示 371） | 5，另有 10 个开放的 pull request    |
+| 下载量，2026 年 9 月 5 日至 10 月 4 日 | 2,531,820                                             | 30,629                              |
+| GitHub star                         | 13,162                                                   | 5,177                               |
+
+Plasmo 仍然能安装、仍然能构建。下载量居高不下是因为现有项目一直锁定着它。它已经超过十六个月没有发布新版本，`main` 上也没有新提交。如果你的扩展今天还能用，你不需要迁移。如果你要开始一个新扩展，或者需要一个仍在接收更新的打包器，请继续往下读。
+
+## 迁移路径
+
+如果你已经在用 Plasmo 并想评估 Extension.js，典型的迁移涉及四件事：
+
+1. 手写一个 `manifest.json`，把每个约定文件映射成 manifest 条目，并把 `package.json` 里的 `manifest` 字段合并进去。
+2. 把 content script 的 `matches` 从导出的 `PlasmoCSConfig` 移到 manifest 的 `content_scripts` 里。
+3. 把 `PLASMO_PUBLIC_*` 重命名为 `EXTENSION_PUBLIC_*`。
+4. 用 `extension dev` 和 `extension build --zip` 替换 `plasmo dev`、`plasmo build` 和 `plasmo package`。
+
+你的 React 组件、Tailwind 配置、测试和 `chrome.*` 调用无需改动即可照搬。完整的分步指南，包括约定到 manifest 的对照表和 CSUI 的替代方案，见[从 Plasmo 迁移](/zh-Hans/docs/migrate/from-plasmo)。
+
+## 何时选择 Extension.js
+
+- 你希望 manifest 作为事实来源，而不是生成出来的。
+- 你希望 CLI 替你启动浏览器并加载扩展。
+- 你要用一棵代码树、一条命令面向 Chrome、Edge、Firefox 和 Safari。
+- 你想要一个仍在持续发版的打包器。
+- 你想要给助手用的文档 MCP 端点和 `llms.txt`。
+
+## 何时选择 Plasmo
+
+- 你更喜欢文件系统约定而不是显式的 manifest。
+- 你依赖 CSUI 的锚点以及它替你完成的 shadow root 挂载。
+- 你已经通过 Browser Platform Publisher 发布，并且锁定的工具链仍然能构建。
+
+## 参见
+
+- [从 Plasmo 迁移](/zh-Hans/docs/migrate/from-plasmo)
+- [Extension.js vs WXT](/zh-Hans/docs/compare/extension-js-vs-wxt)
+- [浏览器扩展框架对比](/zh-Hans/docs/compare)
+- [跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)
+- [浏览器专属 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)
