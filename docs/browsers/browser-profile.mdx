@@ -41,20 +41,24 @@ A relative `--profile` path resolves against the project (compilation context), 
 ### System profile mode on Firefox and other Gecko browsers
 
 <Warning>
-  System profile mode does not load your extension in Firefox or any other
-  Gecko-based browser. Use it with Chromium-family browsers only.
+  Extension.js refuses to launch Firefox or any other Gecko-based browser in
+  system profile mode. Use it with Chromium-family browsers only.
 </Warning>
 
-Extension.js installs the add-on in a Gecko browser over remote debugging, and a browser's own profile keeps remote debugging off. So with `--profile=false`, `profile: false`, or `EXTENSION_USE_SYSTEM_PROFILE=true`, the browser opens on your everyday profile and nothing from your project is installed in it. This applies to every Gecko target the CLI launches: `firefox`, `waterfox`, `librewolf`, `zen`, `floorp`, and `gecko-based`. It applies to `dev`, `start`, and `preview` alike.
+Extension.js installs the add-on in a Gecko browser over remote debugging, and a browser's own profile keeps remote debugging off. So with `--profile=false`, `profile: false`, or `EXTENSION_USE_SYSTEM_PROFILE=true`, `dev`, `start`, and `preview` stop before the browser launches. Nothing opens on your everyday profile. This applies to every Gecko target the CLI launches: `firefox`, `waterfox`, `librewolf`, `zen`, `floorp`, and `gecko-based`.
 
-`extension dev` says so in place of the ready line. The browser name follows your target:
+All three commands print a block that names the source of the setting and the two ways out. The browser name follows your target, and the `SET BY` line names every source that is active (`--profile=false`, `profile: false in extension.config.js`, or `EXTENSION_USE_SYSTEM_PROFILE=true`):
 
 ```text
-Firefox is running with its own profile, so the add-on was not installed and nothing is loaded.
-Drop --profile=false to let Extension.js manage the profile and install the add-on, or pass --profile=<path> to use a profile of your own.
+Firefox can't load the add-on in its own profile, so it was not launched.
+SET BY --profile=false
+Remote debugging is off in a browser's own profile, and the add-on can only be installed over it.
+To fix, drop --profile=false, then let Extension.js manage the profile or pass --profile=<path> to use a profile of your own.
 ```
 
-Earlier versions printed the ready line here even though no add-on was loaded. To get a working session, take one of the two ways out the warning names:
+`extension dev` keeps the dev server running and watching, with `ready.json` in `error` (code `browser_launch_failed`, `browserLaunchFailedCode: "E_FLAG_NOT_SUPPORTED_HERE"`). `extension start` and `extension preview` exit with code 1. With `--output json`, every command fails with `E_FLAG_NOT_SUPPORTED_HERE` and `status: "usage"`.
+
+Earlier versions launched the browser on your own profile with nothing loaded in it. To get a working session, take one of the two ways out the block names:
 
 - Drop `--profile=false` (and `profile: false` or `EXTENSION_USE_SYSTEM_PROFILE`) so Extension.js manages the profile and installs the add-on. Add `persistProfile: true` to keep logins and state between runs, or seed the managed profile from an existing one with [`copyFromProfile`](#seeding-with-copyfromprofile).
 - Pass `--profile=<path>` to launch with a profile directory of your own. Extension.js installs the add-on into it.
@@ -181,7 +185,7 @@ A managed profile is a full browser profile. It holds cookies, history, and logi
 - **Use managed ephemeral profiles for baseline testing**: Reduces hidden state and flaky reproductions.
 - **Use `persistProfile` for long-lived debug sessions**: Keep auth/session/devtools state between runs.
 - **Keep custom profiles per browser family**: Avoid cross-browser contamination.
-- **Use system profile mode intentionally**: Useful for reproduction on Chromium-family browsers, but less isolated than managed profiles. It never loads the extension in a Gecko browser.
+- **Use system profile mode intentionally**: Useful for reproduction on Chromium-family browsers, but less isolated than managed profiles. Extension.js refuses to launch a Gecko browser in this mode.
 
 ## Next steps
 
