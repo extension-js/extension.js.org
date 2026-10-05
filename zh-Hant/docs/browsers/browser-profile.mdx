@@ -38,6 +38,27 @@ CLI 是以字串傳遞旗標的值,因此 Extension.js 會先做正規化:
 
 相對的 `--profile` 路徑是相對於專案(編譯情境)解析,而不是相對於你 shell 的工作目錄。這可以避免依序執行不同專案時全部塌縮到同一個共用設定檔。
 
+### Firefox 與其他 Gecko 瀏覽器上的系統設定檔模式
+
+<Warning>
+  系統設定檔模式不會在 Firefox 或任何其他以 Gecko 為基礎的瀏覽器中載入你的擴充功能。
+  只在 Chromium 家族瀏覽器上使用它。
+</Warning>
+
+Extension.js 透過遠端除錯把附加元件安裝進 Gecko 瀏覽器,而瀏覽器自己的設定檔預設關閉遠端除錯。因此在使用 `--profile=false`、`profile: false` 或 `EXTENSION_USE_SYSTEM_PROFILE=true` 時,瀏覽器會以你平常使用的設定檔開啟,專案裡的任何東西都不會被安裝進去。這適用於 CLI 啟動的每一個 Gecko 目標:`firefox`、`waterfox`、`librewolf`、`zen`、`floorp` 與 `gecko-based`,對 `dev`、`start` 與 `preview` 都一樣。
+
+`extension dev` 會在原本輸出就緒行的位置說明這一點。瀏覽器名稱會隨你的目標而變:
+
+```text
+Firefox is running with its own profile, so the add-on was not installed and nothing is loaded.
+Drop --profile=false to let Extension.js manage the profile and install the add-on, or pass --profile=<path> to use a profile of your own.
+```
+
+較早的版本在這裡仍會輸出就緒行,儘管並沒有載入任何附加元件。要得到可用的工作階段,請選擇警告中提到的兩條出路之一:
+
+- 拿掉 `--profile=false`(以及 `profile: false` 或 `EXTENSION_USE_SYSTEM_PROFILE`),讓 Extension.js 管理設定檔並安裝附加元件。加上 `persistProfile: true` 可在多次執行間保留登入與狀態,也可以用 `copyFromProfile` 從既有設定檔為受管理設定檔建立初始內容。
+- 傳入 `--profile=<path>`,以你自己的設定檔目錄啟動。Extension.js 會把附加元件安裝進去。
+
 ## 設定檔功能
 
 | 設定 / 選項                         | 用途                                                            |
@@ -51,7 +72,7 @@ CLI 是以字串傳遞旗標的值,因此 Extension.js 會先做正規化:
 | `keepProfileChanges`                | 在多次執行間保留受管理設定檔與它的變更(效果與 `persistProfile` 相同)。 |
 | `copyFromProfile`                   | 以既有設定檔目錄的副本為受管理設定檔建立初始內容。              |
 | `--profile=/abs/path`               | CLI 覆寫,明確指定設定檔路徑。                                   |
-| `--profile=false`                   | 啟動瀏覽器自己的預設設定檔(系統模式)。                          |
+| `--profile=false`                   | 啟動瀏覽器自己的預設設定檔(系統模式)。僅限 Chromium 家族,見上文。 |
 | `EXTENSION_USE_SYSTEM_PROFILE=true` | 使用作業系統/瀏覽器的系統設定檔,而不使用受管理設定檔。          |
 | `EXTJS_USE_SYSTEM_PROFILE=true`     | `EXTENSION_USE_SYSTEM_PROFILE` 的別名。                         |
 
@@ -66,7 +87,7 @@ CLI 是以字串傳遞旗標的值,因此 Extension.js 會先做正規化:
 | 受管理暫存     | 預設                                                     | 以隔離狀態進行乾淨的執行          |
 | 受管理持久     | `persistProfile: true` 或 `keepProfileChanges: true`     | 以穩定的瀏覽器狀態進行迭代除錯    |
 | 明確自訂設定檔 | `profile: "/abs/path"` 或 `--profile=/abs/path`          | 重複使用既有的設定檔              |
-| 系統設定檔     | `--profile=false` 或 `EXTENSION_USE_SYSTEM_PROFILE=true` | 以作業系統/瀏覽器的預設設定檔啟動 |
+| 系統設定檔     | `--profile=false` 或 `EXTENSION_USE_SYSTEM_PROFILE=true` | 以作業系統/瀏覽器的預設設定檔啟動(僅限 Chromium 家族) |
 
 Extension.js 會在下列位置建立受管理設定檔:
 
@@ -159,7 +180,7 @@ extension dev --browser=chrome --profile=/path/to/custom/profile
 - **以受管理的暫存設定檔做基線測試**:減少隱藏狀態與難以重現的問題。
 - **以 `persistProfile` 進行長時間除錯**:在多次執行間保留登入/工作階段/開發者工具狀態。
 - **每個瀏覽器家族使用各自的自訂設定檔**:避免跨瀏覽器互相污染。
-- **有意識地使用系統設定檔模式**:適合重現問題,但隔離程度不如受管理設定檔。
+- **有意識地使用系統設定檔模式**:適合在 Chromium 家族瀏覽器上重現問題,但隔離程度不如受管理設定檔。它在 Gecko 瀏覽器中永遠不會載入擴充功能。
 
 ## 後續步驟
 
