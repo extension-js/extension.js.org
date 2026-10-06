@@ -64,6 +64,34 @@ The checklists below map each type to a concrete fix.
 - Keep public assets intentional; remove stale files.
 - Verify generated `dist/<browser>` output size regularly.
 
+## Trim what ships
+
+Every byte in `dist/<browser>` is a byte that each user downloads on install and on every update, and a content script's assets travel with it to every matched page. Here is what `extension build` already leaves out, where the remaining weight comes from, and where to read the number.
+
+**What the build excludes.** Output starts from `manifest.json` and follows references. It ships the entries that the manifest names (background, content scripts, pages, icons, locales), the modules and assets that those entries import, and everything under `public/`. A file in `src/` that nothing references is not emitted. A notes file, an unused module, a fixture folder, or a stray image next to your icons never reaches `dist/`. You do not need an ignore list for them.
+
+**`public/` versus imported assets.** The two paths behave differently, and the difference is the usual source of surplus bytes:
+
+- `public/` is copied to the output root as-is, folder structure included, and nothing is checked against it. A stale file there ships. Treat the folder as a list of files that you have decided to ship, and prune it.
+- An asset imported from JavaScript lands at `assets/<name>.<hash>.<ext>` and ships once, only when the import exists.
+- An asset referenced from an HTML page is written twice: under `assets/<relative path>` and at its source path, so a reference from script code keeps working. A file referenced from both an HTML page and a JavaScript import ships three times. Import a shared image from JavaScript, or move it to `public/` and reference it by root path, so it is written once.
+
+**`web_accessible_resources` scope.** On Manifest V3 the build adds two kinds of file to `web_accessible_resources`, under the union of your content scripts' `matches`: every chunk that a content script loads with `import()`, and every non-script file under `assets/`, whichever page or script put it there. Files copied from `public/` are not added. Two consequences follow. Keep `matches` as narrow as the feature allows. Keep page-only images out of `assets/` (reference them from `public/` by root path), so a content script's `matches` does not expose them. See [Make an extension file readable by a web page](/docs/implementation-guide/web-accessible-resources).
+
+**Read the size.** `extension build` prints a tree of the output with the size of each file and closes with the total:
+
+```plaintext
+⏵⏵⏵ Extension built for production in dist/chromium (171.6 KB).
+```
+
+With `--zip`, a second line names the archive and its compressed size. The archive holds the contents of `dist/<browser>` and nothing else, under `dist/<name>-<version>-<browser>.zip`, where the name is the manifest `name` lowercased with punctuation removed:
+
+```plaintext
+⏵⏵⏵ Packaged dist/trimdemo-1.0.0-chromium.zip (142.9 KB).
+```
+
+For a script, `extension build --output json` returns `total_bytes`, `largest_asset_bytes`, and the size of each entry in `zip_artifacts`, and the same summary is written to `dist/extension-js/<browser>/build-summary.json`. Compare `total_bytes` across commits in CI to catch a size regression before a store review does. See [`build`](/docs/commands/build).
+
 ## Performance budgets
 
 Production builds (`build`) emit a **warning** when a bundle exceeds its per-category size budget. Budgets are warn-only (they never fail the build) and are enabled in production mode by default.

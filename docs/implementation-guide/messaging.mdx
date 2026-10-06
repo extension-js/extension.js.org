@@ -22,6 +22,8 @@ keywords:
 
 An extension runs in several isolated contexts. The service worker holds the privileged code, content scripts see the page, and the popup or options page holds the interface. None of them share memory, so every value that crosses a boundary crosses as a message. This page explains which call to use for each direction, the rule that decides whether an async answer arrives, and the console lines that a broken exchange prints.
 
+This page is part of the Extension.js documentation. Extension.js builds and runs browser extensions from one `manifest.json` for Chrome, Edge, Firefox, and Safari, and the messaging APIs below are the browser's own. To try the examples, scaffold a project with `npx extension@latest create my-extension`.
+
 ## Three ways to move a message
 
 **`chrome.runtime.sendMessage`.** One shot. It reaches every extension context that has a `runtime.onMessage` listener, which means the service worker, the popup, the options page, and any other extension page that is open. It does not reach a content script.
@@ -96,6 +98,80 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onDisconnect.addListener(() => stopWatching(port));
 });
 ```
+
+## Validate messages between a content script and the background
+
+A content script runs inside a page that you do not control. The page can hand it anything through the DOM or `window.postMessage`, and the content script forwards that data to the background. Chrome documents content scripts as less trustworthy than the service worker for this reason. Treat every message that reaches the background as untrusted input, the way a server treats a request body.
+
+**Check who is calling.** Every listener receives a `sender` object, the `runtime.MessageSender` type. These are the fields that matter:
+
+| Field                 | What it holds                                                                                  | Use it to                                                            |
+| --------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `sender.id`           | The id of the extension that sent the message                                                  | Reject other extensions on `runtime.onMessageExternal`               |
+| `sender.url`          | The URL of the page or frame that sent it, the iframe URL when the sender is in a frame        | Compare `new URL(sender.url).origin` against the sites that you expect |
+| `sender.origin`       | The origin of the sender, which can differ from `url` (`about:blank`) or be opaque (a sandboxed iframe) | The same check, on browsers that set it                     |
+| `sender.tab`          | The `tabs.Tab` that sent it, present only when the sender is a tab                             | Require it for a message type that only a content script may send    |
+| `sender.frameId`      | `0` for the top frame, positive for a child frame, present only with `sender.tab`              | Refuse a privileged request from an iframe                           |
+
+`runtime.onMessage` fires only for your own extension's contexts, so `sender.id` is always your own id there. A message from another extension, or from a web page that `externally_connectable` admits, arrives at `runtime.onMessageExternal` instead, and that is where `sender.id` and `sender.url` decide everything.
+
+**Validate the shape before you act.** Keep an allowlist of message types, check every field's type and size, and refuse anything else. Never turn a string from a message into code: no `eval`, no `new Function`, no `innerHTML`, and no `chrome.scripting.executeScript` call whose code comes from the message. Write text with `textContent`.
+
+```ts
+const ALLOWED_ORIGINS = new Set(["https://example.com"]);
+
+function isSaveNote(message: unknown): message is { type: "note:save"; text: string } {
+  if (typeof message !== "object" || message === null) return false;
+  const candidate = message as { type?: unknown; text?: unknown };
+  return (
+    candidate.type === "note:save" &&
+    typeof candidate.text === "string" &&
+    candidate.text.length <= 2000
+  );
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Only a content script sends this type, so a sender without a tab is wrong.
+  if (!sender.tab || !sender.url) {
+    sendResponse({ ok: false, error: "forbidden" });
+    return;
+  }
+
+  if (!ALLOWED_ORIGINS.has(new URL(sender.url).origin)) {
+    sendResponse({ ok: false, error: "forbidden" });
+    return;
+  }
+
+  if (!isSaveNote(message)) {
+    sendResponse({ ok: false, error: "invalid_message" });
+    return;
+  }
+
+  saveNote(sender.tab.id, message.text).then(() => sendResponse({ ok: true }));
+  return true;
+});
+```
+
+**Decide who may connect from outside.** Without an `externally_connectable` key, every other extension can message yours and no web page can. Declare the key to narrow or widen that. `ids` lists the extensions that may connect, and `"*"` admits all of them. `matches` lists the web pages that may call `runtime.sendMessage` with your extension id. Those messages land on `runtime.onMessageExternal` and `runtime.onConnectExternal`, never on `onMessage`, so give them their own listener and check `sender.url` against the pattern that you declared.
+
+```json
+{
+  "externally_connectable": {
+    "ids": ["abcdefghijklmnopabcdefghijklmnop"],
+    "matches": ["https://app.example.com/*"]
+  }
+}
+```
+
+**A port changes when you check, not what.** `port.sender` is set on the port that `runtime.onConnect` and `runtime.onConnectExternal` deliver, so check `port.name` and the sender once, when the port opens. The identity of the port is then fixed, but every payload that arrives on `port.onMessage` is still page data, so run it through the same type guard. Call `port.disconnect()` on the first bad message.
+
+Where Firefox differs:
+
+- `sender.origin` exists from Firefox 126. Derive the origin from `sender.url` to cover older versions and Chrome in one line.
+- Firefox does not support `externally_connectable`, so a web page can never message a Firefox extension, and `runtime.onMessageExternal` fires there only for another extension. Safari 15.4 supports the key with `matches` only.
+- `browser.runtime.onMessage` honors a returned promise, which the table below covers.
+
+Extension.js compiles these listeners as written and adds no check of its own, so this part is plain browser API. One dev-time detail. Under `extension dev`, the reload bridge relays console output to the service worker over a port named `__extjs-bridge-log__`. A devtools page relays it with `runtime.sendMessage` instead, as an object that carries an `__extjsBridgeLog` key. A `runtime.onConnect` listener that checks `port.name`, and an `onMessage` listener that rejects a message without a known `type`, ignore both. `extension build` output carries none of it.
 
 ## Per-browser differences
 

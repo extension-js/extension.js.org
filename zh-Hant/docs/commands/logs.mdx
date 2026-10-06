@@ -17,6 +17,8 @@ keywords:
 
 印出或串流一個執行中的開發工作階段裡每個情境的記錄。
 
+`logs` 是 Extension.js CLI 的一個指令。Extension.js 從一個 `manifest.json` 出發，為 Chrome、Edge、Firefox 與 Safari 建置並執行瀏覽器擴充功能，`npx extension@latest dev` 會啟動這個指令所讀取的工作階段。
+
 `logs` 會讀取 [`dev`](/zh-Hant/docs/commands/dev) 工作階段從你的擴充功能收集到的記錄：background、content script、popup、options 以及其餘情境。一個指令就能依序合併顯示全部內容，不必開啟任何一個 DevTools 視窗。
 
 <Frame>
@@ -120,6 +122,39 @@ pretty 模式每筆記錄印出一行：
 ```bash
 extension logs --context content | jq -r '.messageParts | join(" ")'
 ```
+
+## 區分 content script 的列與 service worker 的列
+
+沒有 `logs` 時，這兩種輸出分別住在兩個 DevTools 視窗裡：service worker 的主控台藏在擴充功能管理頁後面，content script 的主控台則在它所執行的頁面裡。`logs` 把它們合併成一條串流，並給每筆記錄標上產生它的情境標籤，這樣你就能按自己的方式再把它們分開。
+
+這個標籤就是 `context` 欄位，pretty 模式下印在括號裡。開發工作階段按編譯後的項目分配它。`content_scripts/` 下的輸出是 `content`，背景 service worker（或 Firefox 的背景指令碼）是 `background`。`action/index.js` 是 `popup`，`options/index.js` 是 `options`，其餘依此類推，涵蓋 `--context` 接受的整個清單。
+
+```plaintext
+[142] LOG (background) [From the background context] Hello from the background worker/script!
+[143] LOG (content) [From the page context] Hello from content_scripts!
+```
+
+一次 `console.log` 呼叫印出為 `LOG`，按 `info` 過濾，因此 `--level info` 會保留它，`--level warn` 會丟棄它。
+
+除了標籤之外，這兩種列還有兩處不同。content script 的記錄還帶有它所執行的頁面（`url`、`tabId`、`frameId`）。content script 把輸出轉發給 service worker，而工作階段記錄下了送出方。背景記錄沒有頁面，所以這些欄位一個都沒有。這給了你兩種分離兩條串流的方式：
+
+- `--context` 按標籤選擇。`--context background` 只顯示 service worker，`--context content` 只顯示 content script，逗號分隔的清單則把它們組合起來。清單之外的名字會被拒絕。
+- `--url` 和 `--tab` 按頁面選擇。背景列沒有 URL 也沒有分頁，所以任一篩選器都會把它丟掉，只留下 content 列。
+
+```bash
+extension logs --context background --follow
+extension logs --context content --tab 7 --follow
+```
+
+在兩個終端機裡執行它們可以即時觀察各自一側，也可以從同一個檔案裡一次性讀取。任一情境裡未捕捉的錯誤和未處理的 rejection 都會作為 `error` 列到達，訊息後面附有堆疊，因此跨兩個情境使用 `--level error` 是看清哪一側拋出錯誤的最快方式。
+
+要在指令碼裡拆分這條串流，請讀取 `ndjson` 並按 `context` 欄位分支。背景列上沒有 `url` 欄位：
+
+```bash
+extension logs --output ndjson | jq -r '[.context, (.url // "-"), (.messageParts | join(" "))] | @tsv'
+```
+
+同樣的標籤和篩選器也適用於 `dev` 透過 `--logs` 和 `--log-context` 在自己終端機裡印出的串流。請見 [`dev`](/zh-Hant/docs/commands/dev)。
 
 ## 範例
 

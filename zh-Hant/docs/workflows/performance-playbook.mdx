@@ -64,9 +64,37 @@ keywords:
 - 公開資產要有意識地管理；移除已棄置的檔案。
 - 定期驗證產生的 `dist/<browser>` 輸出大小。
 
+## 精簡發佈的內容
+
+`dist/<browser>` 裡的每一個位元組，都是每位使用者在安裝時和每次更新時要下載的位元組，而 content script 的資產會隨它一起進入每個相符的頁面。下面說明 `extension build` 已經排除了什麼、剩餘的大小來自哪裡，以及到哪裡讀取這個數字。
+
+**建置排除了什麼。** 輸出從 `manifest.json` 出發並沿著參照走。它會發佈 manifest 指名的項目（background、content script、頁面、圖示、locale）、這些項目匯入的模組和資產，以及 `public/` 下的全部內容。`src/` 裡沒有任何東西參照的檔案不會被輸出。一個筆記檔案、一個未使用的模組、一個 fixture 資料夾，或者圖示旁邊的一張多餘圖片，永遠不會進入 `dist/`。你不需要為它們準備忽略清單。
+
+**`public/` 與匯入的資產。** 這兩條路徑的行為不同，而這個差異正是多餘位元組的常見來源：
+
+- `public/` 會原樣複製到輸出根目錄，連同資料夾結構，並且不做任何檢查。那裡的過期檔案也會被發佈。請把這個資料夾當作你決定要發佈的檔案清單，並修剪它。
+- 從 JavaScript 匯入的資產會落在 `assets/<name>.<hash>.<ext>`，只發佈一次，而且只在匯入存在時才發佈。
+- 從 HTML 頁面參照的資產會寫兩份：一份在 `assets/<relative path>` 下，一份在它的來源路徑上，這樣指令碼程式碼裡的參照仍然可用。一個既被 HTML 頁面參照又被 JavaScript 匯入的檔案會發佈三份。請從 JavaScript 匯入共用圖片，或者把它移到 `public/` 並按根路徑參照，這樣它只會寫一份。
+
+**`web_accessible_resources` 的範圍。** 在 Manifest V3 上，建置會在你所有 content script 的 `matches` 聯集之下，把兩類檔案加入 `web_accessible_resources`：content script 透過 `import()` 載入的每個 chunk，以及 `assets/` 下每個非指令碼檔案，無論是哪個頁面或指令碼把它放在那裡的。從 `public/` 複製的檔案不會被加入。由此有兩個結論。讓 `matches` 保持在功能允許的最窄範圍。把只給頁面用的圖片放在 `assets/` 之外（從 `public/` 按根路徑參照它們），這樣 content script 的 `matches` 就不會暴露它們。請見[讓網頁能讀取擴充功能檔案](/zh-Hant/docs/implementation-guide/web-accessible-resources)。
+
+**讀取大小。** `extension build` 會印出輸出的樹狀結構及每個檔案的大小，並以總計收尾：
+
+```plaintext
+⏵⏵⏵ Extension built for production in dist/chromium (171.6 KB).
+```
+
+帶上 `--zip` 時，第二行會給出壓縮檔的名字和壓縮後的大小。壓縮檔只包含 `dist/<browser>` 的內容，別無其他，位於 `dist/<name>-<version>-<browser>.zip`，其中 name 是 manifest 的 `name` 轉為小寫並去掉標點：
+
+```plaintext
+⏵⏵⏵ Packaged dist/trimdemo-1.0.0-chromium.zip (142.9 KB).
+```
+
+在指令碼裡，`extension build --output json` 會回傳 `total_bytes`、`largest_asset_bytes` 以及 `zip_artifacts` 中每一項的大小，同樣的摘要還會寫到 `dist/extension-js/<browser>/build-summary.json`。在 CI 裡跨提交比較 `total_bytes`，就能在商店審核發現之前抓住大小回歸。請見 [`build`](/zh-Hant/docs/commands/build)。
+
 ## 效能預算
 
-正式建置（`build`）在 bundle 超出該類別大小預算時會發出 **警告**。預算僅警告——絕不會讓建置失敗——並在 production 模式預設啟用。
+正式建置（`build`）在 bundle 超出該類別大小預算時會發出 **警告**。預算僅警告（絕不會讓建置失敗），並在 production 模式預設啟用。
 
 | 類別                                                  | 預設預算 | 為何                                         |
 | ----------------------------------------------------- | -------- | -------------------------------------------- |
