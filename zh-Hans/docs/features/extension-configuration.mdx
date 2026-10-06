@@ -39,7 +39,7 @@ keywords:
 | `perfBudgets`       | 按类别设置的资源体积预算(字节)，可按浏览器与命令覆盖。 |
 | `define`            | 内联进每个 bundle 的编译期常量，可按浏览器与命令覆盖。   |
 | `folders`           | 特殊文件夹所在的位置，或用 `false` 关掉其中一个，可按浏览器和按命令覆盖。 |
-| `config`            | 用于扩展/覆盖生成的 Rspack 配置的钩子。                  |
+| `config`            | 用于扩展/覆盖生成的 Rspack 配置的钩子。会收到目标浏览器、模式和命令。 |
 | `configResolved`    | 在 Rspack 配置最终确定、所有 loader 规则都已挂上之后运行的钩子。 |
 
 ### 类型安全的配置
@@ -293,6 +293,61 @@ export default {
 这个钩子可以修改 `module`、`resolve`、`resolveLoader`、`node`、`optimization.minimize`、`optimization.minimizer`，以及 Rspack 在构建开始时才读取的 `output` 选项，例如文件名和 `environment`。可以就地修改它们，也可以返回一个新的配置对象。这个钩子可以是异步的，什么都不返回的钩子会让配置保持原样。
 
 到这时 Rspack 已经消费了其余所有键。这包括 `entry`、`plugins`、`context`、`mode`、`target`、`devtool`、`externals`、`experiments` 和 `performance` 这类键，`minimize` 与 `minimizer` 之外的所有 `optimization` 键，以及这些 `output` 键：`path`、`module`、`library`、`enabledLibraryTypes`、`chunkFormat`、`chunkLoading`、`enabledChunkLoadingTypes`、`wasmLoading`、`enabledWasmLoadingTypes`、`workerChunkLoading`、`workerWasmLoading`、`workerPublicPath`、`pathinfo`、`sourceMapFilename`、`devtoolModuleFilenameTemplate`、`devtoolFallbackModuleFilenameTemplate`、`devtoolNamespace`、`bundlerInfo`。对其中任何一个的修改，包括深入到值内部的修改，Extension.js 都会撤销，并打印一条按路径列出每个键的警告。请在 `config` 里设置它们。
+
+#### 钩子上下文
+
+两个钩子都会收到第二个参数，用来说明本次运行。它带有 `browser`（目标浏览器，与 `--browser` 的写法一致）、`mode`（`development`、`production` 或 `none`）和 `command`（`dev`、`build`、`start` 或 `preview`）。用它为某一个浏览器修改打包器，而不必读取 `process.argv`。下面的例子让 Firefox 的商店构建保持可读，方便审核：
+
+```js
+export default {
+  config: (config, { browser, command }) => {
+    if (browser === "firefox" && command === "build") {
+      config.optimization.minimize = false;
+    }
+    return config;
+  },
+};
+```
+
+`extension` 包为这个参数导出了 `ConfigHookContext` 类型。只接收一个参数的钩子仍然可以正常工作。
+
+#### 为某一个浏览器保留一组 locale
+
+商店接受的语言可能少于你的 `_locales` 文件夹所包含的语言。Extension.js 会为每个浏览器复制整个文件夹。要为某一个浏览器只发布其中一部分，请从 `config` 推入一个插件，删除其他 locale 的资源：
+
+```js
+const KEEP = { edge: ["en", "de"] };
+
+export default {
+  config: (config, { browser }) => {
+    const keep = KEEP[browser];
+    if (!keep) return config;
+    config.plugins.push({
+      apply(compiler) {
+        compiler.hooks.thisCompilation.tap("keep-locales", (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: "keep-locales",
+              stage: compiler.rspack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE,
+            },
+            () => {
+              for (const name of Object.keys(compilation.assets)) {
+                const match = /^_locales\/([^/]+)\//.exec(name);
+                if (match && !keep.includes(match[1])) {
+                  compilation.deleteAsset(name);
+                }
+              }
+            },
+          );
+        });
+      },
+    });
+    return config;
+  },
+};
+```
+
+有了这个文件，`extension build --browser=edge` 只会发布 `_locales/en` 和 `_locales/de`。其他所有浏览器仍保留整个文件夹。过滤器必须保留 `default_locale` 所指的文件夹。当它删除了那个文件夹时，构建会失败，并在错误中指出该 locale。
 
 ## 完整示例
 

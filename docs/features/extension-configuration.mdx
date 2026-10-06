@@ -39,7 +39,7 @@ Top-level keys:
 | `perfBudgets`       | Per-category asset size budgets in bytes, overridable per browser and per command. |
 | `define`            | Compile-time constants inlined into every bundle, overridable per browser and per command. |
 | `folders`           | Where the special folders live, or `false` to turn one off, overridable per browser and per command. |
-| `config`            | Hook to extend/override the generated Rspack config.                        |
+| `config`            | Hook to extend/override the generated Rspack config. Receives the target browser, mode, and command. |
 | `configResolved`    | Hook that runs once the Rspack config is final, with every loader rule attached. |
 
 ### Type-safe configuration
@@ -293,6 +293,61 @@ export default {
 The hook can change `module`, `resolve`, `resolveLoader`, `node`, `optimization.minimize`, `optimization.minimizer`, and the `output` options that Rspack reads when the build starts, such as file names and `environment`. Change them in place, or return a new configuration object. The hook may be async, and a hook that returns nothing keeps the configuration as it is.
 
 Rspack has already consumed every other key by then. That covers keys such as `entry`, `plugins`, `context`, `mode`, `target`, `devtool`, `externals`, `experiments`, and `performance`, every `optimization` key other than `minimize` and `minimizer`, and these `output` keys: `path`, `module`, `library`, `enabledLibraryTypes`, `chunkFormat`, `chunkLoading`, `enabledChunkLoadingTypes`, `wasmLoading`, `enabledWasmLoadingTypes`, `workerChunkLoading`, `workerWasmLoading`, `workerPublicPath`, `pathinfo`, `sourceMapFilename`, `devtoolModuleFilenameTemplate`, `devtoolFallbackModuleFilenameTemplate`, `devtoolNamespace`, and `bundlerInfo`. Extension.js undoes a change to any of them, including one made deep inside a value, and prints one warning that names each key by its path. Set those in `config`.
+
+#### The hook context
+
+Both hooks receive a second argument that names the run. It carries `browser` (the target, as `--browser` names it), `mode` (`development`, `production`, or `none`), and `command` (`dev`, `build`, `start`, or `preview`). Use it to change the bundler for one browser, without reading `process.argv`. This example keeps the Firefox store build readable for review:
+
+```js
+export default {
+  config: (config, { browser, command }) => {
+    if (browser === "firefox" && command === "build") {
+      config.optimization.minimize = false;
+    }
+    return config;
+  },
+};
+```
+
+The `extension` package exports the `ConfigHookContext` type for the argument. A hook that takes one argument keeps working.
+
+#### Keep a set of locales for one browser
+
+A store may accept fewer languages than your `_locales` folder holds. Extension.js copies the whole folder for every browser. To ship a subset for one browser, push a plugin from `config` that deletes the other locale assets:
+
+```js
+const KEEP = { edge: ["en", "de"] };
+
+export default {
+  config: (config, { browser }) => {
+    const keep = KEEP[browser];
+    if (!keep) return config;
+    config.plugins.push({
+      apply(compiler) {
+        compiler.hooks.thisCompilation.tap("keep-locales", (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: "keep-locales",
+              stage: compiler.rspack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE,
+            },
+            () => {
+              for (const name of Object.keys(compilation.assets)) {
+                const match = /^_locales\/([^/]+)\//.exec(name);
+                if (match && !keep.includes(match[1])) {
+                  compilation.deleteAsset(name);
+                }
+              }
+            },
+          );
+        });
+      },
+    });
+    return config;
+  },
+};
+```
+
+With this file, `extension build --browser=edge` ships `_locales/en` and `_locales/de` only. Every other browser keeps the whole folder. The filter must keep the folder that `default_locale` names. When it removes that folder, the build fails and the error names the locale.
 
 ## Full sample
 
