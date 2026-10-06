@@ -387,7 +387,29 @@ Use [browser-specific prefixes](/docs/features/browser-specific-fields) to decla
 }
 ```
 
-Firefox skips the `chromium:` prefixed fields entirely, so only Chromium targets get the MAIN-world script.
+Firefox skips the `chromium:` prefixed fields entirely, so the second entry reaches the Firefox build with no `js` and no `css`. Firefox gets nothing from it. The build leaves that entry out of the Firefox manifest and prints why:
+
+```text
+content_scripts[1] has no js and no css in the firefox build, so the build left it out.
+chromium:js, chromium:world apply to another browser. Add firefox:js or a plain js to keep the entry here.
+```
+
+When Firefox needs a content script on those matches, put a plain `js` on the same entry. A prefixed key overrides the plain key with the same name, so Chromium still takes `chromium:js` in the MAIN world and Firefox runs the plain `js` in the isolated world. One entry then covers both browsers, and the build prints no warning:
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"],
+      "chromium:js": ["./scripts/main-world.ts"],
+      "chromium:world": "MAIN"
+    }
+  ]
+}
+```
+
+A plain `js` is the base every target reads, so the entry stays whole on any browser that does not resolve `chromium:`. `firefox:js` also keeps the entry, but only on Gecko targets, and the prefix page's rule is to write the plain key as the base and prefix only the exception.
 
 ## Matching and execution guidance
 

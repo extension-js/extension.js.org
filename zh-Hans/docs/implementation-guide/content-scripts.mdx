@@ -387,7 +387,29 @@ MAIN world 脚本无法调用扩展 API，因此 Extension.js 会为每个 MAIN 
 }
 ```
 
-Firefox 会完全跳过 `chromium:` 前缀的字段，因此只有 Chromium 目标会拿到 MAIN world 脚本。
+Firefox 会完全跳过 `chromium:` 前缀的字段，因此第二条入口到达 Firefox 构建时既没有 `js` 也没有 `css`。Firefox 从它那里什么也得不到。构建会把这条入口从 Firefox manifest 中去掉，并打印原因：
+
+```text
+content_scripts[1] has no js and no css in the firefox build, so the build left it out.
+chromium:js, chromium:world apply to another browser. Add firefox:js or a plain js to keep the entry here.
+```
+
+当 Firefox 需要在这些 matches 上运行 content script 时，在同一条入口上加一个普通的 `js`。带前缀的键会覆盖同名的普通键，因此 Chromium 仍然在 MAIN world 中使用 `chromium:js`，而 Firefox 在 isolated world 中运行普通的 `js`。这样一条入口就能同时覆盖两种浏览器，构建也不会打印警告：
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"],
+      "chromium:js": ["./scripts/main-world.ts"],
+      "chromium:world": "MAIN"
+    }
+  ]
+}
+```
+
+普通的 `js` 是每个目标都会读取的基础键，所以在任何不解析 `chromium:` 的浏览器上，这条入口都保持完整。`firefox:js` 也能保留这条入口，但只在 Gecko 目标上生效，而前缀页面的规则是：以普通键为基础，只给例外加前缀。
 
 ## 匹配与执行建议
 
