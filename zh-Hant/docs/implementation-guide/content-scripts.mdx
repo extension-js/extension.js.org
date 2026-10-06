@@ -387,7 +387,29 @@ MAIN world 腳本無法呼叫擴充功能 API，因此 Extension.js 會為每個
 }
 ```
 
-Firefox 會完全略過 `chromium:` 前綴的欄位，所以只有 Chromium 目標會獲得 MAIN world 的 script。
+Firefox 會完全略過 `chromium:` 前綴的欄位，所以第二個進入點到達 Firefox 建置時既沒有 `js` 也沒有 `css`。Firefox 從它那裡什麼都拿不到。建置會把這個進入點從 Firefox manifest 中略去，並印出原因：
+
+```text
+content_scripts[1] has no js and no css in the firefox build, so the build left it out.
+chromium:js, chromium:world apply to another browser. Add firefox:js or a plain js to keep the entry here.
+```
+
+當 Firefox 需要在這些 matches 上執行 content script 時，在同一個進入點上加一個一般的 `js`。帶前綴的鍵會覆寫同名的一般鍵，所以 Chromium 仍然在 MAIN world 使用 `chromium:js`，而 Firefox 在 isolated world 執行一般的 `js`。這樣一個進入點就能同時涵蓋兩種瀏覽器，建置也不會印出警告：
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./scripts/isolated.ts"],
+      "chromium:js": ["./scripts/main-world.ts"],
+      "chromium:world": "MAIN"
+    }
+  ]
+}
+```
+
+一般的 `js` 是每個目標都會讀取的基礎鍵，所以在任何不解析 `chromium:` 的瀏覽器上，這個進入點都保持完整。`firefox:js` 也能保留這個進入點，但只在 Gecko 目標上生效，而前綴頁面的規則是：以一般鍵為基礎，只替例外加上前綴。
 
 ## 比對與執行建議
 
