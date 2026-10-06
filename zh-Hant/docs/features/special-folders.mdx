@@ -40,7 +40,7 @@ keywords:
 <Warning>
   **我的 `scripts/` 資料夾沒有出現在 `dist/`。** 這幾乎都對應到上面的規則：
   資料夾位在 `src/` 底下，而不是 `package.json` 旁邊。把它移到專案根目錄。
-  如果它已經在那裡，確認你的專案中有地方[引用了該檔案路徑](#要在某處引用該檔案路徑)。
+  如果它已經在那裡，確認該檔案不是 Node.js 輔助腳本，[建置會把這類檔案排除在外](#資料夾合約)。
 </Warning>
 
 ## 範本範例
@@ -120,7 +120,7 @@ manifest 並未直接宣告許多擴充功能檔案，包括 iframe 頁面、你
 | 資料夾名稱    | 說明                                                                            |
 | ------------- | ------------------------------------------------------------------------------- |
 | `pages/`      | 即使 manifest 未列出，也會把 HTML 頁面加入編譯作為 entrypoint。                 |
-| `scripts/`    | 當專案中有地方引用了該檔案路徑時，把腳本檔案加入編譯作為 entrypoint，包含 manifest 從未列出的、僅在執行階段使用的路徑。 |
+| `scripts/`    | 把每個腳本檔案都加入編譯作為 entrypoint，無論 manifest 或你的程式碼是否提到它的路徑。Node.js 輔助腳本會被排除在外。 |
 | `public/`     | 把靜態資產原封不動複製到輸出根目錄（`public/**` → `dist/**`），不做打包或轉換。 |
 | `extensions/` | 提供慣例位置，用於 dev／preview／start 流程中載入（不建置）附屬擴充功能。       |
 
@@ -160,15 +160,20 @@ chrome.scripting.registerContentScripts([
 ]);
 ```
 
-### 要在某處引用該檔案路徑
+### 資料夾合約
 
-只有當 `scripts/` entry 相對於專案的路徑出現在你的原始碼某處時，它才會被保留：manifest、
-某個 HTML 檔案，或是 JavaScript 或 TypeScript 字串，例如你傳給
-`chrome.scripting.executeScript` 的引數。這正是讓僅在執行階段注入得以運作的原因，
-因為該路徑從來不會進到 manifest。
+你放進 `scripts/` 或 `pages/` 的每個檔案都會輸出到一個可預測的路徑。`scripts/foo.ts` 會變成 `dist/<browser>/scripts/foo.js`，`pages/extra.html` 會變成 `dist/<browser>/pages/extra.html`。不需要在任何地方宣告該檔案。像 `chrome.runtime.getURL("pages/extra.html")` 或 `chrome.scripting.executeScript({ files: ["scripts/foo.js"] })` 這樣的執行階段字串都能找到它。沒有任何地方引用的檔案同樣會被輸出，建置也不會為此印出警告。建置會把 Node.js 輔助腳本排除在外：帶有 shebang、含有 Node.js import，或是路徑被某個 `package.json` script 執行的檔案。要關閉某個資料夾，在 `extension.config.js` 中把它的鍵設為 `false`：
 
-沒有任何地方提到的檔案會被視為無用程式碼，並在不發出警告的情況下從建置中移除，
-所以在為新的 entry 做第一次建置之後，請檢查 `dist/<browser>/scripts/`。
+```js extension.config.js
+export default {
+  folders: {
+    scripts: false,
+    pages: false,
+  },
+};
+```
+
+完整的 `folders` 鍵請參閱[特殊資料夾的位置](/zh-Hant/docs/features/extension-configuration#特殊資料夾的位置)。
 
 ### 重要合約
 
@@ -186,7 +191,7 @@ Extension.js 會把 `scripts/` 內的每個檔案以瀏覽器 content-script 掛
 
 shebang 不再位於第 1 行，且瀏覽器情境中無法使用僅限 Node 的 API。
 
-Extension.js 會偵測兩種 Node.js 指標，並在建置時拋出錯誤：
+Extension.js 會偵測兩種 Node.js 指標，並把該檔案排除在建置之外：
 
 - 第 1 行的 shebang（`#!/usr/bin/env node`）。
 - 來自 `node:` 協定的 import（例如 `import fs from 'node:fs'`）。

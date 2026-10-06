@@ -40,9 +40,9 @@ The one src-rooted exception: a project with no `package.json` and no `deno.json
 <Warning>
   **My `scripts/` folder does not appear in `dist/`.** This almost always maps
   to the rule above: the folder sits under `src/` instead of next to
-  `package.json`. Move it to the project root. If it is already there, confirm
-  that something in your project [references the file
-  path](#reference-the-file-path-somewhere).
+  `package.json`. Move it to the project root. If it is already there, check
+  that the file is not a Node.js helper, which [the build leaves
+  out](#the-folder-contract).
 </Warning>
 
 ## Template examples
@@ -122,7 +122,7 @@ Each special folder has a specific role:
 | Folder name   | Description                                                                                                 |
 | ------------- | ----------------------------------------------------------------------------------------------------------- |
 | `pages/`      | Adds HTML pages to compilation as entrypoints, even when the manifest does not list them.                   |
-| `scripts/`    | Adds script files to compilation as entrypoints when something in your project references the file path, including runtime-only paths the manifest never lists. |
+| `scripts/`    | Adds every script file to compilation as an entrypoint, whether or not the manifest or your code names its path. Node.js helpers are left out. |
 | `public/`     | Copies static assets to the output root as-is (`public/**` → `dist/**`) without bundling or transformation. |
 | `extensions/` | Provides a conventional location for load-only companion extensions in dev/preview/start workflows.         |
 
@@ -162,15 +162,20 @@ chrome.scripting.registerContentScripts([
 ]);
 ```
 
-### Reference the file path somewhere
+### The folder contract
 
-A `scripts/` entry is kept only when its project-relative path appears somewhere in your
-source: the manifest, an HTML file, or a JavaScript or TypeScript string such as the argument
-you pass to `chrome.scripting.executeScript`. That is what makes runtime-only injection work,
-since the path never reaches the manifest.
+Every file that you put in `scripts/` or `pages/` ships at a predictable output path. `scripts/foo.ts` becomes `dist/<browser>/scripts/foo.js`, and `pages/extra.html` becomes `dist/<browser>/pages/extra.html`. Nothing has to declare the file. A runtime string such as `chrome.runtime.getURL("pages/extra.html")` or `chrome.scripting.executeScript({ files: ["scripts/foo.js"] })` finds it. A file that nothing references ships too, and the build prints no warning about it. The build leaves out Node.js helpers: a file with a shebang, a Node.js import, or a path that a `package.json` script runs. To turn a folder off, set its key to `false` in `extension.config.js`:
 
-A file nothing mentions is treated as dead code and is dropped from the build without a
-warning, so check `dist/<browser>/scripts/` after your first build with a new entry.
+```js extension.config.js
+export default {
+  folders: {
+    scripts: false,
+    pages: false,
+  },
+};
+```
+
+See [special folder locations](/docs/features/extension-configuration#special-folder-locations) for the full `folders` key.
 
 ### Important contract
 
@@ -188,7 +193,7 @@ Extension.js wraps every file inside `scripts/` with a browser content-script mo
 
 The shebang is no longer on line 1, and Node-only APIs are unavailable in the browser context.
 
-Extension.js detects two Node.js indicators and throws an error at build time:
+Extension.js detects two Node.js indicators and leaves the file out of the build:
 
 - A shebang (`#!/usr/bin/env node`) on line 1.
 - An import from the `node:` protocol (for example, `import fs from 'node:fs'`).
