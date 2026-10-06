@@ -39,7 +39,7 @@ keywords:
 | `perfBudgets`       | 依類別設定的資源體積預算（位元組），可依瀏覽器與指令覆寫。 |
 | `define`            | 內嵌進每個 bundle 的編譯期常數，可依瀏覽器與指令覆寫。        |
 | `folders`           | 特殊資料夾所在的位置，或用 `false` 關掉其中一個，可依瀏覽器與依指令覆寫。 |
-| `config`            | 用來擴充／覆寫產生出的 Rspack 設定的 hook。                   |
+| `config`            | 用來擴充／覆寫產生出的 Rspack 設定的 hook。會收到目標瀏覽器、模式與命令。 |
 | `configResolved`    | 在 Rspack 設定最終確定、所有 loader 規則都已掛上之後執行的 hook。 |
 
 ### 型別安全的設定
@@ -293,6 +293,61 @@ export default {
 這個 hook 可以修改 `module`、`resolve`、`resolveLoader`、`node`、`optimization.minimize`、`optimization.minimizer`，以及 Rspack 在建置開始時才讀取的 `output` 選項，例如檔案名稱與 `environment`。可以就地修改它們，也可以回傳一個新的設定物件。這個 hook 可以是非同步的，什麼都不回傳的 hook 會讓設定維持原樣。
 
 到這時 Rspack 已經消耗了其餘所有鍵。這包括 `entry`、`plugins`、`context`、`mode`、`target`、`devtool`、`externals`、`experiments` 與 `performance` 這類鍵，`minimize` 與 `minimizer` 之外的所有 `optimization` 鍵，以及這些 `output` 鍵：`path`、`module`、`library`、`enabledLibraryTypes`、`chunkFormat`、`chunkLoading`、`enabledChunkLoadingTypes`、`wasmLoading`、`enabledWasmLoadingTypes`、`workerChunkLoading`、`workerWasmLoading`、`workerPublicPath`、`pathinfo`、`sourceMapFilename`、`devtoolModuleFilenameTemplate`、`devtoolFallbackModuleFilenameTemplate`、`devtoolNamespace`、`bundlerInfo`。對其中任何一個的修改，包括深入到值內部的修改，Extension.js 都會復原，並印出一則依路徑列出每個鍵的警告。請在 `config` 裡設定它們。
+
+#### hook 上下文
+
+兩個 hook 都會收到第二個引數，用來說明本次執行。它帶有 `browser`（目標瀏覽器，與 `--browser` 的寫法一致）、`mode`（`development`、`production` 或 `none`）和 `command`（`dev`、`build`、`start` 或 `preview`）。用它為某一個瀏覽器修改 bundler，而不必讀取 `process.argv`。下面的範例讓 Firefox 的商店建置保持可讀，方便審核：
+
+```js
+export default {
+  config: (config, { browser, command }) => {
+    if (browser === "firefox" && command === "build") {
+      config.optimization.minimize = false;
+    }
+    return config;
+  },
+};
+```
+
+`extension` 套件為這個引數匯出了 `ConfigHookContext` 型別。只接收一個引數的 hook 仍然可以正常運作。
+
+#### 為某一個瀏覽器保留一組 locale
+
+商店接受的語言可能少於你的 `_locales` 資料夾所包含的語言。Extension.js 會為每個瀏覽器複製整個資料夾。要為某一個瀏覽器只發布其中一部分，請從 `config` 推入一個外掛，刪除其他 locale 的資源：
+
+```js
+const KEEP = { edge: ["en", "de"] };
+
+export default {
+  config: (config, { browser }) => {
+    const keep = KEEP[browser];
+    if (!keep) return config;
+    config.plugins.push({
+      apply(compiler) {
+        compiler.hooks.thisCompilation.tap("keep-locales", (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: "keep-locales",
+              stage: compiler.rspack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE,
+            },
+            () => {
+              for (const name of Object.keys(compilation.assets)) {
+                const match = /^_locales\/([^/]+)\//.exec(name);
+                if (match && !keep.includes(match[1])) {
+                  compilation.deleteAsset(name);
+                }
+              }
+            },
+          );
+        });
+      },
+    });
+    return config;
+  },
+};
+```
+
+有了這個檔案，`extension build --browser=edge` 只會發布 `_locales/en` 與 `_locales/de`。其他所有瀏覽器仍保留整個資料夾。過濾器必須保留 `default_locale` 所指的資料夾。當它刪除了那個資料夾時，建置會失敗，並在錯誤中指出該 locale。
 
 ## 完整範例
 
