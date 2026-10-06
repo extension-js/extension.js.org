@@ -61,11 +61,13 @@ A `compile-failed` frame carries the compiler output inside `value.output`, so y
 
 The first failure of a session uses code `E_FIRST_COMPILE`, every later one uses `E_COMPILE`.
 
+The frame also carries `error.details`, one entry per diagnostic with its own code, file, and position, errors first, in the shape the [result envelope](/docs/contracts/result-envelope) describes under Compile diagnostics. The list is capped at 20 entries, and `truncated: true` is set when either the output or the list was cut.
+
 ```jsonl
 {"schema":1,"ok":true,"command":"dev","status":"starting","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"requestedPort":8080},"error":null,"warnings":[]}
 {"schema":1,"ok":true,"command":"dev","status":"compiled","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","assets":12,"durationMs":841},"error":null,"warnings":[]}
 {"schema":1,"ok":true,"command":"dev","status":"ready","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4"},"error":null,"warnings":[]}
-{"schema":1,"ok":false,"command":"dev","status":"compile-failed","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","output":"ERROR in ./content/scripts.ts\nModule parse failed: Unexpected token (12:3)","durationMs":204},"error":{"code":"E_COMPILE","message":"A recompilation failed after a change."},"warnings":[]}
+{"schema":1,"ok":false,"command":"dev","status":"compile-failed","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","output":"ERROR in ./content/scripts.ts\nModule parse failed: Unexpected token (12:3)","durationMs":204},"error":{"code":"E_COMPILE","message":"A recompilation failed after a change.","details":[{"code":"E_CONTENT_SCRIPT_SYNTAX","message":"Module parse failed: Unexpected token (12:3)","file":"content/scripts.ts","line":12,"column":3,"severity":"error"}]},"warnings":[]}
 ```
 
 ## Ready follows the contract
@@ -77,6 +79,8 @@ In that case the stream emits a `failed` frame with code `E_READY_ERROR_STATUS` 
 The same frame arrives when the browser never started or exited before the extension loaded. `value.readyCode` is then `browser_launch_failed` or `browser_exited`. A Firefox whose debugger never answers counts as a launch failure.
 
 A bad `--chromium-binary` or `--gecko-binary` pin also reports `readyCode: "browser_launch_failed"`, but its frame has `status: "usage"` and `error.code: "E_BROWSER_BINARY_INVALID"`, the code every command gives that pin.
+
+A Chromium `dev` session whose CDP wire failed after the browser came up still sends `ready`, because the browser is up. That frame carries the fault on `warnings` as `E_CDP_...: message`, the same pair the contract stamps as `cdpFaultCode` and `cdpFaultMessage`, see [ready.json](/docs/contracts/ready-json). Reload and HMR cannot attach until the fault is fixed.
 
 ## Browser exits
 

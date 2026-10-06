@@ -42,6 +42,7 @@ keywords:
 | `engine`  | string | 選用。發生失敗的瀏覽器引擎。                                                     |
 | `hint`    | string | 選用。修復建議文案。                                                             |
 | `refs`    | object | 選用。message 中提到的可操作部分：`flag`、`command`、`path`、`version`。          |
+| `details` | array  | 選用。編譯失敗時出現。每條編譯器診斷一個條目，見下文「編譯診斷」。 |
 
 ## 成功與失敗範例
 
@@ -96,6 +97,61 @@ keywords:
   "warnings": []
 }
 ```
+
+## 編譯診斷
+
+失敗的 `build` 影格和 dev 串流的 `compile-failed` 影格會帶著 `error.details`，每條編譯器診斷一個條目，錯誤排在前面。每個條目的結構如下：
+
+| 欄位       | 型別                     | 意義                                                                             |
+| ---------- | ------------------------ | -------------------------------------------------------------------------------- |
+| `code`     | string                   | 選用。該診斷對應的表內錯誤碼，例如 `E_MODULE_NOT_FOUND`。沒有對應時不出現。 |
+| `message`  | string                   | 編譯器文字，已去除 ANSI 控制碼。屬於自由文案，永遠不要用它做比對。                  |
+| `file`     | string                   | 選用。來源檔案，相對於專案根目錄。                                               |
+| `line`     | integer                  | 選用。編譯器回報時，該檔案中的行號。                                             |
+| `column`   | integer                  | 選用。編譯器回報時，該行中的欄號。                                               |
+| `severity` | `"error"` 或 `"warning"` | 這條診斷屬於哪一類。                                                             |
+| `name`     | string                   | 選用。編譯器的錯誤類別名稱。                                                     |
+
+清單上限為 20 條。當上限把它截斷時，該影格會設定 `truncated: true`。
+
+可能出現在 `details` 裡的錯誤碼是[錯誤碼表](/zh-Hant/docs/contracts/error-codes)中的診斷列：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED`、`E_REMOTE_RESOURCE_BLOCKED`、`E_PERF_BUDGET` 和 `E_ENV_NO_MATCH`。
+
+下面是 `golden.build.compile.json`，其中兩條 message 縮短為各自的第一行：
+
+```json
+{
+  "schema": 1,
+  "ok": false,
+  "command": "build",
+  "status": "build-failed",
+  "value": null,
+  "error": {
+    "code": "E_COMPILE",
+    "message": "Build failed with errors",
+    "details": [
+      {
+        "code": "E_CONTENT_SCRIPT_SYNTAX",
+        "message": "Module build failed (from builtin:swc-loader): Syntax Error: Expression expected",
+        "file": "content/scripts.js",
+        "severity": "error",
+        "name": "ModuleBuildError"
+      },
+      {
+        "code": "E_MODULE_NOT_FOUND",
+        "message": "Module not found: Can't resolve './missing' in '/home/dev/my-extension'",
+        "file": "background.js",
+        "line": 1,
+        "column": 1,
+        "severity": "error"
+      }
+    ]
+  },
+  "warnings": [],
+  "hint": "Fix the error above and run build again."
+}
+```
+
+成功的建置會把警告保留在頂層的 `warnings` 陣列裡。當能解析出錯誤碼時，那裡的每個字串都以 `E_CODE: ` 開頭，例如 `E_CSS_DEAD_REF: ...`，與 `logs` 和 `uninstall` 既有的慣例相同。
 
 ## 給人看的文案去哪了
 
