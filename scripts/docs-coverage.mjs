@@ -459,79 +459,190 @@ export function buildLedger({ latest } = {}) {
   };
 }
 
-function main() {
-  const args = process.argv.slice(2);
+export function serializeLedger(ledger) {
+  return JSON.stringify(ledger, null, 2) + "\n";
+}
+
+export function writeLedger(ledger, ledgerPath = LEDGER_PATH) {
+  mkdirSync(path.dirname(ledgerPath), { recursive: true });
+  writeFileSync(ledgerPath, serializeLedger(ledger));
+}
+
+function countByKind(findings) {
+  const byKind = {};
+
+  for (const f of findings) {
+    byKind[f.kind] = (byKind[f.kind] || 0) + 1;
+  }
+
+  return byKind;
+}
+
+// Names what moved between the committed ledger and a fresh build, page by
+// page, so a stale failure says which page to look at instead of just "stale".
+export function describeLedgerDrift(committedText, fresh) {
+  if (committedText === serializeLedger(fresh)) return [];
+
+  let committed;
+
+  try {
+    committed = JSON.parse(committedText);
+  } catch {
+    return ["committed ledger is not valid JSON"];
+  }
+
+  const lines = [];
+  const committedPages = new Map(
+    (committed.pages || []).map((p) => [p.page, p]),
+  );
+  const freshPages = new Map(fresh.pages.map((p) => [p.page, p]));
+
+  for (const [id, page] of freshPages) {
+    const previous = committedPages.get(id);
+
+    if (!previous) {
+      lines.push(`${id}: not in the committed ledger`);
+      continue;
+    }
+
+    const changed = Object.keys(page).filter(
+      (key) => JSON.stringify(page[key]) !== JSON.stringify(previous[key]),
+    );
+
+    if (changed.length) {
+      lines.push(
+        `${id}: ${changed
+          .map((key) =>
+            typeof page[key] === "object"
+              ? `${key} changed`
+              : `${key} ${previous[key]} -> ${page[key]}`,
+          )
+          .join(", ")}`,
+      );
+    }
+  }
+
+  for (const id of committedPages.keys()) {
+    if (!freshPages.has(id)) lines.push(`${id}: no longer exists`);
+  }
+
+  const committedKinds = countByKind(committed.laneAFindings || []);
+  const freshKinds = countByKind(fresh.laneAFindings);
+
+  for (const kind of new Set([
+    ...Object.keys(committedKinds),
+    ...Object.keys(freshKinds),
+  ])) {
+    if ((committedKinds[kind] || 0) !== (freshKinds[kind] || 0)) {
+      lines.push(
+        `lane A ${kind}: ${committedKinds[kind] || 0} -> ${freshKinds[kind] || 0}`,
+      );
+    }
+  }
+
+  if (JSON.stringify(committed.summary) !== JSON.stringify(fresh.summary)) {
+    lines.push("summary block differs");
+  }
+
+  return lines.length ? lines : ["serialization differs from the generator"];
+}
+
+export function main(
+  args,
+  { ledgerPath = LEDGER_PATH, log = console.log, error = console.error } = {},
+) {
   const latestArg = args.find((a) => a.startsWith("--latest="));
   const ledger = buildLedger({
     latest: latestArg ? latestArg.split("=")[1] : undefined,
   });
 
   if (args.includes("--json")) {
-    console.log(JSON.stringify(ledger, null, 2));
+    log(JSON.stringify(ledger, null, 2));
 
-    return;
+    return 0;
   }
 
-  mkdirSync(REVIEW_DIR, { recursive: true });
-  writeFileSync(LEDGER_PATH, JSON.stringify(ledger, null, 2) + "\n");
+  const assert = args.includes("--assert");
+
+  if (!assert) writeLedger(ledger, ledgerPath);
 
   const { summary } = ledger;
-  console.log("Docs review coverage");
-  console.log("--------------------");
-  console.log(`  pages total        ${summary.totalPages} (en ${summary.en})`);
-  console.log(`  lane A checked     ${summary.totalPages} (every page)`);
-  console.log(`  lane B reviewed    ${summary.laneBReviewed}`);
-  console.log(`  lane C traversed   ${summary.laneCTraversed}`);
-  console.log(`  unreviewed         ${summary.unreviewed}`);
-  console.log(
-    `  pages with no machine-checkable claim: ${summary.claimlessPages}`,
-  );
+  log("Docs review coverage");
+  log("--------------------");
+  log(`  pages total        ${summary.totalPages} (en ${summary.en})`);
+  log(`  lane A checked     ${summary.totalPages} (every page)`);
+  log(`  lane B reviewed    ${summary.laneBReviewed}`);
+  log(`  lane C traversed   ${summary.laneCTraversed}`);
+  log(`  unreviewed         ${summary.unreviewed}`);
+  log(`  pages with no machine-checkable claim: ${summary.claimlessPages}`);
 
   if (ledger.laneAFindings.length) {
-    console.log(`\nLane A findings: ${ledger.laneAFindings.length}`);
-    const byKind = {};
+    log(`\nLane A findings: ${ledger.laneAFindings.length}`);
 
-    for (const f of ledger.laneAFindings) {
-      byKind[f.kind] = (byKind[f.kind] || 0) + 1;
-    }
-
-    for (const [kind, count] of Object.entries(byKind)) {
-      console.log(`  ${kind}: ${count}`);
+    for (const [kind, count] of Object.entries(
+      countByKind(ledger.laneAFindings),
+    )) {
+      log(`  ${kind}: ${count}`);
     }
   }
 
-  if (args.includes("--assert")) {
-    const missing = ledger.pages.filter((p) => !p.laneB).map((p) => p.page);
-    const blocking = ledger.laneAFindings.filter(
-      (f) => f.kind === "omitted-caveat" || f.kind === "caveat-page-missing",
+  if (!assert) return 0;
+
+  let failed = false;
+  const missing = ledger.pages.filter((p) => !p.laneB).map((p) => p.page);
+  const blocking = ledger.laneAFindings.filter(
+    (f) => f.kind === "omitted-caveat" || f.kind === "caveat-page-missing",
+  );
+
+  if (missing.length) {
+    failed = true;
+    error(`\n✖ ${missing.length} page(s) have no lane B review record:`);
+
+    for (const page of missing.slice(0, 20)) error(`  ${page}`);
+
+    if (missing.length > 20) error(`  ... and ${missing.length - 20} more`);
+  }
+
+  if (blocking.length) {
+    failed = true;
+    error(`\n✖ ${blocking.length} caveat ledger violation(s):`);
+
+    for (const f of blocking) error(`  ${f.page}: ${f.caveat} (${f.detail})`);
+  }
+
+  const relativeLedger = path.relative(ROOT, ledgerPath);
+
+  if (!existsSync(ledgerPath)) {
+    failed = true;
+    error(
+      `\n✖ ${relativeLedger} does not exist: run pnpm docs:coverage and commit it`,
+    );
+  } else {
+    const drift = describeLedgerDrift(
+      readFileSync(ledgerPath, "utf-8"),
+      ledger,
     );
 
-    if (missing.length || blocking.length) {
-      if (missing.length) {
-        console.error(
-          `\n✖ ${missing.length} page(s) have no lane B review record:`,
-        );
+    if (drift.length) {
+      failed = true;
+      error(
+        `\n✖ ${relativeLedger} is stale: run pnpm docs:coverage and commit the result`,
+      );
 
-        for (const page of missing.slice(0, 20)) console.error(`  ${page}`);
+      for (const line of drift.slice(0, 20)) error(`  ${line}`);
 
-        if (missing.length > 20) {
-          console.error(`  ... and ${missing.length - 20} more`);
-        }
-      }
-
-      if (blocking.length) {
-        console.error(`\n✖ ${blocking.length} caveat ledger violation(s):`);
-
-        for (const f of blocking) {
-          console.error(`  ${f.page}: ${f.caveat} (${f.detail})`);
-        }
-      }
-
-      process.exit(1);
+      if (drift.length > 20) error(`  ... and ${drift.length - 20} more`);
     }
-
-    console.log("\n✔ every page carries a lane A and lane B review record");
   }
+
+  if (failed) return 1;
+
+  log("\n✔ every page carries a lane A and lane B review record");
+  log(`✔ ${relativeLedger} matches a fresh build`);
+
+  return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (import.meta.url === `file://${process.argv[1]}`) {
+  process.exitCode = main(process.argv.slice(2));
+}

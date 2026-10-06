@@ -1,16 +1,98 @@
-import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import {
+  readFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  statSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   analyzePage,
   buildLedger,
   collectPages,
+  main,
+  serializeLedger,
 } from "../scripts/docs-coverage.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const CAVEATS_PATH = resolve(ROOT, "docs-review", "caveats.json");
+
+function runScript(args: string[], ledgerPath: string) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = main(args, {
+    ledgerPath,
+    log: (line: string) => out.push(line),
+    error: (line: string) => err.push(line),
+  });
+
+  return { code, stdout: out.join("\n"), stderr: err.join("\n") };
+}
+
+describe("docs coverage script modes", () => {
+  let dir: string;
+  let ledgerPath: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "docs-coverage-"));
+    ledgerPath = join(dir, "nested", "coverage.json");
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("generate mode writes the ledger", () => {
+    const { code } = runScript([], ledgerPath);
+    expect(code).toBe(0);
+    expect(readFileSync(ledgerPath, "utf-8")).toBe(
+      serializeLedger(buildLedger()),
+    );
+  });
+
+  it("assert mode passes on a fresh ledger and leaves it byte-identical", () => {
+    runScript([], ledgerPath);
+    const before = readFileSync(ledgerPath);
+    const mtimeBefore = statSync(ledgerPath).mtimeMs;
+
+    const { code, stdout } = runScript(["--assert"], ledgerPath);
+
+    expect(code).toBe(0);
+    expect(stdout).toContain("matches a fresh build");
+    expect(readFileSync(ledgerPath).equals(before)).toBe(true);
+    expect(statSync(ledgerPath).mtimeMs).toBe(mtimeBefore);
+  });
+
+  it("assert mode fails on a stale ledger without rewriting it", () => {
+    const ledger = buildLedger();
+    const first = ledger.pages[0];
+    first.words += 1;
+    const stale = serializeLedger(ledger);
+    mkdirSync(dirname(ledgerPath), { recursive: true });
+    writeFileSync(ledgerPath, stale);
+
+    const { code, stderr } = runScript(["--assert"], ledgerPath);
+
+    expect(code).toBe(1);
+    expect(stderr).toContain("is stale: run pnpm docs:coverage");
+    expect(stderr).toContain(`${first.page}: words ${first.words} -> `);
+    expect(readFileSync(ledgerPath, "utf-8")).toBe(stale);
+  });
+
+  it("assert mode fails when the ledger is missing", () => {
+    const { code, stderr } = runScript(["--assert"], ledgerPath);
+
+    expect(code).toBe(1);
+    expect(stderr).toContain("does not exist: run pnpm docs:coverage");
+    expect(existsSync(ledgerPath)).toBe(false);
+  });
+});
 
 // The rest of this suite proves claim types are sound. This one proves no page
 // escaped review: a page whose links resolve can still be untrue in prose, and

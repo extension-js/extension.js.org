@@ -39,8 +39,11 @@ Regenerate the ledger:
 
 ```bash
 node scripts/docs-coverage.mjs --latest=$(npm view extension version)
-node scripts/docs-coverage.mjs --assert   # non-zero exit when a page is unreviewed
+node scripts/docs-coverage.mjs --assert   # non-zero exit when a page is unreviewed or the ledger is stale
 ```
+
+Only the first command writes `coverage.json`. The `--assert` form reads the committed
+ledger and compares it with a fresh build, so a green run never dirties the tree.
 
 ### The caveat ledger
 
