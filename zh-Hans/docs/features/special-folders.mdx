@@ -40,7 +40,7 @@ keywords:
 <Warning>
   **我的 `scripts/` 文件夹没有出现在 `dist/` 里。**这几乎总是对应上面的规则：
   这个文件夹放在了 `src/` 下面，而不是和 `package.json` 并排。把它移到项目根目录。
-  如果它已经在那里，请确认你的项目里有地方[引用了该文件路径](#需要在某处引用该文件路径)。
+  如果它已经在那里，请确认该文件不是 Node.js 辅助脚本，[构建会把这类文件排除在外](#文件夹契约)。
 </Warning>
 
 ## 模板示例
@@ -120,7 +120,7 @@ manifest 并不会直接声明很多扩展文件，比如 iframe 页面、你用
 | 文件夹名      | 说明                                                                      |
 | ------------- | ------------------------------------------------------------------------- |
 | `pages/`      | 把 HTML 页面加入编译作为入口，即便 manifest 没有声明它们。                |
-| `scripts/`    | 当项目中有地方引用了该文件路径时，把脚本文件加入编译作为入口，包括 manifest 从不列出的、仅在运行时使用的路径。 |
+| `scripts/`    | 把每个脚本文件都加入编译作为入口，无论 manifest 或你的代码是否提到它的路径。Node.js 辅助脚本会被排除在外。 |
 | `public/`     | 把静态资产原样复制到输出根目录(`public/**` → `dist/**`)，不做打包或转换。 |
 | `extensions/` | 在 dev/preview/start 流程中作为仅加载的附属扩展的约定位置。               |
 
@@ -160,15 +160,20 @@ chrome.scripting.registerContentScripts([
 ]);
 ```
 
-### 需要在某处引用该文件路径
+### 文件夹契约
 
-只有当 `scripts/` 条目相对项目的路径出现在你的源码中的某个位置时，它才会被保留：manifest、
-某个 HTML 文件，或者 JavaScript / TypeScript 字符串，例如你传给
-`chrome.scripting.executeScript` 的参数。正是这一点让仅在运行时注入成为可能，
-因为该路径永远不会出现在 manifest 中。
+你放进 `scripts/` 或 `pages/` 的每个文件都会输出到一个可预测的路径。`scripts/foo.ts` 会变成 `dist/<browser>/scripts/foo.js`，`pages/extra.html` 会变成 `dist/<browser>/pages/extra.html`。不需要在任何地方声明该文件。像 `chrome.runtime.getURL("pages/extra.html")` 或 `chrome.scripting.executeScript({ files: ["scripts/foo.js"] })` 这样的运行时字符串都能找到它。没有任何地方引用的文件同样会被输出，构建也不会为此打印警告。构建会把 Node.js 辅助脚本排除在外：带有 shebang、含有 Node.js import，或者路径被某个 `package.json` script 运行的文件。要关闭某个文件夹，在 `extension.config.js` 中把它的键设为 `false`：
 
-没有任何地方提到的文件会被当作死代码，并在没有警告的情况下从构建中丢弃，
-所以在为一个新入口做第一次构建之后，请检查 `dist/<browser>/scripts/`。
+```js extension.config.js
+export default {
+  folders: {
+    scripts: false,
+    pages: false,
+  },
+};
+```
+
+完整的 `folders` 键请参阅[特殊文件夹的位置](/zh-Hans/docs/features/extension-configuration#特殊文件夹的位置)。
 
 ### 重要契约
 
@@ -186,7 +191,7 @@ Extension.js 会用浏览器 content-script 挂载运行时包装 `scripts/` 中
 
 shebang 不再位于第 1 行，且 Node 专属 API 在浏览器上下文中无法使用。
 
-Extension.js 会检测两类 Node.js 标志，并在构建时抛出错误：
+Extension.js 会检测两类 Node.js 标志，并把该文件排除在构建之外：
 
 - 第 1 行的 shebang(`#!/usr/bin/env node`)。
 - 来自 `node:` 协议的 import(例如 `import fs from 'node:fs'`)。
