@@ -64,9 +64,37 @@ keywords:
 - 让 public 资产保持有意而为；移除过期文件。
 - 定期检查生成的 `dist/<browser>` 产物体积。
 
+## 精简发布的内容
+
+`dist/<browser>` 里的每一个字节，都是每位用户在安装时和每次更新时要下载的字节，而 content script 的资产会随它一起进入每个匹配的页面。下面说明 `extension build` 已经排除了什么、剩余的体积来自哪里，以及到哪里读取这个数字。
+
+**构建排除了什么。** 产物从 `manifest.json` 出发并沿着引用走。它会发布 manifest 指名的条目(background、content script、页面、图标、locale)、这些条目导入的模块和资产，以及 `public/` 下的全部内容。`src/` 里没有任何东西引用的文件不会被输出。一个笔记文件、一个未使用的模块、一个 fixture 文件夹，或者图标旁边的一张多余图片，永远不会进入 `dist/`。你不需要为它们准备忽略列表。
+
+**`public/` 与导入的资产。** 这两条路径的行为不同，而这个差异正是多余字节的常见来源：
+
+- `public/` 会原样复制到产物根目录，连同文件夹结构，并且不做任何检查。那里的过期文件也会被发布。请把这个文件夹当作你决定要发布的文件清单，并修剪它。
+- 从 JavaScript 导入的资产会落在 `assets/<name>.<hash>.<ext>`，只发布一次，而且只在导入存在时才发布。
+- 从 HTML 页面引用的资产会写两份：一份在 `assets/<relative path>` 下，一份在它的源路径上，这样脚本代码里的引用仍然可用。一个既被 HTML 页面引用又被 JavaScript 导入的文件会发布三份。请从 JavaScript 导入共享图片，或者把它移到 `public/` 并按根路径引用，这样它只会写一份。
+
+**`web_accessible_resources` 的范围。** 在 Manifest V3 上，构建会在你所有 content script 的 `matches` 并集之下，把两类文件加入 `web_accessible_resources`：content script 通过 `import()` 加载的每个 chunk，以及 `assets/` 下每个非脚本文件，无论是哪个页面或脚本把它放在那里的。从 `public/` 复制的文件不会被加入。由此有两个结论。让 `matches` 保持在功能允许的最窄范围。把只给页面用的图片放在 `assets/` 之外(从 `public/` 按根路径引用它们)，这样 content script 的 `matches` 就不会暴露它们。参见[让网页能读取扩展文件](/zh-Hans/docs/implementation-guide/web-accessible-resources)。
+
+**读取体积。** `extension build` 会打印产物的树形结构及每个文件的大小，并以总计收尾：
+
+```plaintext
+⏵⏵⏵ Extension built for production in dist/chromium (171.6 KB).
+```
+
+带上 `--zip` 时，第二行会给出压缩包的名字和压缩后的大小。压缩包只包含 `dist/<browser>` 的内容，别无其他，位于 `dist/<name>-<version>-<browser>.zip`，其中 name 是 manifest 的 `name` 转为小写并去掉标点：
+
+```plaintext
+⏵⏵⏵ Packaged dist/trimdemo-1.0.0-chromium.zip (142.9 KB).
+```
+
+在脚本里，`extension build --output json` 会返回 `total_bytes`、`largest_asset_bytes` 以及 `zip_artifacts` 中每一项的大小，同样的摘要还会写到 `dist/extension-js/<browser>/build-summary.json`。在 CI 里跨提交比较 `total_bytes`，就能在商店审核发现之前抓住体积回归。参见 [`build`](/zh-Hans/docs/commands/build)。
+
 ## 性能预算
 
-当某个 bundle 超出其分类的体积预算时，生产构建(`build`) 会输出**警告**。预算仅为警告——它们绝不会让构建失败——并在生产模式下默认启用。
+当某个 bundle 超出其分类的体积预算时，生产构建(`build`) 会输出**警告**。预算仅为警告(它们绝不会让构建失败)，并在生产模式下默认启用。
 
 | 分类                                                     | 默认预算 | 原因                                             |
 | -------------------------------------------------------- | -------- | ------------------------------------------------ |
