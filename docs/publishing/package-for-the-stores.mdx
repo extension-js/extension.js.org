@@ -1,0 +1,148 @@
+---
+title: "Package an extension for store upload"
+description: "Produce the zip that the Chrome Web Store, Edge Add-ons, and Firefox Add-ons take, the source archive AMO asks for, and the Xcode route for Safari, with the exact file names Extension.js writes."
+keywords:
+  [
+    "package extension",
+    "zip extension for chrome web store",
+    "extension build --zip",
+    "zip-filename",
+    "zip-source",
+    "source archive",
+    "source code submission",
+    "xpi",
+    "crx",
+    "chrome web store upload",
+    "edge add-ons upload",
+    "addons.mozilla.org",
+    "safari app store",
+    "extension.js",
+    "chrome",
+    "edge",
+    "firefox",
+    "safari",
+  ]
+---
+
+Every store takes a zip of the built extension, with `manifest.json` at the root of the archive. Firefox Add-ons also asks for a zip of your source when the upload is minified or bundled, which a production build is. Safari is the exception: the extension ships inside a macOS or iOS app that Xcode builds. This page explains the three ways to produce the archive, names the exact files that `extension build --zip` writes, and lists what each store takes. It also quotes the console lines that the CLI prints while it packages.
+
+## The three ways to produce the archive
+
+**Zip `dist/<browser>` by hand.** Run `extension build --browser=chrome`, open `dist/chrome`, choose its contents, and compress. The trap is the folder: a zip of the `chrome` folder itself puts `manifest.json` one level down, and the store rejects it.
+
+**`extension build --zip`.** The build writes `dist/<browser>` and then packages it beside the folder, never inside it. Source maps stay out of the archive. Add `--zip-source` for the source archive that AMO asks for.
+
+**A CI job.** The same `extension build --zip` command runs on a runner, and the job uploads `dist/*.zip` as a build artifact or hands it to a store API. Store credentials stay in CI secrets. See [CI templates](/docs/workflows/ci-templates).
+
+| Property                        | Manual zip                        | `extension build --zip`                  | CI job                                  |
+| ------------------------------- | --------------------------------- | ---------------------------------------- | --------------------------------------- |
+| `manifest.json` at the root     | Only if you zip the contents      | Always                                   | Always                                  |
+| Source maps excluded            | Only if you delete them           | Always                                   | Always                                  |
+| Source archive for AMO          | A second manual zip               | `--zip-source`                           | `--zip-source`                          |
+| Stable file name for automation | Whatever you typed                | `--zip-filename=<name>`                  | `--zip-filename=<name>`                 |
+| Several browsers in one run     | One zip per browser, by hand      | `--browser=chrome,firefox`               | `--browser=chrome,firefox`              |
+
+Use the manual route once, to learn what the store expects. Use `--zip` for every release after that, and move the same command into CI when more than one person ships.
+
+## Command snippet
+
+The flags belong to `build`:
+
+```bash
+extension build --browser=chrome,firefox --zip --zip-source --zip-filename=release
+```
+
+The same options live in `extension.config.js` when you want every `build` to package without flags:
+
+```js extension.config.js
+/** @type {import('extension').FileConfig} */
+export default {
+  commands: {
+    build: {
+      zip: true,
+      zipSource: true,
+      zipFilename: "store",
+    },
+  },
+};
+```
+
+With that file, `extension build --browser=chrome` writes `dist/store-chrome.zip` and `dist/store-source.zip`.
+
+## What the build writes
+
+Each archive lands in `dist/`, beside the `dist/<browser>` folder. Without `--zip-filename`, the name is the manifest `name` lowercased with every character outside `a-z0-9` and spaces removed, then the manifest `version`, then the browser. A manifest named `zip-probe` at version `1.0.0` packages as `zipprobe-1.0.0-chrome.zip`: the dash is gone, so read the path from the build output instead of composing it. These runs used Extension.js 4.1.31:
+
+| Command                                                            | Files in `dist/`                                                                 |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `extension build --zip`                                            | `chromium/`, `zipprobe-1.0.0-chromium.zip`                                       |
+| `extension build --zip --browser=edge`                             | `edge/`, `zipprobe-1.0.0-edge.zip`                                               |
+| `extension build --zip --zip-source --browser=chrome,firefox`      | `chrome/`, `firefox/`, `zipprobe-1.0.0-chrome.zip`, `zipprobe-1.0.0-firefox.zip`, `zipprobe-1.0.0-source.zip` |
+| `extension build --zip --zip-filename=release --browser=chrome`    | `chrome/`, `release-chrome.zip`                                                  |
+| `extension build --zip --zip-filename=release --browser=firefox`   | `firefox/`, `release-firefox.zip`                                                |
+| `extension build --zip --zip-source --zip-filename=release --browser=chrome` | `chrome/`, `release-chrome.zip`, `release-source.zip`                  |
+
+Two rules follow from the table. The default browser is `chromium`, so pass `--browser=chrome` when the Chrome Web Store is the target. And `--zip-filename` alone never writes a source archive: `--zip-source` does. The explicit name then governs both files, with the browser appended to the distribution archive and `-source` to the other.
+
+The distribution archive holds the contents of `dist/<browser>` minus `.map` files, with `manifest.json` at the root. The source archive holds the project folder minus `node_modules`, `.git`, `dist`, the `extensions/` companion folder, every `.env*` file except `*.example`, and whatever your `.gitignore` excludes. Symbolic links are skipped with a warning, because an archive stores files.
+
+Under `--output json`, each archive is listed in `zip_artifacts` with its `kind` (`dist` or `source`), `path`, and `size` in bytes, so a CI step can read the file path without parsing the console.
+
+## Per-browser differences
+
+| Store                                                                     | Upload format                                                        | Build command                                                    | Also read                                                                                                                                                    |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Chrome Web Store](https://developer.chrome.com/docs/webstore/publish)    | A zip, up to 2 GB, `manifest.json` at the root                        | `extension build --browser=chrome --zip`                         | The first upload is manual and creates the extension ID. See [Chrome credentials](/docs/publishing/chrome-credentials).                                      |
+| [Edge Add-ons](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension) | A zip, uploaded in Partner Center               | `extension build --browser=edge --zip`                           | Remove `update_url` from the manifest, and do not say "Chrome" in the name or description. The Edge build drops a top-level `key` for you. See [Edge credentials](/docs/publishing/edge-credentials).        |
+| [Firefox Add-ons](https://extensionworkshop.com/documentation/publish/submitting-an-add-on/) | A `.zip`, `.xpi`, or `.crx`, plus a source zip when the code is minified or bundled | `extension build --browser=firefox --zip --zip-source` | New add-ons declare `data_collection_permissions`. Explain the build in the reviewer notes. See [Firefox credentials](/docs/publishing/firefox-credentials). |
+| [Safari](https://developer.apple.com/documentation/safariservices/distributing-your-safari-web-extension) | No zip. The extension ships inside an app that Xcode archives for App Store Connect, or that you notarize for distribution outside the store | `extension build --browser=safari` | The build converts `dist/safari` and runs `xcodebuild` into `dist/safari-xcode`. See [Safari](/docs/browsers/safari).                                      |
+
+Firefox self-distribution is the one case where the store hands a file back. AMO signs the upload and emails you when the signed copy is ready to download from your submissions page. Chrome and Edge never return a `.crx`, and Extension.js does not write `.crx` or `.xpi` files: the stores take the zip.
+
+Opera's store rejects minified code, so `extension build --browser=opera` turns `--minify` off by default.
+
+## Console lines you will see
+
+Copy the line that you see into search. Each one maps to one cause.
+
+`Packaged dist/zipprobe-1.0.0-chrome.zip (34.2 KB).`
+The distribution archive was written. The path is the file to upload, and its name may not match your manifest `name` because of the sanitizing rule above.
+
+`Packaged dist/zipprobe-1.0.0-source.zip (37.2 KB).`
+The source archive was written. It prints before the distribution archive on the same run. When you build several browsers it prints once per browser, because the source is the same for every browser.
+
+`Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter or pass --no-addon-lint to silence this.`
+A Firefox build finished without the AMO lint. The zip is complete. Install `addons-linter` to see what AMO would flag before you upload, or pass `--no-addon-lint` to stop the line.
+
+`Edge Add-ons refuses a package whose manifest carries key, so the edge production build dropped it.`
+The Edge build removed the top-level `key` field. Partner Center assigns the extension ID, so the field has no use in that package. Write it as `chrome:key` when it is meant for the Chrome Web Store build only.
+
+`default_locale is set, but the _locales folder is missing.`
+The manifest check stopped the build before packaging. Stores reject a package without its default locale, so restore `_locales/<default>/messages.json` and build again.
+
+`The source zip skipped a symlink, because an archive stores files.`
+A symbolic link inside the project was left out of the source archive. Copy what the link points at into the project if the archive needs it.
+
+`The source zip was requested and not created.`
+The build finished and the source archive did not. The line names the path and the reason. The distribution archive is unaffected, because the two archives fail independently.
+
+## The Extension.js way
+
+Package from the command, not from a file manager:
+
+- Run `extension build --browser=<browser> --zip` for every store, and add `--zip-source` when the store is Firefox Add-ons.
+- Pass `--zip-filename=release` in CI so the artifact name is stable, and let the CLI append the browser.
+- Read the archive path from the `Packaged` line or from `zip_artifacts` under `--output json`, never from the manifest `name`.
+- Keep `dist/` out of git. The build cleans `dist/<browser>` on every run. The archives of earlier runs never enter the next source archive.
+- Author [STORE.md](/docs/workflows/store-metadata) before the first upload, so reviewer notes and the AMO build instructions travel with the code.
+
+The build is the packaging step. There is no separate `pack` command, and `extension publish` is a share link on extension.dev, not a store submission. See [Publish command](/docs/commands/publish).
+
+## See also
+
+- [Publish to the browser stores](/docs/publishing)
+- [Build command](/docs/commands/build)
+- [Multi-platform builds](/docs/features/multi-platform-builds)
+- [Store metadata in one STORE.md file](/docs/workflows/store-metadata)
+- [CI templates for extension builds](/docs/workflows/ci-templates)
+- [Safari](/docs/browsers/safari)

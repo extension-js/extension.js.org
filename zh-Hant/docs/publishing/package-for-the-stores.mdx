@@ -1,0 +1,148 @@
+---
+title: "為商店上傳打包擴充功能"
+description: "產生 Chrome Web Store、Edge Add-ons 與 Firefox Add-ons 接受的 zip、AMO 要求的原始碼壓縮檔，以及 Safari 走 Xcode 的路線，附 Extension.js 實際寫出的檔名。"
+keywords:
+  [
+    "package extension",
+    "zip extension for chrome web store",
+    "extension build --zip",
+    "zip-filename",
+    "zip-source",
+    "source archive",
+    "source code submission",
+    "xpi",
+    "crx",
+    "chrome web store upload",
+    "edge add-ons upload",
+    "addons.mozilla.org",
+    "safari app store",
+    "extension.js",
+    "chrome",
+    "edge",
+    "firefox",
+    "safari",
+  ]
+---
+
+每個商店接受的都是已建置擴充功能的 zip，而且 `manifest.json` 要位於壓縮檔根目錄。當上傳內容經過壓縮或打包時，Firefox Add-ons 還會要求一份原始碼 zip，而正式建置正是這種情況。Safari 是例外：擴充功能隨 Xcode 建置的 macOS 或 iOS 應用程式一起發布。本頁解釋產生壓縮檔的三種方式，列出 `extension build --zip` 實際寫出的檔名，並說明每個商店接受什麼。本頁還會引用 CLI 打包時列印的主控台輸出。
+
+## 產生壓縮檔的三種方式
+
+**手動壓縮 `dist/<browser>`。** 執行 `extension build --browser=chrome`，開啟 `dist/chrome`，選取其中的內容並壓縮。陷阱在於資料夾本身：如果壓縮的是 `chrome` 資料夾，`manifest.json` 就會下沉一層，商店會拒絕。
+
+**`extension build --zip`。** 建置寫出 `dist/<browser>`，然後在該資料夾旁邊打包，絕不放在它裡面。source map 不會進入壓縮檔。加上 `--zip-source` 即可得到 AMO 要求的原始碼壓縮檔。
+
+**CI 工作。** 同一條 `extension build --zip` 指令在 runner 上執行，工作把 `dist/*.zip` 作為建置產物上傳，或交給商店 API。商店憑證留在 CI secret 裡。參見 [CI 範本](/zh-Hant/docs/workflows/ci-templates)。
+
+| 屬性                          | 手動 zip                     | `extension build --zip`          | CI 工作                          |
+| ----------------------------- | ---------------------------- | -------------------------------- | -------------------------------- |
+| `manifest.json` 位於根目錄    | 只有壓縮內容時才成立          | 總是                             | 總是                             |
+| 排除 source map               | 只有你手動刪除時才成立        | 總是                             | 總是                             |
+| 給 AMO 的原始碼壓縮檔         | 再手動壓縮一次                | `--zip-source`                   | `--zip-source`                   |
+| 便於自動化的穩定檔名          | 取決於你輸入了什麼            | `--zip-filename=<name>`          | `--zip-filename=<name>`          |
+| 一次執行多個瀏覽器            | 每個瀏覽器手動壓縮一個        | `--browser=chrome,firefox`       | `--browser=chrome,firefox`       |
+
+手動路線用一次就好，用來了解商店期望什麼。之後的每次發布都用 `--zip`，當不止一個人負責發布時，把同一條指令搬進 CI。
+
+## 指令片段
+
+這些旗標屬於 `build`：
+
+```bash
+extension build --browser=chrome,firefox --zip --zip-source --zip-filename=release
+```
+
+如果你希望每次 `build` 都不加旗標就打包，同樣的選項也可以放進 `extension.config.js`：
+
+```js extension.config.js
+/** @type {import('extension').FileConfig} */
+export default {
+  commands: {
+    build: {
+      zip: true,
+      zipSource: true,
+      zipFilename: "store",
+    },
+  },
+};
+```
+
+有了這個檔案，`extension build --browser=chrome` 會寫出 `dist/store-chrome.zip` 與 `dist/store-source.zip`。
+
+## 建置寫出了什麼
+
+每個壓縮檔都落在 `dist/` 裡，與 `dist/<browser>` 資料夾並列。不傳 `--zip-filename` 時，檔名是 manifest 的 `name` 轉小寫並去掉 `a-z0-9` 和空格之外的所有字元，再接 manifest 的 `version`，再接瀏覽器。一個名為 `zip-probe`、版本 `1.0.0` 的 manifest 會打包成 `zipprobe-1.0.0-chrome.zip`：連字號沒了，所以請從建置輸出裡讀路徑，而不是自己拼。以下執行使用的是 Extension.js 4.1.31：
+
+| 指令                                                                           | `dist/` 裡的檔案                                                                                       |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `extension build --zip`                                                        | `chromium/`、`zipprobe-1.0.0-chromium.zip`                                                             |
+| `extension build --zip --browser=edge`                                         | `edge/`、`zipprobe-1.0.0-edge.zip`                                                                     |
+| `extension build --zip --zip-source --browser=chrome,firefox`                  | `chrome/`、`firefox/`、`zipprobe-1.0.0-chrome.zip`、`zipprobe-1.0.0-firefox.zip`、`zipprobe-1.0.0-source.zip` |
+| `extension build --zip --zip-filename=release --browser=chrome`                | `chrome/`、`release-chrome.zip`                                                                        |
+| `extension build --zip --zip-filename=release --browser=firefox`               | `firefox/`、`release-firefox.zip`                                                                      |
+| `extension build --zip --zip-source --zip-filename=release --browser=chrome`   | `chrome/`、`release-chrome.zip`、`release-source.zip`                                                  |
+
+從表裡可以得出兩條規則。預設瀏覽器是 `chromium`，所以目標是 Chrome Web Store 時要傳 `--browser=chrome`。另外，單獨的 `--zip-filename` 永遠不會寫原始碼壓縮檔：寫它的是 `--zip-source`。此時明確名稱同時管兩個檔案，發行壓縮檔後面附加瀏覽器，另一個附加 `-source`。
+
+發行壓縮檔裝的是 `dist/<browser>` 的內容去掉 `.map` 檔案，`manifest.json` 位於根目錄。原始碼壓縮檔裝的是專案資料夾去掉 `node_modules`、`.git`、`dist`、`extensions/` 伴隨擴充功能資料夾、除 `*.example` 之外的所有 `.env*` 檔案，以及你的 `.gitignore` 排除的內容。符號連結會被跳過並給出警告，因為壓縮檔儲存的是檔案。
+
+在 `--output json` 下，每個壓縮檔都會列在 `zip_artifacts` 裡，帶有 `kind`（`dist` 或 `source`）、`path` 和以位元組計的 `size`，所以 CI 步驟不必解析主控台就能拿到檔案。
+
+## 各瀏覽器差異
+
+| 商店                                                                                                  | 上傳格式                                                                 | 建置指令                                                      | 另請閱讀                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Chrome Web Store](https://developer.chrome.com/docs/webstore/publish)                                | 一個 zip，最大 2 GB，`manifest.json` 位於根目錄                            | `extension build --browser=chrome --zip`                      | 第一次上傳是手動的，並會建立擴充功能 ID。參見 [Chrome 憑證](/zh-Hant/docs/publishing/chrome-credentials)。                                                   |
+| [Edge Add-ons](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension) | 一個 zip，在 Partner Center 上傳                                          | `extension build --browser=edge --zip`                        |Edge 建置會為你移除頂層的 `key` 欄位。  從 manifest 裡移除 `update_url`，名稱和描述裡不要出現「Chrome」。參見 [Edge 憑證](/zh-Hant/docs/publishing/edge-credentials)。                               |
+| [Firefox Add-ons](https://extensionworkshop.com/documentation/publish/submitting-an-add-on/)         | `.zip`、`.xpi` 或 `.crx`，當程式碼經過壓縮或打包時再加一份原始碼 zip       | `extension build --browser=firefox --zip --zip-source`        | 新附加元件要宣告 `data_collection_permissions`。在審核者備註裡說明建置方法。參見 [Firefox 憑證](/zh-Hant/docs/publishing/firefox-credentials)。              |
+| [Safari](https://developer.apple.com/documentation/safariservices/distributing-your-safari-web-extension) | 沒有 zip。擴充功能隨應用程式一起發布，由 Xcode 封存後送往 App Store Connect，或由你公證後在商店之外散布 | `extension build --browser=safari` | 建置會轉換 `dist/safari` 並執行 `xcodebuild` 輸出到 `dist/safari-xcode`。參見 [Safari](/zh-Hant/docs/browsers/safari)。                                     |
+
+Firefox 自行散布是商店唯一會把檔案交還給你的情況。AMO 會對上傳內容簽章，簽章副本可從你的提交頁面下載時會透過郵件通知你。Chrome 與 Edge 永遠不會回傳 `.crx`，Extension.js 也不會寫出 `.crx` 或 `.xpi` 檔案：商店接受的是 zip。
+
+Opera 的商店拒絕壓縮過的程式碼，所以 `extension build --browser=opera` 預設關閉 `--minify`。
+
+## 你會看到的主控台輸出
+
+把你看到的那一行複製到搜尋裡。每一行對應一個原因。
+
+`Packaged dist/zipprobe-1.0.0-chrome.zip (34.2 KB).`
+發行壓縮檔已寫出。該路徑就是要上傳的檔案，由於上面的清洗規則，它的名字可能與你的 manifest `name` 不一致。
+
+`Packaged dist/zipprobe-1.0.0-source.zip (37.2 KB).`
+原始碼壓縮檔已寫出。同一次執行裡它列印在發行壓縮檔之前。建置多個瀏覽器時每個瀏覽器列印一次，因為原始碼對每個瀏覽器都是一樣的。
+
+`Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter or pass --no-addon-lint to silence this.`
+Firefox 建置完成但沒有做 AMO 檢查。zip 是完整的。安裝 `addons-linter` 可以在上傳前看到 AMO 會標記什麼，或者傳 `--no-addon-lint` 讓這一行不再出現。
+
+`Edge Add-ons refuses a package whose manifest carries key, so the edge production build dropped it.`
+Edge 建置移除了頂層的 `key` 欄位。Partner Center 會指派擴充功能 ID，所以這個欄位在該套件裡沒有用處。如果它只用於 Chrome Web Store 的建置，寫成 `chrome:key`。
+
+`default_locale is set, but the _locales folder is missing.`
+manifest 檢查在打包前停止了建置。商店會拒絕缺少預設語系的套件，所以請還原 `_locales/<default>/messages.json` 再重新建置。
+
+`The source zip skipped a symlink, because an archive stores files.`
+專案裡的一個符號連結被排除在原始碼壓縮檔之外。如果壓縮檔需要它，把連結指向的內容複製進專案。
+
+`The source zip was requested and not created.`
+建置完成了，但原始碼壓縮檔沒有產生。這一行會給出路徑和原因。發行壓縮檔不受影響，因為兩個壓縮檔各自獨立失敗。
+
+## Extension.js 的做法
+
+用指令打包，而不是用檔案管理員：
+
+- 為每個商店執行 `extension build --browser=<browser> --zip`，商店是 Firefox Add-ons 時再加 `--zip-source`。
+- 在 CI 裡傳 `--zip-filename=release`，讓產物名稱穩定，並讓 CLI 附加瀏覽器。
+- 從 `Packaged` 那一行或 `--output json` 下的 `zip_artifacts` 讀壓縮檔路徑，永遠不要從 manifest 的 `name` 推算。
+- 讓 `dist/` 遠離 git。建置每次執行都會清理 `dist/<browser>`。之前執行留下的壓縮檔絕不會進入下一個原始碼壓縮檔。
+- 在第一次上傳前寫好 [STORE.md](/zh-Hant/docs/workflows/store-metadata)，讓審核者備註和 AMO 建置說明隨程式碼一起走。
+
+建置就是打包步驟。沒有單獨的 `pack` 指令，`extension publish` 是 extension.dev 上的分享連結，不是商店提交。參見 [Publish 指令](/zh-Hant/docs/commands/publish)。
+
+## 另請參閱
+
+- [發布到瀏覽器商店](/zh-Hant/docs/publishing)
+- [Build 指令](/zh-Hant/docs/commands/build)
+- [多平台建置](/zh-Hant/docs/features/multi-platform-builds)
+- [用一份 STORE.md 檔案管理商店中繼資料](/zh-Hant/docs/workflows/store-metadata)
+- [擴充功能建置的 CI 範本](/zh-Hant/docs/workflows/ci-templates)
+- [Safari](/zh-Hant/docs/browsers/safari)
