@@ -1,0 +1,153 @@
+---
+title: "Extension.js vs Plasmo"
+description: "Side-by-side comparison of Extension.js and Plasmo for building browser extensions. Manifest model, bundler, browser targets, dev loop, packaging, and maintenance status with dates."
+keywords:
+  [
+    "extension.js vs plasmo",
+    "plasmo vs extension.js",
+    "plasmo alternative",
+    "plasmo framework",
+    "is plasmo still maintained",
+    "browser extension framework comparison",
+    "plasmo",
+    "extension.js",
+    "cross-browser extension",
+    "chrome extension framework",
+    "parcel browser extension",
+  ]
+---
+
+Extension.js and [Plasmo](https://www.plasmo.com) both compile a browser extension from modern source, reload it while you work, and package it for the stores. They differ in where the manifest lives, which bundler does the work, and how actively each one ships. This page is a factual comparison so you can choose based on your project, not marketing copy.
+
+## TL;DR: which should you choose?
+
+<CardGroup cols={2}>
+  <Card title="Choose Extension.js if…">
+    - You want the **`manifest.json` as the source of truth**, not generated from file names.
+    - You want the CLI to launch the browser and load the extension for you.
+    - You target Chrome, Edge, Firefox, and Safari from one tree, with per-browser `dist/` output.
+    - You want a bundler that still receives releases, and docs that your assistant can read through a docs MCP endpoint and `llms.txt` ([details](/docs/ai-access)).
+  </Card>
+  <Card title="Choose Plasmo if…">
+    - You prefer **file-system convention** (`popup.tsx`, `contents/`) over an explicit manifest.
+    - You rely on **CSUI**, which mounts a React, Svelte, or Vue component into a page inside a shadow root for you.
+    - You use `@plasmohq/storage` and `@plasmohq/messaging`, and your extension already works on the pinned toolchain.
+  </Card>
+</CardGroup>
+
+The rest of this page backs up that summary, dimension by dimension.
+
+## At a glance
+
+| Dimension            | Extension.js                                                                 | Plasmo                                                                         |
+| -------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Bundler              | [Rspack](/docs/features/rspack-configuration) (Rust-based)                   | Parcel, pinned at `@parcel/core` 2.9.3 in the 0.90.5 CLI                      |
+| Manifest             | One `manifest.json`, browser-prefixed keys filtered at compile time          | Generated from file conventions plus a `manifest` field in `package.json`      |
+| Entrypoints          | Files referenced from `manifest.json`                                        | `popup.tsx`, `options.tsx`, `newtab.tsx`, `background.ts`, `contents/*`        |
+| Browser targets      | Chrome, Edge, Firefox, Safari (macOS, through Xcode), Chromium, Gecko, custom binaries | `chrome-mv3` (default), `firefox-mv2`, `firefox-mv3` (experimental)   |
+| Other Chromium browsers | Brave, Opera, Vivaldi, Yandex, and any binary through `--chromium-binary` | "Should work" as Chromium builds, loaded by hand                              |
+| Safari               | `extension build --browser=safari` converts and runs `xcodebuild`           | `safari-mv3` target, then you run `safari-web-extension-converter` yourself    |
+| Manifest V2          | Not supported as a primary target                                           | `firefox-mv2` target                                                           |
+| Dev loop             | Launches the browser on a fresh profile and loads the build                 | Live-reloading server, you load `build/chrome-mv3-dev` unpacked by hand        |
+| Reload model         | HMR for popup/options/devtools, classified reload for content scripts and the worker | Live reload plus React HMR                                            |
+| Output               | `dist/<browser>`                                                            | `build/<target>-dev` and `build/<target>-prod`                                 |
+| Packaging            | `extension build --zip`, plus `--zip-source` and `--zip-filename`           | `plasmo package`, or `plasmo build --zip`                                      |
+| Store submission     | Not part of the CLI, `extension publish` is a share link                    | Browser Platform Publisher, a GitHub Action with a `keys.json` secret          |
+| Env vars             | `EXTENSION_PUBLIC_*`                                                        | `PLASMO_PUBLIC_*`, with `.env.<browser>` overrides                             |
+| Templates            | 59 in the catalog, starters: init, javascript, typescript, react, preact, vue, svelte | React and TypeScript first class, Svelte and Vue optional             |
+| AI surfaces          | Docs MCP endpoint + `llms.txt` ([details](/docs/ai-access))                 | None documented                                                                |
+
+## Mental model
+
+**Extension.js stays close to the platform.** You author a `manifest.json` and reference real files. The CLI compiles, filters per browser, and ships. If you already understand how a browser extension is structured, the framework gets out of your way.
+
+**Plasmo abstracts the platform.** A file named `popup.tsx` becomes the popup. A file under `contents/` becomes a content script, and its `matches` come from an exported `config` object. Plasmo's own docs describe it as "like Next.js for browser extensions". The manifest is generated under the hood from your source files and from the `manifest` field in `package.json`.
+
+Neither approach is universally better. The choice depends on whether you want to **see** your manifest or **declare** your manifest.
+
+## CLI surface
+
+### Extension.js
+
+```bash
+extension dev --browser=chrome,firefox
+extension build --browser=chrome,firefox --zip
+extension dev https://github.com/user/repo/tree/main/path
+```
+
+`extension dev` launches the browser on a temporary profile and loads the build. The argument can be a local path, a GitHub URL, or a ZIP archive. See [Get started immediately](/docs/getting-started/immediately).
+
+### Plasmo
+
+```bash
+plasmo dev
+plasmo dev --target=firefox-mv2
+plasmo build --target=chrome-mv3
+plasmo package
+```
+
+`plasmo dev` writes `build/chrome-mv3-dev` and starts a live-reloading server. Loading that folder into the browser is a manual step: the Plasmo docs say "We plan to automate this in the future." Every browser and manifest pair is one `--target` value.
+
+## Cross-browser strategy
+
+Both frameworks ship one codebase to several browsers, with different mechanics:
+
+- **Extension.js** uses [browser-prefixed manifest fields](/docs/features/browser-specific-fields) (`chrome:`, `firefox:`, `gecko:`, and so on) inside one `manifest.json`. The unprefixed keys apply everywhere, and prefixed keys land only in matching builds. One run with `--browser=chrome,firefox` writes `dist/chrome` and `dist/firefox`.
+- **Plasmo** builds one target per run. Browser differences live in environment variables: a `.env.firefox` file, `process.env.PLASMO_BROWSER` in code, and env placeholders inside the `manifest` overrides. A placeholder that resolves to nothing removes the field from the generated manifest.
+
+Plasmo's officially supported targets are `chrome-mv3`, `firefox-mv2`, and the experimental `firefox-mv3`. Its FAQ says Edge, Brave, and Opera "should work" because they are Chromium. Safari needs the `safari-mv3` target plus a manual run of Apple's converter. Extension.js names each of those browsers as a `--browser` value, and [the Safari build](/docs/browsers/safari) runs the converter and `xcodebuild` for you.
+
+## Where Plasmo is ahead
+
+Be honest about this before you move:
+
+- **CSUI.** Export a React, Svelte 3, or Vue 3 component from a content script. Plasmo mounts it in a shadow root, isolated from the host page's styles. In Extension.js you write the container and the shadow root yourself, as shown in [Content scripts](/docs/implementation-guide/content-scripts).
+- **Store submission from the repo.** Plasmo documents a GitHub Action, Browser Platform Publisher, that reads a `keys.json` secret and uploads to the stores. Extension.js builds the archives ([Package an extension for store upload](/docs/publishing/package-for-the-stores)). The upload is left to your CI against each store's API. The `extension publish` command produces a share link on extension.dev, not a store submission.
+- **Bundled helper libraries.** `@plasmohq/storage` and `@plasmohq/messaging` wrap `chrome.storage` and `chrome.runtime` messaging. Extension.js has no equivalent packages. You call the browser APIs directly, which is also why `@plasmohq/storage` keeps working after a migration.
+
+## Maintenance status
+
+Check the signals yourself before you decide. These values come from npm and the GitHub API on 5 October 2026.
+
+| Signal                         | Plasmo                                                      | Extension.js                        |
+| ------------------------------ | ----------------------------------------------------------- | ----------------------------------- |
+| Latest npm release             | 0.90.5, published 17 May 2025                               | 4.1.31, published 4 October 2026    |
+| Last commit on `main`          | 17 May 2025                                                 | 5 October 2026                      |
+| Open issues                    | 347, plus 24 open pull requests (GitHub shows 371 together) | 5, plus 10 open pull requests       |
+| Downloads, 5 Sep to 4 Oct 2026 | 2,531,820                                                   | 30,629                              |
+| GitHub stars                   | 13,162                                                      | 5,177                               |
+
+Plasmo still installs and still builds. Downloads stay high because existing projects keep it pinned. There has been no release and no commit on `main` in over sixteen months. If your extension works today, you do not need to move. If you start a new extension, or need a bundler that still receives updates, read on.
+
+## Migration paths
+
+If you are already on Plasmo and want to evaluate Extension.js, the typical migration touches four things:
+
+1. Write a `manifest.json` by hand, mapping each convention file to a manifest entry and merging the `manifest` field from `package.json`.
+2. Move content script `matches` from the exported `PlasmoCSConfig` into `content_scripts` in the manifest.
+3. Rename `PLASMO_PUBLIC_*` to `EXTENSION_PUBLIC_*`.
+4. Replace `plasmo dev`, `plasmo build`, and `plasmo package` with `extension dev` and `extension build --zip`.
+
+Your React components, Tailwind config, tests, and `chrome.*` calls copy over without changes. The full step-by-step guide, with the convention-to-manifest table and the CSUI replacement, is at [Migrate from Plasmo](/docs/migrate/from-plasmo).
+
+## When to choose Extension.js
+
+- You want the manifest as the source of truth, not generated.
+- You want the CLI to launch the browser and load the extension for you.
+- You target Chrome, Edge, Firefox, and Safari from one tree and one command.
+- You want a bundler that still receives releases.
+- You want a docs MCP endpoint and `llms.txt` for your assistant.
+
+## When to choose Plasmo
+
+- You prefer file-system convention over an explicit manifest.
+- You depend on CSUI anchors and the shadow-root mounting that it does for you.
+- You already publish through Browser Platform Publisher and your pinned toolchain still builds.
+
+## See also
+
+- [Migrate from Plasmo](/docs/migrate/from-plasmo)
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)
+- [Browser extension framework comparison](/docs/compare)
+- [Cross-browser compatibility](/docs/features/cross-browser-compatibility)
+- [Browser-specific manifest fields](/docs/features/browser-specific-fields)
