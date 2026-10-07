@@ -42,6 +42,7 @@ keywords:
 | `engine`  | string | 可选。发生失败的浏览器引擎。                                                         |
 | `hint`    | string | 可选。修复建议文案。                                                                 |
 | `refs`    | object | 可选。message 中提到的那些可操作部分：`flag`、`command`、`path`、`version`。         |
+| `details` | array  | 可选。编译失败时出现。每条编译器诊断一个条目，见下文"编译诊断"。 |
 
 ## 成功与失败示例
 
@@ -96,6 +97,61 @@ keywords:
   "warnings": []
 }
 ```
+
+## 编译诊断
+
+失败的 `build` 帧和 dev 流的 `compile-failed` 帧会携带 `error.details`，每条编译器诊断一个条目，错误排在前面。每个条目的结构如下：
+
+| 字段       | 类型                     | 含义                                                                             |
+| ---------- | ------------------------ | -------------------------------------------------------------------------------- |
+| `code`     | string                   | 可选。该诊断对应的表内错误码，例如 `E_MODULE_NOT_FOUND`。没有对应时不出现。 |
+| `message`  | string                   | 编译器文本，已去掉 ANSI 控制符。属于自由文案，永远不要用它做匹配。                  |
+| `file`     | string                   | 可选。源文件，相对于项目根目录。                                                 |
+| `line`     | integer                  | 可选。编译器报告时，该文件中的行号。                                             |
+| `column`   | integer                  | 可选。编译器报告时，该行中的列号。                                               |
+| `severity` | `"error"` 或 `"warning"` | 这条诊断属于哪一类。                                                             |
+| `name`     | string                   | 可选。编译器的错误类名。                                                         |
+
+列表上限为 20 条。当上限把它截断时，该帧会设置 `truncated: true`。
+
+可能出现在 `details` 里的错误码是[错误码表](/zh-Hans/docs/contracts/error-codes)中的诊断行：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED`、`E_REMOTE_RESOURCE_BLOCKED`、`E_PERF_BUDGET` 和 `E_ENV_NO_MATCH`。
+
+下面是 `golden.build.compile.json`，其中两条 message 缩短为各自的第一行：
+
+```json
+{
+  "schema": 1,
+  "ok": false,
+  "command": "build",
+  "status": "build-failed",
+  "value": null,
+  "error": {
+    "code": "E_COMPILE",
+    "message": "Build failed with errors",
+    "details": [
+      {
+        "code": "E_CONTENT_SCRIPT_SYNTAX",
+        "message": "Module build failed (from builtin:swc-loader): Syntax Error: Expression expected",
+        "file": "content/scripts.js",
+        "severity": "error",
+        "name": "ModuleBuildError"
+      },
+      {
+        "code": "E_MODULE_NOT_FOUND",
+        "message": "Module not found: Can't resolve './missing' in '/home/dev/my-extension'",
+        "file": "background.js",
+        "line": 1,
+        "column": 1,
+        "severity": "error"
+      }
+    ]
+  },
+  "warnings": [],
+  "hint": "Fix the error above and run build again."
+}
+```
+
+成功的构建会把警告保留在顶层的 `warnings` 数组里。当能解析出错误码时，那里的每个字符串都以 `E_CODE: ` 开头，例如 `E_CSS_DEAD_REF: ...`，与 `logs` 和 `uninstall` 已有的约定相同。
 
 ## 人类可读文案去哪了
 

@@ -42,6 +42,7 @@ The `error` object:
 | `engine`  | string | Optional. The browser engine where the failure happened.                       |
 | `hint`    | string | Optional. Remediation copy.                                                    |
 | `refs`    | object | Optional. The actionable parts that the message names: `flag`, `command`, `path`, `version`. |
+| `details` | array  | Optional. Present on a failed compile. One entry per compiler diagnostic, see Compile diagnostics below. |
 
 ## Success and failure examples
 
@@ -96,6 +97,61 @@ The `error` object:
   "warnings": []
 }
 ```
+
+## Compile diagnostics
+
+A failed `build` frame and the dev stream's `compile-failed` frame carry `error.details`, one entry per compiler diagnostic, errors first. Each entry has this shape:
+
+| Field      | Type                     | Meaning                                                                          |
+| ---------- | ------------------------ | -------------------------------------------------------------------------------- |
+| `code`     | string                   | Optional. The table code the diagnostic resolves to, for example `E_MODULE_NOT_FOUND`. Absent when none does. |
+| `message`  | string                   | The compiler text, ANSI-stripped. Free copy, never match on it.                  |
+| `file`     | string                   | Optional. The source file, relative to the project root.                         |
+| `line`     | integer                  | Optional. The line in that file when the compiler reports one.                   |
+| `column`   | integer                  | Optional. The column on that line when the compiler reports one.                 |
+| `severity` | `"error"` or `"warning"` | Which kind of diagnostic this is.                                                |
+| `name`     | string                   | Optional. The compiler's error class name.                                       |
+
+The list is capped at 20 entries. When the cap cuts it, the frame sets `truncated: true`.
+
+The codes that can appear in `details` are the diagnostic rows of the [error code table](/docs/contracts/error-codes): `E_MODULE_NOT_FOUND`, `E_CONTENT_SCRIPT_SYNTAX`, `E_CSS_PARSE`, `E_ENTRY_NOT_FOUND`, `E_ASSET_MISSING`, `E_SCRIPT_DEP_MISSING`, `E_RESERVED_FOLDER`, `E_CSS_PREPROCESSOR_MISSING`, `E_CSS_DEAD_REF`, `E_LOCALES_LAYOUT`, `E_WAR_INVALID`, `E_BACKGROUND_REQUIRED`, `E_REMOTE_RESOURCE_BLOCKED`, `E_PERF_BUDGET`, and `E_ENV_NO_MATCH`.
+
+This is `golden.build.compile.json` with its two messages shortened to their first line:
+
+```json
+{
+  "schema": 1,
+  "ok": false,
+  "command": "build",
+  "status": "build-failed",
+  "value": null,
+  "error": {
+    "code": "E_COMPILE",
+    "message": "Build failed with errors",
+    "details": [
+      {
+        "code": "E_CONTENT_SCRIPT_SYNTAX",
+        "message": "Module build failed (from builtin:swc-loader): Syntax Error: Expression expected",
+        "file": "content/scripts.js",
+        "severity": "error",
+        "name": "ModuleBuildError"
+      },
+      {
+        "code": "E_MODULE_NOT_FOUND",
+        "message": "Module not found: Can't resolve './missing' in '/home/dev/my-extension'",
+        "file": "background.js",
+        "line": 1,
+        "column": 1,
+        "severity": "error"
+      }
+    ]
+  },
+  "warnings": [],
+  "hint": "Fix the error above and run build again."
+}
+```
+
+A successful build keeps its warnings in the top-level `warnings` array. Each string there opens with `E_CODE: ` when a code resolves, for example `E_CSS_DEAD_REF: ...`, the same convention `logs` and `uninstall` already use.
 
 ## Where human copy goes
 
