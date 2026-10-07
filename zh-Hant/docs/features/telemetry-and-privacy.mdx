@@ -25,7 +25,7 @@ Extension.js 會收集極少量的匿名遙測資料，用來了解你執行了�
 
 ## Extension.js 收集什麼
 
-每次 CLI 執行最多送出其中一個事件：
+每次 CLI 執行最多送出其中一個事件。例外是監看工作階段（`dev`、`start`、`preview`）：它在啟動時回報帶 `session: started` 的 `command_executed`，之後若出錯再回報一筆 `command_failed`，因此一次執行可能產生兩列：
 
 | 事件               | 取樣                              | 屬性                                   |
 | ------------------ | --------------------------------- | -------------------------------------- |
@@ -36,9 +36,9 @@ Extension.js 會收集極少量的匿名遙測資料，用來了解你執行了�
 
 當某次執行在初次啟動時詢問是否下載受管瀏覽器，該命令自身的事件會帶上結果，這樣「使用者接受了下載」就能與「工作階段到此結束」區分開。`browser_install` 為 `offered`、`accepted`、`declined` 或 `failed`，`browser_install_browser` 是受管瀏覽器的名稱，例如 `chrome`，`browser_install_seconds` 是下載所花的整數秒。沒有獨立的安裝事件，計數仍然只在上面兩個事件上。
 
-`create` 指令會多帶兩個屬性，讓損壞的官方起始範本能出現在失敗統計中：`template`（`extension create --help` 列出的起始範本名稱，否則不帶）與 `source`（`cli`，或發起 create 的介面，例如 `templates`）。`template` 在送出前會與已發布的起始範本清單核對。GitHub URL、本地資料夾路徑或任何不是官方名稱的值都會被整個丟棄而不是截斷，因此私有儲存庫或目錄名稱永遠不會離開你的機器。`create` 指令也不參與取樣，因此範本使用量的數字能保持準確。
+`create` 指令會多帶兩個屬性，讓損壞的官方起始範本能出現在失敗統計中：`template`（`extension create --help` 列出的起始範本名稱，否則不帶）與 `source`（`cli`，或當 create 由文件的範本藝廊發起時為 `templates`）。`template` 在送出前會與已發布的起始範本清單核對。GitHub URL、本地資料夾路徑或任何不是官方名稱的值都會被整個丟棄而不是截斷，因此私有儲存庫或目錄名稱永遠不會離開你的機器。`source` 也以同樣的方式與這兩個介面核對，其他任何值都以 `cli` 送出。`create` 指令也不參與取樣，因此範本使用量的數字能保持準確。
 
-附加在每個事件上的共用情境：`os`（`darwin`／`linux`／`win32`）、`arch`、`node_major`、`is_ci`、`is_source_build`。其他都沒有。`is_source_build` 是單一布林值，只回答「這是一次 registry 安裝，還是一份儲存庫檢出」。它由安裝路徑的形狀推算而來（CLI 之上是否有 `node_modules` 形式的路徑片段）。路徑本身永遠不會被讀進事件、送出，也不會被雜湊。
+附加在每個事件上的共用情境：`os`（`darwin`／`linux`／`win32`）、`arch`、`node_major`、`is_ci`、`is_source_build`，以及永遠是 `extension` 一詞的 `app`。其他都沒有。`is_source_build` 是單一布林值，只回答「這是一次 registry 安裝，還是一份儲存庫檢出」。它由安裝路徑的形狀推算而來（CLI 之上是否有 `node_modules` 形式的路徑片段）。路徑本身永遠不會被讀進事件、送出，也不會被雜湊。
 
 ## 流量控制
 
@@ -58,6 +58,10 @@ Extension.js 的遙測約定明確排除以下內容：
 - 環境變數值、檔案系統路徑或本機 URL
 - 堆疊追蹤、錯誤訊息或自由文字的錯誤名稱
 - IP 位址。PostHog 專案在接收時丟棄請求位址（`anonymize_ips`），每個 payload 都送出 `$ip: null` 與 `$geoip_disable: true`，因此也不會由此推導出位置。2026-10-06 之前送出的事件帶有請求位址。
+
+## 4.0 之前的版本
+
+3.x 系列送出的是另一套結構，直到 2026-04-17 都公布在儲存庫的約定檔中：生命週期事件（`cli_boot`、`cli_command_start`、`cli_command_finish`、`cli_vendor_start`、`cli_vendor_finish`、`cli_shutdown`、`cli_telemetry_consent`）、`manifest_summary`（權限與內容指令碼的數量）、`project_profile`（框架家族與套件管理器）、`workflow_profile`（使用族群）以及 `cli_build_summary`（產物數量與位元組數）。只有計數、布林值和固定清單中的名稱，從不包含路徑、URL 或專案名稱。仍停留在 3.x 的安裝會繼續送出這些事件，而自 2026-10-07 起，PostHog 專案在接收時會丟棄所有不屬於上述兩個事件的事件，因此那套結構的資料不再被儲存。
 
 ## 退出方式
 
