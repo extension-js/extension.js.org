@@ -25,7 +25,7 @@ The privacy bar is strict by design:
 
 ## What Extension.js collects
 
-Per CLI run, at most one of:
+Per CLI run, at most one of the following. The exception is a watch session (`dev`, `start`, `preview`), which reports `command_executed` with `session: started` when it comes up and a later `command_failed` if it breaks, so one run can produce two rows:
 
 | Event              | Sampled                                    | Properties                             |
 | ------------------ | ------------------------------------------ | -------------------------------------- |
@@ -36,9 +36,9 @@ A failure adds two more properties so a failure count reads as a cause rather th
 
 When a run offers to download a managed browser on a first run, the command's own event carries the outcome, so an offer someone accepted can be told apart from one that ended the session. `browser_install` is one of `offered`, `accepted`, `declined` or `failed`, `browser_install_browser` names the managed browser, for example `chrome`, and `browser_install_seconds` is the whole number of seconds a download took. There is no separate install event, the counts stay on the two events above.
 
-The `create` command adds two more properties so a broken advertised starter shows up in its failure counts: `template` (the starter name as listed by `extension create --help`, or absent) and `source` (`cli`, or the surface that started the create, for example `templates`). `template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path, or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. The `create` command is also exempt from sampling, so template usage numbers stay accurate.
+The `create` command adds two more properties so a broken advertised starter shows up in its failure counts: `template` (the starter name as listed by `extension create --help`, or absent) and `source` (`cli`, or `templates` when the docs template gallery started the create). `template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path, or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. `source` is checked the same way against those two surfaces, and any other value is sent as `cli`. The `create` command is also exempt from sampling, so template usage numbers stay accurate.
 
-Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`. Nothing else. `is_source_build` is a single boolean answering "was this a registry install or a repository checkout". It is computed from the shape of the install path (whether a `node_modules`-style segment sits above the CLI). The path itself is never read into the event, sent, or hashed.
+Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`, and `app`, which is always the word `extension`. Nothing else. `is_source_build` is a single boolean answering "was this a registry install or a repository checkout". It is computed from the shape of the install path (whether a `node_modules`-style segment sits above the CLI). The path itself is never read into the event, sent, or hashed.
 
 ## Volume controls
 
@@ -58,6 +58,10 @@ The Extension.js telemetry contract explicitly excludes:
 - Environment variable values, filesystem paths, or machine-local URLs
 - Stack traces, error messages, or free-text error names
 - IP addresses. The PostHog project discards the request address at ingestion (`anonymize_ips`) and every payload sends `$ip: null` with `$geoip_disable: true`, so no location is derived from it either. Events sent before 2026-10-06 carried the request address.
+
+## Releases before 4.0
+
+The 3.x line sent a different schema, published in the repository contract until 2026-04-17: lifecycle events (`cli_boot`, `cli_command_start`, `cli_command_finish`, `cli_vendor_start`, `cli_vendor_finish`, `cli_shutdown`, `cli_telemetry_consent`), `manifest_summary` (permission and content script counts), `project_profile` (framework family and package manager), `workflow_profile` (a usage cohort) and `cli_build_summary` (asset counts and bytes). Counts, booleans and names from fixed lists, never a path, a URL or a project name. Installs still on 3.x keep sending those events, and since 2026-10-07 the PostHog project drops every event that is not one of the two above at ingestion, so nothing from that schema is stored any more.
 
 ## Opt out
 
