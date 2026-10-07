@@ -72,6 +72,8 @@ extension eval "({title: document.title, url: location.href})" --context page
 
 擴充功能頁面（`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）是透過它們自己的頁內轉送來回應的，因此該介面必須已在瀏覽器中開啟。請先用 `open`（記載於 [觸發 action 與 command](/zh-Hant/docs/debugging/trigger-actions-and-commands)）把它開起來。
 
+在 Firefox 上，當擴充功能的政策禁止 eval 時，擴充功能的文件改為透過除錯器協定回應。從 4.1.32 起這條路徑也接受陳述式清單：它會回傳最後一個陳述式的完成值，並等待陳述式最終得到的 promise。超過 256 KiB 的結果會以 1024 個字元的預覽回傳，信封上帶有 `truncated: true`，pretty 輸出會印出一行 `result truncated (byte cap)`。
+
 pretty 輸出印出的是值本身：字串原樣輸出，其餘一律以縮排 JSON 輸出。信封結構只會在 `--output json` 之下出現（參見 [結果信封](/zh-Hant/docs/contracts/result-envelope)）。
 
 ## 解鎖機制如何運作
@@ -85,7 +87,7 @@ pretty 輸出印出的是值本身：字串原樣輸出，其餘一律以縮排 
 ## 失敗模式
 
 - 運算式在目標中拋出例外：`E_EVAL`，並附上提示指出問題出在運算式本身。這是一個結果，不是傳輸錯誤。
-- 目標的內容安全政策禁止 eval：`E_CSP_BLOCKS_EVAL`。MV3 擴充功能在它自己的文件和內容腳本中禁止 eval，網頁也可以為自己禁止它。在 Firefox 上，當擴充功能的政策禁止 eval 時，CLI 會透過除錯器協定對擴充功能的文件求值。遇到這個代碼時，改用 [`inspect`](/zh-Hant/docs/commands/inspect) 讀取目標。
+- 目標的內容安全政策禁止 eval：`E_CSP_BLOCKS_EVAL`。MV3 擴充功能在它自己的文件和內容腳本中禁止 eval，網頁也可以為自己禁止它。在 Firefox 上，當擴充功能的政策禁止 eval 時，CLI 會透過除錯器協定對擴充功能的文件求值。遇到這個代碼時，改用 [`inspect`](/zh-Hant/docs/commands/inspect) 讀取目標。從 4.1.32 起，當恰好只有一個開啟的分頁位於該 url 時，Firefox 也會透過除錯器對自行禁止 eval 的網頁求值。若有重複的分頁開啟，呼叫會維持拒絕，提示會說明要關閉的分頁。
 - 該瀏覽器沒有工作階段：`E_SESSION_NOT_FOUND`，並給出應該執行的完整 `extension dev` 指令。
 - 目標介面未開啟，或 `--tab` id 已失效：`E_TARGET_NOT_FOUND`。請用 [`inspect --list-tabs`](/zh-Hant/docs/commands/inspect#the-discovery-loop) 找出仍然存活的 id。
 - 呼叫超過了 `--timeout`：`E_TIMEOUT`。
