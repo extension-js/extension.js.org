@@ -61,11 +61,13 @@ EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-bro
 
 一次工作階段中的第一次失敗使用錯誤碼 `E_FIRST_COMPILE`，之後每一次都使用 `E_COMPILE`。
 
+該影格也會帶著 `error.details`，每條診斷一個條目，各自帶有錯誤碼、檔案和位置，錯誤排在前面，結構見[結果信封](/zh-Hant/docs/contracts/result-envelope)中的「編譯診斷」一節。清單上限為 20 條，當輸出或清單任一被截斷時，都會設定 `truncated: true`。
+
 ```jsonl
 {"schema":1,"ok":true,"command":"dev","status":"starting","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"requestedPort":8080},"error":null,"warnings":[]}
 {"schema":1,"ok":true,"command":"dev","status":"compiled","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","assets":12,"durationMs":841},"error":null,"warnings":[]}
 {"schema":1,"ok":true,"command":"dev","status":"ready","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4"},"error":null,"warnings":[]}
-{"schema":1,"ok":false,"command":"dev","status":"compile-failed","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","output":"ERROR in ./content/scripts.ts\nModule parse failed: Unexpected token (12:3)","durationMs":204},"error":{"code":"E_COMPILE","message":"A recompilation failed after a change."},"warnings":[]}
+{"schema":1,"ok":false,"command":"dev","status":"compile-failed","value":{"command":"dev","browser":"chromium","distPath":"/home/dev/my-extension/dist/chromium","pid":51234,"port":8080,"runId":"mdyq3k2p-a1b2c3d4","output":"ERROR in ./content/scripts.ts\nModule parse failed: Unexpected token (12:3)","durationMs":204},"error":{"code":"E_COMPILE","message":"A recompilation failed after a change.","details":[{"code":"E_CONTENT_SCRIPT_SYNTAX","message":"Module parse failed: Unexpected token (12:3)","file":"content/scripts.ts","line":12,"column":3,"severity":"error"}]},"warnings":[]}
 ```
 
 ## ready 遵循契約
@@ -77,6 +79,8 @@ EXTENSION_OUTPUT=ndjson extension dev ./my-extension --browser chromium --no-bro
 瀏覽器根本沒有啟動，或在擴充功能載入之前就結束時，送達的也是同一個影格。這時 `value.readyCode` 是 `browser_launch_failed` 或 `browser_exited`。Firefox 的除錯器始終沒有回應時，視為啟動失敗。
 
 `--chromium-binary` 或 `--gecko-binary` 固定的執行檔有問題時，`readyCode` 同樣是 `browser_launch_failed`，但其影格帶 `status: "usage"` 與 `error.code: "E_BROWSER_BINARY_INVALID"`，這也是每個命令對這種固定路徑給出的代碼。
+
+Chromium 的 `dev` 工作階段在瀏覽器起來之後 CDP 連線失敗時,仍然會送出 `ready`,因為瀏覽器在執行。該影格會把故障放在 `warnings` 裡,形式為 `E_CDP_...: message`,與契約蓋上的 `cdpFaultCode` 和 `cdpFaultMessage` 是同一對值,見 [ready.json](/zh-Hant/docs/contracts/ready-json)。在故障修復前,reload 與 HMR 無法接上。
 
 ## 瀏覽器結束
 
