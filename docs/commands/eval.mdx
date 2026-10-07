@@ -72,6 +72,8 @@ extension eval "({title: document.title, url: location.href})" --context page
 
 Extension pages (`popup`, `options`, `sidebar`, `devtools`, `newtab`, `history`, `bookmarks`) answer through their own in-page relay, so the surface must be open in the browser. Use `open` (documented in [Trigger actions and commands](/docs/debugging/trigger-actions-and-commands)) to open one first.
 
+On Firefox, an extension document whose policy forbids eval answers through the debugger protocol instead. Since 4.1.32 that route also takes a statement list: it answers the completion value of the last statement and awaits a promise the statements end on. A result past 256 KiB comes back as a 1024 character preview with `truncated: true` on the envelope, and pretty output prints a `result truncated (byte cap)` line.
+
 Pretty output prints the value itself: strings as-is, everything else as indented JSON. The envelope shape appears only under `--output json` (see [Result envelope](/docs/contracts/result-envelope)).
 
 ## How the unlock works
@@ -85,7 +87,7 @@ A session started without `--allow-eval` refuses the call, and the refusal names
 ## Failure modes
 
 - The expression threw inside the target: `E_EVAL`, with a hint that the expression itself is at fault. This is a result, not a transport error.
-- A content security policy forbids eval in the target: `E_CSP_BLOCKS_EVAL`. An MV3 extension forbids eval in its own documents and content scripts, and a web page can forbid it for itself. On Firefox, the CLI evaluates an extension document through the debugger protocol when the extension's policy forbids eval. Read the target with [`inspect`](/docs/commands/inspect) when you get this code.
+- A content security policy forbids eval in the target: `E_CSP_BLOCKS_EVAL`. An MV3 extension forbids eval in its own documents and content scripts, and a web page can forbid it for itself. On Firefox, the CLI evaluates an extension document through the debugger protocol when the extension's policy forbids eval. Read the target with [`inspect`](/docs/commands/inspect) when you get this code. Since 4.1.32, Firefox also evaluates a web page that forbids eval for itself through the debugger, when exactly one open tab is on that url. With a duplicate tab open the call keeps the refusal and the hint names the tab to close.
 - No session for the browser: `E_SESSION_NOT_FOUND`, with the exact `extension dev` command to run.
 - Target surface not open, or a stale `--tab` id: `E_TARGET_NOT_FOUND`. Use [`inspect --list-tabs`](/docs/commands/inspect#the-discovery-loop) to find live ids.
 - The call outlived `--timeout`: `E_TIMEOUT`.

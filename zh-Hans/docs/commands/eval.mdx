@@ -72,6 +72,8 @@ extension eval "({title: document.title, url: location.href})" --context page
 
 扩展页面（`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）是通过它们自己的页内中继来应答的，所以对应界面必须已经在浏览器中打开。先用 `open`（见 [触发 action 与 command](/zh-Hans/docs/debugging/trigger-actions-and-commands)）把它打开。
 
+在 Firefox 上，当扩展的策略禁止 eval 时，扩展文档改为通过调试器协议应答。从 4.1.32 起这条路径也接受语句列表：它返回最后一条语句的完成值，并会等待语句最终得到的 promise。超过 256 KiB 的结果会以 1024 个字符的预览返回，信封上带有 `truncated: true`，pretty 输出会打印一行 `result truncated (byte cap)`。
+
 pretty 输出打印的是值本身：字符串原样输出，其余一律按缩进 JSON 输出。信封结构只在 `--output json` 下出现（参见 [结果信封](/zh-Hans/docs/contracts/result-envelope)）。
 
 ## 解锁机制是怎么运作的
@@ -85,7 +87,7 @@ pretty 输出打印的是值本身：字符串原样输出，其余一律按缩�
 ## 失败模式
 
 - 表达式在目标中抛出异常：`E_EVAL`，并附带提示说明问题出在表达式本身。这是一个结果，不是传输错误。
-- 目标的内容安全策略禁止 eval：`E_CSP_BLOCKS_EVAL`。MV3 扩展在它自己的文档和内容脚本中禁止 eval，网页也可以为自己禁止它。在 Firefox 上，当扩展的策略禁止 eval 时，CLI 会通过调试器协议对扩展的文档求值。遇到这个代码时，改用 [`inspect`](/zh-Hans/docs/commands/inspect) 读取目标。
+- 目标的内容安全策略禁止 eval：`E_CSP_BLOCKS_EVAL`。MV3 扩展在它自己的文档和内容脚本中禁止 eval，网页也可以为自己禁止它。在 Firefox 上，当扩展的策略禁止 eval 时，CLI 会通过调试器协议对扩展的文档求值。遇到这个代码时，改用 [`inspect`](/zh-Hans/docs/commands/inspect) 读取目标。从 4.1.32 起，当恰好只有一个打开的标签页位于该 url 时，Firefox 也会通过调试器对自行禁止 eval 的网页求值。若有重复的标签页打开，调用会保持拒绝，提示会说明要关闭的标签页。
 - 该浏览器没有会话：`E_SESSION_NOT_FOUND`，并给出应当运行的完整 `extension dev` 命令。
 - 目标界面未打开，或 `--tab` id 已失效：`E_TARGET_NOT_FOUND`。用 [`inspect --list-tabs`](/zh-Hans/docs/commands/inspect#the-discovery-loop) 找出仍然存活的 id。
 - 调用超出了 `--timeout`：`E_TIMEOUT`。
