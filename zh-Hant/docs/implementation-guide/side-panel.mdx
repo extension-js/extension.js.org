@@ -1,0 +1,177 @@
+---
+title: "Chrome 與 Firefox 中的 side panel 和 sidebar"
+description: "在 Chrome 上用 chrome.sidePanel 開啟、關閉和設定 side panel，在 Firefox 上用 browser.sidebarAction 開啟、關閉和設定 sidebar，並用同一份 Extension.js 程式碼建置。"
+keywords:
+  [
+    "side panel",
+    "sidebar",
+    "sidePanel",
+    "chrome.sidePanel",
+    "sidebarAction",
+    "browser.sidebarAction",
+    "side_panel",
+    "sidebar_action",
+    "sidePanel.open",
+    "sidebarAction.open",
+    "setPanelBehavior",
+    "openPanelOnActionClick",
+    "firefox side panel",
+    "chrome side panel",
+    "user gesture",
+    "extension.js",
+    "chrome",
+    "firefox",
+  ]
+---
+
+Chrome 和 Firefox 都可以在目前分頁旁邊顯示一個擴充功能頁面。Chrome 把它叫作 side panel，Firefox 把它叫作 sidebar。兩個瀏覽器的 manifest 鍵、權限和執行階段 API 都不一樣。本頁把兩套 API 放在一起對照，並提供一份可以同時建置兩個瀏覽器的程式碼。
+
+## 每個瀏覽器使用哪套 API
+
+| 你需要的內容       | Chromium（Chrome、Edge）      | Firefox                        |
+| ------------------ | ----------------------------- | ------------------------------ |
+| Manifest 鍵        | `side_panel.default_path`     | `sidebar_action.default_panel` |
+| 權限               | `sidePanel`                   | 不需要                         |
+| 執行階段命名空間   | `chrome.sidePanel`            | `browser.sidebarAction`        |
+| 最早版本           | Chrome 114，僅限 Manifest V3  | Firefox 54                     |
+
+Firefox 沒有 `chrome.sidePanel`，Chrome 也沒有 `sidebarAction`。Safari 兩者都沒有。如何讓 Safari 的背景保持執行，請參閱[建置 Safari 擴充功能](/zh-Hant/docs/browsers/safari)中的防護寫法。
+
+## 在 manifest 中宣告面板
+
+使用瀏覽器前綴，讓每個建置拿到自己的鍵：
+
+```json manifest.json
+{
+  "chromium:manifest_version": 3,
+  "firefox:manifest_version": 2,
+  "chromium:action": { "default_title": "Open the panel" },
+  "firefox:browser_action": { "default_title": "Open the panel" },
+  "chromium:side_panel": { "default_path": "sidebar/index.html" },
+  "firefox:sidebar_action": { "default_panel": "sidebar/index.html" },
+  "chromium:permissions": ["sidePanel"]
+}
+```
+
+[瀏覽器專屬欄位](/zh-Hant/docs/features/browser-specific-fields)頁面說明了這些前綴。[路徑解析](/zh-Hant/docs/features/path-resolution)頁面說明面板頁面在 `dist/` 中的位置。[可用瀏覽器](/zh-Hant/docs/browsers/browsers-available)頁面列出每個前綴會套用到哪些目標。
+
+這份 manifest 遵循三條規則：
+
+- **Chrome 需要 `sidePanel` 權限。** 沒有這個權限，Chrome 不會顯示面板。對於你自己寫的 `side_panel` 鍵，建置不會自動加上它。
+- **帶前綴的鍵會取代不帶前綴的鍵。** 如果你同時寫了不帶前綴的 `permissions` 清單，在 Chromium 建置中它會被 `chromium:permissions` 取代。請把所有 Chromium 權限都寫進 `chromium:permissions`。
+- **只寫一個鍵，Firefox 仍然會有 sidebar。** 在 Extension.js 4.1.33 中，只宣告了 `side_panel` 的 manifest 在建置 Firefox 時會得到一個指向同一頁面的 `sidebar_action` 鍵。建置會為此印出一則警告。如果想分別控制每個瀏覽器，請同時宣告兩個鍵。
+
+## 執行階段 API：chrome.sidePanel 與 browser.sidebarAction
+
+| 任務               | Chromium `chrome.sidePanel`                                  | Firefox `browser.sidebarAction`                                 |
+| ------------------ | ------------------------------------------------------------ | --------------------------------------------------------------- |
+| 開啟面板           | `open({ windowId })` 或 `open({ tabId })`，Chrome 116+       | `open()`，Firefox 57+                                           |
+| 關閉面板           | `close({ windowId })` 或 `close({ tabId })`，Chrome 141+     | `close()`，Firefox 57+                                          |
+| 切換面板           | 沒有對應方法                                                 | `toggle()`，Firefox 73+                                         |
+| 檢查是否已開啟     | 沒有對應方法                                                 | `isOpen({ windowId })`，Firefox 59+                             |
+| 設定頁面           | `setOptions({ path, enabled, tabId })`                       | `setPanel({ panel, tabId })` 或 `setPanel({ panel, windowId })` |
+| 讀取頁面           | `getOptions({ tabId })`                                      | `getPanel({ tabId })` 或 `getPanel({ windowId })`               |
+| 停用面板           | `setOptions({ enabled: false })`，`tabId` 可選               | 沒有對應方法                                                    |
+| 設定標題           | 沒有對應方法                                                 | `setTitle({ title, tabId })` 或 `setTitle({ title, windowId })` |
+| 設定圖示           | 沒有對應方法                                                 | `setIcon({ path, tabId })` 或 `setIcon({ path, windowId })`     |
+| 點擊工具列時開啟   | `setPanelBehavior({ openPanelOnActionClick: true })`         | 沒有對應方法，在工具列點擊中呼叫 `open()`                       |
+| 事件               | `onOpened`（Chrome 141+）、`onClosed`（Chrome 142+）         | 無                                                              |
+| 面板在視窗哪一側   | `getLayout()`，Chrome 140+                                   | 沒有對應方法                                                    |
+
+關於這張表：
+
+- **`sidePanel.close()` 從 Chrome 141 開始提供。** 面板已經關閉時，它什麼也不做。從 Chrome 145 開始，如果只開啟了全域面板，`close({ tabId })` 會 reject。在 Chrome 145 之前，同樣的呼叫會關閉全域面板。
+- **Chrome 沒有 `isOpen()`。** 要知道面板狀態，請監聽 `onOpened` 和 `onClosed`。
+- **如果同時傳入 `tabId` 和 `windowId`，Firefox 的 `setPanel`、`setTitle` 和 `setIcon` 會失敗。** 只傳其中一個，或者都不傳以修改全域值。
+- **Chrome 沒有面板的標題或圖示 API。** Chrome 在 side panel 選單中顯示擴充功能的圖示。`chrome.action.setTitle` 和 `chrome.action.setIcon` 只修改工具列按鈕。
+
+版本號來自 [Chrome `sidePanel` 參考文件](https://developer.chrome.com/docs/extensions/reference/api/sidePanel)和 [MDN `sidebarAction` 參考文件](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/sidebarAction)。
+
+## 使用者手勢規則
+
+兩個瀏覽器都只在使用者做了某個操作之後才開啟面板。規則並不相同：
+
+- **Firefox：** `open()`、`close()` 和 `toggle()` 只能在使用者操作的處理函式中呼叫。工具列點擊、右鍵選單項目、鍵盤指令和擴充功能頁面上的按鈕都算作使用者操作。
+- **Chromium：** `open()` 只能在使用者手勢之後呼叫。工具列點擊、鍵盤指令、右鍵選單項目，以及在擴充功能頁面或內容腳本中的點擊都算作使用者手勢。Chrome 參考文件沒有為 `close()` 規定手勢要求。
+- **在 Chromium 上，工具列點擊是例外。** 在背景腳本的頂層呼叫一次 `setPanelBehavior`。之後，工具列點擊會直接開啟面板，你的程式碼不會執行。
+
+<Warning>
+  請在處理函式中直接呼叫 `open()`。呼叫之前不要 `await`
+  任何東西。處理函式一旦等待 promise，就會失去使用者手勢，呼叫會失敗。
+</Warning>
+
+## 從工具列按鈕開啟面板
+
+這個背景腳本為每個瀏覽器準備了各自的路徑。判斷在建置時完成，所以每個套件只保留屬於自己的一半：
+
+```js background.js
+const isFirefoxLike =
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === "firefox" ||
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === "gecko-based";
+
+if (isFirefoxLike) {
+  browser.browserAction.onClicked.addListener(() => {
+    browser.sidebarAction.open();
+  });
+} else {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+```
+
+請在頂層呼叫 `setPanelBehavior`，不要在點擊處理函式中呼叫。這個行為只對之後的點擊生效，所以如果在第一次點擊中才呼叫，第一次點擊不會開啟面板。
+
+Firefox 這一半使用 `browserAction`，因為上面的 manifest 把 Firefox 建置為 Manifest V2。各個目標上 `EXTENSION_PUBLIC_BROWSER` 的值，請參閱[環境變數](/zh-Hant/docs/features/environment-variables)。
+
+## 從你自己的手勢開啟面板
+
+如果要從右鍵選單、按鈕或快速鍵開啟面板，請在執行階段偵測 API。判斷條件用你要呼叫的方法 `sidebarAction.open`，而不是只判斷 `browser` 物件：
+
+```js background.js
+function openPanel(tab) {
+  const sidebar = globalThis.browser?.sidebarAction;
+
+  if (sidebar?.open) {
+    return sidebar.open();
+  }
+
+  return chrome.sidePanel.open({ windowId: tab.windowId });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: "open-panel",
+    title: "Open the panel",
+    contexts: ["all"],
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "open-panel") {
+    openPanel(tab);
+  }
+});
+```
+
+把 `contextMenus` 加到兩個權限清單中：
+
+```json manifest.json
+{
+  "chromium:permissions": ["sidePanel", "contextMenus"],
+  "firefox:permissions": ["contextMenus"]
+}
+```
+
+`openPanel` 在呼叫 `open()` 之前沒有任何 `await`，所以選單點擊帶來的手勢仍然有效。
+
+## Firefox 建置會對 chrome.sidePanel 發出警告
+
+從 4.1.18 開始，為 Firefox 做正式建置時，如果套件中讀取了 `chrome.sidePanel`，建置會發出警告。建置仍然會成功。上一節的執行階段偵測會觸發這則警告，因為 Firefox 套件中仍然包含 `chrome.sidePanel.open` 呼叫。工具列範例中的 `isFirefoxLike` 判斷不會觸發它，因為建置會刪除 Chromium 那一半。完整的提示訊息和修正方法，請參閱 [Firefox 建置會對僅 Chromium 可用的 API 發出警告](/zh-Hant/docs/browsers/browsers-available#firefox-建置會對僅-chromium-可用的-api-發出警告)。
+
+要在右鍵選單範例中消除這則警告，請把 `openPanel` 中的執行階段偵測換成 `isFirefoxLike`。
+
+## 後續步驟
+
+- [HTML 入口](/zh-Hant/docs/implementation-guide/html)，side panel 頁面是其中一種介面。
+- [背景腳本](/zh-Hant/docs/implementation-guide/background)，開啟面板的邏輯在這裡執行。
+- [權限與主機權限](/zh-Hant/docs/implementation-guide/permissions-and-host-permissions)。
+- [跨瀏覽器相容性](/zh-Hant/docs/features/cross-browser-compatibility)。

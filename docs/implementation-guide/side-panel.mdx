@@ -1,0 +1,178 @@
+---
+title: "Side panel and sidebar in Chrome and Firefox"
+description: "Open, close, and configure a side panel on Chrome with chrome.sidePanel and a sidebar on Firefox with browser.sidebarAction, from one Extension.js codebase."
+keywords:
+  [
+    "side panel",
+    "sidebar",
+    "sidePanel",
+    "chrome.sidePanel",
+    "sidebarAction",
+    "browser.sidebarAction",
+    "side_panel",
+    "sidebar_action",
+    "sidePanel.open",
+    "sidebarAction.open",
+    "setPanelBehavior",
+    "openPanelOnActionClick",
+    "firefox side panel",
+    "chrome side panel",
+    "user gesture",
+    "extension.js",
+    "chrome",
+    "firefox",
+  ]
+---
+
+Chrome and Firefox both show an extension page next to the current tab. Chrome calls it a side panel and Firefox calls it a sidebar. The manifest key, the permission, and the runtime API are different in each browser. This page shows the two APIs side by side and one codebase that builds for both.
+
+## Which API each browser uses
+
+| What you need       | Chromium (Chrome, Edge)        | Firefox                        |
+| ------------------- | ------------------------------ | ------------------------------ |
+| Manifest key        | `side_panel.default_path`      | `sidebar_action.default_panel` |
+| Permission          | `sidePanel`                    | None                           |
+| Runtime namespace   | `chrome.sidePanel`             | `browser.sidebarAction`        |
+| First version       | Chrome 114, Manifest V3 only   | Firefox 54                     |
+
+Firefox does not have `chrome.sidePanel`, and Chrome does not have `sidebarAction`. Safari has neither. See [Building Safari extensions](/docs/browsers/safari) for the guard that keeps a Safari background alive.
+
+## Declare the panel in the manifest
+
+Use browser prefixes so that each build gets its own key:
+
+```json manifest.json
+{
+  "chromium:manifest_version": 3,
+  "firefox:manifest_version": 2,
+  "chromium:action": { "default_title": "Open the panel" },
+  "firefox:browser_action": { "default_title": "Open the panel" },
+  "chromium:side_panel": { "default_path": "sidebar/index.html" },
+  "firefox:sidebar_action": { "default_panel": "sidebar/index.html" },
+  "chromium:permissions": ["sidePanel"]
+}
+```
+
+The [browser-specific fields](/docs/features/browser-specific-fields) page explains the prefixes. The [path resolution](/docs/features/path-resolution) page shows where the panel page goes in `dist/`. The [available browsers](/docs/browsers/browsers-available) page lists the targets that each prefix reaches.
+
+Three rules apply to this manifest:
+
+- **Chrome needs the `sidePanel` permission.** Without it, Chrome shows no panel. The build does not add it for a `side_panel` key that you wrote.
+- **A prefixed key replaces the plain key.** If you also write a plain `permissions` list, `chromium:permissions` replaces it on Chromium builds. Put every Chromium permission in `chromium:permissions`.
+- **One key alone still gives Firefox a sidebar.** With Extension.js 4.1.33, a manifest that declares only `side_panel` builds for Firefox with a `sidebar_action` key that points at the same page. The build prints a warning when it does this. Declare both keys to control each browser yourself.
+
+## Runtime API: chrome.sidePanel vs browser.sidebarAction
+
+| Task                       | Chromium `chrome.sidePanel`                                    | Firefox `browser.sidebarAction`                            |
+| -------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| Open the panel             | `open({ windowId })` or `open({ tabId })`, Chrome 116+         | `open()`, Firefox 57+                                      |
+| Close the panel            | `close({ windowId })` or `close({ tabId })`, Chrome 141+       | `close()`, Firefox 57+                                     |
+| Toggle the panel           | No method                                                      | `toggle()`, Firefox 73+                                    |
+| Check if it is open        | No method                                                      | `isOpen({ windowId })`, Firefox 59+                        |
+| Set the page               | `setOptions({ path, enabled, tabId })`                         | `setPanel({ panel, tabId })` or `setPanel({ panel, windowId })` |
+| Read the page              | `getOptions({ tabId })`                                        | `getPanel({ tabId })` or `getPanel({ windowId })`          |
+| Turn the panel off         | `setOptions({ enabled: false })`, with an optional `tabId`     | No method                                                  |
+| Set the title              | No method                                                      | `setTitle({ title, tabId })` or `setTitle({ title, windowId })` |
+| Set the icon               | No method                                                      | `setIcon({ path, tabId })` or `setIcon({ path, windowId })` |
+| Open on toolbar click      | `setPanelBehavior({ openPanelOnActionClick: true })`           | No method, call `open()` from the toolbar click            |
+| Events                     | `onOpened` (Chrome 141+), `onClosed` (Chrome 142+)             | None                                                       |
+| Which side of the window   | `getLayout()`, Chrome 140+                                     | No method                                                  |
+
+Notes on the table:
+
+- **`sidePanel.close()` exists from Chrome 141.** It does nothing when the panel is already closed. From Chrome 145, `close({ tabId })` rejects when only the global panel is open. Before Chrome 145, the same call closed the global panel.
+- **Chrome has no `isOpen()`.** To know the state, listen to `onOpened` and `onClosed`.
+- **Firefox `setPanel`, `setTitle`, and `setIcon` fail if you pass both `tabId` and `windowId`.** Pass one, or pass neither to change the global value.
+- **Chrome has no title or icon API for the panel.** Chrome shows the extension icon in the side panel menu. `chrome.action.setTitle` and `chrome.action.setIcon` change the toolbar button only.
+
+The versions come from the [Chrome `sidePanel` reference](https://developer.chrome.com/docs/extensions/reference/api/sidePanel) and the [MDN `sidebarAction` reference](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/sidebarAction).
+
+## User gesture rules
+
+Both browsers open a panel only when the user does something. The rules are not the same:
+
+- **Firefox:** `open()`, `close()`, and `toggle()` work only inside the handler for a user action. A toolbar click, a context menu item, a keyboard command, and a button on an extension page all count.
+- **Chromium:** `open()` works only after a user gesture. A toolbar click, a keyboard command, a context menu item, and a click on an extension page or in a content script all count. `close()` has no gesture rule in the Chrome reference.
+- **The toolbar click is the exception on Chromium.** Call `setPanelBehavior` once, at the top level of the background script. After that, a toolbar click opens the panel and your code does not run.
+
+<Warning>
+  Call `open()` directly in the handler. Do not `await` anything before the
+  call. A handler that waits for a promise loses its user gesture, and the call
+  fails.
+</Warning>
+
+## Open the panel from the toolbar button
+
+This background script gives each browser its own path. The check runs at build time, so each bundle keeps only its own half:
+
+```js background.js
+const isFirefoxLike =
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === "firefox" ||
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === "gecko-based";
+
+if (isFirefoxLike) {
+  browser.browserAction.onClicked.addListener(() => {
+    browser.sidebarAction.open();
+  });
+} else {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+```
+
+Call `setPanelBehavior` at the top level, not inside a click handler. The behavior applies to the next clicks only, so a call from inside the first click leaves that first click with no panel.
+
+The Firefox half uses `browserAction` because the manifest above builds Firefox as Manifest V2. See [environment variables](/docs/features/environment-variables) for the value of `EXTENSION_PUBLIC_BROWSER` on each target.
+
+## Open the panel from your own gesture
+
+To open the panel from a context menu, a button, or a shortcut, test for the API at runtime. Branch on `sidebarAction.open`, the method that you call, and not on the `browser` object alone:
+
+```js background.js
+function openPanel(tab) {
+  const sidebar = globalThis.browser?.sidebarAction;
+
+  if (sidebar?.open) {
+    return sidebar.open();
+  }
+
+  return chrome.sidePanel.open({ windowId: tab.windowId });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: "open-panel",
+    title: "Open the panel",
+    contexts: ["all"],
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "open-panel") {
+    openPanel(tab);
+  }
+});
+```
+
+Add `contextMenus` to both permission lists:
+
+```json manifest.json
+{
+  "chromium:permissions": ["sidePanel", "contextMenus"],
+  "firefox:permissions": ["contextMenus"]
+}
+```
+
+`openPanel` calls `open()` with no `await` before it, so the gesture from the menu click is still valid.
+
+## Firefox builds warn about chrome.sidePanel
+
+From 4.1.18, a production build for Firefox warns when the bundle reads `chrome.sidePanel`. The build still succeeds. The runtime check in the previous section triggers this warning, because the Firefox bundle still contains the `chrome.sidePanel.open` call. The `isFirefoxLike` check from the toolbar sample does not trigger it, because the build removes the Chromium half. See [Firefox builds warn about Chromium-only APIs](/docs/browsers/browsers-available#firefox-builds-warn-about-chromium-only-apis) for the full message and the fix.
+
+To clear the warning in the context menu sample, replace the runtime check in `openPanel` with `isFirefoxLike`.
+
+## Next steps
+
+- [HTML entrypoints](/docs/implementation-guide/html), where the side panel page is one surface.
+- [Background scripts](/docs/implementation-guide/background), where the open logic runs.
+- [Permissions and host permissions](/docs/implementation-guide/permissions-and-host-permissions).
+- [Cross-browser compatibility](/docs/features/cross-browser-compatibility).
