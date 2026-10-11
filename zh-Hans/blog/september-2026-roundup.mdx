@@ -1,0 +1,64 @@
+---
+title: "2026 年 9 月：案例页、Deno 和 Bun，以及只跑一份的重载"
+description: "Extension.js 在 2026 年 9 月发布了什么：案例页、Deno 和 Bun 两个运行时、Zen 和 Floorp 两个浏览器目标、更精确的 manifest 前缀、只运行一份副本的 content script 重载，以及 rspack 版本锁定。"
+keywords:
+  [
+    "extension.js",
+    "roundup",
+    "september",
+    "showcase",
+    "deno",
+    "bun",
+    "zen",
+    "floorp",
+    "content script",
+    "rspack",
+  ]
+---
+
+<Update label="September 2026" description="October 9, 2026" tags={["roundup"]}>
+
+9 月做了两件事：一个展示大家用 Extension.js 真正发布了什么的页面，以及一连串把 CLI 从 [4.1.18](https://github.com/extension-js/extension.js/releases/tag/v4.1.18) 带到 [4.1.30](https://github.com/extension-js/extension.js/releases/tag/v4.1.30) 的版本。
+
+## 案例页
+
+[extension.js.org/showcase](https://extension.js.org/showcase) 已经上线。五个扩展，全部已发布并且都在商店里：[Better Lyrics](https://chromewebstore.google.com/detail/effdbpeggelllpfkjppbokhmmiinhlmg)、[Star Citizen Box](https://chromewebstore.google.com/detail/gocnjckojmledijgmadmacoikibcggja)、[Simple Virtual Keyboard](https://chromewebstore.google.com/detail/cjabmkimbcmhhepelfhjhbhonnapiipj)、[Better Trello](https://chromewebstore.google.com/detail/dnhdnenpngcecekbhklemaidbdpibiae) 和 [Send to PocketBook](https://chromewebstore.google.com/detail/mockojkggpmpjlajehofiljbbbaoppdj)。
+
+门槛是有意设定的。一张卡片需要真实的商店页面和至少一百个用户，而且卡片上不显示用户数，所以页面上没有会过期的内容。每周有一个任务提出候选，[由人来添加](/zh-Hans/showcase#add-your-project)。
+
+## 两个新的运行时
+
+[4.1.20](https://github.com/extension-js/extension.js/releases/tag/v4.1.20) 加入了 Deno。[`deno run -A npm:extension@latest`](/zh-Hans/docs/languages-and-frameworks/deno) 可以运行 dev 和 build，两者都有 CI 覆盖。
+
+[4.1.21](https://github.com/extension-js/extension.js/releases/tag/v4.1.21) 加入了 Bun。[`bunx --bun extension@latest dev`](/zh-Hans/docs/languages-and-frameworks/bun) 在 Bun 1.2 或更新版本上可用，旧版 Bun 会得到一行提示，指向 Node.js 的路径。
+
+## 更多可以直接点名的浏览器
+
+[4.1.26](https://github.com/extension-js/extension.js/releases/tag/v4.1.26) 加入了 [`--browser=zen`](/zh-Hans/docs/browsers/running-other-browsers) 和 [`--browser=floorp`](/zh-Hans/docs/browsers/running-other-browsers)。它们会在 macOS、Windows 和 Linux 上找到常规安装的浏览器，和 Waterfox、LibreWolf 之前的做法一样。
+
+[4.1.29](https://github.com/extension-js/extension.js/releases/tag/v4.1.29) 还修复了这里的一个 bug。`--browser=brave`、`opera`、`vivaldi` 和 `yandex` 有可能打开受管理的 Chrome，而终端里显示的却是那个分支浏览器的名字。现在每一个都运行自己的应用，并且有一项检查会启动每个浏览器并读取真正在运行的是哪个应用。
+
+## 一份 manifest，更精确
+
+从 [4.1.19](https://github.com/extension-js/extension.js/releases/tag/v4.1.19) 起，`chrome:` 和 `edge:` 只表示那一个浏览器，而不是整个 Chromium 家族。[`chromium:`](/zh-Hans/docs/features/browser-specific-fields) 才是家族。这带来了一种新的失败可能：一份把每个 `manifest_version` 都限定到某个厂商的 manifest，所以 4.1.21 会拒绝这样的构建并说明怎么改。
+
+Edge 的生产构建现在会去掉顶层的 `key`，因为 [Edge Add-ons](/zh-Hans/docs/publishing/package-for-the-stores) 拒绝任何包含它的 manifest。这个需求来自 [Better Lyrics](https://github.com/better-lyrics/better-lyrics) 的维护者，他之前每次构建后都要手动删掉它。
+
+## 重载
+
+在 Chrome 和 Edge 上开发时，保存一个 content script 过去会让旧副本和新副本一起运行。[4.1.25](https://github.com/extension-js/extension.js/releases/tag/v4.1.25) [在运行时注册开发用的 content script](/zh-Hans/docs/implementation-guide/content-scripts)，所以一次编辑只运行一份副本，在已打开的标签页和每个新页面里都是如此。编辑一个 HTML 页面现在只刷新那一个页面。
+
+## 一个值得点名的 bug
+
+全新安装 [4.1.18](https://github.com/extension-js/extension.js/releases/tag/v4.1.18) 到 [4.1.23](https://github.com/extension-js/extension.js/releases/tag/v4.1.23) 有可能拉到比我们测试所用更新的 [rspack](https://rspack.rs)，于是每个带链接样式表的页面在加载时都会抛错。[4.1.24](https://github.com/extension-js/extension.js/releases/tag/v4.1.24) 锁定了打包器的版本，并加入一个守住产物形状的构建测试。如果你还在这些版本上，请升级。
+
+## 还有
+
+[`extension create --template transformers-js`](/zh-Hans/docs/languages-and-frameworks/webassembly) 会生成一个在本地设备上做文本分类的侧边栏，参照的是 [Hugging Face 自己的扩展示例](https://github.com/huggingface/transformers.js-examples/tree/main/browser-extension)。[`extension build --browser=opera`](/zh-Hans/docs/commands/build) 输出未压缩的代码，这是 Opera Add-ons 审核时的要求。Extension.js 现在也被列在 [Preact 集成页](https://preactjs.com/about/libraries-addons/)、[awesome-vue](https://github.com/vuejs/awesome-vue#scaffold) 和 [awesome-shadcn-ui](https://github.com/birobirobiro/awesome-shadcn-ui#boilerplates--templates) 上。
+
+10 月已经到了 [4.1.33](https://github.com/extension-js/extension.js/releases/tag/v4.1.33)。一个侧边栏键就能为每个浏览器构建，Safari 开发会话不再碰你自己的 Safari，侧边栏起步模板会读取当前打开的标签页。下次再细说。
+
+Cezar Augusto<br/>
+Creator and Lead Developer, Extension.js
+
+</Update>
