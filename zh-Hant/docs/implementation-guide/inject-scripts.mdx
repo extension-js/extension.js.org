@@ -80,6 +80,27 @@ await chrome.scripting.registerContentScripts([
 ]);
 ```
 
+## 修改一個註冊
+
+用一個已經註冊過的 id 再次呼叫 `registerContentScripts`，在兩個瀏覽器裡都會被拒絕。它從不取代第一次的註冊，原註冊維持不變。
+
+- Chrome：`Duplicate script ID 'highlight'`
+- Firefox：`Content script with id "highlight" is already registered`
+
+要修改一個既有的註冊，用同一個 id 呼叫 `updateContentScripts`。下一次導覽會注入新檔案。未知的 id 在兩個瀏覽器裡都會被拒絕。
+
+```ts
+await chrome.scripting.updateContentScripts([
+  {
+    id: "highlight",
+    js: ["scripts/highlight-v2.js"],
+    persistAcrossSessions: true,
+  },
+]);
+```
+
+更新時請再次傳入 `persistAcrossSessions: true`。在 Chrome 155 裡，省略它的更新會把這個值從 `true` 重設為 `false`。Firefox 158 會維持為 `true`。以上在 Extension.js 4.1.33 上量測。
+
 ## 各瀏覽器差異
 
 | 能力                      | Chromium                          | Firefox                                        | Safari                                       |

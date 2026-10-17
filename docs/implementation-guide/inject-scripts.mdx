@@ -80,6 +80,27 @@ await chrome.scripting.registerContentScripts([
 ]);
 ```
 
+## Change a registration
+
+Calling `registerContentScripts` again with an id that is already registered rejects in both browsers. It never replaces the first registration, which stays in place.
+
+- Chrome: `Duplicate script ID 'highlight'`
+- Firefox: `Content script with id "highlight" is already registered`
+
+To change an existing registration, call `updateContentScripts` with the same id. The next navigation injects the new file. An unknown id rejects in both browsers.
+
+```ts
+await chrome.scripting.updateContentScripts([
+  {
+    id: "highlight",
+    js: ["scripts/highlight-v2.js"],
+    persistAcrossSessions: true,
+  },
+]);
+```
+
+Pass `persistAcrossSessions: true` again in the update. In Chrome 155, an update that omits it resets the value from `true` to `false`. Firefox 158 keeps it `true`. Measured with Extension.js 4.1.33.
+
 ## Per-browser differences
 
 | Capability                 | Chromium                                             | Firefox                                               | Safari                                                  |
