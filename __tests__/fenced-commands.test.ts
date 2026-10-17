@@ -55,7 +55,7 @@ function collectFencedCommands(file: string): FencedCommand[] {
     if (!inFence) return;
 
     const match = trimmed.match(
-      /^(?:[$>]\s*)?(?:npx|pnpm|npm run|yarn|bun|bunx)?\s*extension\s+([a-z-]+)(.*)$/,
+      /^(?:[$>]\s*)?(?:[A-Z_][A-Z0-9_]*=\S*\s+)*(?:npx|pnpx|pnpm(?:\s+dlx)?|npm run|yarn(?:\s+dlx)?|bun|bunx|deno run -A npm:)?\s*extension(?:@[\w.-]+)?\s+([a-z-]+)(.*)$/,
     );
     if (!match) return;
 
