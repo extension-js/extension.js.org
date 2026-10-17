@@ -91,6 +91,72 @@ Extension.js 會編譯 `rule_resources` 引用的規則集檔案，並隨建置�
 
 `||domain^` 過濾語法會比對一個網域及其所有子網域。
 
+## 封鎖整個頁面
+
+在 `resourceTypes` 裡寫上 `main_frame` 的規則會封鎖頂層導覽，而不只是子資源：
+
+```json rules.json
+{
+  "id": 3,
+  "priority": 1,
+  "action": { "type": "block" },
+  "condition": {
+    "urlFilter": "||mgeko.cc^",
+    "resourceTypes": ["main_frame"]
+  }
+}
+```
+
+兩個瀏覽器的表現不同，但都代表規則生效了：
+
+- **Chrome** 會把分頁換成它自己的封鎖頁，顯示 "This page has been blocked by an extension" 與代碼 `ERR_BLOCKED_BY_CLIENT`。主控台裡沒有任何輸出。
+- **Firefox** 會取消這次導覽，分頁保留先前的頁面。沒有錯誤頁，也沒有主控台項目。
+
+Extension.js 會把規則檔複製到 `dist/<browser>/declarative_net_request/` 並改寫 manifest 裡的路徑，所以依上面 manifest 的寫法引用它即可。
+
+<Note>
+  本節與下一節的行為是在 Chrome 155 與 Firefox 158 上、使用 Extension.js 4.1.33 量測的。
+</Note>
+
+## 把被封鎖的頁面重新導向到擴充功能內的頁面
+
+把 `block` 動作換成 `redirect`，指向隨擴充功能一起出貨的頁面：
+
+```json rules.json
+{
+  "id": 4,
+  "priority": 1,
+  "action": {
+    "type": "redirect",
+    "redirect": { "extensionPath": "/blocked.html" }
+  },
+  "condition": {
+    "urlFilter": "||mgeko.cc^",
+    "resourceTypes": ["main_frame"]
+  }
+}
+```
+
+把頁面放在 `public/blocked.html`。Extension.js 會把 `public/` 複製到輸出根目錄，所以 `/blocked.html` 不必在 manifest 裡登記就能解析。
+
+重新導向需要的權限比封鎖多，而且兩個瀏覽器不一樣：
+
+- **Chrome** 需要涵蓋該網站的主機權限。沒有它，規則就是靜默的空操作：頁面正常載入，規則集仍顯示已啟用，主控台裡什麼都沒有。對於指向擴充功能頁面的 `main_frame` 重新導向，Chrome 不需要 `web_accessible_resources`。
+- **Firefox** 既需要主機權限，也需要把頁面列進 `web_accessible_resources`。缺少 `web_accessible_resources` 項目時，導覽會以 `NS_ERROR_DOM_BAD_URI` 失敗，分頁停在原處。缺少主機權限時則和 Chrome 一樣是靜默的空操作。
+
+`action` 範本把 Firefox 建置為 Manifest V2，那裡的主機權限寫在 `permissions` 中，`web_accessible_resources` 是字串清單。帶前綴的鍵會在其目標上取代同名的一般鍵，所以 Firefox 的清單要再寫一次 `declarativeNetRequest`。藉由[瀏覽器專屬欄位](/zh-Hant/docs/features/browser-specific-fields)，一份 manifest 同時涵蓋兩個瀏覽器：
+
+```json manifest.json
+{
+  "permissions": ["declarativeNetRequest"],
+  "host_permissions": ["*://mgeko.cc/*"],
+  "firefox:permissions": ["declarativeNetRequest", "*://mgeko.cc/*"],
+  "firefox:web_accessible_resources": ["blocked.html"]
+}
+```
+
+如果你的專案也把 Firefox 建置為 Manifest V3，拿掉 `firefox:` 鍵，在一般的 `web_accessible_resources` 下使用物件形式 `[{ "resources": ["blocked.html"], "matches": ["<all_urls>"] }]`。兩個瀏覽器都接受。
+
 ## 動態規則
 
 動態規則用於在執行階段變動的過濾條件，例如使用者自行加入的封鎖清單項目。重新加入規則前先移除該規則 id，讓更新保持冪等。

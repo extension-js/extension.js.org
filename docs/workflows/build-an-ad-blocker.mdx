@@ -91,6 +91,73 @@ Static rules live in `rules.json` and load when the extension loads.
 
 The `||domain^` filter syntax matches a domain and all of its subdomains.
 
+## Block a whole page
+
+A rule that names `main_frame` in `resourceTypes` blocks the top-level navigation, not only the subresources:
+
+```json rules.json
+{
+  "id": 3,
+  "priority": 1,
+  "action": { "type": "block" },
+  "condition": {
+    "urlFilter": "||mgeko.cc^",
+    "resourceTypes": ["main_frame"]
+  }
+}
+```
+
+The two browsers show different results, and both mean that the rule worked:
+
+- **Chrome** replaces the tab with its own blocked page. It reads "This page has been blocked by an extension" with the code `ERR_BLOCKED_BY_CLIENT`. Nothing is logged to the console.
+- **Firefox** cancels the navigation, and the tab keeps the page that it had before. There is no error page and no console entry.
+
+Extension.js copies the rule file to `dist/<browser>/declarative_net_request/` and rewrites the manifest path, so reference it the same way the manifest above does.
+
+<Note>
+  The behavior in this section and the next was measured on Chrome 155 and
+  Firefox 158 with Extension.js 4.1.33.
+</Note>
+
+## Redirect a blocked page to a page in the extension
+
+Replace the `block` action with a `redirect` to a page that ships with the extension:
+
+```json rules.json
+{
+  "id": 4,
+  "priority": 1,
+  "action": {
+    "type": "redirect",
+    "redirect": { "extensionPath": "/blocked.html" }
+  },
+  "condition": {
+    "urlFilter": "||mgeko.cc^",
+    "resourceTypes": ["main_frame"]
+  }
+}
+```
+
+Put the page at `public/blocked.html`. Extension.js copies `public/` to the output root, so `/blocked.html` resolves with no manifest entry for the page.
+
+A redirect needs more permission than a block, and the two browsers differ:
+
+- **Chrome** needs a host permission that covers the site. Without it the rule is a silent no-op: the page loads normally, the ruleset still reports enabled, and nothing reaches the console. Chrome does not need `web_accessible_resources` for a `main_frame` redirect to an extension page.
+- **Firefox** needs the host permission and the page listed in `web_accessible_resources`. Without the `web_accessible_resources` entry the navigation fails with `NS_ERROR_DOM_BAD_URI` and the tab stays where it was. Without the host permission it is a silent no-op, like Chrome.
+
+The `action` template builds Firefox as Manifest V2, where host permissions live in `permissions` and `web_accessible_resources` is a list of strings. A prefixed key replaces the plain key on its target, so the Firefox list repeats `declarativeNetRequest`. One manifest covers both browsers with [browser-specific fields](/docs/features/browser-specific-fields):
+
+```json manifest.json
+{
+  "permissions": ["declarativeNetRequest"],
+  "host_permissions": ["*://mgeko.cc/*"],
+  "firefox:permissions": ["declarativeNetRequest", "*://mgeko.cc/*"],
+  "firefox:web_accessible_resources": ["blocked.html"]
+}
+```
+
+If your project builds Firefox as Manifest V3 as well, drop the `firefox:` keys and use the object form, `[{ "resources": ["blocked.html"], "matches": ["<all_urls>"] }]`, under plain `web_accessible_resources`. Both browsers accept it.
+
 ## Dynamic rules
 
 Use dynamic rules for filters that change at runtime, such as user-added blocklist entries. Remove a rule id before you re-add it, so updates stay idempotent.

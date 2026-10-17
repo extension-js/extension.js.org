@@ -91,6 +91,72 @@ Extension.js 会编译 `rule_resources` 引用的规则集文件，并把它随�
 
 `||domain^` 过滤器语法匹配一个域名及其全部子域名。
 
+## 拦截整个页面
+
+在 `resourceTypes` 里写上 `main_frame` 的规则会拦截顶层导航，而不只是子资源：
+
+```json rules.json
+{
+  "id": 3,
+  "priority": 1,
+  "action": { "type": "block" },
+  "condition": {
+    "urlFilter": "||mgeko.cc^",
+    "resourceTypes": ["main_frame"]
+  }
+}
+```
+
+两个浏览器的表现不同，但都表示规则生效了：
+
+- **Chrome** 会把标签页替换成它自己的拦截页，显示 "This page has been blocked by an extension" 和代码 `ERR_BLOCKED_BY_CLIENT`。控制台里没有任何输出。
+- **Firefox** 会取消这次导航，标签页保留之前的页面。没有错误页，也没有控制台条目。
+
+Extension.js 会把规则文件复制到 `dist/<browser>/declarative_net_request/` 并改写 manifest 里的路径，所以按上面 manifest 的写法引用它即可。
+
+<Note>
+  本节和下一节的行为是在 Chrome 155 与 Firefox 158 上、使用 Extension.js 4.1.33 测得的。
+</Note>
+
+## 把被拦截的页面重定向到扩展内的页面
+
+把 `block` 动作换成 `redirect`，指向随扩展一起发布的页面：
+
+```json rules.json
+{
+  "id": 4,
+  "priority": 1,
+  "action": {
+    "type": "redirect",
+    "redirect": { "extensionPath": "/blocked.html" }
+  },
+  "condition": {
+    "urlFilter": "||mgeko.cc^",
+    "resourceTypes": ["main_frame"]
+  }
+}
+```
+
+把页面放在 `public/blocked.html`。Extension.js 会把 `public/` 复制到输出根目录，所以 `/blocked.html` 无需在 manifest 里登记就能解析。
+
+重定向需要的权限比拦截多，而且两个浏览器不一样：
+
+- **Chrome** 需要覆盖该站点的主机权限。没有它，规则就是静默的空操作：页面正常加载，规则集仍显示已启用，控制台里什么都没有。对于指向扩展页面的 `main_frame` 重定向，Chrome 不需要 `web_accessible_resources`。
+- **Firefox** 既需要主机权限，也需要把页面列进 `web_accessible_resources`。缺少 `web_accessible_resources` 条目时，导航会以 `NS_ERROR_DOM_BAD_URI` 失败，标签页停留在原处。缺少主机权限时则和 Chrome 一样是静默的空操作。
+
+`action` 模板把 Firefox 构建为 Manifest V2，那里的主机权限写在 `permissions` 中，`web_accessible_resources` 是字符串列表。带前缀的键会在其目标上替换掉同名的普通键，所以 Firefox 的列表要再写一次 `declarativeNetRequest`。借助[浏览器专属字段](/zh-Hans/docs/features/browser-specific-fields)，一份 manifest 同时覆盖两个浏览器：
+
+```json manifest.json
+{
+  "permissions": ["declarativeNetRequest"],
+  "host_permissions": ["*://mgeko.cc/*"],
+  "firefox:permissions": ["declarativeNetRequest", "*://mgeko.cc/*"],
+  "firefox:web_accessible_resources": ["blocked.html"]
+}
+```
+
+如果你的项目也把 Firefox 构建为 Manifest V3，去掉 `firefox:` 键，在普通的 `web_accessible_resources` 下使用对象形式 `[{ "resources": ["blocked.html"], "matches": ["<all_urls>"] }]`。两个浏览器都接受。
+
 ## 动态规则
 
 把动态规则用于运行时会变化的过滤器，比如用户手动添加的拦截清单条目。重新添加之前先移除对应的规则 id，让更新保持幂等。
