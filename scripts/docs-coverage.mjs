@@ -328,6 +328,7 @@ const KNOWN_COMPONENTS = new Set([
   "Warning",
   "Button",
   "Snippet",
+  "CreateHook",
 ]);
 
 export function checkComponents(pages) {
