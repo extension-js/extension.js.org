@@ -292,6 +292,11 @@ Guard the call, or branch at build time:
 // Optional chaining is enough for a call you can skip.
 chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
 
+// A feature check works the same way, and covers everything inside it.
+if (chrome.sidePanel) {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+}
+
 // Or keep the code out of the Safari bundle entirely.
 if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "safari") {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -352,10 +357,19 @@ the namespace resolves and the throw waits one level deeper:
 `webNavigation.onReferenceFragmentUpdated`, `webNavigation.onTabReplaced`, and
 `windows.onBoundsChanged`.
 
-The scan is textual. A mention of one of these names in a comment or in a
-string literal triggers it too. Optional chaining silences it:
+The scan reads the built script. A mention of one of these names in a comment
+or in a string literal triggers it too. Optional chaining silences it:
 `chrome.sidePanel?.setPanelBehavior()` for a namespace, and
 `chrome.tabs.group?.()` for a member.
+
+A feature check silences it as well, because Safari never enters the branch.
+The scan reads `if (chrome.offscreen)`, `globalThis.chrome?.offscreen`,
+`typeof chrome.offscreen !== "undefined"`, `"offscreen" in chrome`, a negated
+check followed by `return` or `throw`, and the `&&` and `?:` forms of the same
+test. One check on any missing API covers every call inside the branch,
+including a function that only that branch calls, and a `try` block with a
+`catch` counts as handled. A call that also runs outside the check, or an
+exported function, still warns.
 
 A warning is not a build failure. Code that reaches one of these APIs
 still ships. It is your call whether to guard it, branch on the target, or
