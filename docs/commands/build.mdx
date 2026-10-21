@@ -115,6 +115,7 @@ dist/
 | `--zip [boolean]`        | -               | Creates a packaged zip artifact in any mode.                                                                | `false`                  |
 | `--zip-source [boolean]` | -               | Includes source files in zip output.                                                                        | `false`                  |
 | `--zip-filename <name>`  | -               | Names both the distribution and the source archive. The browser is always appended to the distribution name. | sanitized extension name, version and browser |
+| `--out-dir <path>`       | -               | Writes the build to `<path>/<browser>` instead of `dist/<browser>`, relative to the project root, zips included. See [Building beside a dev session](#building-beside-a-dev-session). | `dist`                   |
 | `--silent [boolean]`     | -               | Suppresses build logs.                                                                                      | `false`                  |
 | `--addon-lint [boolean]` | -               | Checks Firefox production builds against addons.mozilla.org rules with addons-linter when it is installed. Findings print as warnings. See [Store check for Firefox builds](#store-check-for-firefox-builds). | `true`                   |
 | `--no-addon-lint`        | -               | Skips the addons.mozilla.org check.                                                                         | check enabled            |
@@ -178,6 +179,18 @@ deno run -A npm:extension@latest build ./my-extension --mode development
 Invalid values exit with an error. The default remains `production`.
 
 A development-mode build is shippable. It keeps the CSP and permissions you wrote in the manifest, injects no reload client, and its zip carries no source maps (the `.map` files stay in `dist/<browser>` for you). Only `extension dev` turns the dev instrumentation on. `--zip` packages the output in any mode, not only `production`.
+
+## Building beside a dev session
+
+`extension dev` and `extension build` both write `dist/<browser>`. When a dev session is running for the same browser, a build into that folder replaces the files the session serves, and the build prints an `E_DEV_SESSION_DIST_SHARED` warning that says so. The build never overwrites the session's `ready.json`, so `--wait`, `logs` and the act verbs keep working against the dev session.
+
+To test or package a production build while the dev window stays open, pass `--out-dir`. The build writes `<path>/<browser>` and puts its zips in `<path>/`:
+
+```bash
+npx extension@latest build --out-dir build --zip
+```
+
+That writes `build/chrome` and `build/<name>-<version>-chrome.zip`, and `dist/chrome` stays as the dev session left it. The same setting goes in `extension.config.js` as `commands.build.outDir`.
 
 ## Zip behavior
 

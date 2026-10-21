@@ -115,6 +115,7 @@ dist/
 | `--zip [boolean]`        | -               | 在任何模式下都创建打包好的 zip 产物。                                                                    | `false`         |
 | `--zip-source [boolean]` | -               | 在 zip 输出中包含源代码文件。                                                              | `false`         |
 | `--zip-filename <name>`  | -               | 同时命名分发归档与源代码归档。分发归档总会追加浏览器名。                                    | 清洗过的扩展名、版本号和浏览器 |
+| `--out-dir <path>`       | -               | 把构建写到 `<path>/<browser>` 而不是 `dist/<browser>`，路径相对于项目根目录，zip 也写在那里。参见[在 dev 会话旁构建](#在-dev-会话旁构建)。 | `dist`                   |
 | `--silent [boolean]`     | -               | 抑制构建日志。                                                                             | `false`         |
 | `--addon-lint [boolean]` | -               | 当项目里装有 addons-linter 时，按 addons.mozilla.org 的规则检查 Firefox 生产构建。发现的问题以警告形式打印。见 [Firefox 构建的商店检查](#firefox-构建的商店检查)。 | `true`          |
 | `--no-addon-lint`        | -               | 跳过 addons.mozilla.org 检查。                                                             | 检查默认开启    |
@@ -178,6 +179,18 @@ deno run -A npm:extension@latest build ./my-extension --mode development
 无效的值会以错误退出；默认值仍然是 `production`。
 
 development 模式的构建是可以直接发布的。它保留你在 manifest 里写的 CSP 与权限，不注入任何 reload 客户端，它的 zip 里也不包含 source map（`.map` 文件会留在 `dist/<browser>` 里供你使用）。只有 `extension dev` 会打开 dev 检测。`--zip` 在任何模式下都会打包输出，而不只是 `production`。
+
+## 在 dev 会话旁构建
+
+`extension dev` 和 `extension build` 都会写入 `dist/<browser>`。同一浏览器的 dev 会话正在运行时，构建到这个目录会替换会话正在提供的文件，构建会打印 `E_DEV_SESSION_DIST_SHARED` 警告说明这一点。构建从不覆盖会话的 `ready.json`，所以 `--wait`、`logs` 和 act 命令仍然连到 dev 会话。
+
+要在 dev 窗口保持打开时测试或打包生产构建，传入 `--out-dir`。构建写入 `<path>/<browser>`，zip 放在 `<path>/`：
+
+```bash
+npx extension@latest build --out-dir build --zip
+```
+
+这会写入 `build/chrome` 和 `build/<name>-<version>-chrome.zip`，`dist/chrome` 保持 dev 会话留下的样子。同样的设置可以在 `extension.config.js` 里写成 `commands.build.outDir`。
 
 ## zip 行为
 
