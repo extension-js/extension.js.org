@@ -1,0 +1,96 @@
+---
+title: "Extension.js vs CRXJS"
+description: "Compare Extension.js and CRXJS for browser extension development: a framework that owns the bundler against a Vite plugin, browser targets, dev loop, and packaging."
+keywords:
+  [
+    "extension.js vs crxjs",
+    "crxjs vs extension.js",
+    "crxjs alternative",
+    "crxjs vs wxt",
+    "@crxjs/vite-plugin",
+    "vite chrome extension",
+    "browser extension framework comparison",
+    "crxjs",
+    "extension.js",
+    "cross-browser extension",
+  ]
+---
+
+Extension.js and [CRXJS](https://crxjs.dev) both turn a `manifest.json` and modern source into a working extension. Extension.js is a CLI framework that owns its bundler. CRXJS is a plugin that adds extension output to a Vite setup you own. This page is a factual comparison so you can choose based on your project.
+
+## Which should you choose?
+
+<CardGroup cols={2}>
+  <Card title="Choose Extension.js if…">
+    - You want one CLI that opens the browser, reloads on save, builds per browser, and zips for the stores.
+    - You ship to Chrome, Edge, Firefox, and Safari from one `manifest.json`.
+    - You want no bundler config in your project.
+  </Card>
+  <Card title="Choose CRXJS if…">
+    - You already have a Vite app and want extension output added to it.
+    - You depend on Vite plugins and want to keep them.
+    - You are fine loading the unpacked build in the browser yourself.
+  </Card>
+</CardGroup>
+
+## At a glance
+
+| Dimension      | Extension.js                                                                 | CRXJS                                                        |
+| -------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| What it is     | CLI framework, [Rspack](/docs/features/rspack-configuration) is an internal detail | Vite plugin inside your own `vite.config`                    |
+| Manifest       | One `manifest.json`, browser-prefixed keys filtered per build                | `manifest.json`, or `defineManifest` in a config file        |
+| Browsers       | Chrome, Edge, Firefox, Safari (macOS, through Xcode), Chromium and Gecko binaries | Chrome by default, Firefox through the `browser` option       |
+| Dev loop       | Opens a managed browser with the extension loaded and reloads on save        | HMR for pages and content scripts, you load the build unpacked |
+| Build output   | `dist/<browser>`, with `--zip` per store                                     | Vite's output folder, you zip it yourself                    |
+| Customization  | Rspack config hook in `extension.config.js`                                  | Any Vite plugin                                              |
+| Vite versions  | Not applicable                                                               | Vite 3 to 8                                                  |
+| Latest release | 4.1.34 (October 2026)                                                        | 3.0.0 (September 2026)                                       |
+
+## Mental model
+
+**Extension.js owns the bundler.** You write a `manifest.json` and reference real files. The CLI compiles them, filters the manifest for each browser, and packages the result. You never configure the bundler, and bundler upgrades are the framework's job.
+
+**CRXJS lives inside your bundler.** You add `crx({ manifest })` to `vite.config`, and Vite builds the extension next to the rest of your app. You keep full control of Vite and every Vite plugin. Each Vite major needs CRXJS compatibility work, which is why the [Vite 8 fileName error](/docs/migrate/crxjs-content-script-filename-undefined) existed for a while.
+
+## Dev loop
+
+### Extension.js
+
+```bash
+npx extension@latest dev --browser=chrome,firefox
+```
+
+The CLI opens each browser with a fresh profile and the extension loaded. A save reloads the right surface: HMR for pages, a targeted reload for content scripts and the service worker.
+
+### CRXJS
+
+```bash
+npm run dev
+```
+
+Vite starts its dev server and writes the extension to the output folder. You load that folder unpacked in the browser once, then HMR updates pages and content scripts.
+
+## Cross-browser builds
+
+- **Extension.js** builds every browser from one source with `--browser`.
+- Browser differences go in [browser-prefixed manifest fields](/docs/features/browser-specific-fields), such as `chrome:` and `firefox:`.
+- **CRXJS** builds one target per run, and `browser: 'firefox'` in the plugin options gives a Firefox build.
+- The CRXJS docs have no Safari guide.
+
+## Packaging
+
+```bash
+npx extension@latest build --browser=chrome,firefox,edge --zip
+```
+
+Extension.js writes `dist/<browser>` and a zip per browser next to it. With CRXJS, you zip Vite's output folder with your own script or tool.
+
+## When to migrate
+
+Move from CRXJS to Extension.js when you want the CLI to launch browsers, build several browsers in one run, or ship to Safari. Your components, `chrome.*` calls, and styles carry over. [Migrate from CRXJS](/docs/migrate/from-crxjs) walks through it step by step.
+
+## See also
+
+- [Browser extension framework comparison](/docs/compare)
+- [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt)
+- [Cross-browser compatibility](/docs/features/cross-browser-compatibility)

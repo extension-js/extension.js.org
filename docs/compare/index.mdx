@@ -27,19 +27,20 @@ A browser extension framework handles the work that browsers do not. It compiles
 | ---------------- | ------------------------------------- | ---------------------------- | ------------------------------ | ----------------------------- |
 | Model            | `manifest.json` as source of truth    | File conventions + config    | Vite plugin reading a manifest | File conventions              |
 | Bundler          | Rspack (internal, zero config)        | Vite                         | Vite (plugin layer)            | Parcel                        |
-| Cross-browser    | Chrome, Edge, Firefox, Safari from one source | Chrome, Firefox, MV2 support | Chromium focus                 | Chrome, Firefox targets       |
+| Cross-browser    | Chrome, Edge, Firefox, Safari from one source | Chrome, Edge, Firefox, Safari (build only), MV2 | Chrome by default, Firefox through a `browser` option | Chrome MV3, Firefox MV2, Firefox MV3 (experimental) |
 | Setup            | None required                         | `wxt.config.ts`              | `vite.config.ts` + plugin      | `package.json` manifest field |
-| Bundler coupling | Internal detail                       | Tracks Vite majors           | Breaks with bundler changes    | Tied to Parcel                |
+| Bundler coupling | Internal detail                       | Tracks Vite majors           | Tracks Vite majors (3 to 8)    | Tied to Parcel                |
 
 Two structural differences matter more than any feature row:
 
-- **Where the manifest lives.** Extension.js reads your `manifest.json` and compiles whatever it declares. WXT and Plasmo generate the manifest from file conventions and config. CRXJS reads a manifest but resolves it through Vite's plugin API, which is why bundler upgrades can break it (see [the Vite 8 fileName error](/docs/migrate/crxjs-content-script-filename-undefined)).
+- **Where the manifest lives.** Extension.js reads your `manifest.json` and compiles whatever it declares. WXT and Plasmo generate the manifest from file conventions and config. CRXJS reads a manifest but resolves it through Vite's plugin API, so each Vite major needs CRXJS compatibility work. Vite 8 needed it (see [the Vite 8 fileName error](/docs/migrate/crxjs-content-script-filename-undefined)), and current CRXJS supports Vite 3 to 8.
 - **Who owns the bundler.** A framework that wraps a general-purpose bundler inherits that bundler's breaking changes. Extension.js treats the bundler as an internal detail: you never configure it, and upgrades are the framework's problem, not yours.
 
 ## Detailed comparisons and migrations
 
 - [Extension.js vs WXT](/docs/compare/extension-js-vs-wxt): the closest comparison, dimension by dimension.
 - [Extension.js vs Plasmo](/docs/compare/extension-js-vs-plasmo): manifest model, dev loop, packaging, and maintenance status with dates.
+- [Extension.js vs CRXJS](/docs/compare/extension-js-vs-crxjs): a framework that owns the bundler against a plugin inside your own Vite setup.
 - [Migrate from CRXJS](/docs/migrate/from-crxjs): step-by-step, about ten minutes for a typical project.
 - [Fix: Content script fileName is undefined](/docs/migrate/crxjs-content-script-filename-undefined): the CRXJS + Vite 8 build error, with workarounds.
 - [Migrate from Plasmo](/docs/migrate/from-plasmo): convention-to-manifest mapping, env vars, and CSUI.

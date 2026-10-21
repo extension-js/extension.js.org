@@ -1,0 +1,96 @@
+---
+title: "Extension.js vs CRXJS"
+description: "对比 Extension.js 与 CRXJS 的浏览器扩展开发方式：自带打包器的框架与 Vite 插件、浏览器目标、开发循环和打包。"
+keywords:
+  [
+    "extension.js vs crxjs",
+    "crxjs vs extension.js",
+    "crxjs alternative",
+    "crxjs vs wxt",
+    "@crxjs/vite-plugin",
+    "vite chrome extension",
+    "browser extension framework comparison",
+    "crxjs",
+    "extension.js",
+    "cross-browser extension",
+  ]
+---
+
+Extension.js 与 [CRXJS](https://crxjs.dev) 都能把 `manifest.json` 和现代源码变成可运行的扩展。Extension.js 是自带打包器的 CLI 框架。CRXJS 是一个插件，在你自己的 Vite 配置里加上扩展输出。本页是一份事实性的对比，让你基于自己的项目做选择。
+
+## 你应该选哪个？
+
+<CardGroup cols={2}>
+  <Card title="如果以下情况，选 Extension.js……">
+    - 你想要一个 CLI 来打开浏览器、保存即重载、按浏览器构建并打包上架用的 zip。
+    - 你要用一份 `manifest.json` 发布到 Chrome、Edge、Firefox 和 Safari。
+    - 你不想在项目里写打包器配置。
+  </Card>
+  <Card title="如果以下情况，选 CRXJS……">
+    - 你已经有一个 Vite 应用，想在其中加上扩展输出。
+    - 你依赖 Vite 插件并想继续使用它们。
+    - 你可以接受自己在浏览器里加载未打包的构建结果。
+  </Card>
+</CardGroup>
+
+## 一览
+
+| 维度     | Extension.js                                                                 | CRXJS                                         |
+| -------- | ---------------------------------------------------------------------------- | --------------------------------------------- |
+| 是什么   | CLI 框架，[Rspack](/zh-Hans/docs/features/rspack-configuration) 是内部细节     | 运行在你自己的 `vite.config` 里的 Vite 插件    |
+| Manifest | 一份 `manifest.json`，按浏览器前缀的键在每次构建时过滤                         | `manifest.json`，或配置文件里的 `defineManifest` |
+| 浏览器   | Chrome、Edge、Firefox、Safari(macOS，通过 Xcode)、Chromium 与 Gecko 二进制     | 默认 Chrome，通过 `browser` 选项支持 Firefox    |
+| 开发循环 | 打开已加载扩展的托管浏览器，保存即重载                                         | 页面和内容脚本的 HMR，你自己加载未打包的构建    |
+| 构建输出 | `dist/<browser>`，用 `--zip` 为每个商店打包                                    | Vite 的输出目录，需要你自己打包 zip             |
+| 定制     | `extension.config.js` 中的 Rspack 配置钩子                                     | 任意 Vite 插件                                  |
+| Vite 版本 | 不适用                                                                      | Vite 3 到 8                                     |
+| 最新版本 | 4.1.34(2026 年 10 月)                                                         | 3.0.0(2026 年 9 月)                             |
+
+## 思维模型
+
+**Extension.js 自带打包器。** 你编写 `manifest.json` 并引用真实文件。CLI 编译它们，为每个浏览器过滤 manifest，并打包结果。你从不配置打包器，打包器升级由框架负责。
+
+**CRXJS 运行在你的打包器里。** 你在 `vite.config` 中加入 `crx({ manifest })`，Vite 会在你的应用旁边构建扩展。你保留对 Vite 和所有 Vite 插件的完全控制。每个 Vite 主版本都需要 CRXJS 做兼容工作，这也是 [Vite 8 fileName 错误](/zh-Hans/docs/migrate/crxjs-content-script-filename-undefined)曾经存在一段时间的原因。
+
+## 开发循环
+
+### Extension.js
+
+```bash
+npx extension@latest dev --browser=chrome,firefox
+```
+
+CLI 用全新的配置文件打开每个浏览器，并加载扩展。保存后会重载对应部分：页面用 HMR，内容脚本和 service worker 用定向重载。
+
+### CRXJS
+
+```bash
+npm run dev
+```
+
+Vite 启动开发服务器，并把扩展写入输出目录。你在浏览器里加载一次这个未打包的目录，之后 HMR 会更新页面和内容脚本。
+
+## 跨浏览器构建
+
+- **Extension.js** 用 `--browser` 从一份源码构建所有浏览器。
+- 浏览器差异写在[按浏览器前缀的 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)里，例如 `chrome:` 和 `firefox:`。
+- **CRXJS** 每次运行构建一个目标，在插件选项中设置 `browser: 'firefox'` 即可构建 Firefox 版本。
+- CRXJS 的文档没有 Safari 指南。
+
+## 打包
+
+```bash
+npx extension@latest build --browser=chrome,firefox,edge --zip
+```
+
+Extension.js 会写出 `dist/<browser>`，并在旁边为每个浏览器生成一个 zip。使用 CRXJS 时，你需要用自己的脚本或工具打包 Vite 的输出目录。
+
+## 何时迁移
+
+当你希望 CLI 启动浏览器、一次构建多个浏览器，或发布到 Safari 时，可以从 CRXJS 迁移到 Extension.js。你的组件、`chrome.*` 调用和样式都可以沿用。[从 CRXJS 迁移](/zh-Hans/docs/migrate/from-crxjs)会一步步带你完成。
+
+## 另请参阅
+
+- [浏览器扩展框架对比](/zh-Hans/docs/compare)
+- [Extension.js vs WXT](/zh-Hans/docs/compare/extension-js-vs-wxt)
+- [跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)

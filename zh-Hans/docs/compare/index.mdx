@@ -27,19 +27,20 @@ import CreateHook from "/snippets/create-hook.zh-Hans.mdx";
 | -------------- | ---------------------------------- | ------------------------- | -------------------------- | ------------------------------- |
 | 模型           | `manifest.json` 作为唯一事实来源   | 文件约定 + 配置           | 读取 manifest 的 Vite 插件 | 文件约定                        |
 | 打包器         | Rspack(内部封装，零配置)           | Vite                      | Vite(插件层)               | Parcel                          |
-| 跨浏览器       | 一份源码输出 Chrome、Edge、Firefox、Safari | Chrome、Firefox，支持 MV2 | 以 Chromium 为主           | 面向 Chrome、Firefox            |
+| 跨浏览器       | 一份源码输出 Chrome、Edge、Firefox、Safari | Chrome、Edge、Firefox、Safari(仅构建)，支持 MV2 | 默认 Chrome，通过 `browser` 选项支持 Firefox | Chrome MV3、Firefox MV2、Firefox MV3(实验性) |
 | 配置           | 无需配置                           | `wxt.config.ts`           | `vite.config.ts` + 插件    | `package.json` 的 manifest 字段 |
-| 与打包器的耦合 | 框架内部细节                       | 跟随 Vite 主版本          | 打包器变化时会出问题       | 与 Parcel 绑定                  |
+| 与打包器的耦合 | 框架内部细节                       | 跟随 Vite 主版本          | 跟随 Vite 主版本(3 到 8)   | 与 Parcel 绑定                  |
 
 有两点结构性的差异比任何特性表格都更重要：
 
-- **manifest 在哪里。** Extension.js 读取你的 `manifest.json`，并编译它声明的所有内容。WXT 与 Plasmo 通过文件约定和配置来生成 manifest。CRXJS 也读取 manifest，但通过 Vite 的插件 API 解析，这就是为什么打包器升级可能让它失效（参见 [Vite 8 fileName 错误](/zh-Hans/docs/migrate/crxjs-content-script-filename-undefined)）。
+- **manifest 在哪里。** Extension.js 读取你的 `manifest.json`，并编译它声明的所有内容。WXT 与 Plasmo 通过文件约定和配置来生成 manifest。CRXJS 也读取 manifest，但通过 Vite 的插件 API 解析，所以每个 Vite 主版本都需要 CRXJS 做兼容工作。Vite 8 就需要过（参见 [Vite 8 fileName 错误](/zh-Hans/docs/migrate/crxjs-content-script-filename-undefined)），当前的 CRXJS 支持 Vite 3 到 8。
 - **谁拥有打包器。** 一个封装了通用打包器的框架，会继承那个打包器的破坏性变更。Extension.js 把打包器当作内部细节：你永远不需要配置它，升级是框架的事，而不是你的事。
 
 ## 详细对比与迁移
 
 - [Extension.js vs WXT](/zh-Hans/docs/compare/extension-js-vs-wxt)：最接近的对比，逐项展开。
 - [Extension.js vs Plasmo](/zh-Hans/docs/compare/extension-js-vs-plasmo)：manifest 模型、开发循环、打包，以及带日期的维护状态。
+- [Extension.js vs CRXJS](/zh-Hans/docs/compare/extension-js-vs-crxjs)：自带打包器的框架，对比运行在你自己的 Vite 配置里的插件。
 - [从 CRXJS 迁移](/zh-Hans/docs/migrate/from-crxjs)：分步指南，典型项目大约十分钟。
 - [修复：Content script fileName is undefined](/zh-Hans/docs/migrate/crxjs-content-script-filename-undefined)：CRXJS + Vite 8 的构建错误，附变通方案。
 - [从 Plasmo 迁移](/zh-Hans/docs/migrate/from-plasmo)：约定到 manifest 的映射、环境变量与 CSUI。
