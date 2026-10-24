@@ -75,6 +75,10 @@ attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也�
 | `rdpPort`            | number         | Gecko 啟動時:RDP debugger-server 連接埠,在啟動之後蓋上。                                                                                               |
 | `cdpFaultCode`       | string         | Chromium 的 `dev` 工作階段:瀏覽器起來之後 CDP 連線失敗時蓋上,值是除錯協定錯誤碼之一,例如 `E_CDP_TIMEOUT` 或 `E_CDP_NOT_CONNECTED`。因為瀏覽器在執行,工作階段保持 `ready`,但在故障修復前 reload 與 HMR 無法接上。同一次執行跨重新編譯保留。 |
 | `cdpFaultMessage`    | string         | 與 `cdpFaultCode` 並列的一行純文字。`--output json` 下的 `ready` 影格會把同一故障放在 `warnings` 裡,形式為 `E_CDP_...: message`。 |
+| `browserUpNotAttachedAt` | ISO 字串 | Chromium `dev` 工作階段：瀏覽器處理程序已啟動且擴充功能已編譯，但擴充功能內部的執行階段在啟動器的寬限期（15 秒）內沒有連上控制橋時寫入。狀態維持 `ready`，stdout 上的 `ready` 行會延後到連線建立後再印出。第一次連線後清除。 |
+| `browserUpNotAttachedWaitMs` | number | 啟動器在寫入 `browserUpNotAttachedAt` 之前等待的毫秒數。 |
+| `browserUpNotAttachedHint` | string | 並列的純文字說明：瀏覽器及其 pid、設定檔路徑、該設定檔先前是否被執行過，以及改用全新設定檔的做法。 |
+| `profileReused` | boolean | Chromium 啟動：此次啟動之前是否已有瀏覽器用過該設定檔目錄。被重複使用的設定檔是瀏覽器啟動後卻沒有任何連線的常見原因。 |
 | `profilePath`        | string         | 解析出來的設定檔目錄。暫時設定檔的名稱是產生出來的,所以要從這裡讀。                                                                                    |
 | `binary`             | string         | 這個工作階段實際啟動的瀏覽器執行檔絕對路徑。每次執行都會蓋上,包含那些沒有指定執行檔的執行:正是那些執行裡,解析器替你做了選擇,而這個路徑在別處看不到。   |
 | `binaryProvenance`   | string         | 那個執行檔是怎麼被選出來的:`managed`(Extension.js 的快取)、`pinned`(`--chromium-binary`)、`system`(已安裝的瀏覽器)或 `snapshot`(快取的 dev 頻道建置)。 |
