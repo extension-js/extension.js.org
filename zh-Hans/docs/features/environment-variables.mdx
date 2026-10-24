@@ -339,6 +339,31 @@ PRIVATE_KEY=abc123  # Not injected into JS bundles
 
 编译时，Extension.js 会把 `$EXTENSION_PUBLIC_API_KEY` 替换为解析后的 env 值。
 
+#### 不让本地源进入生产 manifest
+
+同样的占位符也能用在匹配模式里，开发用的模拟服务器就是这样留在商店包之外的。把源写成占位符，并为每种模式提供各自的值：
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["$EXTENSION_PUBLIC_SITE/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
+```
+
+```bash
+# .env.development
+EXTENSION_PUBLIC_SITE=http://localhost:4322
+
+# .env
+EXTENSION_PUBLIC_SITE=https://example.com
+```
+
+`extension dev` 读取 `.env.development`，匹配 `http://localhost:4322/*`。`extension build` 读取 `.env`，只发布 `https://example.com/*`。如果生产构建仍在 `content_scripts`、`host_permissions`、`externally_connectable` 或 `web_accessible_resources` 中写着 `localhost`、`127.0.0.1`、`[::1]` 或 `0.0.0.0`，构建会打印错误码为 `E_PROD_LOOPBACK_ORIGIN` 的警告，并原样发布该模式，因为让生产构建连接本地服务器也可能是有意为之。
+
 ### 2. 在 locale 文件中
 
 当值应当随环境而变时，也可以在 locale 文件中使用占位符。例如：

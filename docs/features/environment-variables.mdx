@@ -339,6 +339,31 @@ You can use environment variables in `manifest.json`, locales, HTML, and JavaScr
 
 During compilation, Extension.js replaces `$EXTENSION_PUBLIC_API_KEY` with the resolved env value.
 
+#### Keep a local origin out of the production manifest
+
+The same placeholders work in match patterns, which is how a development mock server stays out of the store package. Put the origin in a placeholder and give each mode its own value:
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["$EXTENSION_PUBLIC_SITE/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
+```
+
+```bash
+# .env.development
+EXTENSION_PUBLIC_SITE=http://localhost:4322
+
+# .env
+EXTENSION_PUBLIC_SITE=https://example.com
+```
+
+`extension dev` reads `.env.development` and matches `http://localhost:4322/*`. `extension build` reads `.env` and ships only `https://example.com/*`. A production build that still names `localhost`, `127.0.0.1`, `[::1]`, or `0.0.0.0` in `content_scripts`, `host_permissions`, `externally_connectable`, or `web_accessible_resources` prints a warning with the code `E_PROD_LOOPBACK_ORIGIN` and ships the pattern as written, since a production build pointed at a local server can be on purpose.
+
 ### 2. In locale files
 
 You can also use placeholders in locale files when values should change by environment. For example:

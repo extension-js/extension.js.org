@@ -338,6 +338,31 @@ PRIVATE_KEY=abc123  # Not injected into JS bundles
 
 編譯時，Extension.js 會把 `$EXTENSION_PUBLIC_API_KEY` 取代為解析後的 env 值。
 
+#### 不讓本機來源進入正式 manifest
+
+同樣的佔位符也能用在比對模式裡，開發用的模擬伺服器就是這樣留在商店套件之外的。把來源寫成佔位符，並為每種模式提供各自的值：
+
+```json
+{
+  "content_scripts": [
+    {
+      "matches": ["$EXTENSION_PUBLIC_SITE/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
+```
+
+```bash
+# .env.development
+EXTENSION_PUBLIC_SITE=http://localhost:4322
+
+# .env
+EXTENSION_PUBLIC_SITE=https://example.com
+```
+
+`extension dev` 讀取 `.env.development`，比對 `http://localhost:4322/*`。`extension build` 讀取 `.env`，只發佈 `https://example.com/*`。如果正式建置仍在 `content_scripts`、`host_permissions`、`externally_connectable` 或 `web_accessible_resources` 中寫著 `localhost`、`127.0.0.1`、`[::1]` 或 `0.0.0.0`，建置會印出錯誤碼為 `E_PROD_LOOPBACK_ORIGIN` 的警告，並原樣發佈該模式，因為讓正式建置連到本機伺服器也可能是刻意的。
+
 ### 2. 在語系檔中
 
 當值需要隨環境改變時，你也可以在語系檔中使用佔位符。例如：
