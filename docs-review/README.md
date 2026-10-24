@@ -44,6 +44,10 @@ node scripts/docs-coverage.mjs --assert   # non-zero exit when a page is unrevie
 
 Only the first command writes `coverage.json`. The `--assert` form reads the committed
 ledger and compares it with a fresh build, so a green run never dirties the tree.
+A ledger that differs from a fresh build only in page word counts passes with a warning
+that lists the pages, because word counts move with every copy edit and carry no review
+state. Any other difference (a page added or removed, claims, commands, flags, lane A
+finding counts, the summary block) still fails.
 
 ### The caveat ledger
 
