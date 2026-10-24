@@ -1,6 +1,6 @@
 ---
 title: "用一个 STORE.md 管理商店元数据"
-description: "把 Chrome、Firefox 与 Edge 的商店文案、权限说明、隐私披露和审核备注放进一个纳入版本控制的 STORE.md 文件。"
+description: "把 Chrome、Firefox、Edge 与 Safari 的商店文案、权限说明、隐私披露和审核备注放进一个纳入版本控制、商店工具会读取的 STORE.md 文件。"
 keywords:
   [
     "browser",
@@ -11,14 +11,17 @@ keywords:
     "chrome web store",
     "firefox add-ons",
     "edge add-ons",
+    "app store",
+    "safari",
     "permissions justification",
     "reviewer notes",
+    "sync-listing",
   ]
 ---
 
 跨浏览器扩展要提交到多个商店，而每个商店索要的材料几乎相同：商店文案、权限说明、隐私披露、审核备注和版本说明。`STORE.md` 约定把这些内容全部放进项目根目录下一个纳入版本控制的文件，重新提交时不必再从头整理。
 
-这个文件还有第二个用途。支持该约定的部署工具会在提交时读取它，并附上各商店 API 接受的字段。其余内容则作为商店后台表单的复制粘贴参考。
+这个文件还有第二个用途。支持该约定的商店工具会在提交时读取它：extension.dev 的 MCP 工具 `extension_submit sync-listing` 根据它填写 Chrome Web Store、Firefox Add-ons、Edge Add-ons 和 Mac App Store 的商店信息，它的商店预检也会检查这个文件。只能在商店自己后台填写的内容（Chrome 的宣传图块与数据使用答卷，Edge 的徽标、图块和属性，Apple 的 App 隐私与年龄分级）仍需手动完成，文件会在各商店小节下列出这些项，让你一次看到完整清单，而不是每次失败一项检查才发现一项。
 
 <Note>
   [extension.dev](https://docs.extension.dev?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-callout-store-metadata) 是 Extension.js 的赞助方，可以在同一个项目里完成发布、商店提交和分享。它的文档覆盖 `extension build` 之后的步骤。
@@ -30,91 +33,218 @@ keywords:
 
 ## 结构
 
-每个商店一个 `##` 小节，共享材料放在商店小节之上。商店小节按标题文本匹配，因此 `## Firefox Add-ons`、`## firefox-amo` 和 `## AMO` 都有效；Chrome 与 Edge 同理。
+共享材料在前（先 `## Listing`，再 `## Privacy and data use`），然后每个商店一个 `##` 小节，最后是 `## Version history`。商店小节按标题文本匹配，因此 `## Firefox Add-ons`、`## firefox-amo` 和 `## AMO` 都有效。Chrome、Edge 和 Safari（`## Safari (Mac App Store)`）同理。
+
+每一行都遵循三条读取规则：
+
+- 仍以 `TODO` 开头的值会被跳过，不会发送。文件只展示缺少什么，从不编造商店文案。
+- 列表项只有在续行保持缩进时才会带上这些续行。从第 0 列开始的段落会结束该列表项。
+- HTML 注释写明每个字段的格式和上限，读取工具会把它们去掉。
 
 ```markdown
 # Store metadata
 
-Last updated: 2026-07-20
+Last updated: 2026-10-24
 
 ## Listing
 
-名称、一句话简介、详细描述、分类、截图列表。
-写用户收益，不写实现细节。
+- Name: PII Shield
+- Summary: Hide personal information on every open tab with one click.
+- Subtitle: TODO a 30 character App Store subtitle
+- Description:
+
+  Sharing your screen? Click PII Shield and names are blurred
+  on every open tab.
+
+  Detection happens on your computer.
+
+- Category: Productivity (Chrome Web Store, Firefox Add-ons, Edge Add-ons), Utilities (App Store)
+- Language: en
+- License: MIT
+- Support email: help@example.com
+- Homepage: https://example.com
+- Search terms: privacy, screen sharing, blur
+- Screenshots:
+  1. screenshots/01-popup.png
+  2. screenshots/02-options.png
 
 ## Privacy and data use
 
-收集、存储或传输了什么数据，以及隐私政策 URL。
-这一节必须与代码的实际行为以及 manifest 中 Firefox 的
-data_collection_permissions 声明一致。
+- Privacy policy URL: https://example.com/privacy
+- Data collected: none
+- Firefox data collection: none
 
 ## Chrome Web Store
 
-### Permissions justification
-
-- tabs: 读取当前标签页 URL 以展示按站点的设置。
-- storage: 在本地保存用户偏好。
-
 ### Single purpose
 
-用一句话陈述扩展的单一用途。
+Hide personal information on the pages the user has open, on demand.
+
+### Permissions justification
+
+- storage: Remembers whether the shield is on.
+- Host permission <all_urls>: TODO reason
+
+Remote code: none. Every script ships inside the package.
+
+### Test instructions
+
+Click the toolbar button, then open any page.
 
 ## Firefox Add-ons
 
 ### Reviewer notes
 
-测试凭据以及审核者验证扩展所需的步骤。上传物是打包产物时，
-附上从源码构建的说明；此时 AMO 要求提供源码 zip。
+Click the toolbar button to turn the shield on. Build from source
+with Node 22.12.0 and npm 10.9.0: npm install, then
+npx extension build --browser firefox. The upload is dist/firefox.
 
 ### Release notes
 
-面向用户的本版本说明。
+First release.
 
 ## Edge Add-ons
 
 ### Certification notes
 
-认证团队测试扩展所需的一切信息。
+Click the toolbar button to turn the shield on.
+
+### Dashboard checklist
+
+- Store logo, 300x300 PNG.
+- Promo tiles, 440x280 and 1400x560.
+- Properties page: personal information and mature content answers.
+- Privacy page: the nine data categories and three certifications.
+
+## Safari (Mac App Store)
+
+- Bundle identifier: com.example.pii-shield
+- Review contact name: TODO
+- Review contact email: TODO
+- Review contact phone: TODO
+
+### Reviewer notes
+
+Open Safari, choose Safari, Settings, Extensions, then turn the extension on.
+
+### Release notes
+
+First release.
+
+### Age rating
+
+- Violence, mature themes, profanity, horror, medical or drug references, gambling, contests: none
+- Parental controls, age assurance: none
+- Unrestricted web access: none
+- User generated content, social media, messaging: none
+- Advertising: none
+- Loot boxes or similar in-app purchases: none
 
 ## Version history
 
-- 1.2.0 (2026-07-20): 新增按站点设置。已提交到所有商店。
-- 1.1.0 (2026-07-01): 因 tabs 权限说明含糊被 AMO 拒绝。
-  通过写明扩展读取的确切数据修复。
+- 0.1.0: Chrome draft uploaded 2026-10-21, AMO upload refused 401 bad key pair, Edge draft pending
 ```
 
-## 各商店读取什么
+## Listing
 
-Firefox 与 Edge 的提交 API 接受面向审核者的备注，支持 `STORE.md` 的工具可以替你发送：
+每一行都来自一次失败的检查或一次商店拒绝，所以每一行都有固定格式。
 
-| 商店小节 | `###` 字段          | 发送为               |
-| -------- | ------------------- | -------------------- |
-| Firefox  | Reviewer notes      | AMO `approval_notes` |
-| Firefox  | Release notes       | AMO `release_notes`  |
-| Edge     | Certification notes | Edge 提交 `notes`    |
+| 行                 | 格式与上限                                                                                                                                                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `- Name:`          | 商店标题，在所有商店都最多 100 个字符。                                                                                                                                                                                                     |
+| `- Summary:`       | Chrome 的摘要，最多 132 个字符。只有不超过 30 个字符时，App Store 才会把它当作副标题。                                                                                                                                                      |
+| `- Subtitle:`      | App Store 副标题，最多 30 个字符。缺少它时，推送到 Safari 会让该字段留空。                                                                                                                                                                  |
+| `- Description:`   | 列表项下缩进的段落，最多 16,000 个字符。写用户获得的好处，而不是实现方式。                                                                                                                                                                  |
+| `- Category:`      | 每个商店一个分类，商店名放在括号里，不计入值。其中一个必须是 App Store 分类（Productivity 或 Utilities）：没有主分类时 Apple 会拒绝上传。不带商店备注的单一分类适用于所有商店。                                                              |
+| `- Language:`      | 商店信息的语言，除非 manifest 设置了 `default_locale`，否则为 `en`。                                                                                                                                                                        |
+| `- License:`       | 纯 SPDX 标识符。带句点的 `MIT.` 曾以原样作为许可证到达 AMO。                                                                                                                                                                                |
+| `- Support email:` | 一个地址。末尾括号里的备注不计入值。                                                                                                                                                                                                        |
+| `- Homepage:`      | 一个 http 或 https URL。末尾括号里的备注不计入值。                                                                                                                                                                                          |
+| `- Search terms:`  | 逗号分隔的列表。Edge 最多接受 7 个词、合计 21 个单词，Safari 关键词合计 100 个字符。                                                                                                                                                        |
+| `- Screenshots:`   | 列表项下每个编号行一个 PNG 路径，相对于项目：这些就是 `sync-listing` 上传的文件。Chrome 接受 1280x800 或 640x400，Edge 接受 1280x800 或 640x480，App Store 只接受 1280x800、1440x900、2560x1600 或 2880x1800 的无 alpha 通道 RGB 图，并且要在真实的 Safari 里展示扩展。Chrome 和 Edge 还会展示 440x280 和 1400x560 的宣传图块。 |
 
-Chrome Web Store 的 API 不接受任何商店页元数据，因此整个 Chrome 小节是开发者后台的参考材料。它的结构与 agent 工具在 `CHROMEWEBSTORE.md` 文件中期望的小节一致，寻找那些小节的 agent 在这里就能找到。
+## Privacy and data use
 
-## 每个模板都自带起步文件
+- `- Privacy policy URL:` 只写在这里。读取工具会取这一行中第一个 http 或 https 地址，所以不要在 `TODO` 里留示例地址。Apple 要求每个 App 都有隐私政策，Chrome 和 Edge 在处理任何数据时也要求提供。
+- `- Data collected:` 列出扩展收集、存储或发送的每一类数据，或写 `none`。Chrome（数据使用复选框和三项认证）、Edge（九个数据类别和三项认证）以及 Apple（App 隐私，"未收集数据"）都会在各自后台再问一次同样的问题，这一行就是答卷。
+- `- Firefox data collection:` 对应 manifest 中的 `browser_specific_settings.gecko.data_collection_permissions`。AMO 读取的是 manifest，所以两者必须一致。必填键请参见 [Firefox 商店审核的数据收集权限](/zh-Hans/docs/features/multi-platform-builds#firefox-商店审核的数据收集权限)。
 
-每个 Extension.js 模板都附带一个由自身 manifest 生成的起步 `STORE.md`。权限说明已经与模板请求的权限一一对应，占位行标注为 `TODO`。从任何模板创建项目，这个约定从第一次提交起就已就位：
+## 商店小节
+
+### Chrome Web Store
+
+- `### Single purpose`：一句话，最多 1,000 个字符。
+- `### Permissions justification`：manifest 请求的每个权限、主机权限和内容脚本匹配各写一个列表项。冒号前是权限，冒号后是理由，仍以 `TODO` 开头的理由不会发送。单独一行写明远程代码的回答（`Remote code: none`）。Edge 的隐私页面会逐项问同样的问题，并接受同样的文字。
+- `### Test instructions`：审核者要执行的步骤，需要登录时附上测试账号。
+
+### Firefox Add-ons
+
+- `### Reviewer notes`：先写测试步骤，再写审核者重新构建所用的确切工具链：Node 和 npm 版本、安装与构建命令，以及输出目录。对于打包过的扩展，Mozilla 需要可复现的构建。开启 Firefox 源码归档设置后，平台会附上构建所在提交的仓库，因此无需另行上传源码 zip。
+- `### Release notes`：这个版本真实的说明。指向其他小节的文字会原样到达 AMO。
+
+### Edge Add-ons
+
+- `### Certification notes`：认证团队测试扩展所需的内容。大多数情况下 Firefox 审核备注同样适用：直接粘贴，而不是写一句指向它。
+- 扩展包里不能有任何压缩文件。Partner Center 会拒绝包内的任何 `.gz`、`.zip` 或其他归档，所以这类资源要以未压缩形式放入。
+- `### Dashboard checklist`：发布 API 无法设置、需要在 Partner Center 填写一次的内容：300x300 商店徽标、440x280 和 1400x560 宣传图块、属性页上关于个人信息和成人内容的回答、隐私页上的类别与认证，以及可选的 YouTube URL。
+
+### Safari (Mac App Store)
+
+- `- Bundle identifier:` 在第一个构建到达 App Store Connect 后就不能再改。
+- `- Review contact name:`、`- Review contact email:` 和 `- Review contact phone:` 是 App 审核的联系人。
+- `### Reviewer notes`：如何在 Safari 设置里启用扩展，以及测试账号。
+- `### Release notes`：即"新功能"，从第二个版本起必填。
+- `### Age rating`：每个问题一个列表项，除非另有说明都写 `none`。Apple 的问卷还会问家长控制、年龄验证、不受限制的网页访问、用户生成内容、社交媒体、消息、广告和战利品箱，推送时会发送完整的一组回答。
+- App 隐私，以及目前的年龄分级和全部 175 个地区的上架范围，都要在 App Store Connect 里手动确认。
+- 在本地运行转换后的 App：`npx extension build --browser safari --bundle-id <id> --development-team <TEAM>`。没有团队的临时签名构建在 Safari 重启后就不再响应。
+
+### Version history
+
+每个版本、每次商店提交写一行，附上结果，最新的在最前：`0.1.0: Chrome draft uploaded 2026-10-21, AMO upload refused 401 bad key pair, Edge draft pending`。商店拒绝及其修复也写在这里，下次提交就不会重蹈覆辙。
+
+## 每个商店读取什么
+
+`sync-listing` 把下列字段发送给各商店，并回答哪些发生了变化、商店信息还缺什么。超出上限或格式不符合商店要求（地址、http 或 https URL）的字段，会连同需要修改的 `STORE.md` 行一起指出。
+
+| `STORE.md` 行                    | Chrome | Firefox | Edge | Safari | 上限                       |
+| -------------------------------- | ------ | ------- | ---- | ------ | -------------------------- |
+| `- Name:`                        | 是     | 是      | 是   | 是     | 100 个字符                 |
+| `- Summary:`                     | 是     | 是      | 是   | 是     | 250（Chrome 显示 132）     |
+| `- Description:`                 | 是     | 是      | 是   | 是     | 16,000 个字符              |
+| `- Category:`                    | 是     | 是      | 是   | 是     | 每个商店 5 个              |
+| `- Search terms:`                |        |         | 是   |        | 16 个词（Edge 接受 7 个）  |
+| `- Support email:`               | 是     | 是      | 是   | 是     | 一个地址，200              |
+| `- Privacy policy URL:`          | 是     | 是      | 是   | 是     | 一个 http 或 https URL     |
+| `- Homepage:`                    | 是     | 是      | 是   | 是     | 一个 http 或 https URL     |
+| `- License:`                     |        | 是      |      |        | 100 个字符                 |
+| `### Single purpose`             | 是     |         |      |        | 1,000 个字符               |
+| `### Permissions justification`  | 是     |         |      |        | 50 项，每项 1,000          |
+| `### Reviewer notes`             |        | 是      |      |        | 8,000 个字符               |
+| `### Release notes`              |        | 是      |      |        | 8,000 个字符               |
+| `### Certification notes`        |        |         | 是   |        | 8,000 个字符               |
+
+推送到 Safari 时还会从 Safari 小节读取副标题、Bundle 标识符、审核联系人、版本说明和年龄分级列表项。Chrome Web Store 小节与代理工具期望在 `CHROMEWEBSTORE.md` 文件里找到的小节一致，所以寻找这些小节的代理可以在这里找到它们。
+
+## 模板中的初始文件
+
+每个 Extension.js 模板都带有一个根据自身 manifest 生成的初始 `STORE.md`：每个权限、主机权限和内容脚本匹配各有一个 `TODO reason` 列表项，Firefox 数据收集行从 manifest 读取，其余事实都标为 `TODO`。`extension create` 会把项目名写到 `Name` 行，把创建日期写到 `Last updated:`。从模板创建项目，第一个提交里就已具备这套约定：
 
 ```bash
 npx extension@latest create my-extension --template react
 ```
 
-## 保持内容最新
+## 保持最新
 
-在让它过期的同一个改动里更新 `STORE.md`：
+在让 `STORE.md` 过时的同一次改动里更新它：
 
-- **manifest 变了**（`permissions`、`host_permissions`、`content_scripts`）：重新检查每条权限说明。每个权限都需要具体、直白的理由。"扩展运行需要" 在每个商店都过不了审。
-- **用户可见行为变了**：更新商店文案并刷新最后更新日期。
-- **发布新版本**：追加版本历史条目并重写版本说明。
-- **数据处理变了**：同时更新隐私小节、它链接的隐私政策，以及 manifest 中 Firefox 的 `data_collection_permissions` 声明。三者必须一致。必填的 manifest 键参见 [Firefox 商店审核的数据收集权限](/zh-Hans/docs/features/multi-platform-builds#firefox-商店审核的数据收集权限)。
-- **被商店拒绝**：在版本历史中记录原因与修复方式，下次提交不再重蹈覆辙。
+- **manifest 变了**（`permissions`、`host_permissions`、`content_scripts`）：为每一项添加或重新审视说明列表项。每个权限都需要一个具体、直白的理由。"扩展运行所需"在所有商店都通不过审核。
+- **面向用户的行为变了**：更新商店文案和截图。
+- **新版本**：添加一行版本历史，并重写 Firefox 和 App Store 的版本说明。
+- **数据处理方式变了**：同时更新隐私小节、它链接的政策，以及 manifest 中 Firefox 的 `data_collection_permissions` 声明。三者必须一致。
+- **商店拒绝**：在版本历史里记下原因和修复，下次提交就不会重蹈覆辙。
 
-## 卫生守则
+## 卫生习惯
 
-- 把文件纳入 git。它是项目的一部分，不是草稿。
-- 别把它打进扩展 zip。生产构建只打包 `dist/<browser>/`，根目录的 `STORE.md` 永远不会随扩展发布。
-- 绝不放真实用户凭据。审核用测试账号从设计上就应该是一次性的。
+- 用 git 跟踪这个文件。它是项目的一部分，不是草稿。
+- 不要把它打进扩展 zip。生产构建只打包 `dist/<browser>/`，所以根目录下的 `STORE.md` 永远不会发给用户。
+- 永远不要在里面放真实用户的凭据。审核用的测试账号本来就是一次性的。

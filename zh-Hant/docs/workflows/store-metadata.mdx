@@ -1,6 +1,6 @@
 ---
 title: "用一個 STORE.md 管理商店中繼資料"
-description: "把 Chrome、Firefox 與 Edge 的商店文案、權限說明、隱私揭露和審查備註放進一個納入版本控制的 STORE.md 檔案。"
+description: "把 Chrome、Firefox、Edge 與 Safari 的商店文案、權限說明、隱私揭露和審查備註放進一個納入版本控制、商店工具會讀取的 STORE.md 檔案。"
 keywords:
   [
     "browser",
@@ -11,110 +11,240 @@ keywords:
     "chrome web store",
     "firefox add-ons",
     "edge add-ons",
+    "app store",
+    "safari",
     "permissions justification",
     "reviewer notes",
+    "sync-listing",
   ]
 ---
 
 跨瀏覽器擴充功能要提交到多個商店，而每個商店索取的材料幾乎相同：商店文案、權限說明、隱私揭露、審查備註和版本說明。`STORE.md` 慣例把這些內容全部放進專案根目錄下一個納入版本控制的檔案，重新提交時不必再從頭整理。
 
-這個檔案還有第二個用途。支援該慣例的部署工具會在提交時讀取它，並附上各商店 API 接受的欄位。其餘內容則作為商店後台表單的複製貼上參考。
+這個檔案還有第二個用途。支援該慣例的商店工具會在提交時讀取它：extension.dev 的 MCP 工具 `extension_submit sync-listing` 依據它填寫 Chrome Web Store、Firefox Add-ons、Edge Add-ons 和 Mac App Store 的商店資訊，它的商店預檢也會檢查這個檔案。只能在商店自己後台填寫的內容（Chrome 的宣傳圖塊與資料使用答卷，Edge 的標誌、圖塊和屬性，Apple 的 App 隱私權與年齡分級）仍需手動完成，檔案會在各商店小節下列出這些項目，讓你一次看到完整清單，而不是每失敗一項檢查才發現一項。
 
 <Note>
-  [extension.dev](https://docs.extension.dev?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-callout-store-metadata) 是 Extension.js 的贊助方，可以在同一個專案裡完成發佈、商店送審與分享。它的文件涵蓋 `extension build` 之後的步驟。
+  [extension.dev](https://docs.extension.dev?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-callout-store-metadata) 是 Extension.js 的贊助者，可以在同一個專案裡完成發佈、商店提交和分享。它的文件涵蓋 `extension build` 之後的步驟。
 </Note>
 
-## 什麼時候該建立它
+## 什麼時候建立它
 
-在第一次送審之前、也就是發布意圖剛出現的那一刻，就先寫好 `STORE.md`。送審工具讀取這個檔案時是靜默的：檔案不存在時，送審會在沒有審查者備註、版本說明與認證備註的情況下送出去，而且不會有任何警告。這個檔案的價值來自隨著程式碼變動持續維護，而不是最後關頭匆忙補寫。關於它周邊的完整送審流程，請參閱[發布到瀏覽器商店](/zh-Hant/docs/publishing)。
+在第一次提交之前、也就是剛出現發佈意圖的那一刻，就寫好 `STORE.md`。提交工具讀取這個檔案時是靜默的：檔案不存在時，提交會在沒有審查備註、版本說明和認證備註的情況下送出，而且不會有任何警告。這個檔案的價值在於隨著程式碼變化持續維護，而不是最後關頭匆忙補寫。圍繞它的完整提交流程請參閱[發佈到瀏覽器商店](/zh-Hant/docs/publishing)。
 
 ## 結構
 
-每個商店一個 `##` 小節，共享材料放在商店小節之上。商店小節按標題文字比對，因此 `## Firefox Add-ons`、`## firefox-amo` 和 `## AMO` 都有效；Chrome 與 Edge 同理。
+共用材料在前（先 `## Listing`，再 `## Privacy and data use`），接著每個商店一個 `##` 小節，最後是 `## Version history`。商店小節依標題文字比對，因此 `## Firefox Add-ons`、`## firefox-amo` 和 `## AMO` 都有效。Chrome、Edge 和 Safari（`## Safari (Mac App Store)`）同理。
+
+每一行都遵循三條讀取規則：
+
+- 仍以 `TODO` 開頭的值會被略過，不會送出。檔案只呈現缺少什麼，從不編造商店文案。
+- 清單項目只有在續行保持縮排時才會帶上這些續行。從第 0 欄開始的段落會結束該清單項目。
+- HTML 註解寫明每個欄位的格式和上限，讀取工具會把它們去掉。
 
 ```markdown
 # Store metadata
 
-Last updated: 2026-07-20
+Last updated: 2026-10-24
 
 ## Listing
 
-名稱、一句話簡介、詳細描述、分類、截圖清單。
-寫使用者收益，不寫實作細節。
+- Name: PII Shield
+- Summary: Hide personal information on every open tab with one click.
+- Subtitle: TODO a 30 character App Store subtitle
+- Description:
+
+  Sharing your screen? Click PII Shield and names are blurred
+  on every open tab.
+
+  Detection happens on your computer.
+
+- Category: Productivity (Chrome Web Store, Firefox Add-ons, Edge Add-ons), Utilities (App Store)
+- Language: en
+- License: MIT
+- Support email: help@example.com
+- Homepage: https://example.com
+- Search terms: privacy, screen sharing, blur
+- Screenshots:
+  1. screenshots/01-popup.png
+  2. screenshots/02-options.png
 
 ## Privacy and data use
 
-收集、儲存或傳輸了什麼資料，以及隱私權政策 URL。
-這一節必須與程式碼的實際行為以及 manifest 中 Firefox 的
-data_collection_permissions 宣告一致。
+- Privacy policy URL: https://example.com/privacy
+- Data collected: none
+- Firefox data collection: none
 
 ## Chrome Web Store
 
-### Permissions justification
-
-- tabs: 讀取目前分頁 URL 以顯示依站點的設定。
-- storage: 在本機保存使用者偏好。
-
 ### Single purpose
 
-用一句話陳述擴充功能的單一用途。
+Hide personal information on the pages the user has open, on demand.
+
+### Permissions justification
+
+- storage: Remembers whether the shield is on.
+- Host permission <all_urls>: TODO reason
+
+Remote code: none. Every script ships inside the package.
+
+### Test instructions
+
+Click the toolbar button, then open any page.
 
 ## Firefox Add-ons
 
 ### Reviewer notes
 
-測試憑證以及審查者驗證擴充功能所需的步驟。上傳物是打包產物時，
-附上從原始碼建置的說明；此時 AMO 要求提供原始碼 zip。
+Click the toolbar button to turn the shield on. Build from source
+with Node 22.12.0 and npm 10.9.0: npm install, then
+npx extension build --browser firefox. The upload is dist/firefox.
 
 ### Release notes
 
-面向使用者的本版本說明。
+First release.
 
 ## Edge Add-ons
 
 ### Certification notes
 
-認證團隊測試擴充功能所需的一切資訊。
+Click the toolbar button to turn the shield on.
+
+### Dashboard checklist
+
+- Store logo, 300x300 PNG.
+- Promo tiles, 440x280 and 1400x560.
+- Properties page: personal information and mature content answers.
+- Privacy page: the nine data categories and three certifications.
+
+## Safari (Mac App Store)
+
+- Bundle identifier: com.example.pii-shield
+- Review contact name: TODO
+- Review contact email: TODO
+- Review contact phone: TODO
+
+### Reviewer notes
+
+Open Safari, choose Safari, Settings, Extensions, then turn the extension on.
+
+### Release notes
+
+First release.
+
+### Age rating
+
+- Violence, mature themes, profanity, horror, medical or drug references, gambling, contests: none
+- Parental controls, age assurance: none
+- Unrestricted web access: none
+- User generated content, social media, messaging: none
+- Advertising: none
+- Loot boxes or similar in-app purchases: none
 
 ## Version history
 
-- 1.2.0 (2026-07-20): 新增依站點設定。已提交到所有商店。
-- 1.1.0 (2026-07-01): 因 tabs 權限說明含糊被 AMO 拒絕。
-  透過寫明擴充功能讀取的確切資料修復。
+- 0.1.0: Chrome draft uploaded 2026-10-21, AMO upload refused 401 bad key pair, Edge draft pending
 ```
 
-## 各商店讀取什麼
+## Listing
 
-Firefox 與 Edge 的提交 API 接受面向審查者的備註，支援 `STORE.md` 的工具可以替你送出：
+每一行都來自一次失敗的檢查或一次商店拒絕，所以每一行都有固定格式。
 
-| 商店小節 | `###` 欄位          | 送出為               |
-| -------- | ------------------- | -------------------- |
-| Firefox  | Reviewer notes      | AMO `approval_notes` |
-| Firefox  | Release notes       | AMO `release_notes`  |
-| Edge     | Certification notes | Edge 提交 `notes`    |
+| 行                 | 格式與上限                                                                                                                                                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `- Name:`          | 商店標題，在所有商店都最多 100 個字元。                                                                                                                                                                                                     |
+| `- Summary:`       | Chrome 的摘要，最多 132 個字元。只有不超過 30 個字元時，App Store 才會把它當作副標題。                                                                                                                                                      |
+| `- Subtitle:`      | App Store 副標題，最多 30 個字元。缺少它時，推送到 Safari 會讓該欄位留空。                                                                                                                                                                  |
+| `- Description:`   | 清單項目下縮排的段落，最多 16,000 個字元。寫使用者獲得的好處，而不是實作方式。                                                                                                                                                              |
+| `- Category:`      | 每個商店一個類別，商店名稱放在括號裡，不計入值。其中一個必須是 App Store 類別（Productivity 或 Utilities）：沒有主要類別時 Apple 會拒絕上傳。不帶商店備註的單一類別適用於所有商店。                                                          |
+| `- Language:`      | 商店資訊的語言，除非 manifest 設定了 `default_locale`，否則為 `en`。                                                                                                                                                                        |
+| `- License:`       | 純 SPDX 識別碼。帶句點的 `MIT.` 曾原樣作為授權到達 AMO。                                                                                                                                                                                    |
+| `- Support email:` | 一個地址。結尾括號裡的備註不計入值。                                                                                                                                                                                                        |
+| `- Homepage:`      | 一個 http 或 https URL。結尾括號裡的備註不計入值。                                                                                                                                                                                          |
+| `- Search terms:`  | 以逗號分隔的清單。Edge 最多接受 7 個詞、合計 21 個單字，Safari 關鍵字合計 100 個字元。                                                                                                                                                      |
+| `- Screenshots:`   | 清單項目下每個編號行一個 PNG 路徑，相對於專案：這些就是 `sync-listing` 上傳的檔案。Chrome 接受 1280x800 或 640x400，Edge 接受 1280x800 或 640x480，App Store 只接受 1280x800、1440x900、2560x1600 或 2880x1800 的無 alpha 通道 RGB 圖片，而且要在真正的 Safari 裡展示擴充功能。Chrome 和 Edge 還會展示 440x280 和 1400x560 的宣傳圖塊。 |
 
-Chrome Web Store 的 API 不接受任何商店頁中繼資料，因此整個 Chrome 小節是開發者後台的參考材料。它的結構與 agent 工具在 `CHROMEWEBSTORE.md` 檔案中期望的小節一致，尋找那些小節的 agent 在這裡就能找到。
+## Privacy and data use
 
-## 每個範本都自帶起步檔案
+- `- Privacy policy URL:` 只寫在這裡。讀取工具會取這一行中第一個 http 或 https 地址，所以不要在 `TODO` 裡留範例地址。Apple 要求每個 App 都有隱私權政策，Chrome 和 Edge 在處理任何資料時也要求提供。
+- `- Data collected:` 列出擴充功能收集、儲存或傳送的每一類資料，或寫 `none`。Chrome（資料使用核取方塊和三項認證）、Edge（九個資料類別和三項認證）以及 Apple（App 隱私權，「未收集資料」）都會在各自後台再問一次同樣的問題，這一行就是答卷。
+- `- Firefox data collection:` 對應 manifest 中的 `browser_specific_settings.gecko.data_collection_permissions`。AMO 讀取的是 manifest，所以兩者必須一致。必填鍵請參閱 [Firefox 商店審核的資料收集權限](/zh-Hant/docs/features/multi-platform-builds#firefox-商店審核的資料收集權限)。
 
-每個 Extension.js 範本都附帶一個由自身 manifest 產生的起步 `STORE.md`。權限說明已經與範本請求的權限一一對應，佔位行標註為 `TODO`。從任何範本建立專案，這個慣例從第一次提交起就已就位：
+## 商店小節
+
+### Chrome Web Store
+
+- `### Single purpose`：一句話，最多 1,000 個字元。
+- `### Permissions justification`：manifest 要求的每個權限、主機權限和內容腳本比對各寫一個清單項目。冒號前是權限，冒號後是理由，仍以 `TODO` 開頭的理由不會送出。單獨一行寫明遠端程式碼的回答（`Remote code: none`）。Edge 的隱私權頁面會逐項問同樣的問題，並接受同樣的文字。
+- `### Test instructions`：審查者要執行的步驟，需要登入時附上測試帳號。
+
+### Firefox Add-ons
+
+- `### Reviewer notes`：先寫測試步驟，再寫審查者重新建置所用的確切工具鏈：Node 和 npm 版本、安裝與建置指令，以及輸出資料夾。對於打包過的擴充功能，Mozilla 需要可重現的建置。開啟 Firefox 原始碼封存設定後，平台會附上建置所在提交的儲存庫，因此不需要另外上傳原始碼 zip。
+- `### Release notes`：這個版本真實的說明。指向其他小節的文字會原樣到達 AMO。
+
+### Edge Add-ons
+
+- `### Certification notes`：認證團隊測試擴充功能所需的內容。大多數情況下 Firefox 審查備註同樣適用：直接貼上，而不是寫一句指向它。
+- 擴充功能套件裡不能有任何壓縮檔。Partner Center 會拒絕套件內的任何 `.gz`、`.zip` 或其他封存檔，所以這類資源要以未壓縮形式放入。
+- `### Dashboard checklist`：發佈 API 無法設定、需要在 Partner Center 填寫一次的內容：300x300 商店標誌、440x280 和 1400x560 宣傳圖塊、屬性頁上關於個人資訊和成人內容的回答、隱私權頁上的類別與認證，以及選用的 YouTube URL。
+
+### Safari (Mac App Store)
+
+- `- Bundle identifier:` 在第一個建置到達 App Store Connect 後就不能再改。
+- `- Review contact name:`、`- Review contact email:` 和 `- Review contact phone:` 是 App 審查的聯絡人。
+- `### Reviewer notes`：如何在 Safari 設定裡啟用擴充功能，以及測試帳號。
+- `### Release notes`：即「新功能」，從第二個版本起必填。
+- `### Age rating`：每個問題一個清單項目，除非另有說明都寫 `none`。Apple 的問卷還會問家長監護、年齡驗證、不受限制的網頁存取、使用者產生的內容、社群媒體、訊息、廣告和戰利品箱，推送時會送出完整的一組回答。
+- App 隱私權，以及目前的年齡分級和全部 175 個地區的上架範圍，都要在 App Store Connect 裡手動確認。
+- 在本機執行轉換後的 App：`npx extension build --browser safari --bundle-id <id> --development-team <TEAM>`。沒有團隊的臨時簽署建置在 Safari 重新啟動後就不再回應。
+
+### Version history
+
+每個版本、每次商店提交寫一行，附上結果，最新的在最前面：`0.1.0: Chrome draft uploaded 2026-10-21, AMO upload refused 401 bad key pair, Edge draft pending`。商店拒絕及其修正也寫在這裡，下次提交就不會重蹈覆轍。
+
+## 每個商店讀取什麼
+
+`sync-listing` 把下列欄位送給各商店，並回答哪些有變化、商店資訊還缺什麼。超出上限或格式不符合商店要求（地址、http 或 https URL）的欄位，會連同需要修改的 `STORE.md` 行一起指出。
+
+| `STORE.md` 行                    | Chrome | Firefox | Edge | Safari | 上限                       |
+| -------------------------------- | ------ | ------- | ---- | ------ | -------------------------- |
+| `- Name:`                        | 是     | 是      | 是   | 是     | 100 個字元                 |
+| `- Summary:`                     | 是     | 是      | 是   | 是     | 250（Chrome 顯示 132）     |
+| `- Description:`                 | 是     | 是      | 是   | 是     | 16,000 個字元              |
+| `- Category:`                    | 是     | 是      | 是   | 是     | 每個商店 5 個              |
+| `- Search terms:`                |        |         | 是   |        | 16 個詞（Edge 接受 7 個）  |
+| `- Support email:`               | 是     | 是      | 是   | 是     | 一個地址，200              |
+| `- Privacy policy URL:`          | 是     | 是      | 是   | 是     | 一個 http 或 https URL     |
+| `- Homepage:`                    | 是     | 是      | 是   | 是     | 一個 http 或 https URL     |
+| `- License:`                     |        | 是      |      |        | 100 個字元                 |
+| `### Single purpose`             | 是     |         |      |        | 1,000 個字元               |
+| `### Permissions justification`  | 是     |         |      |        | 50 項，每項 1,000          |
+| `### Reviewer notes`             |        | 是      |      |        | 8,000 個字元               |
+| `### Release notes`              |        | 是      |      |        | 8,000 個字元               |
+| `### Certification notes`        |        |         | 是   |        | 8,000 個字元               |
+
+推送到 Safari 時還會從 Safari 小節讀取副標題、Bundle 識別碼、審查聯絡人、版本說明和年齡分級清單項目。Chrome Web Store 小節與代理工具期望在 `CHROMEWEBSTORE.md` 檔案裡找到的小節一致，所以尋找這些小節的代理可以在這裡找到它們。
+
+## 範本中的初始檔案
+
+每個 Extension.js 範本都附有一個依據自身 manifest 產生的初始 `STORE.md`：每個權限、主機權限和內容腳本比對各有一個 `TODO reason` 清單項目，Firefox 資料收集行從 manifest 讀取，其餘事實都標為 `TODO`。`extension create` 會把專案名稱寫到 `Name` 行，把建立日期寫到 `Last updated:`。從範本建立專案，第一個提交裡就已具備這套慣例：
 
 ```bash
 npx extension@latest create my-extension --template react
 ```
 
-## 保持內容最新
+## 保持最新
 
-在讓它過期的同一個改動裡更新 `STORE.md`：
+在讓 `STORE.md` 過時的同一次變更裡更新它：
 
-- **manifest 變了**（`permissions`、`host_permissions`、`content_scripts`）：重新檢查每條權限說明。每個權限都需要具體、直白的理由。「擴充功能運作需要」在每個商店都過不了審。
-- **使用者可見行為變了**：更新商店文案並刷新最後更新日期。
-- **發佈新版本**：追加版本歷史條目並重寫版本說明。
-- **資料處理變了**：同時更新隱私小節、它連結的隱私權政策，以及 manifest 中 Firefox 的 `data_collection_permissions` 宣告。三者必須一致。必填的 manifest 鍵參見 [Firefox 商店審核的資料收集權限](/zh-Hant/docs/features/multi-platform-builds#firefox-商店審核的資料收集權限)。
-- **被商店拒絕**：在版本歷史中記錄原因與修復方式，下次提交不再重蹈覆轍。
+- **manifest 變了**（`permissions`、`host_permissions`、`content_scripts`）：為每一項新增或重新檢視說明清單項目。每個權限都需要一個具體、直白的理由。「擴充功能運作所需」在所有商店都過不了審查。
+- **面向使用者的行為變了**：更新商店文案和螢幕截圖。
+- **新版本**：新增一行版本歷史，並重寫 Firefox 和 App Store 的版本說明。
+- **資料處理方式變了**：同時更新隱私小節、它連結的政策，以及 manifest 中 Firefox 的 `data_collection_permissions` 宣告。三者必須一致。
+- **商店拒絕**：在版本歷史裡記下原因和修正，下次提交就不會重蹈覆轍。
 
-## 衛生守則
+## 衛生習慣
 
-- 把檔案納入 git。它是專案的一部分，不是草稿。
-- 別把它打進擴充功能 zip。正式建置只打包 `dist/<browser>/`，根目錄的 `STORE.md` 永遠不會隨擴充功能發佈。
-- 絕不放真實使用者憑證。審查用測試帳號從設計上就應該是一次性的。
+- 用 git 追蹤這個檔案。它是專案的一部分，不是草稿。
+- 不要把它打包進擴充功能 zip。正式建置只打包 `dist/<browser>/`，所以根目錄下的 `STORE.md` 永遠不會送到使用者手上。
+- 永遠不要在裡面放真實使用者的憑證。審查用的測試帳號本來就是拋棄式的。
