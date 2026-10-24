@@ -33,6 +33,8 @@ A `preview` with no build loads the source folder and still writes its contract 
 
 `status: "ready"` means compiled, nothing more. The browser may still be launching, and the service worker may not be connected yet.
 
+The `ready` line on stdout is a stricter claim in a Chromium `dev` session: the launcher prints it only once the runtime inside the extension has connected (`executorAttachedAt`). When the browser is up and nothing connects within 15 s, the launcher prints what it is waiting on instead, stamps `browserUpNotAttachedAt` with a hint, and prints `ready` the moment the attach lands.
+
 Act tooling (`eval`, `storage`, `reload`, `open`, `inspect`) needs the second phase. Wait until the contract carries `runtime: "attached"` and an `executorAttachedAt` timestamp before you drive the extension.
 
 The attach stamp is idempotent and survives recompiles. An attach also clears any earlier `extension_load_refused` state, because the executor runs inside the guest.
@@ -75,6 +77,10 @@ Fields that appear when known:
 | `rdpPort`          | number   | Gecko launches: the RDP debugger-server port, stamped post-launch.               |
 | `cdpFaultCode`     | string   | Chromium `dev` sessions: stamped when the CDP wire failed after the browser came up, with one of the debug protocol codes such as `E_CDP_TIMEOUT` or `E_CDP_NOT_CONNECTED`. The session stays `ready` because the browser is up, but reload and HMR cannot attach until the fault is fixed. Preserved across recompiles of the same run. |
 | `cdpFaultMessage`  | string   | The plain line beside `cdpFaultCode`. The `ready` frame under `--output json` carries the same fault on `warnings` as `E_CDP_...: message`. |
+| `browserUpNotAttachedAt` | ISO string | Chromium `dev` sessions: stamped when the browser process is up and the extension compiled, but the runtime inside the extension has not connected to the control bridge within the launcher's grace period (15 s). The status stays `ready`, and the `ready` line on stdout is held back until the attach. Cleared by the first attach. |
+| `browserUpNotAttachedWaitMs` | number | How long the launcher waited before stamping `browserUpNotAttachedAt`. |
+| `browserUpNotAttachedHint` | string | The plain sentences beside it: the browser and its pid, the profile path, whether that profile had been run before, and the fresh-profile way out. |
+| `profileReused` | boolean | Chromium launches: whether a browser had already run with the profile directory before this launch. A reused profile is the usual reason a browser comes up with nothing attached. |
 | `profilePath`      | string   | The resolved profile directory. Ephemeral profile names are generated, so read them here. |
 | `binary`           | string   | Absolute path to the browser binary this session actually launched. Stamped for every run, including the ones that did not name a binary: those are the runs where the resolver chose for you and the path is not otherwise visible. |
 | `binaryProvenance` | string   | How that binary was chosen: `managed` (the Extension.js cache), `pinned` (`--chromium-binary`), `system` (an installed browser), or `snapshot` (a cached dev-channel build). |

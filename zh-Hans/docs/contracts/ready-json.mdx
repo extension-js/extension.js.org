@@ -75,6 +75,10 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `rdpPort`            | number         | Gecko 启动时：RDP debugger-server 端口，在启动之后盖章。                                                                                                           |
 | `cdpFaultCode`       | string         | Chromium 的 `dev` 会话：浏览器起来之后 CDP 连线失败时盖上，值是调试协议错误码之一，例如 `E_CDP_TIMEOUT` 或 `E_CDP_NOT_CONNECTED`。因为浏览器在运行，会话保持 `ready`，但在故障修复前 reload 和 HMR 无法接上。同一次运行跨重新编译保留。 |
 | `cdpFaultMessage`    | string         | 与 `cdpFaultCode` 并列的一行纯文本。`--output json` 下的 `ready` 帧会把同一故障放在 `warnings` 里，形式为 `E_CDP_...: message`。 |
+| `browserUpNotAttachedAt` | ISO 字符串 | Chromium `dev` 会话：浏览器进程已启动且扩展已编译，但扩展内部的运行时在启动器的宽限期（15 秒）内没有连接到控制桥时写入。状态保持 `ready`，stdout 上的 `ready` 行会推迟到连接建立后再打印。首次连接后清除。 |
+| `browserUpNotAttachedWaitMs` | number | 启动器在写入 `browserUpNotAttachedAt` 之前等待的毫秒数。 |
+| `browserUpNotAttachedHint` | string | 并列的纯文本说明：浏览器及其 pid、配置目录路径、该目录此前是否被运行过，以及改用全新配置目录的做法。 |
+| `profileReused` | boolean | Chromium 启动：此次启动之前是否已有浏览器用过该配置目录。被复用的配置目录是浏览器启动后却没有任何连接的常见原因。 |
 | `profilePath`        | string         | 解析出来的配置文件目录。临时配置文件的名字是生成的，所以要从这里读。                                                                                               |
 | `binary`             | string         | 这个会话实际启动的浏览器二进制文件的绝对路径。每次运行都会盖章，包括那些没有指定二进制文件的运行：恰恰是在那些运行里，解析器替你做了选择，而这个路径在别处看不到。 |
 | `binaryProvenance`   | string         | 这个二进制是怎么选出来的：`managed`（Extension.js 的缓存）、`pinned`（`--chromium-binary`）、`system`（已安装的浏览器）或 `snapshot`（缓存的 dev 频道构建）。      |
