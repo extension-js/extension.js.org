@@ -1,6 +1,6 @@
 ---
 title: "Store metadata in one STORE.md file"
-description: "Keep listing copy, permission justifications, privacy disclosures, and reviewer notes for Chrome, Firefox, and Edge in one tracked STORE.md file."
+description: "Keep listing copy, permission justifications, privacy disclosures, and reviewer notes for Chrome, Firefox, Edge, and Safari in one tracked STORE.md file that store tooling reads."
 keywords:
   [
     "browser",
@@ -11,14 +11,17 @@ keywords:
     "chrome web store",
     "firefox add-ons",
     "edge add-ons",
+    "app store",
+    "safari",
     "permissions justification",
     "reviewer notes",
+    "sync-listing",
   ]
 ---
 
 A cross-browser extension submits to several stores, and every store asks for the same paperwork: listing copy, permission justifications, privacy disclosures, reviewer notes, and release notes. The `STORE.md` convention puts all of it in one tracked file at the project root, so a resubmission never reinvents it.
 
-The file has a second job. Deployment tooling that supports the convention reads it at submission time and attaches the fields each store API accepts. Everything else stays a copy-paste reference for the store dashboards.
+The file has a second job. Store tooling that supports the convention reads it at submission time: the extension.dev MCP tool `extension_submit sync-listing` fills the Chrome Web Store, Firefox Add-ons, Edge Add-ons, and Mac App Store listings from it, and its store preflights check it. What a store takes only on its own dashboard (Chrome promo tiles and data-use answers, the Edge logo, tiles, and properties, Apple's App Privacy and age rating) stays by hand, and the file lists those items under each store so you see the whole list once instead of one failed check at a time.
 
 <Note>
   [extension.dev](https://docs.extension.dev?utm_source=extension-js-org&utm_medium=sponsor&utm_campaign=docs-callout-store-metadata),
@@ -32,75 +35,201 @@ Author `STORE.md` before the first submission, at the moment publishing intent a
 
 ## Structure
 
-One `##` section per store, with shared material above the store sections. Store sections match by heading text, so `## Firefox Add-ons`, `## firefox-amo`, and `## AMO` all work. The same applies to Chrome and Edge.
+Shared material comes first (`## Listing`, then `## Privacy and data use`), then one `##` section per store, then `## Version history`. Store sections match by heading text, so `## Firefox Add-ons`, `## firefox-amo`, and `## AMO` all work. The same applies to Chrome, Edge, and Safari (`## Safari (Mac App Store)`).
+
+Three reading rules shape every line:
+
+- A value that still starts with `TODO` is skipped, never sent. The file shows what is missing and never invents listing copy.
+- A bullet keeps its continuation lines only while they stay indented. A paragraph that starts at column 0 ends the bullet.
+- HTML comments carry each field's format and limits. The readers strip them.
 
 ```markdown
 # Store metadata
 
-Last updated: 2026-07-20
+Last updated: 2026-10-24
 
 ## Listing
 
-Name, one-line summary, long description, category, screenshot list.
-Write user benefits, not implementation.
+- Name: PII Shield
+- Summary: Hide personal information on every open tab with one click.
+- Subtitle: TODO a 30 character App Store subtitle
+- Description:
+
+  Sharing your screen? Click PII Shield and names are blurred
+  on every open tab.
+
+  Detection happens on your computer.
+
+- Category: Productivity (Chrome Web Store, Firefox Add-ons, Edge Add-ons), Utilities (App Store)
+- Language: en
+- License: MIT
+- Support email: help@example.com
+- Homepage: https://example.com
+- Search terms: privacy, screen sharing, blur
+- Screenshots:
+  1. screenshots/01-popup.png
+  2. screenshots/02-options.png
 
 ## Privacy and data use
 
-What is collected, stored, or transmitted, and the privacy policy URL.
-This section must match what the code does and what the manifest's
-Firefox data_collection_permissions key declares.
+- Privacy policy URL: https://example.com/privacy
+- Data collected: none
+- Firefox data collection: none
 
 ## Chrome Web Store
 
-### Permissions justification
-
-- tabs: reads the current tab URL to show per-site settings.
-- storage: persists user preferences locally.
-
 ### Single purpose
 
-One sentence that states the extension's single purpose.
+Hide personal information on the pages the user has open, on demand.
+
+### Permissions justification
+
+- storage: Remembers whether the shield is on.
+- Host permission <all_urls>: TODO reason
+
+Remote code: none. Every script ships inside the package.
+
+### Test instructions
+
+Click the toolbar button, then open any page.
 
 ## Firefox Add-ons
 
 ### Reviewer notes
 
-Test credentials and the steps a reviewer needs to exercise the
-extension. Include build-from-source instructions when the upload
-is bundled; AMO requires a source zip in that case.
+Click the toolbar button to turn the shield on. Build from source
+with Node 22.12.0 and npm 10.9.0: npm install, then
+npx extension build --browser firefox. The upload is dist/firefox.
 
 ### Release notes
 
-User-facing notes for this version.
+First release.
 
 ## Edge Add-ons
 
 ### Certification notes
 
-Anything the certification team needs to test the extension.
+Click the toolbar button to turn the shield on.
+
+### Dashboard checklist
+
+- Store logo, 300x300 PNG.
+- Promo tiles, 440x280 and 1400x560.
+- Properties page: personal information and mature content answers.
+- Privacy page: the nine data categories and three certifications.
+
+## Safari (Mac App Store)
+
+- Bundle identifier: com.example.pii-shield
+- Review contact name: TODO
+- Review contact email: TODO
+- Review contact phone: TODO
+
+### Reviewer notes
+
+Open Safari, choose Safari, Settings, Extensions, then turn the extension on.
+
+### Release notes
+
+First release.
+
+### Age rating
+
+- Violence, mature themes, profanity, horror, medical or drug references, gambling, contests: none
+- Parental controls, age assurance: none
+- Unrestricted web access: none
+- User generated content, social media, messaging: none
+- Advertising: none
+- Loot boxes or similar in-app purchases: none
 
 ## Version history
 
-- 1.2.0 (2026-07-20): added per-site settings. Submitted to all stores.
-- 1.1.0 (2026-07-01): rejected on AMO for a vague tabs justification.
-  Fixed by naming the exact data the extension reads.
+- 0.1.0: Chrome draft uploaded 2026-10-21, AMO upload refused 401 bad key pair, Edge draft pending
 ```
+
+## Listing
+
+Every line was learned from a failed check or a store refusal, so each one has a format.
+
+| Line               | Format and limit                                                                                                                                                                                                                                                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `- Name:`          | The store title, 100 characters at most on every store.                                                                                                                                                                                                                                                                                                         |
+| `- Summary:`       | Chrome's summary, 132 characters at most. The App Store takes it as the subtitle only when it fits 30.                                                                                                                                                                                                                                                         |
+| `- Subtitle:`      | The App Store subtitle, 30 characters at most. Without it the Safari push leaves the field empty.                                                                                                                                                                                                                                                               |
+| `- Description:`   | Indented paragraphs under the bullet, 16,000 characters at most. Write user benefits, not implementation.                                                                                                                                                                                                                                                       |
+| `- Category:`      | One category per store, with the store names in parentheses, which stay out of the value. One of them must be an App Store category (Productivity or Utilities): Apple refuses an upload without a primary category. A single category with no store note applies to every store.                                                                               |
+| `- Language:`      | The listing language, `en` unless the manifest sets `default_locale`.                                                                                                                                                                                                                                                                                           |
+| `- License:`       | A bare SPDX identifier. `MIT.` with a trailing period once reached AMO as the license.                                                                                                                                                                                                                                                                          |
+| `- Support email:` | One address. A trailing note in parentheses stays out of the value.                                                                                                                                                                                                                                                                                             |
+| `- Homepage:`      | One http or https URL. A trailing note in parentheses stays out of the value.                                                                                                                                                                                                                                                                                   |
+| `- Search terms:`  | A comma list. Edge takes at most 7 terms and 21 words in all, and Safari keywords are 100 characters in all.                                                                                                                                                                                                                                                    |
+| `- Screenshots:`   | One PNG path per numbered line under the bullet, relative to the project: these are the files that `sync-listing` uploads. Chrome takes 1280x800 or 640x400, Edge 1280x800 or 640x480, and the App Store exactly 1280x800, 1440x900, 2560x1600, or 2880x1800 in RGB without alpha, showing the extension in real Safari. Chrome and Edge also show 440x280 and 1400x560 promo tiles. |
+
+## Privacy and data use
+
+- `- Privacy policy URL:` lives here and only here. The readers take the first http or https address on that line, so leave no sample address in a `TODO`. Apple requires a policy on every app, and Chrome and Edge require one once any data is handled.
+- `- Data collected:` names every kind of data that the extension collects, stores, or sends, or `none`. Chrome (data-usage checkboxes and three certifications), Edge (nine data categories and three certifications), and Apple (App Privacy, "Data Not Collected") each ask the same question again on their dashboards, and this line is the answer sheet.
+- `- Firefox data collection:` mirrors `browser_specific_settings.gecko.data_collection_permissions` in the manifest. AMO reads the manifest, so the two must agree. See [Firefox store readiness](/docs/features/multi-platform-builds#firefox-store-readiness-data-collection-permissions) for the mandatory key.
+
+## Store sections
+
+### Chrome Web Store
+
+- `### Single purpose`: one sentence, 1,000 characters at most.
+- `### Permissions justification`: one bullet per permission, host permission, and content script match that the manifest requests. The text before the colon is the permission, the text after it is the reason, and a reason that still starts with `TODO` is not sent. A plain line states the remote code answer (`Remote code: none`). Edge's Privacy page asks the same questions field by field and takes the same text.
+- `### Test instructions`: the steps a reviewer follows, with test credentials when sign-in is required.
+
+### Firefox Add-ons
+
+- `### Reviewer notes`: the test steps, then the exact toolchain a reviewer rebuilds with: the Node and npm versions, the install and build commands, and the output folder. Mozilla wants a reproducible build for a bundled package. With the Firefox source archive setting on, the platform attaches the repository at the built commit, so no separate source zip is uploaded.
+- `### Release notes`: real notes for this version. A pointer to another section reaches AMO verbatim.
+
+### Edge Add-ons
+
+- `### Certification notes`: what the certification team needs to test the extension. The Firefox reviewer notes fit here in most cases: paste them rather than pointing at them.
+- The package may hold no compressed file. Partner Center refuses any `.gz`, `.zip`, or other archive inside it, so vendor such assets uncompressed.
+- `### Dashboard checklist`: what the Publish API cannot set, typed once on Partner Center: the 300x300 store logo, the 440x280 and 1400x560 promo tiles, the Properties-page answers on personal information and mature content, the Privacy-page categories and certifications, and an optional YouTube URL.
+
+### Safari (Mac App Store)
+
+- `- Bundle identifier:` is permanent once the first build reaches App Store Connect.
+- `- Review contact name:`, `- Review contact email:`, and `- Review contact phone:` are the App Review contact.
+- `### Reviewer notes`: how to turn the extension on in Safari Settings, plus test credentials.
+- `### Release notes`: "What's New", required from the second version on.
+- `### Age rating`: one bullet per question with `none` unless stated. Apple's questionnaire also asks about parental controls, age assurance, unrestricted web access, user generated content, social media, messaging, advertising, and loot boxes, and the push sends the full set.
+- App Privacy, and today the age rating and the availability in all 175 territories as well, are confirmed by hand in App Store Connect.
+- Run the converted app locally with `npx extension build --browser safari --bundle-id <id> --development-team <TEAM>`. An ad-hoc build without a team stops answering after Safari relaunches.
+
+### Version history
+
+One line per version and store attempt with its outcome, newest first: `0.1.0: Chrome draft uploaded 2026-10-21, AMO upload refused 401 bad key pair, Edge draft pending`. A store rejection goes here with its fix, so the next submission does not repeat it.
 
 ## What each store reads
 
-The Firefox and Edge submission APIs accept reviewer-facing notes, so tooling that supports `STORE.md` can send them for you:
+`sync-listing` sends each store the fields below and answers with what changed and what the listing still lacks. A field that is over its limit, or not the shape the store takes (an address, an http or https URL), is named with the `STORE.md` line to fix.
 
-| Store section | `###` field         | Sent as                 |
-| ------------- | ------------------- | ----------------------- |
-| Firefox       | Reviewer notes      | AMO `approval_notes`    |
-| Firefox       | Release notes       | AMO `release_notes`     |
-| Edge          | Certification notes | Edge submission `notes` |
+| `STORE.md` line                  | Chrome | Firefox | Edge | Safari | Limit                      |
+| -------------------------------- | ------ | ------- | ---- | ------ | -------------------------- |
+| `- Name:`                        | yes    | yes     | yes  | yes    | 100 characters             |
+| `- Summary:`                     | yes    | yes     | yes  | yes    | 250 (Chrome shows 132)     |
+| `- Description:`                 | yes    | yes     | yes  | yes    | 16,000 characters          |
+| `- Category:`                    | yes    | yes     | yes  | yes    | 5 per store                |
+| `- Search terms:`                |        |         | yes  |        | 16 terms (Edge takes 7)    |
+| `- Support email:`               | yes    | yes     | yes  | yes    | one address, 200           |
+| `- Privacy policy URL:`          | yes    | yes     | yes  | yes    | one http or https URL      |
+| `- Homepage:`                    | yes    | yes     | yes  | yes    | one http or https URL      |
+| `- License:`                     |        | yes     |      |        | 100 characters             |
+| `### Single purpose`             | yes    |         |      |        | 1,000 characters           |
+| `### Permissions justification`  | yes    |         |      |        | 50 bullets, 1,000 each     |
+| `### Reviewer notes`             |        | yes     |      |        | 8,000 characters           |
+| `### Release notes`              |        | yes     |      |        | 8,000 characters           |
+| `### Certification notes`        |        |         | yes  |        | 8,000 characters           |
 
-The Chrome Web Store accepts no listing metadata over its API, so the whole Chrome section is a reference for the developer dashboard. Its shape mirrors the sections agent tooling expects from a `CHROMEWEBSTORE.md` file, so an agent that looks for those sections finds them here.
+The Safari push also takes the subtitle, the bundle identifier, the review contact, the release notes, and the age rating bullets from the Safari section. The Chrome Web Store section mirrors the sections that agent tooling expects from a `CHROMEWEBSTORE.md` file, so an agent that looks for those sections finds them here.
 
 ## Starter files in the templates
 
-Every Extension.js template ships a starter `STORE.md` generated from its own manifest. The permission justifications already match the permissions the template requests, and the placeholder lines are marked `TODO`. Create a project from a template and the convention is in place from the first commit:
+Every Extension.js template ships a starter `STORE.md` generated from its own manifest: one `TODO reason` bullet per permission, host permission, and content script match, the Firefox data collection line read from the manifest, and every other fact marked `TODO`. `extension create` writes the project name on the `Name` line and the scaffold date on `Last updated:`. Create a project from a template and the convention is in place from the first commit:
 
 ```bash
 npx extension@latest create my-extension --template react
@@ -110,10 +239,10 @@ npx extension@latest create my-extension --template react
 
 Update `STORE.md` in the same change that makes it stale:
 
-- **Manifest changed** (`permissions`, `host_permissions`, `content_scripts`): revisit every justification. Each permission needs a specific, plain-English reason. "Needed for the extension to work" fails review on every store.
-- **User-facing behavior changed**: refresh the listing copy and bump the last-updated date.
-- **New release**: add a version history entry and rewrite the release notes.
-- **Data handling changed**: update the privacy section, the policy it links to, and the manifest's Firefox `data_collection_permissions` declaration together. The three must agree. See [Firefox store readiness](/docs/features/multi-platform-builds#firefox-store-readiness-data-collection-permissions) for the mandatory manifest key.
+- **Manifest changed** (`permissions`, `host_permissions`, `content_scripts`): add or revisit the justification bullet for each entry. Each permission needs a specific, plain-English reason. "Needed for the extension to work" fails review on every store.
+- **User-facing behavior changed**: refresh the listing copy and the screenshots.
+- **New release**: add a version history line and rewrite the Firefox and App Store release notes.
+- **Data handling changed**: update the privacy section, the policy it links to, and the manifest's Firefox `data_collection_permissions` declaration together. The three must agree.
 - **Store rejection**: record the reason and the fix in version history, so the next submission does not repeat it.
 
 ## Hygiene
