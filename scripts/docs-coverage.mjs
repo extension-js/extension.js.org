@@ -481,6 +481,37 @@ function countByKind(findings) {
 
 // Names what moved between the committed ledger and a fresh build, page by
 // page, so a stale failure says which page to look at instead of just "stale".
+// Word counts move with every copy edit, including the ones the docs editor
+// merges without running the generator, and they carry no review state. So a
+// ledger that differs only in them is reported, not failed: every page still
+// has its records and no claim, command, flag or finding moved.
+export function describeWordDrift(committedText, fresh) {
+  let committed;
+
+  try {
+    committed = JSON.parse(committedText);
+  } catch {
+    return [];
+  }
+
+  const freshWords = new Map(fresh.pages.map((p) => [p.page, p.words]));
+
+  return (committed.pages || [])
+    .filter((p) => freshWords.has(p.page) && freshWords.get(p.page) !== p.words)
+    .map((p) => `${p.page}: words ${p.words} -> ${freshWords.get(p.page)}`);
+}
+
+function withFreshWords(committed, fresh) {
+  const freshWords = new Map(fresh.pages.map((p) => [p.page, p.words]));
+
+  return {
+    ...committed,
+    pages: (committed.pages || []).map((p) =>
+      freshWords.has(p.page) ? { ...p, words: freshWords.get(p.page) } : p,
+    ),
+  };
+}
+
 export function describeLedgerDrift(committedText, fresh) {
   if (committedText === serializeLedger(fresh)) return [];
 
@@ -490,6 +521,13 @@ export function describeLedgerDrift(committedText, fresh) {
     committed = JSON.parse(committedText);
   } catch {
     return ["committed ledger is not valid JSON"];
+  }
+
+  // Only word counts differ: not stale in any way the gate guards.
+  if (
+    serializeLedger(withFreshWords(committed, fresh)) === serializeLedger(fresh)
+  ) {
+    return [];
   }
 
   const lines = [];
@@ -507,7 +545,9 @@ export function describeLedgerDrift(committedText, fresh) {
     }
 
     const changed = Object.keys(page).filter(
-      (key) => JSON.stringify(page[key]) !== JSON.stringify(previous[key]),
+      (key) =>
+        key !== "words" &&
+        JSON.stringify(page[key]) !== JSON.stringify(previous[key]),
     );
 
     if (changed.length) {
@@ -590,6 +630,7 @@ export function main(
   if (!assert) return 0;
 
   let failed = false;
+  let wordDrift = [];
   const missing = ledger.pages.filter((p) => !p.laneB).map((p) => p.page);
   const blocking = ledger.laneAFindings.filter(
     (f) => f.kind === "omitted-caveat" || f.kind === "caveat-page-missing",
@@ -619,10 +660,10 @@ export function main(
       `\n✖ ${relativeLedger} does not exist: run pnpm docs:coverage and commit it`,
     );
   } else {
-    const drift = describeLedgerDrift(
-      readFileSync(ledgerPath, "utf-8"),
-      ledger,
-    );
+    const committedText = readFileSync(ledgerPath, "utf-8");
+    const drift = describeLedgerDrift(committedText, ledger);
+
+    if (!drift.length) wordDrift = describeWordDrift(committedText, ledger);
 
     if (drift.length) {
       failed = true;
@@ -639,7 +680,19 @@ export function main(
   if (failed) return 1;
 
   log("\n✔ every page carries a lane A and lane B review record");
-  log(`✔ ${relativeLedger} matches a fresh build`);
+
+  if (wordDrift.length) {
+    log(`✔ ${relativeLedger} matches a fresh build apart from word counts`);
+    log(
+      `⚠ word counts moved on ${wordDrift.length} page(s), not blocking: run pnpm docs:coverage to refresh them`,
+    );
+
+    for (const line of wordDrift.slice(0, 20)) log(`  ${line}`);
+
+    if (wordDrift.length > 20) log(`  ... and ${wordDrift.length - 20} more`);
+  } else {
+    log(`✔ ${relativeLedger} matches a fresh build`);
+  }
 
   return 0;
 }

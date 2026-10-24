@@ -72,7 +72,7 @@ describe("docs coverage script modes", () => {
   it("assert mode fails on a stale ledger without rewriting it", () => {
     const ledger = buildLedger();
     const first = ledger.pages[0];
-    first.words += 1;
+    first.claims += 1;
     const stale = serializeLedger(ledger);
     mkdirSync(dirname(ledgerPath), { recursive: true });
     writeFileSync(ledgerPath, stale);
@@ -81,8 +81,43 @@ describe("docs coverage script modes", () => {
 
     expect(code).toBe(1);
     expect(stderr).toContain("is stale: run pnpm docs:coverage");
-    expect(stderr).toContain(`${first.page}: words ${first.words} -> `);
+    expect(stderr).toContain(`${first.page}: claims ${first.claims} -> `);
     expect(readFileSync(ledgerPath, "utf-8")).toBe(stale);
+  });
+
+  it("assert mode only warns when word counts are the one drift", () => {
+    const ledger = buildLedger();
+    const first = ledger.pages[0];
+    const second = ledger.pages[1];
+    first.words += 1;
+    second.words += 7;
+    const drifted = serializeLedger(ledger);
+    mkdirSync(dirname(ledgerPath), { recursive: true });
+    writeFileSync(ledgerPath, drifted);
+
+    const { code, stdout, stderr } = runScript(["--assert"], ledgerPath);
+
+    expect(code).toBe(0);
+    expect(stderr).toBe("");
+    expect(stdout).toContain("matches a fresh build apart from word counts");
+    expect(stdout).toContain("word counts moved on 2 page(s), not blocking");
+    expect(stdout).toContain(`${first.page}: words ${first.words} -> `);
+    expect(readFileSync(ledgerPath, "utf-8")).toBe(drifted);
+  });
+
+  it("assert mode still fails when word counts move beside a real drift", () => {
+    const ledger = buildLedger();
+    const first = ledger.pages[0];
+    first.words += 1;
+    first.flags += 1;
+    mkdirSync(dirname(ledgerPath), { recursive: true });
+    writeFileSync(ledgerPath, serializeLedger(ledger));
+
+    const { code, stderr } = runScript(["--assert"], ledgerPath);
+
+    expect(code).toBe(1);
+    expect(stderr).toContain(`${first.page}: flags ${first.flags} -> `);
+    expect(stderr).not.toContain("words");
   });
 
   it("assert mode fails when the ledger is missing", () => {
