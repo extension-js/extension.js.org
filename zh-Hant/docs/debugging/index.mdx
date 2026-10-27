@@ -166,6 +166,12 @@ Extension.js 透過**瀏覽器內的伴隨程式**進行除錯，而非 Chrome D
 - **網頁無法連線。** 控制 socket 會拒絕帶有網頁來源（`http://`、`https://` 或 `null`）的交握，因此瀏覽器中開啟的網站無法連到它。
 - **絕不會進入正式環境。** 控制通道只在 `dev`/`preview` 期間存在，且綁定在已建置產物中不存在的連接埠上。
 
+### 工作階段在瀏覽器裡觸及什麼
+
+開發瀏覽器會開啟一個僅供 Extension.js 程序使用的遠端偵錯連接埠。工作階段透過它只附加到你擴充功能自己的目標：背景 worker，以及在 `--logs` 下的 popup、options 和 sidebar 頁面。它從不附加到網站的頁面或 service worker，所以網站開啟的彈出視窗（例如登入視窗）在你偵錯時照常運作。
+
+有些網站仍會把任何帶偵錯連接埠的瀏覽器視為自動化。即使是真人操作，長按驗證等機器人檢查在開發瀏覽器裡也可能永遠通不過。要測試這類流程，請執行 `extension build`，然後在 `chrome://extensions` 開啟開發人員模式，把 `dist/<browser>` 載入你日常使用的瀏覽器。
+
 ## 搭配 AI agent
 
 贊助 Extension.js 的平台 extension.dev 提供一個 MCP 伺服器，把這些操作以工具的形式提供給 agent。限制完全相同：助理可以自由觀察，但只有在你為該 session 啟用後才能執行動作。請見 [extension.dev MCP 伺服器](/zh-Hant/docs/integrations/extension-mcp)。

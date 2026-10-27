@@ -166,6 +166,12 @@ The gates are intentional, not bureaucratic:
 - **Web pages can't connect.** The control socket refuses a handshake that carries a web page origin (`http://`, `https://`, or `null`), so a site open in the browser can't reach it.
 - **Nothing reaches production.** The control channel exists only during `dev`/`preview`; it's gated on a port that isn't present in a built bundle.
 
+### What the session touches in the browser
+
+The dev browser runs with a remote debugging port that only the Extension.js process uses. Over it, the session attaches to your extension's own targets: the background worker, and with `--logs` its popup, options, and sidebar pages. It never attaches to a website's page or service worker, so a pop-up a site opens (a sign-in window, for example) keeps working while you debug.
+
+Some sites still treat any browser with a debugging port as automation. A press-and-hold or similar bot check may never pass in the dev browser even for a real person. To test those flows, run `extension build`, then load `dist/<browser>` in your everyday browser from `chrome://extensions` with developer mode on.
+
 ## With an AI agent
 
 extension.dev, the platform that sponsors Extension.js, ships an MCP server that exposes these operations to an agent as tools. The gates are identical: an assistant observes freely but only acts when you have enabled it for the session. See [extension.dev MCP server](/docs/integrations/extension-mcp).
