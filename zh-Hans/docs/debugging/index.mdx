@@ -166,6 +166,12 @@ Extension.js 通过**浏览器内伴侣进程**进行调试，而不是 Chrome D
 - **网页无法连接。** 控制 socket 会拒绝带有网页来源（`http://`、`https://` 或 `null`）的握手，因此浏览器中打开的网站无法访问它。
 - **任何东西都不会进入生产环境。** 控制通道只在 `dev` / `preview` 期间存在；它依赖一个不会出现在打包产物中的端口。
 
+### 会话在浏览器里触及什么
+
+开发浏览器会打开一个仅供 Extension.js 进程使用的远程调试端口。会话通过它只附加到你扩展自己的目标：后台 worker，以及在 `--logs` 下的 popup、options 和 sidebar 页面。它从不附加到网站的页面或 service worker，所以网站打开的弹窗（例如登录窗口）在你调试时照常工作。
+
+有些网站仍会把任何带调试端口的浏览器视为自动化。即使是真人操作，长按验证等机器人检查在开发浏览器里也可能永远通不过。要测试这类流程，请运行 `extension build`，然后在 `chrome://extensions` 开启开发者模式，把 `dist/<browser>` 加载到你日常使用的浏览器里。
+
 ## 配合 AI agent
 
 赞助 Extension.js 的平台 extension.dev 提供一个 MCP 服务器，把这些操作以工具的形式暴露给 agent。门控完全一致：助手可以自由地观察，但只有在你为本次会话启用后才能执行操作。参见 [extension.dev MCP 服务器](/zh-Hans/docs/integrations/extension-mcp)。
