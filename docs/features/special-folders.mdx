@@ -206,6 +206,28 @@ Extension.js detects two Node.js indicators and leaves the file out of the build
 
 For dynamic injection examples, see the [Chrome Scripting Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/scripting).
 
+## Development-only entries
+
+A page or script whose name carries `.dev.` before its extension is a development-only entry. This convention needs the release after 4.1.36. `extension dev` compiles it like any other file in its folder. A production build (`extension build`, `extension start`) leaves it out: no HTML, no chunk, and nothing in the generated manifest names it.
+
+```text
+pages/
+├── engine.html          # ships
+├── player.dev.html      # development only
+└── bench/
+    └── parity.dev.html  # development only
+scripts/
+├── content.ts           # ships
+└── bench.dev.ts         # development only
+```
+
+Use it for a test harness page, a model-parity bench, or a script only a developer runs. A harness page can play local footage under the extension's overlay. During development the file keeps its folder's output path, so `chrome.runtime.getURL("pages/player.dev.html")` finds it. The page is not in the production output, so guard that reference in code that ships, for example behind `process.env.NODE_ENV !== "production"`.
+
+- The convention reads the file name only. A folder named `dev/` is a plain folder, and `pages/dev/player.html` ships.
+- `extension build --mode development` is a development compile, so it keeps these entries.
+- A file that is not an entry, such as a `player.dev.css` a page imports, follows the page that imports it.
+- To copy extra files into a build by mode or environment, see [`include` in extension.config.js](/docs/features/extension-configuration#extra-files-in-the-build).
+
 ## `public/`: copy-only static assets
 
 Use `public/` when you need stable file paths and no bundling/transformation.
@@ -265,6 +287,7 @@ This protects the running compilation graph from stale or broken entrypoints.
 
 - **Keep shared runtime assets in `public/`**: Use it for files that must keep exact names and paths in output.
 - **Use `pages/` and `scripts/` for true entrypoints**: Keep off-manifest execution paths explicit.
+- **Name test harness pages `.dev.`**: A `pages/player.dev.html` runs in `extension dev` and never reaches a store build.
 - **Restart dev server after entrypoint changes**: Especially after removing files under `pages/` or `scripts/`.
 - **Keep companion extensions isolated**: Treat `extensions/` as load-only dependencies for local workflows.
 - **Do not place `manifest.json` in `public/`**: Extension.js blocks `public/manifest.json` to protect the generated extension output.

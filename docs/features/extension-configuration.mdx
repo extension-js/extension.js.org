@@ -39,6 +39,7 @@ Top-level keys:
 | `perfBudgets`       | Per-category asset size budgets in bytes, overridable per browser and per command. |
 | `define`            | Compile-time constants inlined into every bundle, overridable per browser and per command. |
 | `folders`           | Where the special folders live, or `false` to turn one off, overridable per browser and per command. |
+| `include`           | Extra files copied into the output, keyed by output path, overridable per browser and per command. |
 | `config`            | Hook to extend/override the generated Rspack config. Receives the target browser, mode, and command. |
 | `configResolved`    | Hook that runs once the Rspack config is final, with every loader rule attached. |
 
@@ -115,6 +116,7 @@ Common browser fields:
 | `perfBudgets`         | Asset budgets for this browser. Outranks the top-level budgets.          |
 | `define`              | Constants for this browser. Adds to the top-level map and overrides the keys it repeats. |
 | `folders`             | Special folder locations for this browser. Replaces the top-level `folders` object. |
+| `include`             | Extra files for this browser's output. Adds to the top-level `include` key by key. |
 
 ### Commands configuration
 
@@ -154,6 +156,7 @@ Notes:
 
 - `extensions`, `transpilePackages`, and `perfBudgets` layer from weakest to strongest on every command: top-level, then `browser.<vendor>`, then `commands.<cmd>`, then a CLI flag.
 - `define` merges key by key across the same layers: top-level, then `browser.<vendor>`, then `commands.<cmd>` on `dev`, `start`, and `build`.
+- `include` merges key by key across the same layers as `define`. A later layer wins an output path both name.
 - `folders` never merges key by key. `browser.<vendor>.folders` replaces the top-level object, and `commands.<cmd>.folders` on `dev`, `start`, and `build` replaces both.
 - `commands.build.browser`, `commands.start.browser`, and `commands.preview.browser` pick the target for those commands. A `--browser` flag still wins.
 - The `start` command runs `build` then `preview` internally. Extension.js applies settings from `commands.start`, including browser-launch options like `profile`, `browserFlags`, and `startingUrl`. You can also put build-specific settings in `commands.build`.
@@ -179,6 +182,7 @@ Notes:
 | `noBrowser`           | `dev`, `start`, `preview`          | Disables browser launch (`commands.<cmd>.noBrowser`).          |
 | `extensions`          | `dev`, `start`, `preview`, `build` | Loads companion extensions (or extension list).                |
 | `folders`             | `dev`, `start`, `build`            | Special folder locations for this command. Replaces the top-level and per-browser `folders`. |
+| `include`             | `dev`, `start`, `build`            | Extra files for this command's output. Adds to the top-level and per-browser `include` key by key. |
 | `install`             | `dev`, `start`, `build`            | Installs missing dependencies before running.                  |
 | `transpilePackages`   | `dev`, `start`, `preview`, `build` | Transpiles listed workspace/external packages.                 |
 
@@ -257,6 +261,39 @@ export default {
 - A moved folder behaves exactly like the default one. Scripts in a moved `scripts` folder get the content script wrapper and reload in place during `dev`, pages in a moved `pages` folder build to the same `pages/` output, and a page, a stylesheet, or the manifest reaches a file in a moved `public` folder by the same root path, such as `/logo.png`.
 - When `public` names a path, Extension.js copies from that folder only.
 - `browser.<vendor>.folders` replaces the top-level object as a whole, and `commands.<cmd>.folders` replaces both. Neither merges key by key.
+
+### Extra files in the build
+
+Use `include` to copy files the bundler does not see into the output. The key needs the release after 4.1.36. Examples are model weights, a ruleset another tool generates, or a data file that lives outside the project. Each key is the output path, relative to the extension root. Each value is the source path, relative to the project root. A folder source copies its whole tree under the output path:
+
+```js
+export default {
+  include: {
+    "models/small.onnx": "./models/small.onnx",
+    "models/exported": "../training/export",
+  },
+};
+```
+
+- The file lands at the output path as is, like a file in `public/`: no hashing, no transform.
+- In `dev`, an edit to the source lands on the next compile.
+- A source that is not there fails the build.
+- An output path that is absolute, climbs out of the extension root, or is `manifest.json` fails the build too.
+- `include` merges key by key: top-level, then `browser.<vendor>.include`, then `commands.dev|start|build.include`.
+- A later layer wins an output path both name, so a build can choose its own file for one path.
+- The config file runs in Node, so choose files per environment with plain code:
+
+```js
+const parity = process.env.PARITY === "1";
+
+export default {
+  include: parity
+    ? { models: "../training/export" }
+    : { "models/small.onnx": "./models/small.onnx" },
+};
+```
+
+To keep a page or a script out of production builds instead, name it `.dev.`, see [development-only entries](/docs/features/special-folders#development-only-entries).
 
 ### Rspack configuration
 
