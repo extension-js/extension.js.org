@@ -103,8 +103,8 @@ Production builds (`build`) emit a **warning** when a bundle exceeds its per-cat
 | Pages / UI (popup, options, sidebar, devtools, new tab) | 1 MiB          | Opened on demand.                                          |
 | Shared chunk                                            | 512 KiB        | Loaded by every page that imports it.                      |
 | Public (code files copied from `public/`)               | 1 MiB          | Shipped as authored, so the fix is at the source file.     |
-| Runtime (code files at the output root)                 | 1 MiB          | Sibling helpers of a wasm core, such as `ffmpeg-core.js`.  |
-| WebAssembly (every `.wasm` file)                        | 32 MiB         | A runtime such as onnxruntime or ffmpeg is one file that cannot be split and is fetched only when its feature runs. |
+| Runtime (code files at the output root, and a `.wasm` file that a content script or the service worker reaches) | 1 MiB | Sibling helpers of a wasm core, such as `ffmpeg-core.js`, and a wasm binary that is fetched on every navigation or cold start. |
+| WebAssembly (a `.wasm` file that only pages and workers reach) | 32 MiB | A runtime such as onnxruntime or ffmpeg is one file that cannot be split and is fetched only when its feature runs. |
 
 Override any category in [`extension.config.js`](/docs/features/extension-configuration) via `perfBudgets` (values in bytes):
 
@@ -118,11 +118,14 @@ export default {
     public: 2 * 1024 * 1024,
     runtime: 8 * 1024 * 1024,
     wasm: 16 * 1024 * 1024,
+    ignore: ["assets/ort-wasm-simd-threaded.asyncify.wasm", "assets/models/**"],
   },
 };
 ```
 
-The `wasm` budget needs the release after 4.1.36. Before it, a `.wasm` file counts against `runtime`.
+`ignore` excuses single assets from every budget. List output paths the way the warning prints them, relative to the build folder. In a pattern, `*` matches inside one folder and `**` crosses folders.
+
+The `wasm` budget, the surface rule, and `ignore` need the release after 4.1.36. Before it, a `.wasm` file counts against `runtime`.
 
 ## Operational checks
 
