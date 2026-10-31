@@ -145,6 +145,18 @@ extension dev [path-or-url] [options]
 
 從 4.1.20 起，Safari 工作階段就是一個完整的 dev 工作階段。你在 Safari 設定中啟用擴充功能之後,`extension logs` 可以讀取它,控制通道會接上,而且每次儲存都會在 Safari 中重新載入擴充功能。請見 [建置 Safari 擴充功能](/zh-Hant/docs/browsers/safari)。
 
+### 模擬的 Chromium
+
+從 4.1.38 起,`--browser=chromium-emulator` 會在一個網頁裡的模擬 Chromium 中執行你的擴充功能,不需要設定任何旗標或環境變數。`dev` 會輸出這個頁面的位址,並在你的預設瀏覽器中開啟它。這個頁面從你本機的開發伺服器讀取建置,所以只有 `dev` 能開啟這個目標,`start` 與 `preview` 會拒絕它。
+
+開啟頁面之前,`dev` 會先檢查引擎的來源(origin)是否有回應。來源沒有回應時,`dev` 會輸出一則警告,而且什麼都不開啟:
+
+```text
+the emulated Chromium origin https://browsers.extension.land did not answer, so there is no page to open. Check your connection, then run extension dev again, or run this project with --browser=chrome.
+```
+
+開發伺服器會繼續執行。`--logs` 對這個目標沒有作用:擴充功能在網頁中執行,所以請在那個頁面上用你瀏覽器的開發者工具讀取它的主控台。
+
 ### 父程序看門狗
 
 `--parent-pid` 是給衍生 `dev` 的 harness 與代理使用的,宿主當掉不會外洩伺服器。它的值必須是正整數,其他任何值都會以 `E_INVALID_OPTION` 結束。看門狗每 2 秒輪詢一次父程序。父程序消失後,dev 伺服器會透過 `SIGTERM` 關閉;如果清理卡住,還有 5 秒的強制結束後備。
