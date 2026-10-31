@@ -154,6 +154,18 @@ For Safari targets, `dev` also runs a toolchain preflight before the first bundl
 
 From 4.1.20, a Safari session is a full dev session. Once you enable the extension in Safari Settings, `extension logs` reads it, the control bridge attaches, and every save reloads the extension in Safari. See [Building Safari extensions](/docs/browsers/safari).
 
+### Emulated Chromium
+
+From 4.1.38, `--browser=chromium-emulator` runs your extension in an emulated Chromium inside a web page, with no flag or environment variable to set. `dev` prints the page address and opens it in your default browser. The page reads your build from the dev server on your machine, so only `dev` opens this target. `start` and `preview` refuse it.
+
+Before it opens the page, `dev` checks that the engine origin answers. When the origin does not answer, `dev` prints one warning and opens nothing:
+
+```text
+the emulated Chromium origin https://browsers.extension.land did not answer, so there is no page to open. Check your connection, then run extension dev again, or run this project with --browser=chrome.
+```
+
+The dev server keeps running. `--logs` has no effect on this target: the extension runs in a web page, so read its console in your browser's devtools on that page.
+
 ### Parent watchdog
 
 `--parent-pid` is for harnesses and agents that spawn `dev`, so a crashed owner cannot leak a server. The value must be a positive integer, anything else exits with `E_INVALID_OPTION`. The watchdog polls the parent process every 2 seconds. When the parent is gone, the dev server shuts down via `SIGTERM`, with a 5 second hard-exit backstop if cleanup wedges.

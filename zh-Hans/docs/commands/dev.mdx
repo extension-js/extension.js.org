@@ -145,6 +145,18 @@ extension dev [path-or-url] [options]
 
 从 4.1.20 起，Safari 会话就是一个完整的 dev 会话。你在 Safari 设置中启用扩展之后，`extension logs` 可以读取它，控制通道会连上，每次保存都会在 Safari 中重载扩展。详见 [构建 Safari 扩展](/zh-Hans/docs/browsers/safari)。
 
+### 模拟的 Chromium
+
+从 4.1.38 起，`--browser=chromium-emulator` 会在一个网页里的模拟 Chromium 中运行你的扩展，不需要设置任何 flag 或环境变量。`dev` 会输出这个页面的地址，并在你的默认浏览器中打开它。这个页面从你本机的 dev 服务器读取构建，所以只有 `dev` 能打开这个目标，`start` 与 `preview` 会拒绝它。
+
+打开页面之前，`dev` 会先检查引擎的源（origin）是否有响应。源没有响应时，`dev` 会输出一条警告，并且什么都不打开：
+
+```text
+the emulated Chromium origin https://browsers.extension.land did not answer, so there is no page to open. Check your connection, then run extension dev again, or run this project with --browser=chrome.
+```
+
+dev 服务器会继续运行。`--logs` 对这个目标不起作用：扩展运行在网页中，所以请在那个页面上用你浏览器的开发者工具读取它的控制台。
+
 ### 父进程看门狗
 
 `--parent-pid` 供派生 `dev` 的 harness 与 agent 使用，宿主崩溃不会泄漏服务器。它的值必须是正整数，其他任何值都会以 `E_INVALID_OPTION` 退出。看门狗每 2 秒轮询一次父进程。父进程消失后，dev 服务器会通过 `SIGTERM` 关闭；如果清理卡住，还有 5 秒的硬退出兜底。
