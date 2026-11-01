@@ -177,33 +177,25 @@ Why this matters: Extension.js remounts content scripts during development. With
 
 If your content script appears to compile but never mounts, check the default export first.
 
-### Cleanup does not cross a whole-extension reload
+### What survives a whole-extension reload
 
-The cleanup that your default export returns reaches copies of the script in the same world only. When a background edit reloads the whole extension, Firefox starts the new copy in a fresh world, and nothing calls the old copy's cleanup. The old copy keeps its UI and its listeners.
+When a background edit reloads the whole extension, the browser discards the old copy's code. No cleanup runs for it, and no listener of its own can run either, so an event sent to it is never heard. What the old copy added to the page stays.
 
-A script that must stop an older copy in that case can signal it through the page. Each new copy sends a DOM event before it mounts, and every older copy listens for that event and runs its own cleanup:
+Put everything that your script adds to the page under one host element marked `data-extension-root`. When the next copy starts, Extension.js removes the hosts that an older copy left behind:
 
 ```ts
-const STOP_EVENT = "my-extension:stop-content";
-
 export default function main() {
-  document.dispatchEvent(new CustomEvent(STOP_EVENT));
+  const host = document.createElement("div");
+  host.setAttribute("data-extension-root", "true");
+  document.body.append(host);
 
-  const root = document.createElement("div");
-  document.body.append(root);
+  // Build your UI inside host, or inside host.attachShadow({ mode: "open" }).
 
-  const cleanup = () => {
-    document.removeEventListener(STOP_EVENT, cleanup);
-    root.remove();
-  };
-
-  document.addEventListener(STOP_EVENT, cleanup);
-
-  return cleanup;
+  return () => host.remove();
 }
 ```
 
-The new copy sends the event before it adds its own listener, so it stops only the copies before it.
+This sweep needs a dev session. A production build has no reloads to recover from.
 
 ## Runtime wrapper behavior
 
