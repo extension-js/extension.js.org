@@ -125,6 +125,14 @@ Extension.js **always merges** `.env.defaults` first when present, then the sele
 
 If env files exist next to your project but none match the current browser and mode, the build prints a warning naming the files it found and the candidates it looked for, so a misspelled browser suffix fails loudly instead of silently shipping without values.
 
+### Secrets never take the `EXTENSION_PUBLIC_` prefix
+
+Every `EXTENSION_PUBLIC_*` value is written into the built JavaScript. Anyone who installs the extension can read it, and so can every store review. Code that reads `import.meta.env` as a whole object carries every public value, even the ones it never names.
+
+An API key for an LLM or any other paid service belongs on a server that your extension calls. Give it a name without the `EXTENSION_PUBLIC_` prefix, so the bundle never contains it.
+
+A production build warns when an `EXTENSION_PUBLIC_*` variable with a value has a name that looks secret. A name looks secret when it contains `SECRET`, `TOKEN`, `PASSWORD`, or `PRIVATE`. It also looks secret when `KEY` comes right after `API`, `ACCESS`, `AUTH`, or `SECRET`. A name that contains `PUBLISHABLE` is skipped. If the value is public by design, such as a Firebase web API key, the warning does not apply to it. This warning needs the release after 4.1.38.
+
 If no matching file exists next to the project, Extension.js repeats the same search from the **nearest workspace root**. That root is the closest ancestor folder containing `pnpm-workspace.yaml`. Extensions inside monorepos can share root-level env files for **bundle** injection.
 
 **Monorepo constraint:** Workspace fallback only runs when a `pnpm-workspace.yaml` marker exists on an ancestor. If you use pure npm or Yarn workspaces that rely only on `package.json` `"workspaces"`, this automatic root lookup does not apply. In that case, keep env files beside the extension package, or add a `pnpm-workspace.yaml` at the repository root.
