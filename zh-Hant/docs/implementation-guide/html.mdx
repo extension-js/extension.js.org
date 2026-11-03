@@ -215,6 +215,12 @@ body {
 
 把 options 頁面搭配瀏覽器 storage，這樣設定就能在重新啟動後保留，並且讓 background 或 content script 程式碼可以讀取。
 
+#### 瀏覽器對話框中的 Options 頁面
+
+使用 `"options_ui": {"page": "...", "open_in_tab": false}` 時，Chromium 瀏覽器會在它的擴充功能頁面上以對話框顯示該頁面，並依頁面的第一次版面配置決定對話框大小。第一次渲染為空的頁面，例如在 `chrome.storage` 回應之前一直回傳 `null` 的元件，會以零高度完成版面配置，讓對話框一片空白。
+
+Extension.js 為 Chromium 目標防止了這種情況：它會在開發與正式建置中為該頁面加上 `html{min-height:32px}`，所以對話框永遠打得開。但仍請立刻以預設值渲染頁面，等儲存的值送到後再填入。這樣對話框一開始就是真實大小，而不是過一會兒才變大。
+
 ### Side panel
 
 當擴充功能需要在目前頁面旁的常駐工作區時，使用 side panel：

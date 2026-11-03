@@ -258,6 +258,39 @@ export default {
 - 當 `public` 指定了路徑時，Extension.js 只從那個資料夾複製。
 - `browser.<vendor>.folders` 會整個取代頂層物件，`commands.<cmd>.folders` 則同時取代這兩者。兩者都不會逐鍵合併。
 
+### 建置中的額外檔案
+
+用 `include` 把 bundler 看不到的檔案複製到輸出中。這個鍵需要 4.1.36 之後的版本。例子有模型權重、由另一個工具產生的規則集，或者位於專案之外的資料檔。每個鍵是輸出路徑，相對於擴充功能根目錄。每個值是來源路徑，相對於專案根目錄。來源為資料夾時會把整棵目錄樹複製到輸出路徑底下：
+
+```js
+export default {
+  include: {
+    "models/small.onnx": "./models/small.onnx",
+    "models/exported": "../training/export",
+  },
+};
+```
+
+- 檔案會原樣落到輸出路徑，就像 `public/` 裡的檔案一樣：不加雜湊，不做轉換。
+- 在 `dev` 中，對來源檔的修改會在下一次編譯時落地。
+- 來源檔不存在會讓建置失敗。
+- 輸出路徑是絕對路徑、逃出擴充功能根目錄，或者是 `manifest.json`，同樣會讓建置失敗。
+- `include` 逐鍵合併：先是頂層，再是 `browser.<vendor>.include`，最後是 `commands.dev|start|build.include`。
+- 兩層都點名同一個輸出路徑時，後一層勝出，因此一次建置可以為某個路徑選擇自己的檔案。
+- 設定檔在 Node 中執行，所以用一般程式碼就能依環境選擇檔案：
+
+```js
+const parity = process.env.PARITY === "1";
+
+export default {
+  include: parity
+    ? { models: "../training/export" }
+    : { "models/small.onnx": "./models/small.onnx" },
+};
+```
+
+如果你反過來想讓某個頁面或腳本不進入正式建置，請把它命名為 `.dev.`，見[僅開發期的進入點](/zh-Hant/docs/features/special-folders#development-only-entries)。
+
 ### Rspack 設定
 
 需要進階的 bundler 客製化？使用 `config` 來修補產生出的 Rspack 設定。這個範例需要 4.1.31 之後的版本：在那之前，`config` 裡的 `config.module.rules` 是 undefined，而 `configResolved` 才是能看到規則的 hook：
