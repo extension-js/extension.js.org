@@ -177,6 +177,26 @@ export default {};
 
 如果你的 content script 看起来能编译但从不挂载，先检查默认导出。
 
+### 整个扩展重载后什么会留下
+
+当一次 background 修改触发整个扩展重载时，浏览器会丢弃旧副本的代码。不会为它运行任何清理，它自己的监听器也无法再运行，所以发给它的事件永远不会被收到。旧副本添加到页面上的东西会留在那里。
+
+把你的脚本添加到页面上的一切都放在一个标记了 `data-extension-root` 的宿主元素之下。下一个副本启动时，Extension.js 会移除旧副本遗留的这些宿主：
+
+```ts
+export default function main() {
+  const host = document.createElement("div");
+  host.setAttribute("data-extension-root", "true");
+  document.body.append(host);
+
+  // Build your UI inside host, or inside host.attachShadow({ mode: "open" }).
+
+  return () => host.remove();
+}
+```
+
+这次清扫需要一个 dev 会话。生产构建没有需要恢复的重载。
+
 ## 运行时 wrapper 行为
 
 - Extension.js 用挂载/运行时辅助逻辑包装 content script 模块。

@@ -105,6 +105,22 @@ extension preview [project-path] [options]
 
 在 `--output json` 下，下载进度行会写到 stderr，因此 stdout 只包含结果帧。
 
+### 远程压缩包落在哪里
+
+远程压缩包会被解压到你的缓存中，而不是你运行命令的文件夹。文件夹以 URL 路径命名，并附带一段短摘要，因此同一个压缩包总是落在同一个位置：
+
+| 平台  | 缓存文件夹                                                                 |
+| ----- | -------------------------------------------------------------------------- |
+| macOS | `~/Library/Caches/extension.js/previews/<key>`                             |
+| Linux | `~/.cache/extension.js/previews/<key>`                                     |
+| 任意  | 设置了 `XDG_CACHE_HOME` 时为 `$XDG_CACHE_HOME/extension.js/previews/<key>` |
+
+第二次运行同一个 URL 会直接复用这份副本而不再下载，并会说明这一点。删除该文件夹即可重新下载。URL 的查询字符串（分享 token 所在之处）不参与 key 的计算，也永远不会写到磁盘。
+
+传入 `--output-path <dir>` 可以改为解压到你指定的文件夹。如果该文件夹已经存在，且不是从这个 URL 解压出来的，命令会以 `E_DESTINATION_NOT_EMPTY` 拒绝，并保持它原样不动。
+
+从终端复制的链接如果被折行过，token 里可能夹带空格。`preview` 会去掉这些空格，并在下载前说明。服务器返回 401 或 403 时，会以 `E_REMOTE_ACCESS_DENIED` 报告为链接被拒绝，若 token 带有过期时间也会一并给出。
+
 ## 阻止浏览器启动
 
 两个 flag 听起来很像，作用却不同：

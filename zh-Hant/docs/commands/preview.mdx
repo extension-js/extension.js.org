@@ -105,6 +105,22 @@ extension preview [project-path] [options]
 
 在 `--output json` 下,下載進度行會寫到 stderr,因此 stdout 只包含結果影格。
 
+### 遠端壓縮檔會放在哪裡
+
+遠端壓縮檔會解壓到你的快取裡,而不是你執行指令的資料夾。資料夾以 URL 路徑命名,並加上一段短摘要,所以同一個壓縮檔永遠落在同一個地方:
+
+| 平台  | 快取資料夾                                                                 |
+| ----- | -------------------------------------------------------------------------- |
+| macOS | `~/Library/Caches/extension.js/previews/<key>`                             |
+| Linux | `~/.cache/extension.js/previews/<key>`                                     |
+| 任何  | 設定了 `XDG_CACHE_HOME` 時為 `$XDG_CACHE_HOME/extension.js/previews/<key>` |
+
+同一個 URL 第二次執行時會直接重用這份副本而不再下載,並會說明這點。刪除該資料夾即可重新下載。URL 的查詢字串(分享 token 所在之處)不屬於 key 的一部分,也永遠不會寫到磁碟。
+
+傳入 `--output-path <dir>` 可以改為解壓到你指定的資料夾。如果該資料夾已經存在,而且不是從這個 URL 解壓出來的,指令會以 `E_DESTINATION_NOT_EMPTY` 拒絕,並保持原樣不動。
+
+從終端機複製的連結若曾被折行,token 裡可能夾帶空格。`preview` 會移除這些空格,並在下載前說明。伺服器回應 401 或 403 時,會以 `E_REMOTE_ACCESS_DENIED` 回報為連結被拒絕,若 token 帶有到期時間也會一併列出。
+
 ## 阻止瀏覽器啟動
 
 兩個旗標聽起來很像,作用卻不同:

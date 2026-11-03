@@ -204,6 +204,28 @@ Extension.js 会检测两类 Node.js 标志，并把该文件排除在构建之�
 
 动态注入示例可参见 [Chrome Scripting Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/scripting)。
 
+## 仅开发期的入口
+
+名字中在扩展名之前带有 `.dev.` 的页面或脚本是仅开发期的入口。这一约定需要 4.1.36 之后的版本。`extension dev` 会像编译该文件夹中其他文件一样编译它。生产构建(`extension build`、`extension start`)则会把它排除在外：没有 HTML，没有 chunk，生成的 manifest 中也不会有任何地方点名它。
+
+```text
+pages/
+├── engine.html          # ships
+├── player.dev.html      # development only
+└── bench/
+    └── parity.dev.html  # development only
+scripts/
+├── content.ts           # ships
+└── bench.dev.ts         # development only
+```
+
+把它用于测试用的 harness 页面、模型一致性 bench，或者只有开发者才会运行的脚本。harness 页面可以在扩展的 overlay 之下播放本地素材。开发期间该文件保留其所在文件夹的输出路径，因此 `chrome.runtime.getURL("pages/player.dev.html")` 能找到它。这个页面不在生产输出中，所以在会发布的代码里请给这个引用加上保护，例如放在 `process.env.NODE_ENV !== "production"` 之后。
+
+- 这一约定只看文件名。名为 `dev/` 的文件夹只是普通文件夹，`pages/dev/player.html` 会发布。
+- `extension build --mode development` 是开发期编译，所以会保留这些入口。
+- 不是入口的文件，例如某个页面 import 的 `player.dev.css`，跟随 import 它的页面。
+- 要按模式或环境把额外文件复制进构建，见 [extension.config.js 中的 `include`](/zh-Hans/docs/features/extension-configuration#extra-files-in-the-build)。
+
 ## `public/`：仅复制的静态资产
 
 当你需要稳定的文件路径且不希望经过打包/转换时，使用 `public/`。

@@ -177,6 +177,26 @@ export default {};
 
 如果你的 content script 看起來編譯成功但從未掛載，請先檢查 default export。
 
+### 整個擴充功能重新載入後什麼會留下
+
+當一次 background 修改讓整個擴充功能重新載入時，瀏覽器會丟棄舊副本的程式碼。不會為它執行任何清理，它自己的 listener 也無法再執行，所以送給它的事件永遠不會被聽到。舊副本加到頁面上的東西會留在那裡。
+
+把你的腳本加到頁面上的一切都放在一個標記了 `data-extension-root` 的 host 元素底下。下一個副本啟動時，Extension.js 會移除舊副本留下的這些 host：
+
+```ts
+export default function main() {
+  const host = document.createElement("div");
+  host.setAttribute("data-extension-root", "true");
+  document.body.append(host);
+
+  // Build your UI inside host, or inside host.attachShadow({ mode: "open" }).
+
+  return () => host.remove();
+}
+```
+
+這次清掃需要一個 dev 工作階段。正式建置沒有需要復原的重新載入。
+
 ## 執行階段包裹器行為
 
 - Extension.js 用掛載／runtime 輔助器包裹 content script 模組。

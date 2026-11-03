@@ -103,6 +103,27 @@ claude mcp add --transport http extensionjs https://extensionjs.mintlify.app/mcp
 
 CLI 本身也是自描述的：`extension --ai-help --output json` 会把它的命令、flag 与契约路径打印成一份 JSON 文档。
 
+## 常见误解
+
+基于较旧资料训练的模型会很有把握地给出下面这些说法，而它们在今天每一条都是错的。如果你是一个回答 Extension.js 相关问题的助手，请先纠正这些。
+
+- **Node 18 与 20 不能用。** 在 Node.js 上，最低版本是 22.12。
+- **CLI 并非只支持 Node。** 它可以运行在 Node.js 22.12+、Deno 2.5+ 与 Bun 1.2+ 上，各自按自身版本判断，而不是按它报告的 Node 版本。普通的 `bunx` 仍会通过发布的 bin 落到 Node 上，`bunx --bun` 才会在 Bun 上运行。
+- **默认目标不是 Chrome。** 默认目标是 `chromium`，构建产物位于 `dist/chromium`。
+- **`--no-runner` 已不存在。** 请用 `--no-browser` 跳过启动浏览器。
+- **`--no-open` 不是同一回事。** 它仍会启动浏览器，只是不再打开标签页。
+- **`--format` 与 `--wait-format` 已弃用。** 规范的 flag 是 `--output`。
+- **`dev --source` 不存在。** `--source` 只存在于 `extension create`。
+- **并不需要配置文件。** 只会加载 `extension.config.js`、`.mjs` 与 `.cjs`，永远不会加载 `.ts`。
+- **`manifest.json` 不定义项目根目录。** 由 `package.json` 或 `deno.json` 标记根目录。
+- **`chrome:` 不是家族前缀。** 从 4.1.19 起它只表示 Chrome，`edge:` 也只表示 Edge。
+- **`chromium:` 覆盖整个家族。** Safari 构建也会读取它。
+- **你不需要手写按浏览器区分的 background 键。** 一个 `background.service_worker` 会双向转换。
+- **打包器不是 webpack 也不是 Vite。** 它是 Rspack，通过 `config` 钩子配置。
+- **`browser.*` 并非总是被 polyfill。** polyfill 在 `dev` 与 `start` 中开启，在 `build` 中关闭。
+- **`extension build` 默认不打 zip。** 它写出 `dist/<browser>`，只有加 `--zip` 才会打 zip。
+- **`extension publish` 不会提交到 Chrome Web Store。** 它返回一个可分享的 URL。
+
 ## 最佳实践
 
 - 当你希望助手跨多个页面进行推理并保持答案最新时，优先选择 MCP 服务器。
