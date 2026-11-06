@@ -40,6 +40,7 @@ Top-level keys:
 | `define`            | Compile-time constants inlined into every bundle, overridable per browser and per command. |
 | `folders`           | Where the special folders live, or `false` to turn one off, overridable per browser and per command. |
 | `include`           | Extra files copied into the output, keyed by output path, overridable per browser and per command. |
+| `exclude`           | Files the build leaves out, relative to the project root, overridable per browser and per command. |
 | `config`            | Hook to extend/override the generated Rspack config. Receives the target browser, mode, and command. |
 | `configResolved`    | Hook that runs once the Rspack config is final, with every loader rule attached. |
 
@@ -117,6 +118,7 @@ Common browser fields:
 | `define`              | Constants for this browser. Adds to the top-level map and overrides the keys it repeats. |
 | `folders`             | Special folder locations for this browser. Replaces the top-level `folders` object. |
 | `include`             | Extra files for this browser's output. Adds to the top-level `include` key by key. |
+| `exclude`             | Files this browser's build leaves out, for example `["pages/offscreen.html"]`. Adds to the top-level `exclude`. |
 
 ### Commands configuration
 
@@ -157,6 +159,7 @@ Notes:
 - `extensions`, `transpilePackages`, and `perfBudgets` layer from weakest to strongest on every command: top-level, then `browser.<vendor>`, then `commands.<cmd>`, then a CLI flag.
 - `define` merges key by key across the same layers: top-level, then `browser.<vendor>`, then `commands.<cmd>` on `dev`, `start`, and `build`.
 - `include` merges key by key across the same layers as `define`. A later layer wins an output path both name.
+- `exclude` lists add up across the same layers, like `browserFlags`. A file named in any layer is left out of the build.
 - `folders` never merges key by key. `browser.<vendor>.folders` replaces the top-level object, and `commands.<cmd>.folders` on `dev`, `start`, and `build` replaces both.
 - `commands.build.browser`, `commands.start.browser`, and `commands.preview.browser` pick the target for those commands. A `--browser` flag still wins.
 - The `start` command runs `build` then `preview` internally. Extension.js applies settings from `commands.start`, including browser-launch options like `profile`, `browserFlags`, and `startingUrl`. You can also put build-specific settings in `commands.build`.
@@ -183,6 +186,7 @@ Notes:
 | `extensions`          | `dev`, `start`, `preview`, `build` | Loads companion extensions (or extension list).                |
 | `folders`             | `dev`, `start`, `build`            | Special folder locations for this command. Replaces the top-level and per-browser `folders`. |
 | `include`             | `dev`, `start`, `build`            | Extra files for this command's output. Adds to the top-level and per-browser `include` key by key. |
+| `exclude`             | `dev`, `start`, `build`            | Files this command's build leaves out. Adds to the top-level and per-browser `exclude` lists. |
 | `install`             | `dev`, `start`, `build`            | Installs missing dependencies before running.                  |
 | `transpilePackages`   | `dev`, `start`, `preview`, `build` | Transpiles listed workspace/external packages.                 |
 
@@ -294,6 +298,26 @@ export default {
 ```
 
 To keep a page or a script out of production builds instead, name it `.dev.`, see [development-only entries](/docs/features/special-folders#development-only-entries).
+
+### Files one browser leaves out
+
+Use `exclude` to drop a page, a script or a `public/` file from one browser's build. Each entry is a path relative to the project root. An excluded page or script gets no entry and emits nothing, and an excluded `public/` file is not copied. The typical case is an offscreen document only Chromium opens:
+
+```js
+export default {
+  browser: {
+    firefox: {
+      exclude: ["pages/offscreen.html"],
+    },
+  },
+};
+```
+
+- `exclude` lists add up: top-level, then `browser.<vendor>.exclude`, then `commands.dev|start|build.exclude`.
+- A manifest field that still names an excluded file for that browser fails the build with an error naming the file and the browser. Scope the manifest key with a `chromium:`, `gecko:` or `safari:` prefix, or drop the entry.
+- An entry that matches no file warns, so a typo does not ship the page silently.
+
+The walkthrough with the dev-mode behavior and the runtime caveats is on the special folders page, see [leaving a file out of one browser](/docs/features/special-folders#leaving-a-file-out-of-one-browser).
 
 ### Rspack configuration
 

@@ -228,6 +228,30 @@ Use it for a test harness page, a model-parity bench, or a script only a develop
 - A file that is not an entry, such as a `player.dev.css` a page imports, follows the page that imports it.
 - To copy extra files into a build by mode or environment, see [`include` in extension.config.js](/docs/features/extension-configuration#extra-files-in-the-build).
 
+## Leaving a file out of one browser
+
+A page or script that only one browser family uses, such as an offscreen document Chromium opens while Firefox does the same work in another page, can be left out of the other browser's build with the `exclude` key in `extension.config.js`. Each entry is a path relative to the project root. A page or script in a special folder named here gets no entry and emits nothing: no HTML, no chunk, no stylesheet. A file under `public/` named here is not copied.
+
+```js
+// extension.config.js
+export default {
+  browser: {
+    firefox: {
+      exclude: ["pages/offscreen.html"],
+    },
+  },
+};
+```
+
+`extension build --browser=firefox` now ships `dist/firefox/pages/` without the offscreen page, and `extension dev --browser=firefox` leaves it out too. The Chrome build is unchanged. The same key works at the top level, where it applies to every browser, and under `commands.dev`, `commands.start` or `commands.build`. The lists add up: a file named in any layer is left out.
+
+The `.dev.` suffix decides by mode and `exclude` decides by browser. A file can use both.
+
+- If the manifest still names an excluded file for that browser, the build stops with an error that names the file and the browser, because the manifest would point at a file the output does not hold. Scope the manifest key with a `chromium:`, `gecko:` or `safari:` prefix so the reference exists only where the file ships, or remove the file from `exclude`.
+- A script that opens the page at runtime, like `chrome.offscreen.createDocument({ url: "pages/offscreen.html" })`, no longer pulls it back into the build. Guard that call so it runs only where the page ships.
+- An entry that matches no file in the project produces a warning, so a typo does not ship the page silently.
+- Entries are exact file paths. Folders and glob patterns are not read.
+
 ## `public/`: copy-only static assets
 
 Use `public/` when you need stable file paths and no bundling/transformation.
