@@ -1,0 +1,68 @@
+---
+title: "2026 年 10 月：一個側邊欄鍵、與 dev 並行的建置，以及僅開發用的檔案"
+description: "Extension.js 在 2026 年 10 月推出了什麼：一個側邊欄鍵適配所有瀏覽器、不打擾執行中 dev 工作階段的建置、僅開發用的頁面與指令碼、include 設定鍵、WebAssembly 預算，以及留在背景的 Safari 執行。"
+keywords:
+  [
+    "extension.js",
+    "roundup",
+    "october",
+    "sidebar",
+    "side panel",
+    "safari",
+    "out-dir",
+    "dev-only",
+    "include",
+    "webassembly",
+  ]
+---
+
+<Update label="October 2026" description="November 6, 2026" tags={["roundup"]}>
+
+10 月推出了八個版本，從 [4.1.31](https://github.com/extension-js/extension.js/releases/tag/v4.1.31) 到 [4.1.38](https://github.com/extension-js/extension.js/releases/tag/v4.1.38)，其中大部分都在縮小終端機所說的和瀏覽器實際在做的之間的差距。
+
+## 一個側邊欄鍵適配所有瀏覽器
+
+[4.1.31](https://github.com/extension-js/extension.js/releases/tag/v4.1.31) 會把側邊欄與工具列的鍵翻譯成每個瀏覽器讀取的名字。宣告 Chrome 的 `side_panel`，Firefox 就得到一個可用的側邊欄。宣告 Firefox 的 `sidebar_action`，Chrome 與 Edge 就得到側邊面板。Firefox Manifest V2 的寫法重新拿回了工具列按鈕，建置會用一行說明它翻譯了什麼。[每個瀏覽器如何開啟面板](/zh-Hant/docs/implementation-guide/side-panel)這一頁涵蓋了執行階段那一側。
+
+[側邊欄起步範本](/zh-Hant/docs/implementation-guide/html)也變了。從 [4.1.33](https://github.com/extension-js/extension.js/releases/tag/v4.1.33) 起，每個 `extension create` 側邊欄範本都會透過一條現成的訊息通道向目前開啟的分頁要它的標題，所以一個跟隨頁面的面板從一開始就是能運作的程式碼。
+
+## 與執行中的 dev 工作階段並行建置
+
+`extension build` 過去會寫進 `dist/<browser>`，也就是執行中的 `extension dev` 所服務的同一個資料夾，於是你正在用的那個瀏覽器會丟掉它的檔案。[4.1.35](https://github.com/extension-js/extension.js/releases/tag/v4.1.35) 加入了 [`--out-dir`](/zh-Hant/docs/commands/build)。`extension build --out-dir <path>` 寫入 `<path>/<browser>`，把 `dist/<browser>` 留給開發伺服器。[4.1.36](https://github.com/extension-js/extension.js/releases/tag/v4.1.36) 補上了另一邊：往一個活躍 dev 工作階段擁有的資料夾裡建置，會在寫入任何東西之前停下來並指向這個參數。
+
+4.1.31 裡 zip 封存檔換了位置。`extension build --zip` 會把 `dist/<name>-<version>-<browser>.zip` 寫在瀏覽器資料夾旁邊而不是裡面，所以用同一個名字建置的兩個瀏覽器永遠不會互相覆蓋，[4.1.37](https://github.com/extension-js/extension.js/releases/tag/v4.1.37) 還會把檔名裡的重音字母轉寫成普通字母。如果你的 CI 會讀取 zip 路徑，[檢查一下](/zh-Hant/docs/commands/build)。
+
+## 僅開發用的檔案
+
+4.1.37 加入了[僅開發用的進入點](/zh-Hant/docs/features/special-folders)。`pages/` 裡的 `player.dev.html` 或 `scripts/` 裡的 `bench.dev.ts` 會在 `extension dev` 中執行，卻永遠不會進入正式建置。沒有 HTML，沒有 chunk，沒有 manifest 項目。
+
+同一個版本給 `extension.config.js` 加入了 [`include`](/zh-Hant/docs/features/extension-configuration)。把輸出路徑對應到檔案或資料夾，包括模型權重或專案之外匯出的目錄樹，並且可以按瀏覽器和按指令分層。
+
+## ready 代表正在執行
+
+dev 工作階段過去在開發伺服器起來時就印出 ready。從 4.1.36 起，Chrome 的 dev 工作階段只在擴充功能連上之後才印出 ready，並且在它一直連不上時點名卡住的設定檔。4.1.31 開始了這項工作：`.env` 變了會用新值重啟工作階段，`extension.config.js` 被編輯後會要求重啟而不是印出成功，而一個從未啟動的瀏覽器會把 [`ready.json`](/zh-Hant/docs/contracts/ready-json) 標為錯誤，於是 `--wait` 以非零結束。
+
+## Safari 留在背景
+
+從 4.1.33 起，dev 執行開啟的那個 Safari 應用程式會留在背景，並且是停止時唯一被結束的應用程式，所以你自己的 Safari 不會被碰到。[4.1.34](https://github.com/extension-js/extension.js/releases/tag/v4.1.34) 會重用沒有變化的 Safari 建置，並在 Safari 重設儲存空間時說明，4.1.36 則從建置好的應用程式上讀取簽章，並點名 Xcode 缺少的團隊。[Safari 指南](/zh-Hant/docs/browsers/safari)有完整的流程。
+
+## 上傳之前的商店警告
+
+三件商店審核員本來會告訴你的事。從 4.1.36 起，正式建置會標出 manifest 裡殘留的 `localhost` 與其他回送位址，Edge 建置會在它的內嵌設定頁將被裁到 368px 時說明，並給出一行 `edge:options_ui` 的修法。4.1.35 給一個在資料到達之前一直空白的 Chromium `options_ui` 頁面一個初始版面，於是 Chrome 的內嵌對話框會開啟而不是一直關著。而你已經為少數幾個網站列出的 `web_accessible_resources` 範圍會保持在那些網站上，即使某個 `scripts/` 檔案引用了它。
+
+4.1.37 還清理了 [MAIN world content script](/zh-Hant/docs/implementation-guide/content-scripts) 留下的痕跡。正式建置不再把擴充功能的基礎 URL 和清理用的全域變數發佈到宿主頁面，開發用的瀏覽器能通過機器人檢測，登入彈出視窗也保持可回應。
+
+## 給 WebAssembly 的預算
+
+一個用 onnxruntime 或 ffmpeg 做裝置端 ML 的建置，過去會以一條它根本無法處理的預算警告收尾。4.1.37 給 WebAssembly 執行環境一個它們自己的 [32 MiB 預算](/zh-Hant/docs/workflows/performance-playbook)，4.1.38 則讀取真正取得該檔案的那個表面。只被頁面和 worker 存取的 `.wasm` 得到 32 MiB，被 content script 或 service worker 存取的保持 1 MiB 並且仍會警告，而 `perfBudgets.ignore` 可以按輸出路徑或 glob 豁免任何資源。
+
+## 還有
+
+從 4.1.31 起，開發伺服器只回應它認識的主機名稱，[`--allowed-hosts web,.ngrok.app`](/zh-Hant/docs/commands/dev) 可以加上一個 Docker 服務或一條通道。文件新增了與 [Plasmo](/zh-Hant/docs/compare/extension-js-vs-plasmo) 和 [CRXJS](/zh-Hant/docs/compare/extension-js-vs-crxjs) 的比較頁，[Discord 邀請連結](https://discord.gg/BRqbPDfPxb)也不再過期。
+
+11 月已經到了 [4.1.39](https://github.com/extension-js/extension.js/releases/tag/v4.1.39)。Safari 建置會使用你自己的應用程式圖示，正式建置會在某個公開環境變數的名字像密鑰時發出警告，一個 SQLite DevTools 範本，重新載入之後只執行一次的 Firefox content script，以及一個去掉 manifest `key` 而 `dist/edge` 保留它的 Edge 商店 zip。下次再細說。
+
+Cezar Augusto<br/>
+Creator and Lead Developer, Extension.js
+
+</Update>

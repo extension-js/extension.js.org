@@ -1,0 +1,68 @@
+---
+title: "2026 年 10 月：一个侧边栏键、与 dev 并行的构建，以及仅开发用的文件"
+description: "Extension.js 在 2026 年 10 月发布了什么：一个侧边栏键适配所有浏览器、不打扰正在运行的 dev 会话的构建、仅开发用的页面和脚本、include 配置键、WebAssembly 预算，以及留在后台的 Safari 运行。"
+keywords:
+  [
+    "extension.js",
+    "roundup",
+    "october",
+    "sidebar",
+    "side panel",
+    "safari",
+    "out-dir",
+    "dev-only",
+    "include",
+    "webassembly",
+  ]
+---
+
+<Update label="October 2026" description="November 6, 2026" tags={["roundup"]}>
+
+10 月发布了八个版本，从 [4.1.31](https://github.com/extension-js/extension.js/releases/tag/v4.1.31) 到 [4.1.38](https://github.com/extension-js/extension.js/releases/tag/v4.1.38)，其中大部分都在缩小终端所说的和浏览器实际在做的之间的差距。
+
+## 一个侧边栏键适配所有浏览器
+
+[4.1.31](https://github.com/extension-js/extension.js/releases/tag/v4.1.31) 会把侧边栏和工具栏的键翻译成每个浏览器读取的名字。声明 Chrome 的 `side_panel`，Firefox 就得到一个可用的侧边栏。声明 Firefox 的 `sidebar_action`，Chrome 和 Edge 就得到侧边面板。Firefox Manifest V2 的写法重新拿回了工具栏按钮，构建会用一行说明它翻译了什么。[每个浏览器如何打开面板](/zh-Hans/docs/implementation-guide/side-panel)这一页覆盖了运行时那一侧。
+
+[侧边栏起步模板](/zh-Hans/docs/implementation-guide/html)也变了。从 [4.1.33](https://github.com/extension-js/extension.js/releases/tag/v4.1.33) 起，每个 `extension create` 侧边栏模板都会通过一条现成的消息通道向当前打开的标签页要它的标题，所以一个跟随页面的面板从一开始就是能工作的代码。
+
+## 与正在运行的 dev 会话并行构建
+
+`extension build` 过去会写进 `dist/<browser>`，也就是正在运行的 `extension dev` 所服务的同一个文件夹，于是你正在用的那个浏览器会丢掉它的文件。[4.1.35](https://github.com/extension-js/extension.js/releases/tag/v4.1.35) 加入了 [`--out-dir`](/zh-Hans/docs/commands/build)。`extension build --out-dir <path>` 写入 `<path>/<browser>`，把 `dist/<browser>` 留给开发服务器。[4.1.36](https://github.com/extension-js/extension.js/releases/tag/v4.1.36) 补上了另一边：往一个活跃 dev 会话拥有的文件夹里构建，会在写入任何东西之前停下来并指向这个参数。
+
+4.1.31 里 zip 归档换了位置。`extension build --zip` 会把 `dist/<name>-<version>-<browser>.zip` 写在浏览器文件夹旁边而不是里面，所以用同一个名字构建的两个浏览器永远不会互相覆盖，[4.1.37](https://github.com/extension-js/extension.js/releases/tag/v4.1.37) 还会把文件名里的重音字母转写成普通字母。如果你的 CI 读取 zip 路径，[检查一下](/zh-Hans/docs/commands/build)。
+
+## 仅开发用的文件
+
+4.1.37 加入了[仅开发用的入口](/zh-Hans/docs/features/special-folders)。`pages/` 里的 `player.dev.html` 或 `scripts/` 里的 `bench.dev.ts` 会在 `extension dev` 中运行，却永远不会进入生产构建。没有 HTML，没有 chunk，没有 manifest 条目。
+
+同一个版本给 `extension.config.js` 加入了 [`include`](/zh-Hans/docs/features/extension-configuration)。把输出路径映射到文件或文件夹，包括模型权重或项目之外导出的目录树，并且可以按浏览器和按命令分层。
+
+## ready 意味着正在运行
+
+dev 会话过去在开发服务器起来时就打印 ready。从 4.1.36 起，Chrome 的 dev 会话只在扩展连接上之后才打印 ready，并且在它一直连不上时点名卡住的配置文件。4.1.31 开始了这项工作：`.env` 变了会用新值重启会话，`extension.config.js` 被编辑后会要求重启而不是打印成功，而一个从未启动的浏览器会把 [`ready.json`](/zh-Hans/docs/contracts/ready-json) 标为错误，于是 `--wait` 以非零退出。
+
+## Safari 留在后台
+
+从 4.1.33 起，dev 运行打开的那个 Safari 应用会留在后台，并且是停止时唯一被退出的应用，所以你自己的 Safari 不会被碰到。[4.1.34](https://github.com/extension-js/extension.js/releases/tag/v4.1.34) 会复用没有变化的 Safari 构建，并在 Safari 重置存储时说明，4.1.36 则从构建好的应用上读取签名，并点名 Xcode 缺少的团队。[Safari 指南](/zh-Hans/docs/browsers/safari)有完整的流程。
+
+## 上传之前的商店警告
+
+三件商店审核员本来会告诉你的事。从 4.1.36 起，生产构建会标出 manifest 里残留的 `localhost` 和其他回环地址，Edge 构建会在它的嵌入式设置页将被裁到 368px 时说明，并给出一行 `edge:options_ui` 的修法。4.1.35 给一个在数据到达之前一直空白的 Chromium `options_ui` 页面一个初始布局，于是 Chrome 的嵌入式对话框会打开而不是一直关着。而你已经为少数几个站点列出的 `web_accessible_resources` 范围会保持在那些站点上，即使某个 `scripts/` 文件引用了它。
+
+4.1.37 还清理了 [MAIN world content script](/zh-Hans/docs/implementation-guide/content-scripts) 留下的痕迹。生产构建不再把扩展的基础 URL 和清理用的全局变量发布到宿主页面，开发用的浏览器能通过机器人检测，登录弹窗也保持可响应。
+
+## 给 WebAssembly 的预算
+
+一个用 onnxruntime 或 ffmpeg 做设备端 ML 的构建，过去会以一条它根本无法处理的预算警告收尾。4.1.37 给 WebAssembly 运行时一个它们自己的 [32 MiB 预算](/zh-Hans/docs/workflows/performance-playbook)，4.1.38 则读取真正获取该文件的那个表面。只被页面和 worker 访问的 `.wasm` 得到 32 MiB，被 content script 或 service worker 访问的保持 1 MiB 并且仍会警告，而 `perfBudgets.ignore` 可以按输出路径或 glob 豁免任何资源。
+
+## 还有
+
+从 4.1.31 起，开发服务器只回应它认识的主机名，[`--allowed-hosts web,.ngrok.app`](/zh-Hans/docs/commands/dev) 可以加上一个 Docker 服务或一条隧道。文档新增了与 [Plasmo](/zh-Hans/docs/compare/extension-js-vs-plasmo) 和 [CRXJS](/zh-Hans/docs/compare/extension-js-vs-crxjs) 的对比页，[Discord 邀请链接](https://discord.gg/BRqbPDfPxb)也不再过期。
+
+11 月已经到了 [4.1.39](https://github.com/extension-js/extension.js/releases/tag/v4.1.39)。Safari 构建会使用你自己的应用图标，生产构建会在某个公开环境变量的名字像密钥时发出警告，一个 SQLite DevTools 模板，重载之后只运行一次的 Firefox content script，以及一个去掉 manifest `key` 而 `dist/edge` 保留它的 Edge 商店 zip。下次再细说。
+
+Cezar Augusto<br/>
+Creator and Lead Developer, Extension.js
+
+</Update>
