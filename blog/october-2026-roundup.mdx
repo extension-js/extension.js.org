@@ -1,0 +1,68 @@
+---
+title: "October 2026: one sidebar key, builds beside dev and dev-only files"
+description: "What shipped in Extension.js in October 2026: one sidebar key for every browser, builds that leave a live dev session alone, development-only pages and scripts, an include key, a WebAssembly budget, and Safari runs that stay in the background."
+keywords:
+  [
+    "extension.js",
+    "roundup",
+    "october",
+    "sidebar",
+    "side panel",
+    "safari",
+    "out-dir",
+    "dev-only",
+    "include",
+    "webassembly",
+  ]
+---
+
+<Update label="October 2026" description="November 6, 2026" tags={["roundup"]}>
+
+October was eight releases, [4.1.31](https://github.com/extension-js/extension.js/releases/tag/v4.1.31) to [4.1.38](https://github.com/extension-js/extension.js/releases/tag/v4.1.38), and most of them close a gap between what the terminal says and what the browser is doing.
+
+## One sidebar key for every browser
+
+[4.1.31](https://github.com/extension-js/extension.js/releases/tag/v4.1.31) translates sidebar and toolbar keys to the name each browser reads. Declare the Chrome `side_panel` and Firefox gets a working sidebar. Declare the Firefox `sidebar_action` and Chrome and Edge get the side panel. The Firefox Manifest V2 recipe gets its toolbar button back, and the build says what it translated in one line. [How each browser opens the panel](/docs/implementation-guide/side-panel) covers the runtime side.
+
+The [sidebar starters](/docs/implementation-guide/html#sidebar) changed too. Since [4.1.33](https://github.com/extension-js/extension.js/releases/tag/v4.1.33), every `extension create` sidebar template asks the open tab for its title through a ready-made message channel, so a panel that follows the page starts from working code.
+
+## Build beside a running dev session
+
+`extension build` used to write into `dist/<browser>`, the same folder a running `extension dev` serves, and the browser you were working in lost its files. [4.1.35](https://github.com/extension-js/extension.js/releases/tag/v4.1.35) adds [`--out-dir`](/docs/commands/build#building-beside-a-dev-session). `extension build --out-dir <path>` writes `<path>/<browser>` and leaves `dist/<browser>` to the dev server. [4.1.36](https://github.com/extension-js/extension.js/releases/tag/v4.1.36) closes the other side: a build into the folder a live dev session owns stops before writing anything and points at the flag.
+
+Zip archives moved in 4.1.31. `extension build --zip` writes `dist/<name>-<version>-<browser>.zip` beside the browser folder instead of inside it, so two browsers built with the same name never write over each other, and [4.1.37](https://github.com/extension-js/extension.js/releases/tag/v4.1.37) transliterates accented letters in that name. If your CI reads the zip path, [check it](/docs/commands/build#zip-behavior).
+
+## Development-only files
+
+4.1.37 adds [development-only entries](/docs/features/special-folders#development-only-entries). A `player.dev.html` in `pages/` or a `bench.dev.ts` in `scripts/` runs in `extension dev` and never reaches a production build. No HTML, no chunk, no manifest entry.
+
+The same release adds [`include`](/docs/features/extension-configuration#extra-files-in-the-build) to `extension.config.js`. Map output paths to files or folders, model weights or an exported tree outside the project included, layered per browser and per command.
+
+## Ready means running
+
+A dev session used to print ready once the dev server was up. Since 4.1.36, Chrome dev sessions print ready only once the extension connects, and name the stuck profile when it never does. 4.1.31 started that work: a changed `.env` restarts the session with the new value, an edited `extension.config.js` asks for a restart instead of printing success, and a browser that never started marks [`ready.json`](/docs/contracts/ready-json) as an error so `--wait` exits non-zero.
+
+## Safari stays in the background
+
+Since 4.1.33, the Safari app a dev run opens stays in the background and is the only one quit on stop, so your own Safari is left alone. [4.1.34](https://github.com/extension-js/extension.js/releases/tag/v4.1.34) reuses an unchanged Safari build and says when Safari resets storage, and 4.1.36 reads the signature off the built app and names a team Xcode lacks. The [Safari guide](/docs/browsers/safari) has the whole loop.
+
+## Store warnings before you upload
+
+Three things a store reviewer would have told you. Since 4.1.36 a production build flags `localhost` and other loopback origins left in the manifest, and an Edge build says when its embedded settings page will be clipped to 368px, with the one-line `edge:options_ui` fix. 4.1.35 gives a Chromium `options_ui` page that paints empty until its data arrives a first layout, so Chrome's embedded dialog opens instead of staying shut. And a `web_accessible_resources` scope you already list for a few sites stays on those sites even when a `scripts/` file references it.
+
+4.1.37 also cleans up after [MAIN world content scripts](/docs/implementation-guide/content-scripts#main-world-notes). Production builds stop publishing the extension's base URL and the cleanup global to the host page, and the dev browser passes bot checks and keeps sign-in pop-ups responsive.
+
+## A budget for WebAssembly
+
+An on-device ML build with onnxruntime or ffmpeg used to end with a budget warning it could never act on. 4.1.37 gives WebAssembly runtimes a [32 MiB budget](/docs/workflows/performance-playbook#performance-budgets) of their own, and 4.1.38 reads the surface that fetches the file. A `.wasm` reached only by pages and workers gets the 32 MiB, one a content script or the service worker reaches keeps 1 MiB and still warns, and `perfBudgets.ignore` excuses any asset by its output path or a glob.
+
+## Also
+
+The dev server answers only the hosts it knows since 4.1.31, and [`--allowed-hosts web,.ngrok.app`](/docs/commands/dev#bind-host-vs-connectable-host) adds a Docker service or a tunnel. The docs gained a comparison with [Plasmo](/docs/compare/extension-js-vs-plasmo) and one with [CRXJS](/docs/compare/extension-js-vs-crxjs), and the [Discord invite](https://discord.gg/BRqbPDfPxb) no longer expires.
+
+November is already at [4.1.39](https://github.com/extension-js/extension.js/releases/tag/v4.1.39). Safari builds take your own app icon, a production build warns when a public env variable is named like a secret, a SQLite DevTools template, Firefox content scripts that run once after a reload, and an Edge store zip that leaves the manifest `key` out while `dist/edge` keeps it. More on that next time.
+
+Cezar Augusto<br/>
+Creator and Lead Developer, Extension.js
+
+</Update>
