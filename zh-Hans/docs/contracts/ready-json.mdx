@@ -73,6 +73,11 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `logsPath`           | string         | 指向 `logs.ndjson` 的相对路径。                                                                                                                                    |
 | `cdpPort`            | number         | Chromium 启动时：CDP 端口，在启动之后盖章。                                                                                                                        |
 | `rdpPort`            | number         | Gecko 启动时：RDP debugger-server 端口，在启动之后盖章。                                                                                                           |
+| `webdriverPort`    | number   | Safari 的 `dev` 会话：启动器在应用旁持有的 safaridriver 会话端口。Safari 一次只允许一个自动化会话，请接到这个会话而不是自己再开一个。 |
+| `webdriverSessionId` | string | 与 `webdriverPort` 并列的会话 id。 |
+| `webdriverUnavailableReason` | string | 启动器为何没有持有 WebDriver 会话，例如 Safari 的"允许远程自动化"是关闭的。 |
+| `webdriverRequestPath` | string | Safari 的 `dev` 会话：客户端 touch 这个文件即可请求启动器开一个新的 WebDriver 会话。 |
+| `safari`           | object   | Safari 的 `dev` 会话：启用步骤走到了哪一步、为何停下，不必再解析会话日志。`bundleId`、`extensionId` 和 `team` 说明 Safari 登记的 appex，`switchId` 是 Safari 设置里的那一行，`enableAttempted` 表示是否运行了 `--enable-extension`，`step` 是到达的最后一步（`not-asked`、`accessibility`、`safari`、`unsigned`、`pluginkit`、`enabled`、`websites`、`done`），`enabled`、`listed` 和 `otherWebsites` 是开关的读数，`reason` 是停下时的那句话，`earlierExtensionIds` 是 macOS 仍列出的本项目早先构建的 id，它们的开关不会带到新 id 上。 |
 | `cdpFaultCode`       | string         | Chromium 的 `dev` 会话：浏览器起来之后 CDP 连线失败时盖上，值是调试协议错误码之一，例如 `E_CDP_TIMEOUT` 或 `E_CDP_NOT_CONNECTED`。因为浏览器在运行，会话保持 `ready`，但在故障修复前 reload 和 HMR 无法接上。同一次运行跨重新编译保留。 |
 | `cdpFaultMessage`    | string         | 与 `cdpFaultCode` 并列的一行纯文本。`--output json` 下的 `ready` 帧会把同一故障放在 `warnings` 里，形式为 `E_CDP_...: message`。 |
 | `browserUpNotAttachedAt` | ISO 字符串 | Chromium `dev` 会话：浏览器进程已启动且扩展已编译，但扩展内部的运行时在启动器的宽限期（15 秒）内没有连接到控制桥时写入。状态保持 `ready`，stdout 上的 `ready` 行会推迟到连接建立后再打印。首次连接后清除。 |
