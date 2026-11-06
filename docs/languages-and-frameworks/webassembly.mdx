@@ -90,6 +90,8 @@ const bytes = await response.arrayBuffer()
 
 The URL resolves inside the extension in every context, pages and the service worker included. This is the same `?url` contract the build offers for images, fonts and stylesheets.
 
+A library that locates its own binary with `new URL("file.wasm", import.meta.url)`, such as `onnxruntime-web`, needs no configuration and no `?url`: the build ships that file as a plain asset under `assets/` at the URL the library requests, and `asyncWebAssembly` does not get in the way. Allow `'wasm-unsafe-eval'` in `content_security_policy.extension_pages`, or the browser refuses to compile the module once it has fetched it.
+
 Hand the loader the URL only when it accepts any protocol. Some runtimes take `http:` and `https:` only and throw on a `chrome-extension:` URL, `@imagemagick/magick-wasm` among them: its `initializeImageMagick` fails with "Only http/https protocol is supported". For those, fetch the emitted file yourself as above and pass the bytes, `initializeImageMagick(new Uint8Array(bytes))`.
 
 ## How to use
