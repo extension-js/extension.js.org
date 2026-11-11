@@ -59,7 +59,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 ```
 
-由这条规则可以推出两点。一个 `async` 监听器函数返回的是 Promise，而 Promise 不是 `true`，因此在 Chromium 上，一个稍后调用 `sendResponse` 的 `async` 监听器仍然会关闭通道。请像上面那样在监听器内部做异步工作并返回 `true`。在调用方一侧，省略回调时 `chrome.runtime.sendMessage` 会返回 Promise，所以那里直接 `await` 即可，不涉及以上这些。
+由这条规则可以推出两点。一个 `async` 监听器函数返回的是 Promise，而 Promise 不是 `true`，因此在早于 148 的 Chromium 浏览器上，一个稍后调用 `sendResponse` 的 `async` 监听器仍然会关闭通道。从 Chromium 148 起，`async` 监听器返回的值会成为响应，但声明了 `devtools_page` 的扩展除外。像上面那样在监听器内部做异步工作并返回 `true`，在每个版本上都有效。在调用方一侧，省略回调时 `chrome.runtime.sendMessage` 会返回 Promise，所以那里直接 `await` 即可，不涉及以上这些。
 
 给每条消息一个明确的 `type`，在处理之前校验载荷，并在做特权工作之前检查 `sender`。content script 是你的代码，但它转发的数据来自你无法控制的页面。
 
