@@ -35,8 +35,8 @@ keywords:
 | 何時執行                    | 每個相符頁面，載入時                | 一次，在你呼叫時                     | 每個相符頁面，從註冊起                      |
 | 所需權限                    | manifest 中的 `matches`             | `scripting` 加 `activeTab` 或 host   | `scripting` 加 host 權限                    |
 | 瀏覽器重新啟動後是否保留    | 是                                  | 否，腳本只執行了一次                 | 是，除非 `persistAcrossSessions` 為 false   |
-| 能否指定 `world: "MAIN"`    | 能，Extension.js 中僅限 Chromium    | 能，Extension.js 中僅限 Chromium     | 能，Extension.js 中僅限 Chromium            |
-| Firefox 支援（MV3）         | 是                                  | 是，isolated world                   | 是，isolated world                          |
+| 能否指定 `world: "MAIN"`    | 能，Chrome 111、Firefox 128、Safari 18 | 能，Chrome 95、Firefox 128、Safari 15.4 | 能，Chrome 102、Firefox 128、Safari 16.4 |
+| Firefox 支援（MV3）         | 是                                  | 是                   | 是                          |
 
 當功能屬於一組已知網站時，使用 manifest 項目。當使用者觸發功能時，例如點擊工具列按鈕，使用 `executeScript`。當網站集合要在執行階段才決定時，例如來自設定頁，使用 `registerContentScripts`。
 
@@ -56,7 +56,7 @@ keywords:
 }
 ```
 
-Chromium 與 Firefox 都按原樣讀取這個區塊，所以它不需要瀏覽器前綴。只有在 manifest content script 上使用 `world: "MAIN"` 時才用前綴，因為 Firefox 會忽略該欄位。把它宣告為 `chromium:world` 並保留一個 isolated world 後備，寫法請見[瀏覽器專屬欄位](/zh-Hant/docs/features/browser-specific-fields)。
+Chromium 與 Firefox 都按原樣讀取這個區塊，所以它不需要瀏覽器前綴。在 Chrome 111、Firefox 128 與 Safari 18 及更新版本上，帶有 `world: "MAIN"` 的 manifest content script 同樣不需要前綴。只有在必須支援更舊的瀏覽器時，才使用 `chromium:world` 並保留一個 isolated world 後備，寫法請見[content script](/zh-Hant/docs/implementation-guide/content-scripts)。
 
 與這份 manifest 對應的執行階段呼叫：
 
@@ -105,7 +105,7 @@ await chrome.scripting.updateContentScripts([
 
 | 能力                      | Chromium                          | Firefox                                        | Safari                                       |
 | ------------------------- | --------------------------------- | ---------------------------------------------- | -------------------------------------------- |
-| `executeScript` `world`   | `ISOLATED`（預設）或 `MAIN`       | isolated world。把 `world` 視為僅限 Chromium。 | 本文件未涵蓋                                 |
+| `executeScript` `world`   | `ISOLATED`（預設）或 `MAIN`，自 Chrome 95 起 | `ISOLATED`（預設）或 `MAIN`，自 Firefox 128 起 | `MAIN`，自 Safari 15.4 起 |
 | `registerContentScripts`  | 支援                              | MV3 中支援                                     | 本文件未涵蓋                                 |
 | `insertCSS` `origin`      | `AUTHOR`（預設）或 `USER`         | `AUTHOR`（預設）或 `USER`                      | 本文件未涵蓋                                 |
 | 任何腳本執行之前          | 存取權依 manifest 決定            | 存取權依 manifest 決定                         | 啟用擴充功能後，你需要逐網站授予網站存取權   |

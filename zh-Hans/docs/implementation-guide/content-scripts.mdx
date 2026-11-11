@@ -352,9 +352,9 @@ deno run -A npm:extension@latest create my-extension --template=content-main-wor
 
 仓库：[extension-js/examples/content-main-world](https://github.com/extension-js/examples/tree/main/examples/content-main-world)
 
-- **`world: "MAIN"` 仅支持 Chromium。** Firefox 不支持 `world` 字段并会忽略它。在 Firefox 上，你的脚本仍然运行在 isolated world 中。
-- **跨浏览器的 MAIN world 行为：** 使用 `chromium:` manifest 前缀，仅为 Chromium 目标声明它，然后为 Firefox 提供一个 isolated world 回退。
-- 在 MAIN world 中 **无法使用** 扩展 API（`chrome.runtime`、`chrome.storage` 等）；你只能访问页面上下文中的全局对象。
+- **`world: "MAIN"` 在 Chrome 111、Firefox 128 和 Safari 18 及更高版本上可用。** 在这三种浏览器上，脚本都运行在页面自己的 JavaScript world 中。在 Firefox 上，Manifest V2 与 Manifest V3 都是如此。
+- **MAIN world 脚本没有扩展 API。** `chrome.runtime`、`chrome.storage` 等在那里都不可用，你只能访问页面上下文中的全局对象。请给它配一个 isolated world 脚本来与扩展通信。
+- **只有面向更旧的浏览器时才值得用浏览器前缀。** 只有在必须支持早于上述版本的浏览器时，才使用 `chromium:world` 并配一个 isolated world 回退。
 - 把 MAIN world 当作高级路径对待。尽早在每个目标浏览器上验证行为。
 
 ### isolated world 桥接
@@ -387,9 +387,9 @@ MAIN world 脚本无法调用扩展 API，因此 Extension.js 会为每个 MAIN 
 
 默认使用 isolated world。只有在确实需要页面上下文访问时才使用 `MAIN`，并考虑扩展 API 与运行时方面的限制。
 
-### 跨浏览器的 MAIN world 模式
+### 用前缀支持更旧的浏览器
 
-使用 [浏览器特定前缀](/zh-Hans/docs/features/browser-specific-fields) 仅为 Chromium 声明 MAIN world，并为 Firefox 提供 isolated 回退：
+在 Chrome 111、Firefox 128 和 Safari 18 及更高版本上，上面快速示例里不带前缀的 `world` 键就足够了。早于 128 的 Firefox 会忽略 `world` 键，并在 isolated world 中运行脚本。如果你必须支持这样的版本，使用 [浏览器特定前缀](/zh-Hans/docs/features/browser-specific-fields) 仅为 Chromium 声明 MAIN world，并为 Firefox 提供 isolated 回退。这样一来，每个 Firefox 版本都会运行回退脚本，包括那些支持 MAIN 的版本：
 
 ```json
 {

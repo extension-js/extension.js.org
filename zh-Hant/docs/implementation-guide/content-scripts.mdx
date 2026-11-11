@@ -352,9 +352,9 @@ deno run -A npm:extension@latest create my-extension --template=content-main-wor
 
 儲存庫：[extension-js/examples/content-main-world](https://github.com/extension-js/examples/tree/main/examples/content-main-world)
 
-- **`world: "MAIN"` 僅限 Chromium。** Firefox 不支援 `world` 欄位並會忽略它。你的腳本在 Firefox 仍會以 isolated world 執行。
-- **跨瀏覽器的 MAIN world 行為：** 使用 `chromium:` manifest 前綴，僅針對 Chromium 目標宣告它。然後為 Firefox 提供 isolated world 後備。
-- 在 MAIN world 中**無法**使用擴充功能 API（`chrome.runtime`、`chrome.storage` 等）；只能存取頁面情境的全域變數。
+- **`world: "MAIN"` 在 Chrome 111、Firefox 128 與 Safari 18 及更新版本上可用。** 在這三種瀏覽器上，腳本都在頁面自己的 JavaScript world 中執行。在 Firefox 上，Manifest V2 與 Manifest V3 都是如此。
+- **MAIN world 腳本沒有擴充功能 API。** `chrome.runtime`、`chrome.storage` 等在那裡都無法使用，只能存取頁面情境的全域變數。請替它搭配一個 isolated world 腳本來與擴充功能溝通。
+- **只有面向更舊的瀏覽器時才值得用瀏覽器前綴。** 只有在必須支援早於上述版本的瀏覽器時，才使用 `chromium:world` 並搭配 isolated world 後備。
 - 把 MAIN world 視為進階路徑。在每個目標瀏覽器上盡早驗證行為。
 
 ### isolated world 橋接
@@ -387,9 +387,9 @@ MAIN world 腳本無法呼叫擴充功能 API，因此 Extension.js 會為每個
 
 預設使用 isolated world。只有在你需要頁面情境存取時才使用 `MAIN`，並要考量擴充功能 API 與 runtime 的限制。
 
-### 跨瀏覽器的 MAIN world 模式
+### 用前綴支援更舊的瀏覽器
 
-使用[瀏覽器專屬前綴](/zh-Hant/docs/features/browser-specific-fields)，僅在 Chromium 上宣告 MAIN world，並為 Firefox 提供 isolated 後備：
+在 Chrome 111、Firefox 128 與 Safari 18 及更新版本上，上面快速範例裡不帶前綴的 `world` 鍵就足夠了。早於 128 的 Firefox 會忽略 `world` 鍵，並在 isolated world 中執行腳本。如果你必須支援這樣的版本，使用[瀏覽器專屬前綴](/zh-Hant/docs/features/browser-specific-fields)，僅在 Chromium 上宣告 MAIN world，並為 Firefox 提供 isolated 後備。這樣一來，每個 Firefox 版本都會執行後備腳本，包括那些支援 MAIN 的版本：
 
 ```json
 {

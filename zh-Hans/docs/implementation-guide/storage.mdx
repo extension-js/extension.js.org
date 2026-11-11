@@ -119,7 +119,7 @@ chrome.storage.session.setAccessLevel({
 
 Firefox 实现了全部四个区域。请把配额表里的数字当作 Chromium 的，并在发布前对着 Firefox 构建核对你的功能所依赖的那个上限。
 
-如果你的源码调用 `browser.storage`，同时也要构建 Chromium 目标，请传入 `--polyfill`。参见 [跨浏览器兼容](/zh-Hans/docs/features/cross-browser-compatibility)。
+如果你的源码调用 `browser.storage`，并且要支持早于 148 的 Chromium 浏览器（带 `devtools_page` 时为早于 152），请传入 `--polyfill`。更新的版本原生提供 `browser`。参见 [跨浏览器兼容](/zh-Hans/docs/features/cross-browser-compatibility)。
 
 ## 你会看到的控制台报错
 
@@ -144,7 +144,7 @@ content script 在区域仍然仅限受信任上下文时读取了 `storage.sess
 Extension.js 不包装也不替换存储 API。它只编译调用这些 API 的代码，因此上面的平台规则就是全部约定。有两个构建行为值得知道：
 
 - `storage.managed_schema` 路径会被校验，schema 文件会被产出到输出目录。该路径必须解析到扩展目录内的文件。Extension.js 会在浏览器启动前把指向目录之外的路径标记为加载阻断，因为 Chrome 会因为缺少 managed schema 而拒绝整个扩展。参见 [JSON](/zh-Hans/docs/implementation-guide/json)。
-- `--polyfill` 会把 `browser.*` 桥接到 Chromium 目标上，因此同一份源码可以为两个家族调用 `browser.storage`。
+- `--polyfill` 会把 `browser.*` 桥接到早于 148 的 Chromium 浏览器（带 `devtools_page` 时为早于 152）上，因此同一份源码可以为两个家族调用 `browser.storage`。更新的版本原生提供 `browser`。
 
 因为后台 service worker 会重启，请写下重要的状态并按需读回。把内存里的副本当作优化，永远不要当作事实来源。[后台脚本](/zh-Hans/docs/implementation-guide/background) 讲解了这个重启模型。
 
