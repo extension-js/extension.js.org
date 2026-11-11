@@ -123,6 +123,12 @@ A Firefox build finished without the AMO lint. The zip is complete. Install `add
 `Edge Add-ons refuses a package whose manifest carries key, so dist/zipprobe-1.0.0-edge.zip leaves it out.`
 The store zip was written without the top-level `key` field, because Partner Center assigns the extension ID and refuses a package that carries one. `dist/edge` keeps the field, so an unpacked install of that folder keeps the ID the key pins and the OAuth redirect URL built from it stays valid. The line prints once per Edge `--zip` build. This behavior needs the release after 4.1.38, earlier builds dropped the field from `dist/edge` as well.
 
+`manifest.json description runs 133 characters, and the Chrome Web Store refuses a chrome build whose description is over 132.`
+The manifest `description` is longer than the store accepts. Chromium builds (`chrome`, `edge`, `brave`, `opera` and the other Chromium browsers) check it against 132 characters. Safari builds check it against 112, the App Store Connect limit, and that line adds `(Apple error 90849)`. Shorten the field to the limit that the line names. The build still finishes, so the store is the first place that refuses the upload. In `dev` each distinct warning prints once per session. A production build prints it on every run.
+
+`manifest.json has no description, and App Store Connect refuses a safari build without one (Apple error 90849).`
+A Safari build found no `description` in the manifest, or only whitespace. App Store Connect requires one, so add a description of 112 characters or fewer. Chromium builds do not warn about a missing description. Firefox builds skip both checks. A localized value such as `__MSG_extDescription__` is also skipped, because its text lives in `_locales`, so check the length of each translation yourself.
+
 `default_locale is set, but the _locales folder is missing.`
 The manifest check stopped the build before packaging. Stores reject a package without its default locale, so restore `_locales/<default>/messages.json` and build again.
 
