@@ -59,7 +59,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 ```
 
-Two details follow from that rule. An `async` listener function returns a promise, and a promise is not `true`, so an `async` listener that calls `sendResponse` later still closes the channel on Chromium. Do the async work inside the listener and return `true`, as above. On the caller side, `chrome.runtime.sendMessage` returns a promise when you omit the callback, so `await` works there without any of this.
+Two details follow from that rule. An `async` listener function returns a promise, and a promise is not `true`, so on a Chromium browser older than 148 an `async` listener that calls `sendResponse` later still closes the channel. From Chromium 148 the value an `async` listener returns becomes the response, except in an extension that declares a `devtools_page`. Doing the async work inside the listener and returning `true`, as above, works on every version. On the caller side, `chrome.runtime.sendMessage` returns a promise when you omit the callback, so `await` works there without any of this.
 
 Give every message an explicit `type`, validate the payload before you act on it, and check `sender` before you do privileged work. A content script is your code, and the data that it forwards came from a page you do not control.
 
