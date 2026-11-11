@@ -26,14 +26,14 @@ from one project.
 
 Cross-browser extension development means writing one extension that ships to Chrome, Edge, and Firefox without forking the codebase. Extension.js compiles a single project into per-browser artifacts (`dist/chrome`, `dist/edge`, `dist/firefox`) and filters the manifest for the active target. The reload loop, runtime APIs, and packaging all match the browser you are debugging.
 
-Use one `manifest.json` and target specific browsers or custom binaries. Enable polyfills when you need `browser.*` API compatibility in Chromium-family targets.
+Use one `manifest.json` and target specific browsers or custom binaries. Enable the polyfill when you need `browser.*` in Chromium browsers older than version 148.
 
 ## Chrome and Firefox extension compatibility
 
 Chrome and Firefox extensions share most of the WebExtensions surface but differ in three places that matter every day:
 
 - **Background scripts:** Chrome (Manifest V3) requires `background.service_worker`. Firefox uses `background.scripts` with non-persistent event pages. Extension.js translates between the two shapes in both directions, so either spelling works from one manifest.
-- **Runtime API namespace:** Firefox supports `browser.*` natively. Chromium uses `chrome.*`. Pass `--polyfill` to bridge the gap on Chromium targets.
+- **Runtime API namespace:** Firefox supports `browser.*` natively. Chromium supports `chrome.*` on every version, and `browser.*` from version 148 (152 when the extension declares a `devtools_page`). Pass `--polyfill` to bridge the gap on older Chromium versions.
 - **Permissions and content security policy (CSP):** Browsers evaluate some `permissions` and `host_permissions` entries differently. Keep browser-specific values behind prefixed manifest keys instead of feature-detecting at runtime.
 
 ## Browser-specific manifest fields
@@ -190,7 +190,11 @@ This keeps your builds organized and easier to ship in CI.
 
 ### 4) Optional `browser.*` polyfill for Chromium targets
 
-If your code uses `browser.*`, enable `--polyfill` for Chromium-family targets:
+Chromium 148 and later expose every extension API under `browser` as well as `chrome`, so `browser.*` code runs there without a polyfill. An extension that declares a `devtools_page` gets the native `browser` namespace only from Chromium 152. The Chromium version decides this, not the Chrome brand, so the same numbers apply to Edge and other Chromium browsers.
+
+You still need the polyfill when your users run a Chromium browser older than 148, or older than 152 with a `devtools_page`. If you do not support those versions, set `"minimum_chrome_version": "148"` in the manifest (`"152"` with a `devtools_page`) and build without the polyfill.
+
+If your code uses `browser.*` and you support those older versions, enable `--polyfill` for Chromium-family targets:
 
 <CodeGroup>
 
@@ -225,7 +229,7 @@ The polyfill module resolves from your project first, then from the bundled Exte
 
 - **Keep one codebase**: Put browser differences in prefixed manifest fields when possible.
 - **Build one target at a time**: Generate dedicated artifacts (`dist/<browser>`) for each browser in continuous integration (CI).
-- **Use `--polyfill` when needed**: `build` leaves it off until you pass `--polyfill`, while `dev` and `start` apply it by default. Pass `--no-polyfill` there when your code does not depend on `browser.*`.
+- **Use `--polyfill` when needed**: `build` leaves it off until you pass `--polyfill`, while `dev` and `start` apply it by default. Pass `--no-polyfill` there when your code does not depend on `browser.*`. You need the polyfill only for a Chromium browser older than 148, or older than 152 with a `devtools_page`.
 - **Check API support early**: Use [MDN WebExtensions docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions) before relying on browser-specific APIs.
 
 ## Next steps

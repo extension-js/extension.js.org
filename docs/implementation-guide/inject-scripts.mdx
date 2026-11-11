@@ -35,8 +35,8 @@ A browser extension can run code inside a web page in three ways. A manifest `co
 | When it runs                | Every matching page, on load        | Once, when you call it                | Every matching page, from registration  |
 | Permission needed           | `matches` in the manifest           | `scripting` plus `activeTab` or host  | `scripting` plus host permissions       |
 | Survives a browser restart  | Yes                                 | No, the script ran once               | Yes, unless `persistAcrossSessions` is false |
-| Can target `world: "MAIN"`  | Yes, Chromium only in Extension.js  | Yes, Chromium only in Extension.js    | Yes, Chromium only in Extension.js      |
-| Firefox support (MV3)       | Yes                                 | Yes, isolated world                   | Yes, isolated world                     |
+| Can target `world: "MAIN"`  | Yes, Chrome 111, Firefox 128, Safari 18 | Yes, Chrome 95, Firefox 128, Safari 15.4 | Yes, Chrome 102, Firefox 128, Safari 16.4 |
+| Firefox support (MV3)       | Yes                                 | Yes                   | Yes                     |
 
 Use the manifest entry when the feature belongs on a known set of sites. Use `executeScript` when the user triggers the feature, for example from a toolbar click. Use `registerContentScripts` when the set of sites is decided at runtime, for example from a settings page.
 
@@ -56,7 +56,7 @@ The `scripting` permission unlocks both runtime APIs. `activeTab` covers the tab
 }
 ```
 
-Chromium and Firefox both read this block as written, so it needs no browser prefix. Use a prefix only for `world: "MAIN"` on a manifest content script, because Firefox ignores the field. Declare it as `chromium:world` and keep an isolated-world fallback, as shown in [browser-specific fields](/docs/features/browser-specific-fields).
+Chromium and Firefox both read this block as written, so it needs no browser prefix. A manifest content script with `world: "MAIN"` needs no prefix either on Chrome 111, Firefox 128, and Safari 18 or later. Use `chromium:world` with an isolated-world fallback only if you must support older browsers, as shown in [Content scripts](/docs/implementation-guide/content-scripts).
 
 The runtime calls that match this manifest:
 
@@ -105,7 +105,7 @@ Pass `persistAcrossSessions: true` again in the update. In Chrome 155, an update
 
 | Capability                 | Chromium                                             | Firefox                                               | Safari                                                  |
 | -------------------------- | ---------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------- |
-| `executeScript` `world`    | `ISOLATED` (default) or `MAIN`                       | Isolated world. Treat `world` as Chromium only.       | Not covered by these docs                               |
+| `executeScript` `world`    | `ISOLATED` (default) or `MAIN`, from Chrome 95 | `ISOLATED` (default) or `MAIN`, from Firefox 128 | `MAIN` from Safari 15.4 |
 | `registerContentScripts`   | Supported                                            | Supported in MV3                                      | Not covered by these docs                               |
 | `insertCSS` `origin`       | `AUTHOR` (default) or `USER`                         | `AUTHOR` (default) or `USER`                          | Not covered by these docs                               |
 | Before any script runs     | Access follows the manifest                          | Access follows the manifest                           | You grant website access per site after you enable the extension |

@@ -352,9 +352,9 @@ deno run -A npm:extension@latest create my-extension --template=content-main-wor
 
 Repository: [extension-js/examples/content-main-world](https://github.com/extension-js/examples/tree/main/examples/content-main-world)
 
-- **`world: "MAIN"` is Chromium-only.** Firefox does not support the `world` field and ignores it. Your script still runs in the isolated world on Firefox.
-- **Cross-browser MAIN world behavior:** Use the `chromium:` manifest prefix to declare it only for Chromium targets. Then provide an isolated-world fallback for Firefox.
-- Extension APIs (`chrome.runtime`, `chrome.storage`, etc.) are **not available** in the MAIN world; you can only access page-context globals.
+- **`world: "MAIN"` works on Chrome 111, Firefox 128, and Safari 18 or later.** The script runs in the page's own JavaScript world on all three. On Firefox, that holds under Manifest V2 and Manifest V3.
+- **A MAIN world script has no extension APIs.** `chrome.runtime`, `chrome.storage`, and the rest are not available there, and you can only access page-context globals. Pair it with an isolated-world script to talk to the extension.
+- **A browser prefix is only worth it for older browsers.** Use `chromium:world` with an isolated-world fallback only if you must support a browser older than those versions.
 - Treat MAIN world as an advanced path. Validate behavior on each target browser early.
 
 ### The isolated-world bridge
@@ -387,9 +387,9 @@ MAIN world scripts cannot call extension APIs, so Extension.js pairs each MAIN g
 
 Use isolated world by default. Use `MAIN` only when you need page-context access, and account for extension API/runtime constraints.
 
-### Cross-browser MAIN world pattern
+### Support older browsers with a prefix
 
-Use [browser-specific prefixes](/docs/features/browser-specific-fields) to declare MAIN world only for Chromium and provide an isolated fallback for Firefox:
+On Chrome 111, Firefox 128, and Safari 18 or later, the plain `world` key in the quick example is all that you need. A Firefox version older than 128 ignores the `world` key and runs the script in the isolated world. If you must support one, use [browser-specific prefixes](/docs/features/browser-specific-fields) to declare MAIN world only for Chromium and provide an isolated fallback for Firefox. Every Firefox version then runs the fallback, including the versions that support MAIN:
 
 ```json
 {

@@ -25,14 +25,14 @@ Chromium 與 Gecko（Firefox 引擎）目標產出符合執行階段需求的輸
 
 跨瀏覽器擴充功能開發指的是寫一個擴充功能，能同時上架到 Chrome、Edge 與 Firefox，而不需要分叉程式碼。Extension.js 會把單一專案編譯成各瀏覽器專屬的產物（`dist/chrome`、`dist/edge`、`dist/firefox`），並依當前目標過濾 manifest。重新載入流程、執行階段 API 與打包行為都會對應你正在除錯的瀏覽器。
 
-只使用一份 `manifest.json`，就能鎖定特定瀏覽器或自訂瀏覽器二進位檔。若你需要在 Chromium 家族目標中使用 `browser.*` API 相容性，可以啟用 polyfill。
+只使用一份 `manifest.json`，就能鎖定特定瀏覽器或自訂瀏覽器二進位檔。若你需要在早於 148 版的 Chromium 瀏覽器中使用 `browser.*`，可以啟用 polyfill。
 
 ## Chrome 與 Firefox 擴充功能相容性
 
 Chrome 與 Firefox 擴充功能共用大部分 WebExtensions 表面，但每天都會碰到三個關鍵差異：
 
 - **背景腳本：** Chrome（Manifest V3）需要 `background.service_worker`。Firefox 則使用 `background.scripts` 搭配非持久的 event page。Extension.js 會在這兩種形態之間做雙向轉換，因此同一份 manifest 中兩種寫法都可行。
-- **執行階段 API 命名空間：** Firefox 原生支援 `browser.*`，Chromium 使用 `chrome.*`。在 Chromium 目標可以加上 `--polyfill` 來彌平差異。
+- **執行階段 API 命名空間：** Firefox 原生支援 `browser.*`。Chromium 在每個版本上都支援 `chrome.*`，並自 148 版起支援 `browser.*`（擴充功能宣告了 `devtools_page` 時自 152 版起）。在更舊的 Chromium 版本上可以加上 `--polyfill` 來彌平差異。
 - **權限與內容安全政策（CSP）：** 不同瀏覽器對某些 `permissions` 與 `host_permissions` 條目的判斷不同。將瀏覽器專屬的值放在帶前綴的 manifest 鍵內，而不是在執行階段做功能偵測。
 
 ## 瀏覽器專屬的 manifest 欄位
@@ -189,7 +189,11 @@ Extension.js 會把各目標寫入各自的建置資料夾：
 
 ### 4) Chromium 目標可選的 `browser.*` polyfill
 
-如果你的程式碼使用 `browser.*`，可為 Chromium 家族目標啟用 `--polyfill`：
+Chromium 148 及更新版本把每個擴充功能 API 同時放在 `browser` 與 `chrome` 之下，所以 `browser.*` 程式碼在那裡不需要 polyfill 就能執行。宣告了 `devtools_page` 的擴充功能要到 Chromium 152 才有原生的 `browser` 命名空間。起決定作用的是 Chromium 版本，而不是 Chrome 這個品牌，所以同樣的版本號也適用於 Edge 與其他 Chromium 瀏覽器。
+
+當你的使用者執行早於 148 的 Chromium 瀏覽器（帶有 `devtools_page` 時為早於 152）時，你仍然需要 polyfill。如果你不支援這些版本，請在 manifest 中設定 `"minimum_chrome_version": "148"`（帶有 `devtools_page` 時為 `"152"`），並在不帶 polyfill 的情況下建置。
+
+如果你的程式碼使用 `browser.*`，並且要支援這些更舊的版本，可為 Chromium 家族目標啟用 `--polyfill`：
 
 <CodeGroup>
 
@@ -224,7 +228,7 @@ polyfill 模組會先從你的專案解析，接著才是 Extension.js 內建的
 
 - **保持單一程式碼庫**：可能的話，把瀏覽器差異放在帶前綴的 manifest 欄位裡。
 - **一次只建一個目標**：在持續整合（CI）中為每個瀏覽器產出獨立的產物（`dist/<browser>`）。
-- **必要時才使用 `--polyfill`**：`build` 預設關閉，需要你明確傳入 `--polyfill`；`dev` 與 `start` 則預設開啟。若你的程式碼不依賴 `browser.*`，在這兩個指令傳入 `--no-polyfill` 將其關閉。
+- **必要時才使用 `--polyfill`**：`build` 預設關閉，需要你明確傳入 `--polyfill`；`dev` 與 `start` 則預設開啟。若你的程式碼不依賴 `browser.*`，在這兩個指令傳入 `--no-polyfill` 將其關閉。只有面向早於 148 的 Chromium 瀏覽器（帶有 `devtools_page` 時為早於 152）時才需要 polyfill。
 - **及早確認 API 支援**：在依賴特定瀏覽器 API 前，先查閱 [MDN WebExtensions 文件](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions)。
 
 ## 下一步

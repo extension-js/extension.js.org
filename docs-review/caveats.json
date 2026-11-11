@@ -24,16 +24,21 @@
       }
     },
     {
-      "id": "main-world-chromium-only",
+      "id": "main-world-minimum-versions",
       "mustAppearOn": ["docs/implementation-guide/content-scripts.mdx"],
       "anyOf": [
-        "world[^\\n]{0,40}Chromium[- ]only",
-        "Chromium[- ]only[^\\n]{0,60}world",
-        "MAIN[^\\n]{0,80}(not supported|no effect|ignored)[^\\n]{0,40}Firefox",
-        "Firefox[^\\n]{0,80}(ignores|no effect)[^\\n]{0,40}(world|MAIN)"
+        "MAIN[^\\n]{0,40}Chrome 111[^\\n]{0,20}Firefox 128[^\\n]{0,20}Safari 18[\\s\\S]{0,400}no extension APIs"
       ],
-      "why": "content_scripts[].world is a Chromium MV3 field. The Firefox MV2 build keeps the key, and Firefox ignores it, so a MAIN world script silently runs in the isolated world instead.",
-      "verifiedBy": "programs/develop/plugin-web-extension/feature-manifest/manifest-overrides/common/content_scripts.ts:20 comment 'Chromium-only (MV3+) field'; built examples/content-main-world dist/firefox/manifest.json is manifest_version 2 and still carries world: MAIN"
+      "why": "A content script with world set to MAIN runs in the page's own JavaScript world only from Chrome 111, Firefox 128 and Safari 18, and it has no extension APIs there. A reader who misses the versions ships to a browser that ignores the key, and a reader who misses the API limit calls chrome.runtime from a script that does not have it.",
+      "verifiedBy": "mdn/browser-compat-data webextensions/manifest/content_scripts.json, world: Chrome 111, Firefox 128, Safari 18, no partial notes, read 2026-11-11. Observed build: a production build loaded in a managed headless Firefox Nightly 158 ran the world: MAIN manifest content script in the page's own world under manifest_version 2 and manifest_version 3 (it read a page-owned global and had no browser.runtime), while the plain entry ran isolated. The earlier 'Chromium only' form of this caveat was deleted because Firefox 128 and Safari 18 honor the key.",
+      "translations": {
+        "zh-Hans": [
+          "MAIN[^\\n]{0,40}Chrome 111[^\\n]{0,20}Firefox 128[^\\n]{0,20}Safari 18[\\s\\S]{0,400}没有扩展 API"
+        ],
+        "zh-Hant": [
+          "MAIN[^\\n]{0,40}Chrome 111[^\\n]{0,20}Firefox 128[^\\n]{0,20}Safari 18[\\s\\S]{0,400}沒有擴充功能 API"
+        ]
+      }
     },
     {
       "id": "playwright-headless-drops-extensions",
