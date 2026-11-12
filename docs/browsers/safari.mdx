@@ -54,7 +54,7 @@ sudo xcode-select --switch /Applications/Xcode.app
 xcodebuild -runFirstLaunch
 ```
 
-A paid Apple Developer account is **not** required. Without `--development-team` the app is signed ad-hoc. Safari accepts an ad-hoc signed app and lists the extension like any other, with **Allow unsigned extensions** turned off in Safari ▸ Settings ▸ Developer (the Develop menu on older Safari). That setting belongs to a different path, described in [Temporary extensions](#temporary-extensions-no-xcode).
+A paid Apple Developer account is **not** required. Without `--development-team` the app is signed ad-hoc. Safari lists and runs an ad-hoc build only while **Allow unsigned extensions** is on in Safari ▸ Settings ▸ Developer (the Develop menu on older Safari). Safari turns that setting off each time it quits. See [Ad-hoc builds](#ad-hoc-builds-no-apple-developer-account).
 
 If Xcode is missing, `extension dev` and `extension build` for Safari targets fail fast, before bundling, with guidance instead of a late, confusing error.
 
@@ -138,7 +138,7 @@ The one-time gesture is the same for signed and ad-hoc builds:
 
 1. Safari ▸ Settings ▸ Extensions ▸ turn on your extension.
 
-The toggle survives Safari restarts, so this is genuinely one time per machine, not once per launch.
+The toggle survives Safari restarts, so this is genuinely one time per machine, not once per launch. An ad-hoc build also needs **Allow unsigned extensions** on after each Safari launch.
 
 Turning the extension **on is not the same as giving it access to pages**.
 Safari asks for website access separately, and until you grant it a content
@@ -195,8 +195,15 @@ changes nothing about how Safari lists or runs the extension.
 ### Ad-hoc builds (no Apple Developer account)
 
 Without `--development-team` the app is ad-hoc signed. Safari lists it and runs
-it, and the enable gesture above is the whole setup. This was measured with
-Safari ▸ Settings ▸ Developer ▸ **Allow unsigned extensions** turned **off**.
+it only while Safari ▸ Settings ▸ Developer ▸ **Allow unsigned extensions** is
+**on**. Safari asks for your password when you turn that setting on, and turns
+it off again when Safari quits.
+
+After a relaunch, the extension is missing from Settings ▸ Extensions and no
+content script runs. Opening the app again does not bring it back. Run
+`dev --enable-extension` again, which turns the setting on and registers the
+extension. The extension comes back turned on, with the website access that you granted.
+This was measured on Safari 27. A team-signed build needs no setting.
 
 `dev --enable-extension` clicks that switch for you. Safari 27 treats a scripted
 click on an ad-hoc row as interference, and asks you to confirm it with Touch ID
@@ -464,7 +471,7 @@ npx extension build --browser=webkit-based
 
 - **Packaging is macOS only.** The Xcode step needs the full Xcode app. `build` still produces `dist/safari` elsewhere.
 - **`preview` and `start` have no Safari path.** See [Command support](#command-support) for what was measured.
-- **Enabling and granting access need you once.** They are Safari security controls. `dev --enable-extension` scripts both, and Safari can still ask for Touch ID or your password. Both survive restarts.
+- **Enabling and granting access need you once.** They are Safari security controls. `dev --enable-extension` scripts both, and Safari can still ask for Touch ID or your password. Both survive restarts. An ad-hoc build also needs **Allow unsigned extensions** on after each Safari launch.
 - **Signing stops at development.** `--development-team` signs the local app with your development certificate. Distribution signing, notarization, and App Store submission are a separate step beyond this workflow (see below).
 - **macOS target only.** iOS app generation is not produced by this workflow today.
 
