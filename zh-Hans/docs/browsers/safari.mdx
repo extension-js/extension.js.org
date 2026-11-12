@@ -146,6 +146,20 @@ app 打开时（`dev`，或 `build --open`），Extension.js 会打印与你这�
 
 如果你的扩展加载了但页面上毫无反应，几乎总是这个原因。先检查权限，再去翻你的代码。
 
+### 让 `dev` 替你启用
+
+`--enable-extension` 通过 macOS 辅助功能替你完成这两步。你的终端 app 需要一次性的辅助功能授权。
+
+```bash
+npx extension@latest dev --browser safari --enable-extension
+```
+
+开始之前请先退出 Safari。这次运行会先向 `safaridriver` 请求它的 WebDriver 会话，然后在该会话打开的 Safari 里启用扩展。只要另一个 Safari 开着，Safari 27 就不会应答会话请求。这种情况下，运行会在没有会话的状态下启用扩展，并提示你退出 Safari。
+
+在会话打开的那个 Safari 里，运行通过 **在每个网站上始终允许…（Always Allow on Every Website…）** 授予访问权限，因为 **编辑网站…（Edit Websites…）** 在那里不起作用。不要在自动化窗口里点击，否则 Safari 会询问是否停止会话。
+
+对临时签名的行，Safari 27 会把脚本点击视为干扰，并要求你用 Touch ID 或密码确认。运行会打印 Safari 正在等待，并在 60 秒内反复读取开关。团队签名的行接受同样的点击，不会出现提示。
+
 ### 用 Apple Developer 团队签名的构建
 
 带上 `--development-team` 和你的 Apple Developer team id，app 就会用你自己的证书签名：
@@ -346,7 +360,7 @@ npx extension build --browser=webkit-based
 
 - **打包仅限 macOS。** Xcode 步骤需要 macOS 与完整的 Xcode app。（在其他平台上 `build` 仍会产出 `dist/safari`，而 `dev` 需要 macOS。）
 - **`preview` 与 `start` 没有 Safari 路径。** 测量到的结论见上面的「命令支持情况」。
-- **启用操作是手动的。** 把扩展打开、以及授予网站访问权限，都是 Safari 的安全控制项，无法自动化。两者都能在重启后保留，所以你只付出一次。
+- **启用和授权需要你参与一次。** 把扩展打开、以及授予网站访问权限，都是 Safari 的安全控制项。`dev --enable-extension` 会用脚本完成这两步，但 Safari 仍可能要求 Touch ID 或密码。两者都能在重启后保留，所以你只付出一次。
 - **签名止步于开发阶段。** `--development-team` 用你的开发证书为本地 app 签名。用于分发的签名、公证（notarization）与 App Store 提交是这条工作流之外的另一步（见下文）。
 - **仅产出 macOS 目标。** 目前这条工作流不会生成 iOS 应用。
 

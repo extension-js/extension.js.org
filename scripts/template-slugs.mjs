@@ -3,7 +3,7 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const CATALOG_URL =
-  "https://api.github.com/repos/extension-js/examples/contents/examples";
+  "https://api.github.com/repos/extension-js/templates/contents/examples";
 const FALLBACK = path.join(ROOT, "scripts", "template-catalog.json");
 const SKIP_DIRS = new Set(["node_modules", ".git", ".github", "docs-review"]);
 
@@ -70,7 +70,7 @@ if (problems.length > 0) {
   console.error(`Template slug check failed (catalog: ${source}):`);
   for (const p of problems) console.error("  " + p);
   console.error(
-    "Fix the slug or update the template in extension-js/examples first.",
+    "Fix the slug or update the template in extension-js/templates first.",
   );
 
   process.exit(1);

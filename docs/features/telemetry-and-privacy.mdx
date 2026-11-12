@@ -25,12 +25,14 @@ The privacy bar is strict by design:
 
 ## What Extension.js collects
 
-Per CLI run, at most one of the following. The exception is a watch session (`dev`, `start`, `preview`), which reports `command_executed` with `session: started` when it comes up and a later `command_failed` if it breaks, so one run can produce two rows:
+Per CLI run, at most one of the following. The exception is a watch session (`dev`, `start`, `preview`), which reports `command_executed` with `session: started` when it comes up and a later `command_failed` if it breaks. A `dev` session also reports `command_executed` with `session: ready` once the session is ready to use, so one run can produce three rows:
 
 | Event              | Sampled                                    | Properties                             |
 | ------------------ | ------------------------------------------ | -------------------------------------- |
 | `command_executed` | 20 % (configurable, see below)             | `command`, `success: true`, `version`  |
 | `command_failed`   | 100 % (Extension.js always sends failures) | `command`, `success: false`, `version`, `code`, `exit_code` |
+
+The `session: ready` row tells a `dev` that worked from one that hung before the browser opened. With a launched browser, it is sent when the browser accepted the extension. With Safari, it is sent when the first packaging pass finished, whether or not the extension is turned on. With `--no-browser`, it is sent when the first compile finished without errors. The row carries no timing, no browser name and no project detail. `start` and `preview` do not send it.
 
 A failure adds two more properties so a failure count reads as a cause rather than a number. `code` is one name from the CLI's fixed error catalog, for example `E_MANIFEST_NOT_FOUND`, and `exit_code` is the process exit code as an integer from 0 to 255. `code` is checked against the catalog before it is sent, so a Node errno, an error message, or any value that is not a catalog name is dropped and the event reports `E_INTERNAL` instead. No error text ever travels.
 
@@ -38,15 +40,15 @@ When a run offers to download a managed browser on a first run, the command's ow
 
 The `create` command adds two more properties so a broken advertised starter shows up in its failure counts: `template` (the starter name as listed by `extension create --help`, or absent) and `source` (`cli`, or `templates` when the docs template gallery started the create). `template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path, or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. `source` is checked the same way against those two surfaces, and any other value is sent as `cli`. The `create` command is also exempt from sampling, so template usage numbers stay accurate.
 
-Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`, and `app`, which is always the word `extension`. Nothing else. `is_source_build` is a single boolean answering "was this a registry install or a repository checkout". It is computed from the shape of the install path (whether a `node_modules`-style segment sits above the CLI). The path itself is never read into the event, sent, or hashed.
+Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`, `package_manager`, and `app`, which is always the word `extension`. Nothing else. `package_manager` is one of `npm`, `pnpm`, `yarn`, `bun` or `unknown`. It is the first word of the `npm_config_user_agent` variable that a package manager sets, and the version after it is never sent. `is_source_build` is a single boolean answering "was this a registry install or a repository checkout". It is computed from the shape of the install path (whether a `node_modules`-style segment sits above the CLI). The path itself is never read into the event, sent, or hashed.
 
 ## Volume controls
 
 Three independent controls limit how much data leaves the machine:
 
-- **Sampling:** Extension.js samples `command_executed` at 20 % by default. Override with `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0–1.0). Failures are never sampled.
+- **Sampling:** Extension.js samples `command_executed` at 20 % by default. Override with `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0–1.0). Failures are never sampled, and neither are the `session` rows.
 - **Per-run cap:** at most **3 events** per CLI process. Override with `EXTENSION_TELEMETRY_MAX_EVENTS`.
-- **Debounce (duplicate suppression):** Extension.js drops duplicate `(event, command, success)` tuples within 60 s. Override with `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
+- **Debounce (duplicate suppression):** Extension.js drops duplicate `(event, command, success, session)` tuples within 60 s. Override with `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
 
 ## What Extension.js never collects
 

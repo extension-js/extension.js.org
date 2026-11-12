@@ -146,6 +146,20 @@ app 開啟時（`dev`，或 `build --open`），Extension.js 會印出符合你�
 
 如果你的擴充功能載入了卻在頁面上毫無動靜，幾乎都是這個原因。先檢查權限，再回頭看你的程式碼。
 
+### 讓 `dev` 替你啟用
+
+`--enable-extension` 透過 macOS 輔助使用替你完成這兩個步驟。你的終端機 app 需要一次性的輔助使用授權。
+
+```bash
+npx extension@latest dev --browser safari --enable-extension
+```
+
+開始之前請先結束 Safari。這次執行會先向 `safaridriver` 要求它的 WebDriver 工作階段，然後在該工作階段開啟的 Safari 裡啟用擴充功能。只要另一個 Safari 開著，Safari 27 就不會回應工作階段要求。這種情況下，執行會在沒有工作階段的狀態下啟用擴充功能，並提示你結束 Safari。
+
+在工作階段開啟的那個 Safari 裡，執行透過 **在每個網站上一律允許…（Always Allow on Every Website…）** 授予存取權，因為 **編輯網站…（Edit Websites…）** 在那裡沒有作用。不要在自動化視窗裡點按，否則 Safari 會詢問是否停止工作階段。
+
+對臨時簽章的列，Safari 27 會把指令碼點按視為干擾，並要求你用 Touch ID 或密碼確認。執行會印出 Safari 正在等待，並在 60 秒內反覆讀取開關。團隊簽章的列接受同樣的點按，不會出現提示。
+
 ### 以 Apple Developer 團隊簽章的建置
 
 帶上 `--development-team` 與你的 Apple Developer team id，app 就會以你自己的憑證簽章：
@@ -346,7 +360,7 @@ npx extension build --browser=webkit-based
 
 - **打包僅限 macOS。** Xcode 步驟需要 macOS 與完整的 Xcode 應用程式。（在其他平台上 `build` 仍會產出 `dist/safari`，而 `dev` 需要 macOS。）
 - **`preview` 與 `start` 沒有 Safari 路徑。** 量測到的結論請見上面的「指令支援」。
-- **啟用動作是手動的。** 啟用擴充功能與授予網站存取權都屬於 Safari 的安全控制，無法自動化。兩者都會在重新啟動後保留，所以你只需付出一次。
+- **啟用與授權需要你參與一次。** 啟用擴充功能與授予網站存取權都屬於 Safari 的安全控制。`dev --enable-extension` 會用指令碼完成這兩個步驟，但 Safari 仍可能要求 Touch ID 或密碼。兩者都會在重新啟動後保留，所以你只需付出一次。
 - **簽章止於開發階段。** `--development-team` 會以你的開發憑證為本機 app 簽章。發行用簽章、公證與 App Store 上架是此工作流程之外的獨立步驟（見下文）。
 - **僅支援 macOS 目標。** 目前不會由此流程產生 iOS app。
 

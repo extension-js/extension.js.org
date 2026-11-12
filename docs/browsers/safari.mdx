@@ -94,7 +94,7 @@ Both `dev` and `build` accept identity overrides (Safari targets only):
 | `--bundle-id`        | User-owned reverse-DNS bundle identifier (e.g. `com.example.my-extension`). |
 | `--app-name`         | Override the app name (defaults to the manifest `name`).                    |
 | `--development-team` | Apple Developer team id to sign with (e.g. `A1B2C3D4E5`). Without it the build is ad-hoc signed. |
-| `--app-icon`         | A square PNG, ideally 1024 px, used as is for the Safari app icon instead of the manifest icon on a white plate. Needs the release after 4.1.38. |
+| `--app-icon`         | A square PNG, ideally 1024 px, used as is for the Safari app icon instead of the manifest icon on a white plate. Needs 4.1.39 or later. |
 | `--macos-only`       | Generate a macOS-only Xcode project (default `true`). Pass `--macos-only false` for a universal macOS + iOS project. |
 | `--force-regenerate` | Regenerate the Xcode project even when it is up to date.                    |
 | `--safari-binary`    | `dev` only: the Safari binary to open after packaging.                      |
@@ -156,6 +156,26 @@ In the same panel, under **Permissions**, use:
 If your extension loads but nothing happens on the page, this is almost always
 why. Check the permission before you go looking at your code.
 
+### Let `dev` turn it on
+
+`--enable-extension` does both steps for you through macOS Accessibility. Your
+terminal app needs a one-time Accessibility grant.
+
+```bash
+npx extension@latest dev --browser safari --enable-extension
+```
+
+Quit Safari before you start. The run asks `safaridriver` for its WebDriver
+session first, then turns the extension on in the Safari that the session
+opened. Safari 27 does not answer a session request while another Safari is
+open. In that case the run turns the extension on without a session, and tells
+you to quit Safari.
+
+In the Safari that the session opened, the run grants access with **Always
+Allow on Every Website…**, because **Edit Websites…** does nothing there. Do not
+click inside the automation window. Safari then asks whether to stop the
+session.
+
 ### Signed builds with an Apple Developer team
 
 Pass `--development-team` with your Apple Developer team id and the app is
@@ -178,16 +198,19 @@ Without `--development-team` the app is ad-hoc signed. Safari lists it and runs
 it, and the enable gesture above is the whole setup. This was measured with
 Safari ▸ Settings ▸ Developer ▸ **Allow unsigned extensions** turned **off**.
 
-`dev --enable-extension` clicks that switch for you, but Safari can drop a
-scripted click on an ad-hoc row. A team-signed row keeps the same click. When
-the switch reads off again after the click, the session stops with this reason:
+`dev --enable-extension` clicks that switch for you. Safari 27 treats a scripted
+click on an ad-hoc row as interference, and asks you to confirm it with Touch ID
+or your password. The run prints that Safari is waiting, and reads the switch
+for 60 seconds. A team-signed row takes the same click with no prompt. When
+nobody answers in that time, the session stops with a reason that quotes the
+prompt:
 
 ```text
-Safari read the switch for <switch id> off again after the script turned it on: an unsigned row drops a scripted switch that a team-signed row keeps, so turn it on by hand in Safari > Settings > Extensions, or set browser.safari.developmentTeam in extension.config.js so the build is signed and the switch sticks
+Safari read the switch for <switch id> off 60 s after the script clicked it, and the macOS password prompt (coreautha) is open and waits for an answer ("Safari detected an app or service that interfered with clicking. Are you sure you want to turn on this Safari Extension? Touch ID to allow this."): answer it in Safari or turn the switch on by hand in Safari > Settings > Extensions, or set browser.safari.developmentTeam in extension.config.js so the build is signed, then run again
 ```
 
-Turn the extension on by hand once, or set `browser.safari.developmentTeam` (or
-pass `--development-team`) so the next build is signed. The same sentence is in
+Answer the prompt, or set `browser.safari.developmentTeam` (or pass
+`--development-team`) so the next build is signed. The same sentence is in
 `safari.reason` of [`ready.json`](/docs/contracts/ready-json), with `step` set to
 `enabled`.
 
@@ -441,7 +464,7 @@ npx extension build --browser=webkit-based
 
 - **Packaging is macOS only.** The Xcode step needs the full Xcode app. `build` still produces `dist/safari` elsewhere.
 - **`preview` and `start` have no Safari path.** See [Command support](#command-support) for what was measured.
-- **Enabling and granting access are manual.** They are Safari security controls and cannot be automated. Both survive restarts.
+- **Enabling and granting access need you once.** They are Safari security controls. `dev --enable-extension` scripts both, and Safari can still ask for Touch ID or your password. Both survive restarts.
 - **Signing stops at development.** `--development-team` signs the local app with your development certificate. Distribution signing, notarization, and App Store submission are a separate step beyond this workflow (see below).
 - **macOS target only.** iOS app generation is not produced by this workflow today.
 

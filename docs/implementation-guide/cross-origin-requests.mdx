@@ -88,13 +88,14 @@ A request that carries a custom header, or that uses a method beyond `GET`, `HEA
 
 ## The Extension.js dev server
 
-During `extension dev`, Extension.js runs a local server that serves the reload client and the hot updates. Content scripts on any page dial it, which is itself a cross-origin request, so the server answers with:
+During `extension dev`, Extension.js runs a local server that serves the reload client and the hot updates. The extension's own pages fetch from it, which is itself a cross-origin request, so the server names that one origin:
 
 ```http
-Access-Control-Allow-Origin: *
+Access-Control-Allow-Origin: chrome-extension://<extension-id>
+Vary: Origin
 ```
 
-It also accepts any `Host` header. This is a development server on your own machine. It never runs in a packaged extension, and nothing that it serves reaches production.
+Any other origin gets no `Access-Control-Allow-Origin` header, so a page that you visit cannot read the compiled extension. This is a development server on your own machine. It never runs in a packaged extension, and nothing that it serves reaches production.
 
 ### The dev-only CSP patch
 

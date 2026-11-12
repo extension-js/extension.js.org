@@ -80,22 +80,24 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 | `--source <source>`       | -    | 標記這次 create 從哪裡發起(例如 `cli`)。僅記錄於匿名遙測。      | 未設定       |
 | `--output <pretty\|json>` | -    | 結果格式。`json` 會在 stdout 印出一個 schema-1 信封。           | `pretty`     |
 
-當你想使用預設的 TypeScript 起始範本時,完全不需指定 `--template`。只有在你想用 [官方範例](https://github.com/extension-js/examples/tree/main/examples) 中的其他技術棧時,才加上 `--template=<slug>`。`--template` 也接受 GitHub URL 或 ZIP URL,因此你可以從任何儲存庫建立專案。
+當你想使用預設的 TypeScript 起始範本時,完全不需指定 `--template`。只有在你想用 [官方範例](https://github.com/extension-js/templates/tree/main/examples) 中的其他技術棧時,才加上 `--template=<slug>`。`--template` 也接受 GitHub URL 或 ZIP URL,因此你可以從任何儲存庫建立專案。
 
 從 4.1.19 起，範本 URL 必須使用 `https://`。`create` 會在寫入專案之前拒絕一般的 `http://` URL，以及重新導向到 `http://` 的下載。如果要在你信任的網路中允許 `http://`，請設定 `EXTENSION_ALLOW_HTTP_TEMPLATE=true`。
 
-範本目錄共有 6 組 53 個範本:starters、sidebar、content scripts、new tab、toolbar action 以及特殊資料夾。執行 `extension create --help` 可看到完整清單。預設的 `typescript` 範本和其他名稱一樣會下載範本目錄的壓縮檔。只有 `javascript` 範本內建於 CLI。當你省略 `--template`、沒有設定 `EXTENSION_CREATE_TEMPLATE_URL` 而下載失敗時,`create` 會退回內建的 `javascript` 範本並明確說明,同時給出網路錯誤,因此離線的機器仍能得到一個專案。明確指定的 `--template` 下載失敗則會直接報錯。
+範本目錄共有 7 組 60 個範本:starters、sidebar、content scripts、new tab、toolbar action、DevTools 面板以及特殊資料夾。執行 `extension create --help` 可看到完整清單。預設的 `typescript` 範本和其他名稱一樣會下載範本目錄的壓縮檔。只有 `javascript` 範本內建於 CLI。當你省略 `--template`、沒有設定 `EXTENSION_CREATE_TEMPLATE_URL` 而下載失敗時,`create` 會退回內建的 `javascript` 範本並明確說明,同時給出網路錯誤,因此離線的機器仍能得到一個專案。明確指定的 `--template` 下載失敗則會直接報錯。
 
 一個建立出來的專案只有一個套件管理器。起始範本的 `packageManager` 固定值(或它隨附的 `pnpm-workspace.yaml`)決定它,否則由呼叫 `create` 的套件管理器決定。寫入 `package.json` 的 `packageManager` 欄位、`--install` 的安裝過程與印出的後續步驟都指向同一個套件管理器。
 
 ## 範本語料的版本固定
 
-範本目錄的下載會固定在 examples 儲存庫的某一個不可變 commit 上。因此同一個版本的兩次建立會產生完全相同的位元組。有兩個環境變數可以覆寫這個固定:
+範本目錄的下載會固定在 templates 儲存庫的某一個不可變 commit 上。因此同一個版本的兩次建立會產生完全相同的位元組。有兩個環境變數可以覆寫這個固定:
 
 - `EXTENSION_CREATE_TEMPLATE_REF` 指向另一個 ref。設為 `main` 可恢復浮動行為。
 - `EXTENSION_CREATE_TEMPLATE_URL` 指向另一個完全不同的壓縮檔 URL。設定了它而該封存檔無法使用時,`create` 會直接失敗,永遠不會退回內建範本。
 
 每次建立都會在專案中寫入一個 `.extension-create.json` 來源紀錄檔。它記下 create 的版本、範本與來源,當範本來自範本目錄壓縮檔時還會記下解析出的 ref,讓範本漂移隨時可稽核。內建的 `javascript` 起始範本記錄的是 `"source": "bundled"`,而且沒有 ref。
+
+每個範本還帶有一個供 MCP 用戶端讀取的 `.mcp.json` 檔案。如果資料夾裡已經有 `.mcp.json`,`create` 會原樣保留它。
 
 ## 用 `--output json` 取得機器可讀輸出
 
@@ -178,35 +180,35 @@ deno run -A npm:extension@latest create my-extension --install
 
 <Tip>
   範本的完整與持續更新清單,請瀏覽 [examples
-  儲存庫](https://github.com/extension-js/examples/tree/main/examples)。
+  儲存庫](https://github.com/extension-js/templates/tree/main/examples)。
 </Tip>
 
 <CardGroup cols={2}>
   <Card
     title="JavaScript"
     icon="js"
-    href="https://github.com/extension-js/examples/tree/main/examples/javascript"
+    href="https://github.com/extension-js/templates/tree/main/examples/javascript"
   >
     最精簡的內建起始範本。需要乾淨基線或離線時使用。
   </Card>
   <Card
     title="TypeScript(預設)"
     icon="typescript"
-    href="https://github.com/extension-js/examples/tree/main/examples/typescript"
+    href="https://github.com/extension-js/templates/tree/main/examples/typescript"
   >
     預先設好 `tsconfig.json` 的型別化 sidebar 起始範本。
   </Card>
   <Card
     title="React"
     icon="react"
-    href="https://github.com/extension-js/examples/tree/main/examples/newtab-react"
+    href="https://github.com/extension-js/templates/tree/main/examples/newtab-react"
   >
     為 content scripts 與 popup 視圖串接好的 React UI。
   </Card>
   <Card
     title="Vue"
     icon="vuejs"
-    href="https://github.com/extension-js/examples/tree/main/examples/newtab-vue"
+    href="https://github.com/extension-js/templates/tree/main/examples/newtab-vue"
   >
     內建單一檔案元件(SFC)支援的 Vue UI。
   </Card>

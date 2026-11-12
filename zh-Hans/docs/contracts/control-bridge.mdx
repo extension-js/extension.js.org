@@ -22,6 +22,8 @@ dev 服务器把这个通道挂在 [ready.json](/zh-Hans/docs/contracts/ready-js
 
 从 4.1.19 起，服务器会拒绝来自网页的握手。`Origin` 头为 `http://`、`https://` 或 `null` 时，会在任何帧之前得到 HTTP 401。扩展的 background 发送的是它自己的 scheme，例如 `chrome-extension://` 或 `moz-extension://`。Node.js 客户端不发送 `Origin`。这两类客户端都照常连接。
 
+从回环地址之外连接的 `consumer` 或 `controller` 必须在握手中以 `token` 发送会话令牌。当 `--host` 绑定到回环之外的地址时，开发服务器会把这个令牌写入 `.extension-js/`。参见[会话产物](/zh-Hans/docs/concepts/session-artifacts)。`producer` 和任何回环客户端在握手时都不需要令牌。需要 4.1.39 之后的版本。
+
 `extension-develop` 包会从它的 `bridge-entry` 模块导出本页涉及的每一个类型与常量，所以 harness 永远不必把这些线路字符串抄进自己的源码里。
 
 ## LogEvent（版本 1）
@@ -119,6 +121,7 @@ controller 发命令时要带上 `cmdId`、一个 op 和一个目标上下文：
 | `4001` | `CLOSE_BAD_INSTANCE`        | 握手里给的 `instanceId` 属于上一个 dev 会话。           |
 | `4002` | `CLOSE_BAD_HELLO`           | 握手格式不对：信封版本错误，或角色未知。                |
 | `4003` | `CLOSE_CONTROL_UNAVAILABLE` | controller 连上了一个没有用 `--allow-control` 启动的会话。 |
+| `4004` | `CLOSE_TOKEN_REQUIRED`      | 回环之外的 consumer 或 controller 没有发送会话令牌，或发送了错误的令牌。 |
 | `4008` | `CLOSE_SLOW_CONSUMER`       | 这个 socket 落后太多，broker 把它丢弃了。               |
 
 ## 服务端的其他帧
