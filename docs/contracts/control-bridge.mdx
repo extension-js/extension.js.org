@@ -22,6 +22,8 @@ The dev server hosts the channel at path `/extjs-control` on the `controlPort` t
 
 From 4.1.19, the server refuses a handshake from a web page. An `Origin` header of `http://`, `https://`, or `null` gets HTTP 401 before any frame. The extension background sends its own scheme, such as `chrome-extension://` or `moz-extension://`. Node.js clients send no `Origin`. Both connect as before.
 
+A `consumer` or `controller` that connects from beyond loopback must send the session token as `token` in its hello. The dev server writes that token under `.extension-js/` when `--host` binds an address beyond loopback. See [session artifacts](/docs/concepts/session-artifacts). A `producer` and any loopback client need no token for the handshake. Needs the release after 4.1.39.
+
 The `extension-develop` package exports every type and constant on this page from its `bridge-entry` module, so a harness never has to copy wire strings into its own source.
 
 ## LogEvent (version 1)
@@ -120,6 +122,7 @@ A close in the 4000 range is a deliberate refusal, never a transport failure:
 | `4001` | `CLOSE_BAD_INSTANCE`        | The hello named an `instanceId` from a previous dev session.  |
 | `4002` | `CLOSE_BAD_HELLO`           | The hello was malformed: wrong envelope version, or an unknown role. |
 | `4003` | `CLOSE_CONTROL_UNAVAILABLE` | A controller dialed a session started without `--allow-control`. |
+| `4004` | `CLOSE_TOKEN_REQUIRED`      | A consumer or controller beyond loopback sent no session token, or the wrong one. |
 | `4008` | `CLOSE_SLOW_CONSUMER`       | The socket fell far enough behind that the broker dropped it. |
 
 ## Other server frames

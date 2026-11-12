@@ -25,12 +25,14 @@ Extension.js 会收集极少量的匿名遥测，用于了解你运行了哪些�
 
 ## Extension.js 收集什么
 
-每次 CLI 运行最多发出以下之一。例外是监视会话（`dev`、`start`、`preview`）：它在启动时上报带 `session: started` 的 `command_executed`，之后若出错再上报一条 `command_failed`，因此一次运行可能产生两行：
+每次 CLI 运行最多发出以下之一。例外是监视会话（`dev`、`start`、`preview`）：它在启动时上报带 `session: started` 的 `command_executed`，之后若出错再上报一条 `command_failed`。`dev` 会话在可以使用时还会再上报一条带 `session: ready` 的 `command_executed`，因此一次运行可能产生三行：
 
 | 事件               | 是否采样                        | 属性                                   |
 | ------------------ | ------------------------------- | -------------------------------------- |
 | `command_executed` | 20%(可配置，见下文)             | `command`、`success: true`、`version`  |
 | `command_failed`   | 100%(Extension.js 总是上报失败) | `command`、`success: false`、`version`、`code`、`exit_code` |
+
+`session: ready` 这一行用来区分一次正常工作的 `dev` 和一次在浏览器打开之前就卡住的 `dev`。启动了浏览器时，它在浏览器接受扩展后发送。使用 Safari 时，它在第一次打包完成后发送，无论扩展是否已开启。使用 `--no-browser` 时，它在第一次编译无错误完成后发送。这一行不带耗时、浏览器名称或任何项目细节。`start` 和 `preview` 不发送它。
 
 失败会附加 两个属性，让失败计数可以读出原因，而不只是一个数字。`code` 取自 CLI 固定的错误目录，例如 `E_MANIFEST_NOT_FOUND`，`exit_code` 是进程退出码，取值为 0 到 255 的整数。`code` 在发送前会与目录核对，因此 Node 的 errno、错误信息或任何不在目录中的值都会被丢弃，事件改为上报 `E_INTERNAL`。错误文本永远不会被发送。
 
@@ -38,15 +40,15 @@ Extension.js 会收集极少量的匿名遥测，用于了解你运行了哪些�
 
 `create` 命令会多带两个属性，让损坏的官方起步模板能出现在失败统计里：`template`（`extension create --help` 列出的起步模板名，否则不带）与 `source`（`cli`，或当 create 由文档的模板画廊发起时为 `templates`）。`template` 在发送前会与已发布的起步模板列表核对。GitHub URL、本地文件夹路径或任何不是官方名称的值都会被整个丢弃而不是截断，因此私有仓库或目录名永远不会离开你的机器。`source` 也以同样的方式与这两个界面核对，其他任何值都按 `cli` 发送。`create` 命令还不参与采样，因此模板使用量的统计保持准确。
 
-附加到每个事件的公共上下文：`os`(`darwin`/`linux`/`win32`)、`arch`、`node_major`、`is_ci`、`is_source_build`，以及始终为 `extension` 一词的 `app`。仅此而已。`is_source_build` 是一个布尔值，只回答"这是一次 registry 安装，还是一份仓库检出"。它由安装路径的形态推算而来(CLI 之上是否存在 `node_modules` 形式的路径段)。路径本身从不会被读进事件、发送出去，也不会被哈希。
+附加到每个事件的公共上下文：`os`(`darwin`/`linux`/`win32`)、`arch`、`node_major`、`is_ci`、`is_source_build`、`package_manager`，以及始终为 `extension` 一词的 `app`。仅此而已。`package_manager` 是 `npm`、`pnpm`、`yarn`、`bun` 或 `unknown` 之一。它取自包管理器设置的 `npm_config_user_agent` 变量的第一个词，后面的版本号从不发送。`is_source_build` 是一个布尔值，只回答"这是一次 registry 安装，还是一份仓库检出"。它由安装路径的形态推算而来(CLI 之上是否存在 `node_modules` 形式的路径段)。路径本身从不会被读进事件、发送出去，也不会被哈希。
 
 ## 流量控制
 
 有三种相互独立的控制方式，限制离开机器的数据量：
 
-- **采样：** Extension.js 默认对 `command_executed` 采样 20%。可通过 `EXTENSION_TELEMETRY_SAMPLE_RATE`(0.0–1.0) 覆盖。失败事件不会被采样。
+- **采样：** Extension.js 默认对 `command_executed` 采样 20%。可通过 `EXTENSION_TELEMETRY_SAMPLE_RATE`(0.0–1.0) 覆盖。失败事件不会被采样，`session` 行也不会。
 - **每次运行上限：** 单个 CLI 进程最多 **3 个事件**。可通过 `EXTENSION_TELEMETRY_MAX_EVENTS` 覆盖。
-- **去抖(重复抑制)：** Extension.js 会在 60 秒内丢弃相同的 `(event, command, success)` 元组。可通过 `EXTENSION_TELEMETRY_DEBOUNCE_MS` 覆盖。
+- **去抖(重复抑制)：** Extension.js 会在 60 秒内丢弃相同的 `(event, command, success, session)` 元组。可通过 `EXTENSION_TELEMETRY_DEBOUNCE_MS` 覆盖。
 
 ## Extension.js 从不收集什么
 

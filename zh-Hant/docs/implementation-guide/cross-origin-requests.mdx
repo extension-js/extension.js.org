@@ -88,13 +88,14 @@ host 權限拿掉的是對回應的 origin 檢查，它拿不掉 preflight。
 
 ## Extension.js 開發伺服器
 
-在 `extension dev` 期間，Extension.js 會執行一個本機伺服器，用來提供重新載入的用戶端與熱更新。任何頁面上的 content script 都會撥向它，這本身就是一次跨來源請求，所以伺服器回以：
+在 `extension dev` 期間，Extension.js 會執行一個本機伺服器，提供 reload 用戶端與熱更新。擴充功能自己的頁面會向它發出請求，這本身就是一次跨來源請求，所以伺服器只點名這一個 origin：
 
 ```http
-Access-Control-Allow-Origin: *
+Access-Control-Allow-Origin: chrome-extension://<extension-id>
+Vary: Origin
 ```
 
-它也接受任何 `Host` 標頭。這是一個跑在你自己機器上的開發伺服器。它永遠不會出現在打包後的擴充功能裡，它提供的任何東西也不會進入正式環境。
+其他 origin 都得不到 `Access-Control-Allow-Origin` 標頭，所以你造訪的網頁讀不到編譯後的擴充功能。這是一個跑在你自己機器上的開發伺服器。它永遠不會出現在打包後的擴充功能裡，它提供的任何東西也不會進入正式環境。
 
 ### 只在開發期生效的 CSP 修補
 

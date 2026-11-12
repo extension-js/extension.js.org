@@ -88,13 +88,14 @@ Extension.js 不会拿你代码里的 URL 去校验主机权限。缺失的条�
 
 ## Extension.js 开发服务器
 
-在 `extension dev` 期间，Extension.js 会运行一个本地服务器，用来提供重载客户端和热更新。任何页面上的 content script 都会拨向它，这本身就是一次跨源请求，所以服务器答以：
+在 `extension dev` 期间，Extension.js 会运行一个本地服务器，提供 reload 客户端和热更新。扩展自己的页面会向它发起请求，这本身就是一次跨域请求，所以服务器只点名这一个 origin：
 
 ```http
-Access-Control-Allow-Origin: *
+Access-Control-Allow-Origin: chrome-extension://<extension-id>
+Vary: Origin
 ```
 
-它也接受任何 `Host` 请求头。这是一个跑在你自己机器上的开发服务器。它永远不会出现在打包后的扩展里，它提供的任何东西也不会进入生产环境。
+其他 origin 都得不到 `Access-Control-Allow-Origin` 响应头，所以你访问的网页读不到编译后的扩展。这是一个跑在你自己机器上的开发服务器。它永远不会出现在打包后的扩展里，它提供的任何东西也不会进入生产环境。
 
 ### 仅在开发期生效的 CSP 补丁
 

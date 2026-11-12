@@ -22,6 +22,8 @@ dev 伺服器把這個通道掛在 [ready.json](/zh-Hant/docs/contracts/ready-js
 
 從 4.1.19 起，伺服器會拒絕來自網頁的交握。`Origin` 標頭為 `http://`、`https://` 或 `null` 時，會在任何訊框之前得到 HTTP 401。擴充功能的 background 送出的是它自己的 scheme，例如 `chrome-extension://` 或 `moz-extension://`。Node.js 用戶端不送出 `Origin`。這兩類用戶端都照常連線。
 
+從 loopback 位址之外連線的 `consumer` 或 `controller` 必須在交握中以 `token` 送出工作階段權杖。當 `--host` 綁定到 loopback 之外的位址時，開發伺服器會把這個權杖寫入 `.extension-js/`。請見[工作階段產物](/zh-Hant/docs/concepts/session-artifacts)。`producer` 與任何 loopback 用戶端在交握時都不需要權杖。需要 4.1.39 之後的版本。
+
 `extension-develop` 套件會從它的 `bridge-entry` 模組匯出本頁提到的每一個型別與常數，因此 harness 永遠不必把這些線路字串抄進自己的原始碼。
 
 ## LogEvent（版本 1）
@@ -119,6 +121,7 @@ controller 發出指令時要帶上 `cmdId`、一個 op，以及一個目標情�
 | `4001` | `CLOSE_BAD_INSTANCE`        | 交握中指定的 `instanceId` 屬於上一個 dev 工作階段。       |
 | `4002` | `CLOSE_BAD_HELLO`           | 交握格式錯誤：信封版本不對，或角色未知。                  |
 | `4003` | `CLOSE_CONTROL_UNAVAILABLE` | controller 連上了一個未以 `--allow-control` 啟動的工作階段。 |
+| `4004` | `CLOSE_TOKEN_REQUIRED`      | loopback 之外的 consumer 或 controller 沒有送出工作階段權杖，或送出了錯誤的權杖。 |
 | `4008` | `CLOSE_SLOW_CONSUMER`       | 這個 socket 落後太多，broker 把它丟棄了。                 |
 
 ## 伺服器的其他訊框
