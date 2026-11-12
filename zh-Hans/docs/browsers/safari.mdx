@@ -52,7 +52,7 @@ sudo xcode-select --switch /Applications/Xcode.app
 xcodebuild -runFirstLaunch
 ```
 
-付费的 Apple Developer 账号 **不是** 必需的。不带 `--development-team` 时 app 为临时（ad-hoc）签名，而 Safari 接受临时签名的 app：它会像列出其他扩展一样列出它，并且 Safari ▸ 设置 ▸ 开发者 里的 **允许未签名的扩展** 处于关闭状态（旧版 Safari 把它放在「开发」菜单里）。那个开关属于另一条路径，见下方的「临时扩展（不用 Xcode）」。
+付费的 Apple Developer 账号 **不是** 必需的。不带 `--development-team` 时 app 为临时（ad-hoc）签名，只有在 Safari ▸ 设置 ▸ 开发者 里的 **允许未签名的扩展** 开启时（旧版 Safari 把它放在「开发」菜单里），Safari 才会列出并运行临时签名的构建。Safari 每次退出都会关闭这个设置。见下方的「临时签名的构建」。
 
 如果缺少 Xcode，Safari 目标的 `extension dev` 与 `extension build` 会在打包之前就快速失败，并给出指引，而不是后续抛出一个含糊的错误。
 
@@ -131,7 +131,7 @@ app 打开时（`dev`，或 `build --open`），Extension.js 会打印与你这�
 
 1. Safari ▸ 设置 ▸ 扩展 ▸ 开启你的扩展。
 
-这个开关在 Safari 重启后仍然保留，所以每台机器真的只需要做一次，而不是每次启动都做一次。
+这个开关在 Safari 重启后仍然保留，所以每台机器真的只需要做一次，而不是每次启动都做一次。临时签名的构建还需要在每次启动 Safari 后开启 **允许未签名的扩展**。
 
 把扩展 **打开，并不等于给了它访问页面的权限**。Safari
 会单独询问网站访问权限，在你授予之前，内容脚本根本不会运行：扩展被列出、已启用，却什么都不做。
@@ -174,7 +174,9 @@ npx extension@latest dev --browser safari --development-team A1B2C3D4E5
 
 ### 临时签名的构建（没有 Apple Developer 账号）
 
-不带 `--development-team` 时 app 为临时签名。Safari 会列出并运行它，上面那个启用操作就是全部设置。这是在 Safari ▸ 设置 ▸ 开发者 ▸ **允许未签名的扩展** **关闭** 的状态下测量的。
+不带 `--development-team` 时 app 为临时签名。只有在 Safari ▸ 设置 ▸ 开发者 ▸ **允许未签名的扩展** **开启** 时，Safari 才会列出并运行它。开启这个设置时 Safari 会要求输入密码，而 Safari 退出时会再次把它关闭。
+
+重新启动 Safari 之后，扩展会从 设置 ▸ 扩展 中消失，内容脚本也不会运行。再次打开 app 并不能让它回来。请再次运行 `dev --enable-extension`，它会开启这个设置并重新注册扩展。扩展会以已开启的状态回来，并保留你授予过的网站访问权限。这是在 Safari 27 上测量的。团队签名的构建不需要这个设置。
 
 ### 临时扩展（不用 Xcode）
 
@@ -360,7 +362,7 @@ npx extension build --browser=webkit-based
 
 - **打包仅限 macOS。** Xcode 步骤需要 macOS 与完整的 Xcode app。（在其他平台上 `build` 仍会产出 `dist/safari`，而 `dev` 需要 macOS。）
 - **`preview` 与 `start` 没有 Safari 路径。** 测量到的结论见上面的「命令支持情况」。
-- **启用和授权需要你参与一次。** 把扩展打开、以及授予网站访问权限，都是 Safari 的安全控制项。`dev --enable-extension` 会用脚本完成这两步，但 Safari 仍可能要求 Touch ID 或密码。两者都能在重启后保留，所以你只付出一次。
+- **启用和授权需要你参与一次。** 把扩展打开、以及授予网站访问权限，都是 Safari 的安全控制项。`dev --enable-extension` 会用脚本完成这两步，但 Safari 仍可能要求 Touch ID 或密码。两者都能在重启后保留，所以你只付出一次。临时签名的构建还需要在每次启动 Safari 后开启 **允许未签名的扩展**。
 - **签名止步于开发阶段。** `--development-team` 用你的开发证书为本地 app 签名。用于分发的签名、公证（notarization）与 App Store 提交是这条工作流之外的另一步（见下文）。
 - **仅产出 macOS 目标。** 目前这条工作流不会生成 iOS 应用。
 

@@ -52,7 +52,7 @@ sudo xcode-select --switch /Applications/Xcode.app
 xcodebuild -runFirstLaunch
 ```
 
-付費的 Apple Developer 帳號 **不是** 必要條件。沒有 `--development-team` 時，app 會以 ad-hoc 方式簽章，而 Safari 接受 ad-hoc 簽章的 app：它會像列出其他擴充功能一樣列出它，而且 Safari ▸ 設定 ▸ 開發者 中的 **允許未簽章的擴充功能** 維持關閉（舊版 Safari 把它放在「開發」選單中）。那個設定屬於另一條路徑，請見下方的「暫時擴充功能（不用 Xcode）」。
+付費的 Apple Developer 帳號 **不是** 必要條件。沒有 `--development-team` 時，app 會以 ad-hoc 方式簽章，只有在 Safari ▸ 設定 ▸ 開發者 中的 **允許未簽章的擴充功能** 開啟時（舊版 Safari 把它放在「開發」選單中），Safari 才會列出並執行 ad-hoc 簽章的建置。Safari 每次結束都會關閉這個設定。請見下方的「ad-hoc 建置」。
 
 如果缺少 Xcode，Safari 目標的 `extension dev` 與 `extension build` 會在打包前就立即失敗，並提供指引，而不是稍後才丟出讓人困惑的錯誤。
 
@@ -131,7 +131,7 @@ app 開啟時（`dev`，或 `build --open`），Extension.js 會印出符合你�
 
 1. Safari ▸ 設定 ▸ 擴充功能 ▸ 啟用你的擴充功能。
 
-這個開關在 Safari 重新啟動後仍會保留，所以每台機器真的只需要做一次，而不是每次啟動都做一次。
+這個開關在 Safari 重新啟動後仍會保留，所以每台機器真的只需要做一次，而不是每次啟動都做一次。ad-hoc 建置還需要在每次啟動 Safari 後開啟 **允許未簽章的擴充功能**。
 
 把擴充功能 **開啟，並不等於給了它存取頁面的權限**。Safari
 會另外詢問網站存取權，在你授予之前，content script 根本不會執行：擴充功能被列出、已啟用，卻什麼都不做。
@@ -174,7 +174,9 @@ npx extension@latest dev --browser safari --development-team A1B2C3D4E5
 
 ### ad-hoc 建置（沒有 Apple Developer 帳號）
 
-沒有 `--development-team` 時，app 為 ad-hoc 簽章。Safari 會列出並執行它，上面那個啟用動作就是全部的設定。這是在 Safari ▸ 設定 ▸ 開發者 ▸ **允許未簽章的擴充功能** **關閉** 的狀態下量測的。
+沒有 `--development-team` 時，app 為 ad-hoc 簽章。只有在 Safari ▸ 設定 ▸ 開發者 ▸ **允許未簽章的擴充功能** **開啟** 時，Safari 才會列出並執行它。開啟這個設定時 Safari 會要求輸入密碼，而 Safari 結束時會再次把它關閉。
+
+重新啟動 Safari 之後，擴充功能會從 設定 ▸ 擴充功能 中消失，content script 也不會執行。再次開啟 app 並不能讓它回來。請再次執行 `dev --enable-extension`，它會開啟這個設定並重新註冊擴充功能。擴充功能會以已啟用的狀態回來，並保留你授予過的網站存取權。這是在 Safari 27 上量測的。團隊簽章的建置不需要這個設定。
 
 ### 暫時擴充功能（不用 Xcode）
 
@@ -360,7 +362,7 @@ npx extension build --browser=webkit-based
 
 - **打包僅限 macOS。** Xcode 步驟需要 macOS 與完整的 Xcode 應用程式。（在其他平台上 `build` 仍會產出 `dist/safari`，而 `dev` 需要 macOS。）
 - **`preview` 與 `start` 沒有 Safari 路徑。** 量測到的結論請見上面的「指令支援」。
-- **啟用與授權需要你參與一次。** 啟用擴充功能與授予網站存取權都屬於 Safari 的安全控制。`dev --enable-extension` 會用指令碼完成這兩個步驟，但 Safari 仍可能要求 Touch ID 或密碼。兩者都會在重新啟動後保留，所以你只需付出一次。
+- **啟用與授權需要你參與一次。** 啟用擴充功能與授予網站存取權都屬於 Safari 的安全控制。`dev --enable-extension` 會用指令碼完成這兩個步驟，但 Safari 仍可能要求 Touch ID 或密碼。兩者都會在重新啟動後保留，所以你只需付出一次。ad-hoc 建置還需要在每次啟動 Safari 後開啟 **允許未簽章的擴充功能**。
 - **簽章止於開發階段。** `--development-team` 會以你的開發憑證為本機 app 簽章。發行用簽章、公證與 App Store 上架是此工作流程之外的獨立步驟（見下文）。
 - **僅支援 macOS 目標。** 目前不會由此流程產生 iOS app。
 
