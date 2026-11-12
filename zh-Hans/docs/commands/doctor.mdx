@@ -96,6 +96,8 @@ extension doctor [project-path] [options]
 
 只有当存在多个存活会话时，才会出现第零个 `session-resolution` 检查。它会给出 warn，并指明本次运行诊断的是哪个会话。
 
+在编号检查之前还有两个检查。当会话运行的是 `chromium-emulator` 目标时，`engine` 会失败，因为 `doctor` 无法诊断它。`peer-rspack` 只需要项目本身，所以无论有没有 dev 会话都会运行。当某个直接依赖声明的 `@rspack/core` peer 范围不包含 Extension.js 自带的版本时，它会失败。这种不匹配正是 `npm install` 以 `ERESOLVE` 失败的原因，修复建议会指出要执行的升级。
+
 | #   | 检查              | 验证内容                                                                                          |
 | --- | ----------------- | ------------------------------------------------------------------------------------------------- |
 | 1   | `ready-contract`  | `dist/extension-js/<browser>/ready.json` 存在且 `status: "ready"`。                               |
@@ -152,6 +154,8 @@ pretty 输出每个检查打印一行，并附上第一个失败检查的修复�
 
 | 第一个失败的检查                                 | `error.code`            |
 | ------------------------------------------------ | ----------------------- |
+| `engine`                                         | `E_COMMAND_UNSUPPORTED_FOR_TARGET` |
+| `peer-rspack`                                    | `E_DEPENDENCY_INSTALL`  |
 | `ready-contract`、`server-process`               | `E_SESSION_NOT_FOUND`   |
 | `port-agreement`、`control-channel`、`executor`  | `E_CONTROL_UNAVAILABLE` |
 | `eval-token`                                     | `E_TOKEN_MISSING`       |

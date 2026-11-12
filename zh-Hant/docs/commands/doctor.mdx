@@ -96,6 +96,8 @@ extension doctor [project-path] [options]
 
 只有存在多個存活工作階段時,才會出現第零個 `session-resolution` 檢查。它會給出 warn,並指明這次執行診斷的是哪個工作階段。
 
+在編號檢查之前還有兩個檢查。當工作階段執行的是 `chromium-emulator` 目標時,`engine` 會失敗,因為 `doctor` 無法診斷它。`peer-rspack` 只需要專案本身,所以不論有沒有 dev 工作階段都會執行。當某個直接相依宣告的 `@rspack/core` peer 範圍不包含 Extension.js 內建的版本時,它會失敗。這種不相符正是 `npm install` 以 `ERESOLVE` 失敗的原因,修正建議會指出要執行的升級。
+
 | #   | 檢查              | 驗證內容                                                                                          |
 | --- | ----------------- | ------------------------------------------------------------------------------------------------- |
 | 1   | `ready-contract`  | `dist/extension-js/<browser>/ready.json` 存在且 `status: "ready"`。                               |
@@ -152,6 +154,8 @@ pretty 輸出每個檢查印出一行,並附上第一個失敗檢查的修復建
 
 | 第一個失敗的檢查                                 | `error.code`            |
 | ------------------------------------------------ | ----------------------- |
+| `engine`                                         | `E_COMMAND_UNSUPPORTED_FOR_TARGET` |
+| `peer-rspack`                                    | `E_DEPENDENCY_INSTALL`  |
 | `ready-contract`、`server-process`               | `E_SESSION_NOT_FOUND`   |
 | `port-agreement`、`control-channel`、`executor`  | `E_CONTROL_UNAVAILABLE` |
 | `eval-token`                                     | `E_TOKEN_MISSING`       |
