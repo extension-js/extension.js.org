@@ -151,6 +151,34 @@ Chrome Web Store 对所有扩展都禁止脚本化。换一个页面测试。
 
 在 `extension dev` 期间，你用 `executeScript` 从 `scripts/` 注入的脚本会在编辑时被重放，因此注入的代码会像声明式 `content_scripts` 一样实时更新。参见[重新加载与 HMR](/zh-Hans/docs/features/reload-and-hmr)。
 
+### 在 MAIN world 中运行 `scripts/` 文件
+
+在调用里写上 `world: "MAIN"`，构建就会按页面自己的 world 来编译这个 `scripts/` 文件。需要 4.1.39 之后的版本。
+
+```ts
+await chrome.scripting.registerContentScripts([
+  {
+    id: "hook",
+    matches: ["https://example.com/*"],
+    js: ["/scripts/hook.js"],
+    runAt: "document_start",
+    world: "MAIN",
+  },
+]);
+```
+
+- 构建会在 background、扩展页面以及它们导入的本地模块里找到这个调用。
+- 带 `files` 和 `world: "MAIN"` 的 `executeScript` 得到同样的处理。
+- 在开发中，这个文件不带 HMR 运行时，也不带开发插桩，所以两者都不会在宿主页面上运行。
+- 生产构建不会在页面上留下任何 `__EXTENSIONJS_*` 全局变量，即使这个文件导入了其他 `scripts/` 模块。
+- 文件里的动态 `import()` 能加载它的 chunk，在 `document_start` 时也可以。
+- 在 Firefox 上，这个文件会从你的 `moz-extension://` 源解析它导入的资源和 chunk。
+- 生产构建在文件启动之后不会把这个源留在页面的 DOM 里。
+
+请把路径和 `world: "MAIN"` 以字面量写在调用里。写在同一个文件的 `const` 里也可以，写在该文件导入的已导出 `const` 里也可以。由其他值拼出来的调用，构建检测不到。在会话中途新加调用时，`extension dev` 会打印一条警告，提示你重启。
+
+在扩展页面里，路径要从根开始写，例如 `/scripts/hook.js`。Firefox 会相对于页面解析 `scripts/hook.js`，所以脚本不会运行，也不会抛出错误。面向 Firefox 的构建会打印一条警告，给出应该写的路径。
+
 生成一个在运行时注入 `scripts/` 入口的项目：
 
 ```bash

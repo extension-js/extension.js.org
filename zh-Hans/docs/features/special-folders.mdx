@@ -160,6 +160,8 @@ chrome.scripting.registerContentScripts([
 ]);
 ```
 
+在扩展页面里，路径要从根开始写，例如 `/scripts/foo.js`。Firefox 会相对于页面解析开头没有斜杠的路径。要让这个文件运行在页面自己的 world 中，参见[在运行时注入脚本](/zh-Hans/docs/implementation-guide/inject-scripts)。
+
 ### 文件夹契约
 
 你放进 `scripts/` 或 `pages/` 的每个文件都会输出到一个可预测的路径。`scripts/foo.ts` 会变成 `dist/<browser>/scripts/foo.js`，`pages/extra.html` 会变成 `dist/<browser>/pages/extra.html`。不需要在任何地方声明该文件。像 `chrome.runtime.getURL("pages/extra.html")` 或 `chrome.scripting.executeScript({ files: ["scripts/foo.js"] })` 这样的运行时字符串都能找到它。没有任何地方引用的文件同样会被输出，构建也不会为此打印警告。构建会把 Node.js 辅助脚本排除在外：带有 shebang、含有 Node.js import，或者路径被某个 `package.json` script 运行的文件。要关闭某个文件夹，在 `extension.config.js` 中把它的键设为 `false`：

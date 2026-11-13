@@ -151,6 +151,34 @@ Chrome Web Store 對所有擴充功能都禁止腳本化。換一個頁面測試
 
 在 `extension dev` 期間，你用 `executeScript` 從 `scripts/` 注入的腳本會在編輯時被重播，因此注入的程式碼會像宣告式 `content_scripts` 一樣即時更新。請見[重新載入與 HMR](/zh-Hant/docs/features/reload-and-hmr)。
 
+### 在 MAIN world 中執行 `scripts/` 檔案
+
+在呼叫裡寫上 `world: "MAIN"`，建置就會依頁面自己的 world 來編譯這個 `scripts/` 檔案。需要 4.1.39 之後的版本。
+
+```ts
+await chrome.scripting.registerContentScripts([
+  {
+    id: "hook",
+    matches: ["https://example.com/*"],
+    js: ["/scripts/hook.js"],
+    runAt: "document_start",
+    world: "MAIN",
+  },
+]);
+```
+
+- 建置會在 background、擴充功能頁面以及它們匯入的本機模組裡找到這個呼叫。
+- 帶 `files` 與 `world: "MAIN"` 的 `executeScript` 會得到同樣的處理。
+- 在開發中，這個檔案不帶 HMR 執行階段，也不帶開發用的插樁，所以兩者都不會在宿主頁面上執行。
+- 正式建置不會在頁面上留下任何 `__EXTENSIONJS_*` 全域變數，即使這個檔案匯入了其他 `scripts/` 模組。
+- 檔案裡的動態 `import()` 能載入它的 chunk，在 `document_start` 時也可以。
+- 在 Firefox 上，這個檔案會從你的 `moz-extension://` 來源解析它匯入的資源與 chunk。
+- 正式建置在檔案啟動之後不會把這個來源留在頁面的 DOM 裡。
+
+請把路徑與 `world: "MAIN"` 以字面值寫在呼叫裡。寫在同一個檔案的 `const` 裡也可以，寫在該檔案匯入的已匯出 `const` 裡也可以。由其他值組出來的呼叫，建置偵測不到。在工作階段中途新增呼叫時，`extension dev` 會印出一則警告，提示你重新啟動。
+
+在擴充功能頁面裡，路徑要從根目錄開始寫，例如 `/scripts/hook.js`。Firefox 會相對於頁面解析 `scripts/hook.js`，所以腳本不會執行，也不會拋出錯誤。面向 Firefox 的建置會印出一則警告，指出應該寫的路徑。
+
 建立一個在執行階段注入 `scripts/` 項目的專案：
 
 ```bash
