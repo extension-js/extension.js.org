@@ -151,6 +151,34 @@ See [Special folders](/docs/features/special-folders) for the full folder contra
 
 During `extension dev`, scripts that you inject with `executeScript` from `scripts/` are replayed on edit, so the injected code updates live the way declarative `content_scripts` do. See [Reload and HMR](/docs/features/reload-and-hmr).
 
+### Run a `scripts/` file in the MAIN world
+
+Pass `world: "MAIN"` in the call, and the build compiles that `scripts/` file for the page's own world. Needs the release after 4.1.39.
+
+```ts
+await chrome.scripting.registerContentScripts([
+  {
+    id: "hook",
+    matches: ["https://example.com/*"],
+    js: ["/scripts/hook.js"],
+    runAt: "document_start",
+    world: "MAIN",
+  },
+]);
+```
+
+- The build finds the call in the background, in extension pages, and in the local modules that they import.
+- `executeScript` with `files` and `world: "MAIN"` gets the same treatment.
+- In development, the file carries no HMR runtime and no dev instrumentation, so neither runs on the host page.
+- A production build leaves no `__EXTENSIONJS_*` global on the page, even when the file imports other `scripts/` modules.
+- A dynamic `import()` in the file loads its chunk, also at `document_start`.
+- On Firefox, the file resolves its imported assets and chunks from your `moz-extension://` origin.
+- A production build keeps that origin out of the page's DOM once the file has started.
+
+Write the path and `world: "MAIN"` as literals in the call. A `const` in the same file works too, and so does an exported `const` that the file imports. The build does not detect a call that is built from another value. When you add a call during a session, `extension dev` prints a warning that asks for a restart.
+
+In an extension page, start the path at the root, as in `/scripts/hook.js`. Firefox resolves `scripts/hook.js` against the page, so the script never runs and no error is thrown. A build for a Firefox target prints a warning that names the path to write.
+
 Scaffold a project that injects a `scripts/` entry at runtime:
 
 ```bash
