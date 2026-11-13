@@ -209,7 +209,20 @@ export default function main() {
 }
 ```
 
-From the release after 4.1.39, a component `<style>` block applies in a content script. The build adds it to the document in a `<style>` element, so it does not reach a shadow root.
+From the release after 4.1.39, a component `<style>` block applies in a content script. Where it lands depends on the `css` option of the Svelte compiler:
+
+- **Default setting.** Extension.js compiles the block as a separate stylesheet. The build adds it to the document in a `<style>` element, so it does not reach a shadow root.
+- **`css: "injected"`.** The compiled component carries its own styles, and Svelte 5 adds them when the component mounts. A component that you mount inside a shadow root gets its `<style>` element in that root. Any other component gets it in the document `<head>`.
+
+Extension.js reads Svelte loader options from a `svelte.loader.js` file at the project root. Set the option under `compilerOptions`:
+
+```js
+export default {
+  compilerOptions: {
+    css: "injected",
+  },
+};
+```
 
 ## Best practices
 

@@ -209,7 +209,20 @@ export default function main() {
 }
 ```
 
-从 4.1.39 之后的版本起，组件的 `<style>` 块在 content script 里会生效。构建会把它以一个 `<style>` 元素加进 document，所以它进不了 shadow root。
+从 4.1.39 之后的版本起，组件的 `<style>` 块在 content script 里会生效。它落在哪里取决于 Svelte 编译器的 `css` 选项：
+
+- **默认设置。** Extension.js 把这个块编译成一份独立的样式表。构建会把它以一个 `<style>` 元素加进 document，所以它进不了 shadow root。
+- **`css: "injected"`。** 编译后的组件自带样式，Svelte 5 会在组件挂载时把它们加进去。挂载在 shadow root 里的组件，它的 `<style>` 元素会放进那个 root。其他组件的 `<style>` 元素会放进 document 的 `<head>`。
+
+Extension.js 从项目根目录的 `svelte.loader.js` 文件读取 Svelte loader 选项。在 `compilerOptions` 下设置这个选项：
+
+```js
+export default {
+  compilerOptions: {
+    css: "injected",
+  },
+};
+```
 
 ## 最佳实践
 
