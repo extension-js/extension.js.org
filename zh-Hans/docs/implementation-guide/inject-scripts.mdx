@@ -153,6 +153,8 @@ Chrome Web Store 对所有扩展都禁止脚本化。换一个页面测试。
 
 从 4.1.39 之后的版本起，用 `executeScript` 注入 `scripts/` 文件时，调用会以该文件最后一个表达式的值完成，和原生文件一样。Chrome 和 Firefox 上都是如此。浏览器无法克隆的值（例如 DOM 节点或函数）不会带回任何值。
 
+background 脚本可以在启动时调用 `registerContentScripts`。从 4.1.39 之后的版本起，`extension dev` 会在有限的时间内按住第一个页面，直到这些注册有了应答。见 [`dev`](/zh-Hans/docs/commands/dev#第一个页面会等待启动时的注册)。
+
 ### 在 MAIN world 中运行 `scripts/` 文件
 
 在调用里写上 `world: "MAIN"`，构建就会按页面自己的 world 来编译这个 `scripts/` 文件。需要 4.1.39 之后的版本。
@@ -181,6 +183,33 @@ await chrome.scripting.registerContentScripts([
 这种交接只覆盖构建自己的内部通道。你的脚本放进 DOM 的任何扩展 URL，页面都读得到，而在 Firefox 上这个 URL 能标识这次安装。具体情形和解决办法见 [Content scripts](/zh-Hans/docs/implementation-guide/content-scripts) 里的 MAIN world 注意事项。
 
 请把路径和 `world: "MAIN"` 以字面量写在调用里。写在同一个文件的 `const` 里也可以，写在该文件导入的已导出 `const` 里也可以。由其他值拼出来的调用，构建检测不到。在会话中途添加或移除调用时，`extension dev` 会自行重启，按新的 world 重新构建这个文件。如果会话无法重启，它会打印一条警告，提示你重启。
+
+### 把同一个文件注册到两个 world
+
+Chromium 在每个 frame 里只把同一个文件路径注入一次。用同一个路径注册到两个 world 的文件，只会在 isolated world 里运行。两个 world 需要的构建也不一样。
+
+从 4.1.39 之后的版本起，构建会处理这种情况。当你的源码把一个 `scripts/` 文件同时注册到 MAIN world 和 isolated world 时，构建会产出两个文件：
+
+- `scripts/<name>.js` 是 isolated world 的构建。
+- `scripts/<name>.extjs-main-world.js` 是 MAIN world 的构建。
+
+每个调用里都继续写 `/scripts/<name>.js` 这个路径。构建会把 `world: "MAIN"` 的调用导向第二个文件，而 `getRegisteredContentScripts` 返回的是你写下的名字。如果你的项目里已经有一个叫第二个名字的文件，以你的文件为准，构建不会再生成副本。
+
+只被 `registerContentScripts` 放进 MAIN world 的文件也会得到第二个文件。浏览器会跨会话记住已注册的路径，所以那个路径始终是 MAIN world 的构建。
+
+构建从调用里读取 world。它能读字面量、`const`、两个字面量之间的二选一、对字面量对象的展开，以及对字面量列表的 `.map()`。没有写 `world` 的调用就是 isolated 的。
+
+只在调用运行时才存在的 world（例如函数参数），构建读不出来。它会按 isolated world 构建这个文件，并打印一条指明该调用的警告：
+
+```text
+background.ts:12 names scripts/hook.js in a scripting call whose world is only known when the call runs.
+CALL background.ts:12
+FILE scripts/hook.js
+It is treated as an isolated world script, so a call that runs with world: 'MAIN' puts the isolated world build on the page.
+Write the world as 'MAIN' or 'ISOLATED' in the call, or as a choice between the two, and the build prepares the file for each world it names.
+```
+
+### 扩展页面里的路径
 
 在扩展页面里，路径要从根开始写，例如 `/scripts/hook.js`。Firefox 会相对于页面解析 `scripts/hook.js`，所以脚本不会运行，也不会抛出错误。面向 Firefox 的构建会打印一条警告，给出应该写的路径。
 

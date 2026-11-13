@@ -172,6 +172,30 @@ dev 服务器会继续运行。`--logs` 对这个目标不起作用：扩展运�
 
 `--port` 是一个请求，而不是保证。请求的端口被占用时，dev 服务器会向上寻找最近的空闲端口。`--port 0` 会向 OS 要一个任意空闲端口。请从 `ready.json` 读取实际绑定的端口，而不是你传入的那个 flag。
 
+`--port` 只设置 dev 服务器的端口。控制桥监听它自己的端口，没有任何 flag 能设置它。第一次运行时，会话向 OS 要一个空闲端口，并把它存进 `.extension-js/control-port-<browser>`。下一次运行会请求同一个端口，这样仍然记着旧端口的浏览器配置文件可以重新连上。这个端口被占用时，OS 会另行分配一个。请从 `ready.json` 的 `controlPort` 读取它。
+
+### `dev` 给你的扩展加了什么
+
+dev 会话会给自己授予重载所需的东西，而同一份源码的生产构建里完全没有这些。从 4.1.39 之后的版本起，会话会在身份卡下方写明每一项：
+
+```text
+    Dev only       permissions scripting, tabs
+    Dev only       host access https://example.com/*
+    Dev only       web_accessible_resources hot/*, extension-js-control.json
+    Dev flag       --silent-debugger-extension-api hides the debugger bar, excludeBrowserFlags shows it
+```
+
+- `Dev only` 行列出只有 dev manifest 才有的权限、主机访问或 web accessible 资源。
+- `Dev flag` 行写明一个会改变你所见内容的启动 flag，以及能把它反过来的配置键。
+
+`ready.json` 在 [`devAdditions`](/zh-Hans/docs/contracts/ready-json#开发附加项) 下列出每一项及其原因。这些行里的东西都不会随扩展发布。运行 `extension build` 并阅读 `dist/<browser>/manifest.json`，就能看到商店实际收到的内容。
+
+### 第一个页面会等待启动时的注册
+
+background 脚本可以在启动时用 `scripting.registerContentScripts` 注册 content script。在这个调用应答之前加载的页面，永远不会运行被注册的脚本。
+
+从 4.1.39 之后的版本起，`dev` 会先按住第一个页面，直到这些注册有了应答。等待有上限，所以页面一定会打开。等待超时后，`dev` 会打印一条警告，请你重新加载页面。
+
 ## 自动化元数据（推荐用于脚本 / agent）
 
 `dev` 运行时，Extension.js 会向这些位置写入机器可读的元数据：

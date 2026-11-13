@@ -202,6 +202,24 @@ export default {
 | `--enable-unsafe-extension-debugging`                      | 允许 Chrome DevTools Protocol (CDP) 管理扩展（Chrome 126+） |
 | `--silent-debugger-extension-api`                          | 抑制 "X is debugging this browser" 信息条                   |
 
+### `debugger` 权限会改动两个 flag
+
+会附加 `chrome.debugger` 的扩展必须处理 Chrome 调试条上的 Cancel 按钮。从 4.1.39 之后的版本起，当你的 manifest 在 `permissions` 或 `optional_permissions` 下列出 `debugger` 时，会话会显示这个调试条：
+
+- 不再传入 `--silent-debugger-extension-api`，因为这个 flag 会隐藏调试条。
+- 会传入 `--disable-infobars`，因为它能清掉挡住调试条的那条通知。
+
+Chrome for Testing 会在同一个位置显示它自己的测试通知，调试条就排在它后面等着。`--disable-infobars` 会隐藏所有没有按钮的信息条，这样调试条才能显示出来。其他 Chromium 构建只在无头模式下才认这个 flag。
+
+想再次隐藏调试条，就把 `--silent-debugger-extension-api` 列在 `browserFlags` 下。想保留测试通知，就把 `--disable-infobars` 列在 `excludeBrowserFlags` 下。身份卡会为每个结论打印一行 `Dev flag`：
+
+```text
+    Dev flag       --silent-debugger-extension-api left out for the debugger permission, browserFlags restores it
+    Dev flag       --disable-infobars passed for the debugger permission, clears the testing notice so the debugger bar shows
+```
+
+`ready.json` 在 [`devAdditions`](/zh-Hans/docs/contracts/ready-json#开发附加项) 下记录每个结论的原因。
+
 ### 始终生效的会话 flag
 
 除了上面的默认表，每次 Chromium 启动还会带上一组固定的会话稳定性 flag。它们可以避免后台计时器、被遮挡的窗口以及渲染进程节流干扰自动化与 AI 驱动的会话。`excludeBrowserFlags` 无法移除它们：

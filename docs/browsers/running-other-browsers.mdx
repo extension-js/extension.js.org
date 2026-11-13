@@ -204,15 +204,28 @@ Forks with a built-in locator run by name; anything else runs with a binary flag
 - Invalid paths fail fast with a clear CLI/runtime error.
 - `build` does not accept binary flags. You can use binary-based launching only with `dev`, `start`, and `preview`.
 
-## Edge binary override
+## Binary variables
 
-Set the `EDGE_BINARY` environment variable to launch `--browser=edge` from a specific binary, without touching config:
+Set an environment variable to launch a named target from a specific binary, without touching config:
 
 ```bash
 EDGE_BINARY="/path/to/msedge" npx extension@latest dev --browser=edge
 ```
 
-If the path does not exist, the launch fails instead of silently falling back.
+```bash
+FIREFOX_BINARY="/path/to/firefox" npx extension@latest dev --browser=firefox
+```
+
+| Browser    | Variables, in the order that they are read                    |
+| ---------- | ------------------------------------------------------------- |
+| `chrome`   | `CHROME_FOR_TESTING_PATH`, `CHROMIUM_BINARY`, `CHROME_BINARY` |
+| `chromium` | `CHROMIUM_BINARY`                                             |
+| `edge`     | `EDGE_BINARY`                                                 |
+| `firefox`  | `FIREFOX_BINARY`                                              |
+
+From the release after 4.1.39, every browser resolves its binary in one order. The flag comes first, then the variable, the managed binary, and the system install.
+
+If the path does not exist or cannot run, the launch fails with `E_BROWSER_BINARY_INVALID` instead of silently falling back. The identity card names the variable that chose the binary, as in `(pinned with EDGE_BINARY)`. See [How the binary is chosen](/docs/browsers/browsers-available#how-the-binary-is-chosen).
 
 ## Run without launching a browser
 

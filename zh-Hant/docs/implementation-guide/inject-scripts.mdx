@@ -153,6 +153,8 @@ Chrome Web Store 對所有擴充功能都禁止腳本化。換一個頁面測試
 
 從 4.1.39 之後的版本起，用 `executeScript` 注入 `scripts/` 檔案時，呼叫會以該檔案最後一個運算式的值完成，和原生檔案一樣。Chrome 與 Firefox 上都是如此。瀏覽器無法複製的值（例如 DOM 節點或函式）不會帶回任何值。
 
+background 腳本可以在啟動時呼叫 `registerContentScripts`。從 4.1.39 之後的版本起，`extension dev` 會在有限的時間內按住第一個頁面，直到這些註冊有了回應。見 [`dev`](/zh-Hant/docs/commands/dev#第一個頁面會等待啟動時的註冊)。
+
 ### 在 MAIN world 中執行 `scripts/` 檔案
 
 在呼叫裡寫上 `world: "MAIN"`，建置就會依頁面自己的 world 來編譯這個 `scripts/` 檔案。需要 4.1.39 之後的版本。
@@ -181,6 +183,33 @@ await chrome.scripting.registerContentScripts([
 這種交接只涵蓋建置自己的內部通道。你的腳本放進 DOM 的任何擴充功能 URL，頁面都讀得到，而在 Firefox 上這個 URL 能識別這次安裝。具體情形與解法請見 [Content scripts](/zh-Hant/docs/implementation-guide/content-scripts) 裡的 MAIN world 注意事項。
 
 請把路徑與 `world: "MAIN"` 以字面值寫在呼叫裡。寫在同一個檔案的 `const` 裡也可以，寫在該檔案匯入的已匯出 `const` 裡也可以。由其他值組出來的呼叫，建置偵測不到。在工作階段中途新增或移除呼叫時，`extension dev` 會自行重新啟動，依新的 world 重新建置這個檔案。如果工作階段無法重新啟動，它會印出一則警告，提示你重新啟動。
+
+### 把同一個檔案註冊到兩個 world
+
+Chromium 在每個 frame 裡只把同一個檔案路徑注入一次。用同一個路徑註冊到兩個 world 的檔案，只會在 isolated world 裡執行。兩個 world 需要的建置也不一樣。
+
+從 4.1.39 之後的版本起，建置會處理這種情況。當你的原始碼把一個 `scripts/` 檔案同時註冊到 MAIN world 與 isolated world 時，建置會產出兩個檔案：
+
+- `scripts/<name>.js` 是 isolated world 的建置。
+- `scripts/<name>.extjs-main-world.js` 是 MAIN world 的建置。
+
+每個呼叫裡都繼續寫 `/scripts/<name>.js` 這個路徑。建置會把 `world: "MAIN"` 的呼叫導向第二個檔案，而 `getRegisteredContentScripts` 回傳的是你寫下的名稱。如果你的專案裡已經有一個叫第二個名稱的檔案，以你的檔案為準，建置不會再產生副本。
+
+只被 `registerContentScripts` 放進 MAIN world 的檔案也會得到第二個檔案。瀏覽器會跨工作階段記住已註冊的路徑，所以那個路徑始終是 MAIN world 的建置。
+
+建置從呼叫裡讀取 world。它能讀字面值、`const`、兩個字面值之間的二選一、對字面值物件的展開，以及對字面值清單的 `.map()`。沒有寫 `world` 的呼叫就是 isolated 的。
+
+只在呼叫執行時才存在的 world（例如函式參數），建置讀不出來。它會依 isolated world 建置這個檔案，並印出一則指明該呼叫的警告：
+
+```text
+background.ts:12 names scripts/hook.js in a scripting call whose world is only known when the call runs.
+CALL background.ts:12
+FILE scripts/hook.js
+It is treated as an isolated world script, so a call that runs with world: 'MAIN' puts the isolated world build on the page.
+Write the world as 'MAIN' or 'ISOLATED' in the call, or as a choice between the two, and the build prepares the file for each world it names.
+```
+
+### 擴充功能頁面裡的路徑
 
 在擴充功能頁面裡，路徑要從根目錄開始寫，例如 `/scripts/hook.js`。Firefox 會相對於頁面解析 `scripts/hook.js`，所以腳本不會執行，也不會拋出錯誤。面向 Firefox 的建置會印出一則警告，指出應該寫的路徑。
 

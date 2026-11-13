@@ -53,7 +53,32 @@ debug 通道只在 `--debug` 或 `EXTENSION_DEBUG=1` 下打印。debug 会额外
 
 在同一个项目上运行两个浏览器，你就会得到两张卡，每个会话一张。启动顺序是固定的：先是编译行，然后是身份卡，最后是绿色的 ready 行。
 
-没有值的行会被省略。这里没有 `n/a` 占位符，所以某一行在不在，就直接告诉你这次会话到底知道些什么。用 `--chromium-binary` 固定的二进制文件会记在 Browser 那一行里，而不是单独占一行；`build` 则会把 Profile 和 Run ID 两行换成一行 Output。
+没有值的行会被省略。这里没有 `n/a` 占位符，所以某一行在不在，就直接告诉你这次会话到底知道些什么。卡片上没有 Binary 行。`build` 会把 Profile 和 Run ID 两行换成一行 Output。
+
+从 4.1.39 之后的版本起，当二进制的来源是你能处理的事情时，Browser 行会把它写出来：
+
+- `(pinned with --chromium-binary)` 写明选定二进制的那个 flag 或变量，例如 `(pinned with FIREFOX_BINARY)`。
+- `(system install)` 表示浏览器是在你的系统上找到的，只用于 `extension install` 覆盖的目标。
+- 受管理的二进制没有任何标注。
+- Firefox nightly 会显示为 `Firefox Nightly`，这样没人会把它当成正式版。
+
+```text
+    Browser        Edge 142.0.3595.53 (system install)
+```
+
+完整路径请从 `ready.json` 的 `binary` 读取。见[二进制如何选定](/zh-Hans/docs/browsers/browsers-available#二进制如何选定)。
+
+### 卡片下方的行
+
+从 4.1.39 之后的版本起，当会话有生产构建所没有的东西时，`dev` 的卡片会多出几行：
+
+```text
+    Dev only       permissions scripting, tabs
+    Dev only       web_accessible_resources hot/*, extension-js-control.json
+    Dev flag       --silent-debugger-extension-api hides the debugger bar, excludeBrowserFlags shows it
+```
+
+`Dev only` 行列出只有 dev manifest 才有的权限、主机访问或 web accessible 资源。`Dev flag` 行写明一个会改变你所见内容的启动 flag，以及能把它反过来的配置键。原因记在 `ready.json` 的 [`devAdditions`](/zh-Hans/docs/contracts/ready-json#开发附加项) 下。
 
 ## 一个事实只出现一次
 

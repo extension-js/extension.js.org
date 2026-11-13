@@ -35,7 +35,7 @@ This is most useful when you want a consistent browser binary for `dev`, `build`
 
 - You need a consistent, repeatable browser binary for continuous integration (CI), automation, or team-consistent local runs.
 - You want Chrome for Testing instead of relying on whatever Chrome version your system has installed.
-- You are setting up cross-browser testing with managed Firefox or Edge runtimes.
+- You are setting up cross-browser testing with a managed Firefox, or with Edge.
 
 ## Why Extension.js downloads a browser
 
@@ -53,15 +53,40 @@ You can develop against a browser that is already installed, with no download:
 
 - Run a fork by name: `extension dev --browser=brave` locates the installed Brave for you. See [Running other browsers](/docs/browsers/running-other-browsers).
 - Pin any binary: pass `--chromium-binary <path>` or `--gecko-binary <path>` to `dev`, `start`, or `preview`. The pin overrides every locator.
-- Requested `edge` launches the Edge that is installed on your system when no managed Edge exists.
+- Set a binary variable such as `FIREFOX_BINARY`. See [Which binary runs](#which-binary-runs).
+- Requested `edge` launches the Edge that is installed on your system.
 - Requested `chrome` refuses a branded system Chrome and asks for Chrome for Testing instead.
 - To run branded Chrome anyway, pin it with `--chromium-binary`.
 
-### When Edge is already installed
+### Edge installs on your system
 
-`--browser=edge` finds the system Edge on its own, so you can skip `extension install edge`. Run `extension install edge` only when you want a pinned managed copy for automation.
+`extension install edge` runs `playwright install msedge`, which installs Microsoft Edge on your system. The Extension.js cache holds no pinned copy of Edge. `--browser=edge` finds the system Edge on its own, so you can skip the command when Edge is already installed.
 
-On Linux, the managed Edge download needs an interactive session with sudo rights. When that download fails and a system Edge exists, the installer reports the system binary and succeeds with it.
+On Linux, that install needs an interactive session with sudo rights. When the install fails and a system Edge exists, the installer reports the system binary and succeeds with it.
+
+## Which binary runs
+
+From the release after 4.1.39, `dev`, `start`, and `preview` choose the binary in one order for every browser:
+
+1. The flag, `--chromium-binary` or `--gecko-binary`.
+2. The environment variable of the browser.
+3. The managed binary from `extension install`.
+4. The system install.
+
+| Browser    | Variables, in the order that they are read                    |
+| ---------- | ------------------------------------------------------------- |
+| `chrome`   | `CHROME_FOR_TESTING_PATH`, `CHROMIUM_BINARY`, `CHROME_BINARY` |
+| `chromium` | `CHROMIUM_BINARY`                                             |
+| `edge`     | `EDGE_BINARY`                                                 |
+| `firefox`  | `FIREFOX_BINARY`                                              |
+
+A variable that names a missing path, or a file that cannot run, fails the launch with `E_BROWSER_BINARY_INVALID`. A bad variable is never skipped.
+
+The identity card says which step answered. `(pinned with FIREFOX_BINARY)` names the flag or the variable, and `(system install)` marks a browser from your system. A managed binary gets no note. `ready.json` carries the same fact in `binaryProvenance` and `binaryPinnedBy`.
+
+For Firefox, the managed step prefers a stable build over a nightly that sits in the same cache. When a nightly runs, the card says `Firefox Nightly`.
+
+Requested `chrome` still refuses a branded system Chrome. A variable that names branded Chrome is not taken, and the run continues with the managed binary. See [How the binary is chosen](/docs/browsers/browsers-available#how-the-binary-is-chosen).
 
 ## Canonical usage
 
@@ -187,7 +212,7 @@ You can override the cache root with `EXT_BROWSERS_CACHE_DIR`.
 Each browser gets its own folder under the cache root, but the layout inside differs by download engine:
 
 - `chrome`, `chromium`, and `firefox` come from `@puppeteer/browsers`. Expect its nested platform and version folders inside each browser directory.
-- `edge` comes from `playwright install msedge`, which lays the binary out in its own structure.
+- `edge` is not in the cache. `playwright install msedge` installs Microsoft Edge on your system.
 - `safari` has no download. Safari ships with macOS and needs the full Xcode app for builds, so `extension install safari` refuses with an explanation.
 - Named forks such as Brave are never downloaded. Point at them with `--chromium-binary` or `--gecko-binary` instead.
 
@@ -202,7 +227,8 @@ Set `EXTENSIONJS_BINARIES_IN_DIST=1` to make the run commands resolve managed bi
 - **Use `install` in CI** to pin a consistent browser binary instead of relying on whatever the runner provides.
 - **Prefer `chrome`** over `chromium` for Chrome for Testing: it matches stable Chrome behavior more closely.
 - **Use `--where`** to verify cache paths before scripting automation around managed browsers.
-- `install` only manages browsers inside the Extension.js cache. It does not modify system browser installs.
+- `install` keeps `chrome`, `chromium`, and `firefox` inside the Extension.js cache. It leaves system installs of those browsers alone.
+- `edge` is the exception. It installs Microsoft Edge on your system.
 
 ## Behavior notes
 

@@ -35,7 +35,7 @@ keywords:
 
 - 你需要一致、可重複的瀏覽器執行檔,以利持續整合(CI)、自動化或團隊在本機共用相同版本。
 - 你想用 Chrome for Testing,而不依賴系統已安裝的 Chrome 版本。
-- 你正在使用受管理的 Firefox 或 Edge 執行階段建立跨瀏覽器測試環境。
+- 你正在使用受管理的 Firefox 或者 Edge 建立跨瀏覽器測試環境。
 
 ## 為什麼 Extension.js 會下載瀏覽器
 
@@ -53,15 +53,40 @@ keywords:
 
 - 依名稱執行分支:`extension dev --browser=brave` 會為你定位已安裝的 Brave。參見 [執行其他瀏覽器](/zh-Hant/docs/browsers/running-other-browsers)。
 - 固定任何執行檔:把 `--chromium-binary <path>` 或 `--gecko-binary <path>` 傳給 `dev`、`start` 或 `preview`。這個固定值會覆寫所有定位器。
-- 請求 `edge` 時,若沒有受管理的 Edge,會啟動系統上已安裝的 Edge。
+- 設定一個執行檔變數,例如 `FIREFOX_BINARY`。見[執行哪個執行檔](#執行哪個執行檔)。
+- 請求 `edge` 時,會啟動系統上已安裝的 Edge。
 - 請求 `chrome` 時,會拒絕品牌版的系統 Chrome,並要求改用 Chrome for Testing。
 - 無論如何都要執行品牌版 Chrome 時,用 `--chromium-binary` 固定它。
 
-### 系統已安裝 Edge 時
+### Edge 安裝在你的系統上
 
-`--browser=edge` 會自行找到系統的 Edge,所以你可以略過 `extension install edge`。只有在你想要一份固定版本、供自動化使用的受管理副本時,才執行 `extension install edge`。
+`extension install edge` 會執行 `playwright install msedge`,它把 Microsoft Edge 安裝到你的系統上。Extension.js 的快取裡沒有固定版本的 Edge 副本。`--browser=edge` 會自行找到系統的 Edge,所以 Edge 已經安裝時你可以略過這個指令。
 
-在 Linux 上,受管理的 Edge 下載需要具備 sudo 權限的互動式工作階段。當下載失敗且系統存在 Edge 時,安裝程式會回報系統執行檔,並以它成功完成。
+在 Linux 上,這次安裝需要具備 sudo 權限的互動式工作階段。當安裝失敗且系統存在 Edge 時,安裝程式會回報系統執行檔,並以它成功完成。
+
+## 執行哪個執行檔
+
+從 4.1.39 之後的版本起,`dev`、`start` 與 `preview` 對每個瀏覽器都依同一個順序選定執行檔:
+
+1. 旗標:`--chromium-binary` 或 `--gecko-binary`。
+2. 該瀏覽器的環境變數。
+3. 來自 `extension install` 的受管理執行檔。
+4. 系統安裝。
+
+| 瀏覽器     | 變數(依讀取順序)                                              |
+| ---------- | ------------------------------------------------------------- |
+| `chrome`   | `CHROME_FOR_TESTING_PATH`、`CHROMIUM_BINARY`、`CHROME_BINARY` |
+| `chromium` | `CHROMIUM_BINARY`                                             |
+| `edge`     | `EDGE_BINARY`                                                 |
+| `firefox`  | `FIREFOX_BINARY`                                              |
+
+變數指向不存在的路徑或無法執行的檔案時,啟動會以 `E_BROWSER_BINARY_INVALID` 失敗。出錯的變數絕不會被略過。
+
+身分卡片會說明是哪一步給出了結果。`(pinned with FIREFOX_BINARY)` 寫明那個旗標或變數,`(system install)` 表示瀏覽器來自你的系統。受管理的執行檔沒有任何標註。`ready.json` 用 `binaryProvenance` 與 `binaryPinnedBy` 記錄同一件事。
+
+對 Firefox 來說,受管理這一步會優先選擇穩定版,而不是同一個快取裡的 nightly。執行的是 nightly 時,卡片會顯示 `Firefox Nightly`。
+
+請求 `chrome` 時仍然會拒絕品牌版的系統 Chrome。指向品牌版 Chrome 的變數不會被採用,執行會繼續使用受管理的執行檔。見[執行檔如何選定](/zh-Hant/docs/browsers/browsers-available#執行檔如何選定)。
 
 ## 標準用法
 
@@ -187,7 +212,7 @@ extension install chrome --where
 每個瀏覽器在快取根目錄下都有自己的資料夾,但資料夾內部的配置會因下載引擎而異:
 
 - `chrome`、`chromium` 與 `firefox` 來自 `@puppeteer/browsers`。每個瀏覽器目錄裡會有它那套巢狀的平台與版本資料夾。
-- `edge` 來自 `playwright install msedge`,它以自己的結構擺放執行檔。
+- `edge` 不在快取裡。`playwright install msedge` 會把 Microsoft Edge 安裝到你的系統上。
 - `safari` 沒有可下載的內容。Safari 隨 macOS 一起提供,建置還需要完整的 Xcode 應用程式,所以 `extension install safari` 會附上說明並拒絕執行。
 - 像 Brave 這樣的具名分支永遠不會被下載。請改用 `--chromium-binary` 或 `--gecko-binary` 指向它們。
 
@@ -202,7 +227,8 @@ extension install chrome --where
 - **在 CI 中使用 `install`**,以固定一致的瀏覽器執行檔,不依賴 runner 所提供的版本。
 - **優先使用 `chrome`** 而非 `chromium`:Chrome for Testing 較貼近穩定版 Chrome 的行為。
 - **使用 `--where`** 在撰寫受管理瀏覽器自動化前先確認快取路徑。
-- `install` 只管理 Extension.js 快取內的瀏覽器。它不會更動系統上的瀏覽器安裝。
+- `install` 把 `chrome`、`chromium` 與 `firefox` 放在 Extension.js 快取裡,不會更動這些瀏覽器的系統安裝。
+- `edge` 是例外。它會把 Microsoft Edge 安裝到你的系統上。
 
 ## 行為說明
 

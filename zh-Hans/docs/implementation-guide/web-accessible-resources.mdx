@@ -127,6 +127,28 @@ Extension.js 会把你声明的内容与构建发现的内容合并，然后为�
 - 如果你写的某个分组只有 `extension_ids` 而没有 `matches`，产出的 manifest 里也不会出现 `matches`。
 - 在开发中，Extension.js 会给条目集合打补丁，让重载与热模块替换所需的资源保持可达。该补丁仅用于开发。参见 [重载与 HMR](/zh-Hans/docs/features/reload-and-hmr)。
 
+### 在脚本构造出页面 URL 之前，页面保持私有
+
+从 4.1.39 之后的版本起，只有当 content script 构造出某个 HTML 页面的 URL 时，构建才会把这个页面加入 `web_accessible_resources`。把路径传给 `runtime.getURL` 就是这个信号：
+
+```ts
+const frame = document.createElement("iframe");
+frame.src = chrome.runtime.getURL("pages/panel.html");
+document.body.appendChild(frame);
+```
+
+构建能跟踪字面量路径、保存这个路径的常量，以及把第一个参数传给 `getURL` 的辅助函数。把扩展来源或 `runtime.id` 与路径拼接起来的 URL 也算。
+
+只是提到页面名字的脚本不会暴露它。常见的情况是：content script 把路径发给 background，再由 background 在标签页里打开这个页面。页面保持私有，构建会为每个页面打印一条说明：
+
+```text
+content_scripts/content-0.js names pages/panel.html without building its URL, so the page stays out of web_accessible_resources and no web page can frame or fetch it.
+Nothing to do when the script only passes the path along, for the background to open in a tab for example.
+If the script loads the page itself, pass the path to chrome.runtime.getURL or list it under web_accessible_resources in manifest.json, scoped to the matches that need it.
+```
+
+你自己列在 `web_accessible_resources` 下的页面仍然是暴露的，也不会为它打印这条说明。
+
 自动合并很方便，但它不是审阅。发布前请读一遍产出的 `dist/<browser>/manifest.json`，确认暴露出去的集合正是你打算暴露的集合：
 
 - 把 `matches` 限定在确实需要该文件的域名上。

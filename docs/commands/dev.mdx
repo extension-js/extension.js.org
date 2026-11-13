@@ -177,6 +177,30 @@ The dev server keeps running. `--logs` has no effect on this target: the extensi
 
 `--port` is a request, not a guarantee. When the requested port is busy, the dev server walks upward to the nearest free port. `--port 0` asks the OS for any free port. Read the bound port from `ready.json`, not from the flag you passed.
 
+`--port` sets the dev server port only. The control bridge listens on its own port, and no flag sets it. On the first run, the session asks the OS for a free port and stores it in `.extension-js/control-port-<browser>`. The next run asks for the same port, so a browser profile that still holds the old one can reconnect. When that port is busy, the OS assigns another. Read it from `controlPort` in `ready.json`.
+
+### What `dev` adds to your extension
+
+A dev session grants itself what the reload needs, and the production build of the same source has none of it. From the release after 4.1.39, the session names each addition under the identity card:
+
+```text
+    Dev only       permissions scripting, tabs
+    Dev only       host access https://example.com/*
+    Dev only       web_accessible_resources hot/*, extension-js-control.json
+    Dev flag       --silent-debugger-extension-api hides the debugger bar, excludeBrowserFlags shows it
+```
+
+- A `Dev only` line lists the permissions, host access, or web accessible resources that only the dev manifest has.
+- A `Dev flag` line names a launch flag that changes what you see, and the config key that flips it.
+
+`ready.json` lists every entry with its reason under [`devAdditions`](/docs/contracts/ready-json#dev-additions). Nothing on these lines ships. Run `extension build` and read `dist/<browser>/manifest.json` to see what a store receives.
+
+### The first page waits for boot registrations
+
+A background script can register content scripts as it starts, with `scripting.registerContentScripts`. A page that loads before that call answers never runs the registered script.
+
+From the release after 4.1.39, `dev` holds the first page until those registrations answer. The wait is bounded, so the page always opens. When the wait runs out, `dev` prints a warning that asks you to reload the page.
+
 ## Automation metadata (recommended for scripts/agents)
 
 When `dev` runs, Extension.js emits machine-readable metadata under:

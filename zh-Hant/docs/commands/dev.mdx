@@ -172,6 +172,30 @@ the emulated Chromium origin https://browsers.extension.land did not answer, so 
 
 `--port` 是一個請求,不是保證。當請求的埠號被占用時,開發伺服器會往上找最近的空閒埠號。`--port 0` 會向作業系統要一個任意空閒埠號。請從 `ready.json` 讀取實際綁定的埠號,而不是你傳入的那個旗標。
 
+`--port` 只設定開發伺服器的埠號。控制橋監聽它自己的埠號,沒有任何旗標能設定它。第一次執行時,工作階段向作業系統要一個空閒埠號,並把它存進 `.extension-js/control-port-<browser>`。下一次執行會請求同一個埠號,這樣仍然記著舊埠號的瀏覽器設定檔可以重新連上。這個埠號被占用時,作業系統會另外分配一個。請從 `ready.json` 的 `controlPort` 讀取它。
+
+### `dev` 替你的擴充功能加了什麼
+
+dev 工作階段會給自己授予重新載入所需的東西,而同一份原始碼的正式建置裡完全沒有這些。從 4.1.39 之後的版本起,工作階段會在身分卡片下方寫明每一項:
+
+```text
+    Dev only       permissions scripting, tabs
+    Dev only       host access https://example.com/*
+    Dev only       web_accessible_resources hot/*, extension-js-control.json
+    Dev flag       --silent-debugger-extension-api hides the debugger bar, excludeBrowserFlags shows it
+```
+
+- `Dev only` 列列出只有 dev manifest 才有的權限、主機存取或 web accessible 資源。
+- `Dev flag` 列寫明一個會改變你所見內容的啟動旗標,以及能把它反過來的設定鍵。
+
+`ready.json` 在 [`devAdditions`](/zh-Hant/docs/contracts/ready-json#開發附加項) 下列出每一項及其原因。這些列裡的東西都不會隨擴充功能發布。執行 `extension build` 並閱讀 `dist/<browser>/manifest.json`,就能看到商店實際收到的內容。
+
+### 第一個頁面會等待啟動時的註冊
+
+background 腳本可以在啟動時用 `scripting.registerContentScripts` 註冊 content script。在這個呼叫回應之前載入的頁面,永遠不會執行被註冊的腳本。
+
+從 4.1.39 之後的版本起,`dev` 會先按住第一個頁面,直到這些註冊有了回應。等待有上限,所以頁面一定會開啟。等待逾時後,`dev` 會印出一則警告,請你重新載入頁面。
+
 ## 自動化中介資料(建議用於腳本/代理)
 
 當 `dev` 執行時,Extension.js 會發出機器可讀的中介資料於:

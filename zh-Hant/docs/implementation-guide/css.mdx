@@ -163,6 +163,32 @@ export default function main() {
 
 從 4.1.39 之後的版本起，如果一條只為副作用而寫的樣式 import 沒有被任何東西放置，建置會印出一則警告。
 
+### 樣式政策嚴格的頁面
+
+頁面的內容安全政策（CSP）也決定 content script 自己的 DOM 呼叫能做什麼。結果取決於腳本執行在哪個 world。在送出 `style-src 'self'` 的頁面上：
+
+| 腳本自己的呼叫                              | isolated world | MAIN world |
+| ------------------------------------------- | -------------- | ---------- |
+| `fetch(href)`                               | 有回應         | 有回應     |
+| 裝著所取文字的 `<style>` 元素               | 生效           | 被拒絕     |
+| 指向這個 `data:` URL 的 `<link>`            | 生效           | 被拒絕     |
+| 指向 web accessible 擴充功能檔案的 `<link>` | 生效           | 生效       |
+| `adoptedStyleSheets` 裡的建構樣式表         | 生效           | 生效       |
+
+這些結果是在 Chrome 151 與 Firefox 160 上量測的，`dev` 與正式建置都一樣。shadow root 裡的 `<style>` 元素會和文件裡的一樣被拒絕。
+
+在送出 `default-src 'self'` 的頁面上，`fetch(href)` 也會被拒絕。在 MAIN world 裡兩個瀏覽器都是如此，在 isolated world 裡只有 Firefox 如此。
+
+建置看不到腳本將要造訪的頁面的政策。它不會更動這些呼叫，也不會印出警告。必須在這種政策下運作的 MAIN world 腳本，可以不發請求，直接從 URL 裡讀出樣式表並採用它：
+
+```ts
+import href from "./panel.css";
+
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(decodeURIComponent(href.slice(href.indexOf(",") + 1)));
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+```
+
 ## 內容腳本中的網頁字型
 
 把介面渲染到 shadow root 的內容腳本，無法只靠 CSS 載入網頁字型。有兩條平台規則會擋住它，而且都是靜默的。

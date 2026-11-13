@@ -202,6 +202,24 @@ Extension.js 在啟動 Chromium 系列瀏覽器時會自動套用以下旗標。
 | `--enable-unsafe-extension-debugging`                      | 允許透過 Chrome DevTools Protocol (CDP) 管理擴充功能(Chrome 126 以上) |
 | `--silent-debugger-extension-api`                          | 隱藏「X is debugging this browser」的資訊列                           |
 
+### `debugger` 權限會更動兩個旗標
+
+會附加 `chrome.debugger` 的擴充功能必須處理 Chrome 偵錯列上的 Cancel 按鈕。從 4.1.39 之後的版本起,當你的 manifest 在 `permissions` 或 `optional_permissions` 下列出 `debugger` 時,工作階段會顯示這個偵錯列:
+
+- 不再傳入 `--silent-debugger-extension-api`,因為這個旗標會隱藏偵錯列。
+- 會傳入 `--disable-infobars`,因為它能清掉擋住偵錯列的那則通知。
+
+Chrome for Testing 會在同一個位置顯示它自己的測試通知,偵錯列就排在它後面等著。`--disable-infobars` 會隱藏所有沒有按鈕的資訊列,這樣偵錯列才能顯示出來。其他 Chromium 建置只在無頭模式下才認這個旗標。
+
+想再次隱藏偵錯列,就把 `--silent-debugger-extension-api` 列在 `browserFlags` 下。想保留測試通知,就把 `--disable-infobars` 列在 `excludeBrowserFlags` 下。身分卡片會為每個結論印出一列 `Dev flag`:
+
+```text
+    Dev flag       --silent-debugger-extension-api left out for the debugger permission, browserFlags restores it
+    Dev flag       --disable-infobars passed for the debugger permission, clears the testing notice so the debugger bar shows
+```
+
+`ready.json` 在 [`devAdditions`](/zh-Hant/docs/contracts/ready-json#開發附加項) 下記錄每個結論的原因。
+
 ### 一律生效的工作階段旗標
 
 除了上面的預設表格,每一次 Chromium 啟動都會帶上一組固定的工作階段穩定性旗標。它們能避免背景計時器、被遮蔽的視窗與轉譯程序節流扭曲自動化與 AI 驅動的工作階段。`excludeBrowserFlags` 無法移除它們:
