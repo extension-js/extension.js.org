@@ -364,9 +364,25 @@ MAIN world 腳本無法呼叫擴充功能 API，因此 Extension.js 會為每個
 
 - dist 中的 manifest 會比原始碼包含更多 `content_scripts` 進入點。Extension.js 會在每個 MAIN 群組之前插入一個 isolated world 橋接進入點。
 - 橋接進入點的資產索引排在你的進入點之後。你的 `content_scripts/content-N` 輸出仍保留產生它們的來源進入點索引。
-- 橋接透過 `runtime.getURL` 解析擴充功能 URL，並把 MAIN world 的程式碼 chunk 注入頁面。
+- 橋接透過 `runtime.getURL` 解析擴充功能 URL，並把 MAIN world 的程式碼 chunk 注入頁面。從 4.1.39 之後的版本起，它在 Firefox 上不再注入任何東西，MAIN world 腳本會自己載入它的 chunk。
 - 橋接在處理訊息之前會驗證 `event.source` 是否為同一個 window。
 - 它只會注入擴充功能協定的 URL（`chrome-extension://`、`moz-extension://`）或相對路徑，絕不會注入任意遠端 URL。
+
+### 在 Firefox 上頁面讀得到的擴充功能 URL
+
+在 Firefox 上，你的 `moz-extension://` 來源帶有一個每次安裝都不同的 id。頁面一旦取得它，就能再次認出同一個瀏覽器。
+
+從 4.1.39 之後的版本起，建置把這個來源交給 MAIN world 腳本時，不會把它寫進頁面的 DOM。
+
+這只涵蓋建置自己的內部通道。你的腳本放進 DOM 的任何東西，頁面都讀得到：
+
+- 指向擴充功能資源的 `<img src>` 或 `<link href>`。
+- 對擴充功能 URL 的 `fetch`，前提是頁面已經改寫了 `fetch`。
+- 元件的 `<style>` 區塊，其中的 `url()` 指向擴充功能資源。這份樣式表會落在 document 裡的一個 `<style>` 元素中。
+
+不要讓 MAIN world 腳本把擴充功能 URL 帶進頁面，否則就要接受這種暴露。要避免暴露，請把這部分工作放到 isolated world 腳本裡完成，再把資料傳過去。
+
+頁面可以竄改這次交接。把交接換成自己版本的頁面什麼也拿不到，而你的腳本隨後也載入不了任何資源與 chunk。如果頁面在橋接執行之前就鎖住了這次交接，建置會退回到 document 上，頁面在那裡讀得到這個來源。
 
 ### Isolated vs MAIN 快速範例
 

@@ -132,10 +132,34 @@ export default {
 import "./styles/globals.css";
 ```
 
-对于 content script，在 content script 入口里用同样的方式导入：
+对于 content script，单纯的导入本身不会给任何东西加上样式。像 content 模板那样，把处理后的样式表加载进你的 shadow root：
 
 ```ts
-import "./styles/content.css";
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
+
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+  const styleElement = document.createElement("style");
+  shadowRoot.appendChild(styleElement);
+
+  fetchCSS().then((css) => (styleElement.textContent = css));
+
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "content_script";
+  shadowRoot.appendChild(contentDiv);
+
+  return () => rootDiv.remove();
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL("./styles/content.css", import.meta.url);
+  const response = await fetch(cssUrl);
+  const text = await response.text();
+  return response.ok ? text : Promise.reject(text);
+}
 ```
 
 Extension.js 在这两种上下文中都会应用 PostCSS，但打包方式不同（页面走 `css` 管线，content script 走资源管线）。

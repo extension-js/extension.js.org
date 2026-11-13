@@ -364,9 +364,25 @@ MAIN world 脚本无法调用扩展 API，因此 Extension.js 会为每个 MAIN 
 
 - dist 中的 manifest 比源文件包含更多的 `content_scripts` 入口。Extension.js 会在每个 MAIN 组之前插入一条 isolated world 桥接入口。
 - 桥接入口的资源索引排在你自己的入口之后。你的 `content_scripts/content-N` 产物保留生成它们的源入口的索引。
-- 桥接通过 `runtime.getURL` 解析扩展 URL，并把 MAIN world 的脚本 chunk 注入页面。
+- 桥接通过 `runtime.getURL` 解析扩展 URL，并把 MAIN world 的脚本 chunk 注入页面。从 4.1.39 之后的版本起，它在 Firefox 上不再注入任何东西，MAIN world 脚本自己加载它的 chunk。
 - 桥接在处理消息前会校验 `event.source` 是否为同一个 window。
 - 它只会注入扩展协议的 URL（`chrome-extension://`、`moz-extension://`）或相对路径，绝不会注入任意的远程 URL。
+
+### 在 Firefox 上页面能读到的扩展 URL
+
+在 Firefox 上，你的 `moz-extension://` 源带有一个每次安装都不同的 id。页面一旦拿到它，就能再次认出同一个浏览器。
+
+从 4.1.39 之后的版本起，构建把这个源交给 MAIN world 脚本时，不会把它写进页面的 DOM。
+
+这只覆盖构建自己的内部通道。你的脚本放进 DOM 的任何东西，页面都读得到：
+
+- 指向扩展资源的 `<img src>` 或 `<link href>`。
+- 对扩展 URL 的 `fetch`，前提是页面已经改写了 `fetch`。
+- 组件的 `<style>` 块，其中的 `url()` 指向扩展资源。这份样式表会落在 document 里的一个 `<style>` 元素中。
+
+不要让 MAIN world 脚本把扩展 URL 带进页面，否则就要接受这种暴露。要避免暴露，请把这部分工作放到 isolated world 脚本里完成，再把数据传过去。
+
+页面可以篡改这次交接。把交接换成自己版本的页面什么也拿不到，而你的脚本随后也加载不了任何资源和 chunk。如果页面在桥接运行之前就锁住了这次交接，构建会退回到 document 上，页面在那里读得到这个源。
 
 ### Isolated vs MAIN 快速示例
 

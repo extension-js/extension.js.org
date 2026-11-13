@@ -216,19 +216,47 @@ h1 {
 
 ### 在 `content_script` 文件中
 
-对于 content script，把 Vue 应用挂载到注入的根节点上：
+对于 content script，把 Vue 应用挂载到 shadow root 里，并把样式表加载进这个 root：
 
 ```ts
 import { createApp } from "vue";
 import App from "./App.vue";
-import "./content.css";
 
-const rootDiv = document.createElement("div");
-rootDiv.id = "extension-root";
-document.body.appendChild(rootDiv);
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
 
-createApp(App).mount("#extension-root");
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+  const styleElement = document.createElement("style");
+  shadowRoot.appendChild(styleElement);
+
+  fetchCSS().then((css) => (styleElement.textContent = css));
+
+  const container = document.createElement("div");
+  shadowRoot.appendChild(container);
+
+  const app = createApp(App);
+  app.mount(container);
+
+  return () => {
+    app.unmount();
+    rootDiv.remove();
+  };
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL("./content.css", import.meta.url);
+  const response = await fetch(cssUrl);
+  const text = await response.text();
+  return response.ok ? text : Promise.reject(text);
+}
 ```
+
+在 content script 里，单纯的 `import "./content.css"` 不会给任何东西加上样式。所有方式见 [CSS、Sass 与 Less](/zh-Hans/docs/implementation-guide/css)。
+
+从 4.1.39 之后的版本起，组件的 `<style>` 块在 content script 里会生效，包括 `<style scoped>`、`<style module>` 和 `lang="scss"`。这些样式落在 document 里，所以进不了 shadow root。`*.ce.vue` 组件会在它的 `styles` 选项里以文本形式拿到这些块，你可以借此把它们放进 shadow root。
 
 ## 最佳实践
 

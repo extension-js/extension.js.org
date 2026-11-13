@@ -16,7 +16,7 @@ keywords:
 
 Extension.js 支援純 CSS，以及 Sass 與 Less 等預處理器，無需任何設定。它會針對頁面情境（popup、options、side panel）與 content script 情境採用不同的路由方式。
 
-頁面樣式以連結資產的方式出貨。Extension.js 會把 content script 的樣式注入到網頁的 document，讓它套用到目前作用中的分頁。
+頁面樣式以連結資產的方式出貨。在 content script 裡，樣式套用在哪裡取決於你怎麼引用它。本頁的 content script 一節列出了每一種方式。
 
 ## 範本範例
 
@@ -97,7 +97,7 @@ deno run -A npm:extension@latest create my-extension --template=content-custom-f
 
 - `manifest.json`（`content_scripts[].css`）
 - HTML 檔案（`<link rel="stylesheet" href="...">`）
-- Script 中的 import（`import "./styles.css"`，啟用時也包含 Sass／Less）
+- Script 中的 import（`import "./styles.css"`，啟用時也包含 Sass／Less）。在 content script 裡，這種 import 本身不會替任何東西加上樣式。
 
 ## CSS 支援
 
@@ -129,6 +129,39 @@ Manifest 中的 CSS 進入點：
 ```ts
 import "./styles/popup.scss";
 ```
+
+## content script 中的樣式
+
+在 content script 裡，單純的 `import "./styles.css"` 得到的值是一個 `data:` URL 形式的樣式表。它本身不會替任何東西加上樣式。Sass 與 Less 的 import 也是一樣。
+
+Extension.js 只在一種情況下替你放置這份樣式表。這條 import 必須寫在已宣告的 content script 的入口檔裡，而且腳本必須用 `data-extension-root` 標記一個宿主元素。樣式表隨後會進入這個宿主的 shadow root。請見 [Shadow DOM](/zh-Hant/docs/implementation-guide/shadow-dom)。
+
+要替頁面本身加上樣式，請使用下列任一種方式：
+
+| 你寫的內容                                                             | 在哪裡有效                                |
+| ---------------------------------------------------------------------- | ----------------------------------------- |
+| 列在 manifest 的 `content_scripts[].css` 下的樣式表                    | 已宣告的 content script                   |
+| CSS module，`import styles from "./x.module.css"`                      | 已宣告的 content script                   |
+| `import href from "./styles.css"`，再設到 `<link rel="stylesheet">` 上 | 已宣告的 content script 與 `scripts/` 檔案 |
+
+最後一種方式會讀取 import 得到的值，再自己放置它：
+
+```ts
+import href from "./styles.css";
+
+export default function main() {
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+
+  return () => link.remove();
+}
+```
+
+你在執行階段注入的 `scripts/` 檔案不會得到任何自動放置。在那裡請讀取這個值，再把它設到 `<link>` 上。
+
+從 4.1.39 之後的版本起，如果一條只為副作用而寫的樣式 import 沒有被任何東西放置，建置會印出一則警告。
 
 ## 內容腳本中的網頁字型
 

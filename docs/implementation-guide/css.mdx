@@ -16,7 +16,7 @@ keywords:
 
 Extension.js supports plain CSS plus Sass and Less preprocessors with no setup. It routes styles differently for page contexts (popup, options, side panel) and content-script contexts.
 
-Page styles ship as linked assets. Extension.js injects content-script styles into the web page's document so they apply to the active tab.
+Page styles ship as linked assets. In a content script, where a style applies depends on how you reference it. The content script section on this page lists each route.
 
 ## Template examples
 
@@ -97,7 +97,7 @@ Repository: [extension-js/templates/content-custom-font](https://github.com/exte
 
 - `manifest.json` (`content_scripts[].css`)
 - HTML files (`<link rel="stylesheet" href="...">`)
-- Script imports (`import "./styles.css"`, including Sass/Less when enabled)
+- Script imports (`import "./styles.css"`, including Sass/Less when enabled). In a content script, this import styles nothing by itself.
 
 ## CSS support
 
@@ -129,6 +129,39 @@ Manifest CSS entries:
 ```ts
 import "./styles/popup.scss";
 ```
+
+## Styles in a content script
+
+In a content script, a plain `import "./styles.css"` evaluates to the stylesheet as a `data:` URL. It styles nothing by itself. Sass and Less imports behave the same.
+
+Extension.js places that sheet for you in one case only. The import must be in the entry file of a declared content script, and the script must mark a host with `data-extension-root`. The sheet then goes into the shadow root of that host. See [Shadow DOM](/docs/implementation-guide/shadow-dom).
+
+To style the page itself, use one of these routes:
+
+| What you write                                                         | Where it works                                |
+| ---------------------------------------------------------------------- | --------------------------------------------- |
+| A sheet listed under `content_scripts[].css` in the manifest           | Declared content scripts                      |
+| A CSS module, `import styles from "./x.module.css"`                    | Declared content scripts                      |
+| `import href from "./styles.css"`, set on a `<link rel="stylesheet">`  | Declared content scripts and `scripts/` files |
+
+The last route reads the value of the import and places it:
+
+```ts
+import href from "./styles.css";
+
+export default function main() {
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+
+  return () => link.remove();
+}
+```
+
+A `scripts/` file that you inject at runtime gets no automatic placement. Read the value and set it on a `<link>` there.
+
+From the release after 4.1.39, the build prints a warning for a side-effect style import that nothing places.
 
 ## Web fonts in a content script
 

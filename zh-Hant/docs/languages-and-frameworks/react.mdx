@@ -239,21 +239,45 @@ export default function App() {
 
 ### 在 `content_script` 檔中
 
-對於 content script，把 React 渲染到注入的根節點：
+對於 content script，把 React 渲染到 shadow root 裡，並把樣式表載入這個 root：
 
 ```tsx
-import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import "./content.css";
 
-const rootDiv = document.createElement("div");
-rootDiv.id = "extension-root";
-document.body.appendChild(rootDiv);
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
 
-const root = ReactDOM.createRoot(rootDiv);
-root.render(<App />);
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+  const styleElement = document.createElement("style");
+  shadowRoot.appendChild(styleElement);
+
+  fetchCSS().then((css) => (styleElement.textContent = css));
+
+  const container = document.createElement("div");
+  shadowRoot.appendChild(container);
+
+  const root = ReactDOM.createRoot(container);
+  root.render(<App />);
+
+  return () => {
+    root.unmount();
+    rootDiv.remove();
+  };
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL("./content.css", import.meta.url);
+  const response = await fetch(cssUrl);
+  const text = await response.text();
+  return response.ok ? text : Promise.reject(text);
+}
 ```
+
+在 content script 裡，單純的 `import "./content.css"` 不會替任何東西加上樣式。所有方式請見 [CSS、Sass 與 Less](/zh-Hant/docs/implementation-guide/css)。
 
 ## 下一步
 

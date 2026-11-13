@@ -194,19 +194,44 @@ export default function App() {
 
 ### In a `content_script` file
 
-For content scripts, inject Preact into the page by creating an HTML element and rendering into it:
+For content scripts, render Preact inside a shadow root, and load the stylesheet into that root:
 
 ```tsx
-import { h, render } from "preact";
+import { render } from "preact";
 import App from "./App";
-import "./content.css";
 
-const rootDiv = document.createElement("div");
-rootDiv.id = "extension-root";
-document.body.appendChild(rootDiv);
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
 
-render(<App />, rootDiv);
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+  const styleElement = document.createElement("style");
+  shadowRoot.appendChild(styleElement);
+
+  fetchCSS().then((css) => (styleElement.textContent = css));
+
+  const container = document.createElement("div");
+  shadowRoot.appendChild(container);
+
+  render(<App />, container);
+
+  return () => {
+    render(null, container);
+    rootDiv.remove();
+  };
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL("./content.css", import.meta.url);
+  const response = await fetch(cssUrl);
+  const text = await response.text();
+  return response.ok ? text : Promise.reject(text);
+}
 ```
+
+A plain `import "./content.css"` styles nothing in a content script. See [CSS, Sass, and Less](/docs/implementation-guide/css) for every route.
 
 ## Next steps
 

@@ -239,21 +239,45 @@ export default function App() {
 
 ### In a `content_script` file
 
-For content scripts, render React into an injected root element:
+For content scripts, render React inside a shadow root, and load the stylesheet into that root:
 
 ```tsx
-import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import "./content.css";
 
-const rootDiv = document.createElement("div");
-rootDiv.id = "extension-root";
-document.body.appendChild(rootDiv);
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
 
-const root = ReactDOM.createRoot(rootDiv);
-root.render(<App />);
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+  const styleElement = document.createElement("style");
+  shadowRoot.appendChild(styleElement);
+
+  fetchCSS().then((css) => (styleElement.textContent = css));
+
+  const container = document.createElement("div");
+  shadowRoot.appendChild(container);
+
+  const root = ReactDOM.createRoot(container);
+  root.render(<App />);
+
+  return () => {
+    root.unmount();
+    rootDiv.remove();
+  };
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL("./content.css", import.meta.url);
+  const response = await fetch(cssUrl);
+  const text = await response.text();
+  return response.ok ? text : Promise.reject(text);
+}
 ```
+
+A plain `import "./content.css"` styles nothing in a content script. See [CSS, Sass, and Less](/docs/implementation-guide/css) for every route.
 
 ## Next steps
 

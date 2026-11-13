@@ -216,19 +216,47 @@ h1 {
 
 ### In a `content_script` file
 
-For content scripts, mount a Vue app into an injected root node:
+For content scripts, mount a Vue app inside a shadow root, and load the stylesheet into that root:
 
 ```ts
 import { createApp } from "vue";
 import App from "./App.vue";
-import "./content.css";
 
-const rootDiv = document.createElement("div");
-rootDiv.id = "extension-root";
-document.body.appendChild(rootDiv);
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
 
-createApp(App).mount("#extension-root");
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+  const styleElement = document.createElement("style");
+  shadowRoot.appendChild(styleElement);
+
+  fetchCSS().then((css) => (styleElement.textContent = css));
+
+  const container = document.createElement("div");
+  shadowRoot.appendChild(container);
+
+  const app = createApp(App);
+  app.mount(container);
+
+  return () => {
+    app.unmount();
+    rootDiv.remove();
+  };
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL("./content.css", import.meta.url);
+  const response = await fetch(cssUrl);
+  const text = await response.text();
+  return response.ok ? text : Promise.reject(text);
+}
 ```
+
+A plain `import "./content.css"` styles nothing in a content script. See [CSS, Sass, and Less](/docs/implementation-guide/css) for every route.
+
+From the release after 4.1.39, a component `<style>` block applies in a content script. That includes `<style scoped>`, `<style module>`, and `lang="scss"`. The styles land in the document, so they do not reach a shadow root. A `*.ce.vue` component gets its blocks as text in its `styles` option, which is how you place them in a shadow root.
 
 ## Best practices
 
