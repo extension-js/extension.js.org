@@ -121,10 +121,23 @@ export default function MyComponent() {
 ## Content script notes
 
 - Extension pages (popup/options/sidebar/new tab) are the easiest place to start with shadcn/ui.
-- For content scripts, import your style entry in the content-script entrypoint.
-- Extension.js emits content-script styles through its CSS pipeline, and they can still conflict with host page styles.
+- In a content script, a plain `import "./styles.css"` evaluates to a URL for the stylesheet. It styles nothing by itself.
+- Extension.js places that sheet in one case only. The import must be in the entry file of a declared content script, and the script must mark a host with `data-extension-root`.
+- The sheet then goes into the shadow root of that host. Mount your components inside that shadow root, so the Tailwind sheet reaches them.
 
-If you need stronger isolation for content scripts, mount your UI inside a Shadow DOM root (a browser API that encapsulates styles and markup). Scope your class names intentionally.
+From the release after 4.1.39, the build warns when a content script imports a stylesheet that nothing places:
+
+```text
+A stylesheet imported only for its side effect styles nothing in a content script.
+PATH content/scripts.tsx:1
+IMPORT import './styles.css'
+There the import evaluates to the sheet as a data: URL, and no code reads it.
+Read the value and place it: import href from './styles.css', then set it on a <link rel="stylesheet">.
+Or list the sheet under content_scripts[].css in manifest.json, or use a CSS module (.module.css).
+Extension.js places it for you only in the shadow root of a host marked data-extension-root.
+```
+
+The last two lines print only for a content script that the manifest declares. See [Styles in a content script](/docs/implementation-guide/css#styles-in-a-content-script) for every route, and [Shadow DOM](/docs/implementation-guide/shadow-dom) for the host element.
 
 ## Best practices
 

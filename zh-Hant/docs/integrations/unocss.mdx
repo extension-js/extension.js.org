@@ -96,7 +96,43 @@ export default function Sidebar() {
 }
 ```
 
-對於內容腳本，在內容腳本進入點裡匯入同一個檔案。Extension.js 把內容腳本的 CSS 交給內容腳本樣式管線處理，並隨腳本一起輸出到 `content_scripts/` 下。
+### 在內容腳本中
+
+在內容腳本裡，單純的 `import "../styles/uno.css"` 求值得到的是這份樣式表的 URL。它本身不會替任何東西加上樣式。
+
+Extension.js 只在一種情況下替你放置這份樣式表。這條匯入必須寫在已宣告內容腳本的進入點檔案裡，而且腳本必須用 `data-extension-root` 標記一個宿主元素。樣式表隨後進入這個宿主的 shadow root，所以請把標記渲染在那裡：
+
+```ts
+import "../styles/uno.css";
+
+export default function initial() {
+  const host = document.createElement("div");
+  host.setAttribute("data-extension-root", "true");
+  document.body.appendChild(host);
+
+  const shadowRoot = host.attachShadow({ mode: "open" });
+  const title = document.createElement("h1");
+  title.className = "text-2xl font-bold text-blue-600";
+  title.textContent = "Hello, Extension.";
+  shadowRoot.appendChild(title);
+
+  return () => host.remove();
+}
+```
+
+從 4.1.39 之後的版本起，如果內容腳本匯入了一份沒有任何程式碼放置的樣式表，建置會印出警告：
+
+```text
+A stylesheet imported only for its side effect styles nothing in a content script.
+PATH src/content/scripts.ts:1
+IMPORT import '../styles/uno.css'
+There the import evaluates to the sheet as a data: URL, and no code reads it.
+Read the value and place it: import href from '../styles/uno.css', then set it on a <link rel="stylesheet">.
+Or list the sheet under content_scripts[].css in manifest.json, or use a CSS module (.module.css).
+Extension.js places it for you only in the shadow root of a host marked data-extension-root.
+```
+
+最後兩行只會在 manifest 宣告的內容腳本上印出。所有可用的方式見 [content script 中的樣式](/zh-Hant/docs/implementation-guide/css#content-script-中的樣式)。
 
 ## 驗證
 

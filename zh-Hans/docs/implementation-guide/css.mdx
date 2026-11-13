@@ -16,7 +16,7 @@ keywords:
 
 Extension.js 无需任何配置即可支持纯 CSS 以及 Sass、Less 预处理器。对页面上下文（popup、options、side panel）和 content script 上下文，它会采用不同的样式路由方式。
 
-页面样式会作为关联的资源发布。Extension.js 会把 content script 的样式注入到网页的 document 中，使其作用于当前活动标签页。
+页面样式会作为关联的资源发布。在 content script 里，样式作用在哪里取决于你怎么引用它。本页的 content script 一节列出了每一种方式。
 
 ## 模板示例
 
@@ -97,7 +97,7 @@ deno run -A npm:extension@latest create my-extension --template=content-custom-f
 
 - `manifest.json`（`content_scripts[].css`）
 - HTML 文件（`<link rel="stylesheet" href="...">`）
-- 脚本导入（`import "./styles.css"`，启用时也包括 Sass/Less）
+- 脚本导入（`import "./styles.css"`，启用时也包括 Sass/Less）。在 content script 里，这种导入本身不会给任何东西加上样式。
 
 ## CSS 支持
 
@@ -129,6 +129,39 @@ Manifest CSS 入口：
 ```ts
 import "./styles/popup.scss";
 ```
+
+## content script 中的样式
+
+在 content script 里，单纯的 `import "./styles.css"` 得到的值是一个 `data:` URL 形式的样式表。它本身不会给任何东西加上样式。Sass 和 Less 的导入也是一样。
+
+Extension.js 只在一种情况下替你放置这份样式表。这条导入必须写在已声明的 content script 的入口文件里，并且脚本必须用 `data-extension-root` 标记一个宿主元素。样式表随后会进入这个宿主的 shadow root。参见 [Shadow DOM](/zh-Hans/docs/implementation-guide/shadow-dom)。
+
+要给页面本身加样式，请使用下面任意一种方式：
+
+| 你写的内容                                                             | 在哪里有效                                |
+| ---------------------------------------------------------------------- | ----------------------------------------- |
+| 列在 manifest 的 `content_scripts[].css` 下的样式表                    | 已声明的 content script                   |
+| CSS 模块，`import styles from "./x.module.css"`                        | 已声明的 content script                   |
+| `import href from "./styles.css"`，再设到 `<link rel="stylesheet">` 上 | 已声明的 content script 和 `scripts/` 文件 |
+
+最后一种方式读取导入得到的值，再自己放置它：
+
+```ts
+import href from "./styles.css";
+
+export default function main() {
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+
+  return () => link.remove();
+}
+```
+
+你在运行时注入的 `scripts/` 文件不会得到任何自动放置。在那里请读取这个值，再把它设到 `<link>` 上。
+
+从 4.1.39 之后的版本起，如果一条只为副作用而写的样式导入没有被任何东西放置，构建会打印一条警告。
 
 ## 内容脚本中的网页字体
 

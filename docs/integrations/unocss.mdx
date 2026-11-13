@@ -103,9 +103,50 @@ export default function Sidebar() {
 }
 ```
 
-For a content script, import the same file from the content-script entry. Extension.js
-routes content-script CSS through its content-script style pipeline and ships it with the
-script under `content_scripts/`.
+### In a content script
+
+In a content script, a plain `import "../styles/uno.css"` evaluates to a URL for the
+stylesheet. It styles nothing by itself.
+
+Extension.js places that sheet for you in one case only. The import must be in the entry
+file of a declared content script, and the script must mark a host with
+`data-extension-root`. The sheet then goes into the shadow root of that host, so render
+your markup there:
+
+```ts
+import "../styles/uno.css";
+
+export default function initial() {
+  const host = document.createElement("div");
+  host.setAttribute("data-extension-root", "true");
+  document.body.appendChild(host);
+
+  const shadowRoot = host.attachShadow({ mode: "open" });
+  const title = document.createElement("h1");
+  title.className = "text-2xl font-bold text-blue-600";
+  title.textContent = "Hello, Extension.";
+  shadowRoot.appendChild(title);
+
+  return () => host.remove();
+}
+```
+
+From the release after 4.1.39, the build warns when a content script imports a stylesheet
+that nothing places:
+
+```text
+A stylesheet imported only for its side effect styles nothing in a content script.
+PATH src/content/scripts.ts:1
+IMPORT import '../styles/uno.css'
+There the import evaluates to the sheet as a data: URL, and no code reads it.
+Read the value and place it: import href from '../styles/uno.css', then set it on a <link rel="stylesheet">.
+Or list the sheet under content_scripts[].css in manifest.json, or use a CSS module (.module.css).
+Extension.js places it for you only in the shadow root of a host marked data-extension-root.
+```
+
+The last two lines print only for a content script that the manifest declares. See
+[Styles in a content script](/docs/implementation-guide/css#styles-in-a-content-script)
+for every route.
 
 ## Verify
 

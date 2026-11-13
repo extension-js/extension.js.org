@@ -178,12 +178,35 @@ export default function MyNewTabPage() {
 #### 在 content script 里
 
 ```ts
-import "./styles/globals.css";
+export default function initial() {
+  const rootDiv = document.createElement("div");
+  rootDiv.setAttribute("data-extension-root", "true");
+  rootDiv.style.cssText = "all: initial !important";
+  document.body.appendChild(rootDiv);
 
-console.log("Tailwind styles loaded for content script");
+  const shadowRoot = rootDiv.attachShadow({ mode: "open" });
+  const styleElement = document.createElement("style");
+  shadowRoot.appendChild(styleElement);
+
+  fetchCSS().then((css) => (styleElement.textContent = css));
+
+  const badge = document.createElement("div");
+  badge.className = "fixed bottom-0 right-0 p-4 text-sm font-bold";
+  badge.textContent = "Hello, Extension.";
+  shadowRoot.appendChild(badge);
+
+  return () => rootDiv.remove();
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL("./styles/globals.css", import.meta.url);
+  const response = await fetch(cssUrl);
+  const text = await response.text();
+  return response.ok ? text : Promise.reject(text);
+}
 ```
 
-Extension.js 会把 content script 的 CSS 路由进其 content script 样式管线，并把这些资源输出到 `content_scripts/` 下。
+Tailwind 在构建时编译这份样式表，脚本再把它加载进 shadow root。在 content script 里，单纯的 `import "./styles/globals.css"` 不会给任何东西加上样式。所有方式见 [CSS、Sass 与 Less](/zh-Hans/docs/implementation-guide/css)。
 
 <Frame>
   <iframe

@@ -151,6 +151,8 @@ See [Special folders](/docs/features/special-folders) for the full folder contra
 
 During `extension dev`, scripts that you inject with `executeScript` from `scripts/` are replayed on edit, so the injected code updates live the way declarative `content_scripts` do. See [Reload and HMR](/docs/features/reload-and-hmr).
 
+From the release after 4.1.39, `executeScript` with a `scripts/` file resolves with the value of the file's last expression, as a native file does. This holds on Chrome and Firefox. A value that the browser cannot clone, such as a DOM node or a function, gives no value.
+
 ### Run a `scripts/` file in the MAIN world
 
 Pass `world: "MAIN"` in the call, and the build compiles that `scripts/` file for the page's own world. Needs the release after 4.1.39.
@@ -168,14 +170,17 @@ await chrome.scripting.registerContentScripts([
 ```
 
 - The build finds the call in the background, in extension pages, and in the local modules that they import.
+- The search follows build aliases, `tsconfig.json` paths, and linked workspace packages. It skips packages installed under `node_modules`.
 - `executeScript` with `files` and `world: "MAIN"` gets the same treatment.
 - In development, the file carries no HMR runtime and no dev instrumentation, so neither runs on the host page.
 - A production build leaves no `__EXTENSIONJS_*` global on the page, even when the file imports other `scripts/` modules.
 - A dynamic `import()` in the file loads its chunk, also at `document_start`.
 - On Firefox, the file resolves its imported assets and chunks from your `moz-extension://` origin.
-- A production build keeps that origin out of the page's DOM once the file has started.
+- A production build hands the file that origin without writing it into the page's DOM.
 
-Write the path and `world: "MAIN"` as literals in the call. A `const` in the same file works too, and so does an exported `const` that the file imports. The build does not detect a call that is built from another value. When you add a call during a session, `extension dev` prints a warning that asks for a restart.
+That hand-off covers the build's own plumbing only. The page can read any extension URL that your script places in the DOM, and on Firefox that URL identifies the install. See the MAIN world notes in [Content scripts](/docs/implementation-guide/content-scripts) for the cases and the fix.
+
+Write the path and `world: "MAIN"` as literals in the call. A `const` in the same file works too, and so does an exported `const` that the file imports. The build does not detect a call that is built from another value. When you add or remove a call during a session, `extension dev` restarts by itself to build the file for its new world. If the session cannot restart, it prints a warning that asks for a restart.
 
 In an extension page, start the path at the root, as in `/scripts/hook.js`. Firefox resolves `scripts/hook.js` against the page, so the script never runs and no error is thrown. A build for a Firefox target prints a warning that names the path to write.
 

@@ -121,10 +121,23 @@ export default function MyComponent() {
 ## Content script 注意事项
 
 - 扩展页面（popup/options/sidebar/新标签页）是最容易上手 shadcn/ui 的地方。
-- 对于 content script，在 content script 入口中引入你的样式入口文件。
-- Extension.js 通过其 CSS 管线输出 content script 的样式，但它们仍可能与宿主页面的样式冲突。
+- 在 content script 里，单纯的 `import "./styles.css"` 求值得到的是这份样式表的 URL。它本身不会给任何东西加样式。
+- Extension.js 只在一种情况下替你放置这份样式表。这条导入必须写在已声明 content script 的入口文件里，而且脚本必须用 `data-extension-root` 标记一个宿主元素。
+- 样式表随后进入这个宿主的 shadow root。把组件挂载到这个 shadow root 里，Tailwind 样式表才能作用到它们。
 
-如果你需要为 content script 提供更强的隔离，可以把 UI 挂载到 Shadow DOM 根（一种把样式与标记封装起来的浏览器 API）里，并有意识地约束类名作用域。
+从 4.1.39 之后的版本起，如果 content script 导入了一份没有任何代码放置的样式表，构建会打印警告：
+
+```text
+A stylesheet imported only for its side effect styles nothing in a content script.
+PATH content/scripts.tsx:1
+IMPORT import './styles.css'
+There the import evaluates to the sheet as a data: URL, and no code reads it.
+Read the value and place it: import href from './styles.css', then set it on a <link rel="stylesheet">.
+Or list the sheet under content_scripts[].css in manifest.json, or use a CSS module (.module.css).
+Extension.js places it for you only in the shadow root of a host marked data-extension-root.
+```
+
+最后两行只会在 manifest 声明的 content script 上打印。所有可用的方式见 [content script 中的样式](/zh-Hans/docs/implementation-guide/css#content-script-中的样式)，宿主元素见 [Shadow DOM](/zh-Hans/docs/implementation-guide/shadow-dom)。
 
 ## 最佳实践
 

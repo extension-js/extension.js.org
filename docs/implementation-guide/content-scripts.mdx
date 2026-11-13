@@ -364,9 +364,25 @@ MAIN world scripts cannot call extension APIs, so Extension.js pairs each MAIN g
 
 - The dist manifest contains more `content_scripts` entries than the source. Extension.js prepends one isolated-world bridge entry before each MAIN group.
 - Bridge entries take asset indices after your entries. Your `content_scripts/content-N` outputs keep the index of the source entry that produced them.
-- The bridge resolves extension URLs through `runtime.getURL` and injects the MAIN world's script chunks into the page.
+- The bridge resolves extension URLs through `runtime.getURL` and injects the MAIN world's script chunks into the page. From the release after 4.1.39, it injects nothing on Firefox, and the MAIN world script loads its own chunks.
 - The bridge validates that `event.source` is the same window before acting on a message.
 - It injects only extension-scheme URLs (`chrome-extension://`, `moz-extension://`) or relative paths, never arbitrary remote URLs.
+
+### Extension URLs that the page can read on Firefox
+
+On Firefox, your `moz-extension://` origin carries an id that is unique to each install. A page that learns it can recognize the same browser again.
+
+From the release after 4.1.39, the build hands a MAIN world script that origin without writing it into the page's DOM. The page cannot read the origin from that hand-off.
+
+That covers the build's own plumbing only. The page can read anything that your script places in the DOM:
+
+- An `<img src>` or a `<link href>` that points at an extension asset.
+- A `fetch` of an extension URL, when the page has patched `fetch`.
+- A component `<style>` block whose `url()` names an extension asset. The sheet lands in a `<style>` element in the document.
+
+Keep extension URLs out of the page from a MAIN world script, or accept the exposure. To keep them out, do that work in an isolated-world script and pass the data across.
+
+A page can tamper with the hand-off. A page that swaps it for its own gets nothing, and your script then loads no assets or chunks. A page that locks the hand-off before the bridge runs forces a fallback to the document, where it can read the origin.
 
 ### Isolated vs MAIN quick example
 

@@ -96,7 +96,43 @@ export default function Sidebar() {
 }
 ```
 
-对于内容脚本，在内容脚本入口里导入同一个文件。Extension.js 把内容脚本的 CSS 交给内容脚本样式管线处理，并随脚本一起输出到 `content_scripts/` 下。
+### 在内容脚本中
+
+在内容脚本里，单纯的 `import "../styles/uno.css"` 求值得到的是这份样式表的 URL。它本身不会给任何东西加样式。
+
+Extension.js 只在一种情况下替你放置这份样式表。这条导入必须写在已声明内容脚本的入口文件里，而且脚本必须用 `data-extension-root` 标记一个宿主元素。样式表随后进入这个宿主的 shadow root，所以请把标记渲染在那里：
+
+```ts
+import "../styles/uno.css";
+
+export default function initial() {
+  const host = document.createElement("div");
+  host.setAttribute("data-extension-root", "true");
+  document.body.appendChild(host);
+
+  const shadowRoot = host.attachShadow({ mode: "open" });
+  const title = document.createElement("h1");
+  title.className = "text-2xl font-bold text-blue-600";
+  title.textContent = "Hello, Extension.";
+  shadowRoot.appendChild(title);
+
+  return () => host.remove();
+}
+```
+
+从 4.1.39 之后的版本起，如果内容脚本导入了一份没有任何代码放置的样式表，构建会打印警告：
+
+```text
+A stylesheet imported only for its side effect styles nothing in a content script.
+PATH src/content/scripts.ts:1
+IMPORT import '../styles/uno.css'
+There the import evaluates to the sheet as a data: URL, and no code reads it.
+Read the value and place it: import href from '../styles/uno.css', then set it on a <link rel="stylesheet">.
+Or list the sheet under content_scripts[].css in manifest.json, or use a CSS module (.module.css).
+Extension.js places it for you only in the shadow root of a host marked data-extension-root.
+```
+
+最后两行只会在 manifest 声明的内容脚本上打印。所有可用的方式见 [content script 中的样式](/zh-Hans/docs/implementation-guide/css#content-script-中的样式)。
 
 ## 验证
 
