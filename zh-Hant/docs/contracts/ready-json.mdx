@@ -114,10 +114,13 @@ attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也�
 | `host_permission`         | dev manifest 加上的主機比對樣式。              | 無                                                        |
 | `web_accessible_resource` | dev manifest 公開的資源,例如 `hot/*`。        | `matches`,可以讀取它的來源。Manifest V2 下不會出現。     |
 | `browser_flag`            | 一個會改變你在瀏覽器裡所見內容的啟動旗標。     | `applied`、`cause` 與 `change`。                          |
+| `browser_preference`      | 工作階段寫進被保留的設定檔的瀏覽器偏好設定,形式為 `name=value`。 | `applied`、`cause` 與 `change`。 |
 
-前三種是你的 manifest 與 dev manifest 之間的差異。每次重新編譯都會取代它們。`browser_flag` 項目由啟動器寫入,重新編譯會保留它們。
+前三種是你的 manifest 與 dev manifest 之間的差異。每次重新編譯都會取代它們。`browser_flag` 與 `browser_preference` 項目由啟動器寫入,重新編譯會保留它們。
 
 `browser_flag` 項目說明這次啟動是否傳入了該旗標(`applied`),以及是什麼決定了這一點(`cause`)。`cause` 的值是 `default`、`browser-flags`、`debugger-permission` 或 `exclude-browser-flags`。`change` 寫明能把結論反過來的那一處修改。
+
+當設定檔比工作階段活得更久時(例如 `--profile <path>`),Chromium 上會出現一個 `browser_preference` 項目。工作階段把 `session.restore_on_startup` 設為 `5`,這樣 Chrome 會開啟新分頁,而不是還原上一次執行的頁面。工作階段結束後,這個值仍然留在那個設定檔裡。它的 `cause` 是 `default`。你的設定檔案設定了這個偏好時是 `preferences`,瀏覽器拒絕寫入時是 `unavailable`。見[瀏覽器偏好設定](/zh-Hant/docs/browsers/browser-preferences#保留的設定檔上的啟動偏好設定)。
 
 ```json
 {

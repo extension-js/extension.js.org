@@ -89,6 +89,32 @@ export default {
   暫時性設定檔執行,才能重新寫入。
 </Note>
 
+### 保留的設定檔上的啟動偏好設定
+
+比工作階段活得更久的設定檔(例如 `--profile <path>`)會記住它開啟的頁面。下一次啟動時,Chrome 會搶在你的擴充功能之前還原上一次執行的頁面。
+
+從 4.1.39 之後的版本起,`dev` 會在這樣的設定檔裡把 `session.restore_on_startup` 設為 `5`,這樣瀏覽器會開啟新分頁。工作階段透過瀏覽器只寫一次這個值,之後它就留在那個設定檔裡。身分卡片會寫明這一點:
+
+```text
+    Dev pref       session.restore_on_startup=5 written to this kept profile and stays there, preferences changes it
+```
+
+想讓瀏覽器繼續還原上一次工作階段,就在第一次啟動之前自己設定這個偏好:
+
+```js
+export default {
+  browser: {
+    chrome: {
+      preferences: {
+        session: { restore_on_startup: 1 },
+      },
+    },
+  },
+};
+```
+
+這時卡片會顯示 `left to the browser, preferences sets it`。已經有這個值的設定檔會一直保留它,直到你在 `chrome://settings` 裡修改「啟動時」。臨時設定檔在結束時會被刪除,所以工作階段不會往裡面寫任何東西。
+
 至於 Chromium 透過命令列控制的啟動行為,請改用旗標:
 
 - `browserFlags`

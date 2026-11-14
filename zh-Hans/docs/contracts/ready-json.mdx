@@ -114,10 +114,13 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `host_permission`         | dev manifest 添加的主机匹配模式。              | 无                                                        |
 | `web_accessible_resource` | dev manifest 暴露的资源，例如 `hot/*`。        | `matches`，可以读取它的来源。Manifest V2 下不出现。       |
 | `browser_flag`            | 一个会改变你在浏览器里所见内容的启动 flag。    | `applied`、`cause` 和 `change`。                          |
+| `browser_preference`      | 会话写进被保留的 profile 的浏览器偏好，形式为 `name=value`。 | `applied`、`cause` 和 `change`。 |
 
-前三种是你的 manifest 与 dev manifest 之间的差异。每次重新编译都会替换它们。`browser_flag` 条目由启动器写入，重新编译会保留它们。
+前三种是你的 manifest 与 dev manifest 之间的差异。每次重新编译都会替换它们。`browser_flag` 与 `browser_preference` 条目由启动器写入，重新编译会保留它们。
 
 `browser_flag` 条目说明这次启动是否传入了该 flag（`applied`），以及是什么决定了这一点（`cause`）。`cause` 的取值是 `default`、`browser-flags`、`debugger-permission` 或 `exclude-browser-flags`。`change` 写明能把结论反过来的那一处修改。
+
+当 profile 比会话活得更久时（例如 `--profile <path>`），Chromium 上会出现一个 `browser_preference` 条目。会话把 `session.restore_on_startup` 设为 `5`，这样 Chrome 会打开新标签页，而不是恢复上一次运行的页面。会话结束后，这个值仍然留在那个 profile 里。它的 `cause` 是 `default`；你的配置设置了这个偏好时是 `preferences`；浏览器拒绝写入时是 `unavailable`。见[浏览器偏好设置](/zh-Hans/docs/browsers/browser-preferences#保留的-profile-上的启动偏好)。
 
 ```json
 {

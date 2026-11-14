@@ -116,10 +116,13 @@ From the release after 4.1.39, a `dev` contract lists what the session has that 
 | `host_permission`         | A host pattern that the dev manifest adds.                 | none                                                             |
 | `web_accessible_resource` | A resource that the dev manifest exposes, such as `hot/*`. | `matches`, the origins that can read it. Absent on Manifest V2.  |
 | `browser_flag`            | A launch flag that changes what you see in the browser.    | `applied`, `cause`, and `change`.                                |
+| `browser_preference`      | A browser preference that the session writes to a kept profile, as `name=value`. | `applied`, `cause`, and `change`. |
 
-The first three kinds are the difference between your manifest and the dev manifest. Each recompile replaces them. The launcher writes the `browser_flag` entries, and a recompile keeps them.
+The first three kinds are the difference between your manifest and the dev manifest. Each recompile replaces them. The launcher writes the `browser_flag` and `browser_preference` entries, and a recompile keeps them.
 
 A `browser_flag` entry says whether this launch passes the flag (`applied`) and what decided that (`cause`). `cause` is `default`, `browser-flags`, `debugger-permission`, or `exclude-browser-flags`. `change` names the one edit that flips the verdict.
+
+A `browser_preference` entry appears on Chromium when the profile outlives the session, as with `--profile <path>`. The session sets `session.restore_on_startup` to `5`, so Chrome opens a new tab and does not restore the pages of the previous run. The value stays in that profile after the session ends. Its `cause` is `default`, `preferences` when your config sets the preference, or `unavailable` when the browser refused the write. See [Browser preferences](/docs/browsers/browser-preferences#the-startup-preference-on-a-kept-profile).
 
 ```json
 {
