@@ -177,6 +177,22 @@ export default {
 
 完整的 `folders` 键请参阅[特殊文件夹的位置](/zh-Hans/docs/features/extension-configuration#特殊文件夹的位置)。
 
+### `scripts/` 里的辅助模块
+
+`scripts/` 里的每个文件都会被构建成一个独立的入口。被其他文件导入的辅助模块会多输出一个没有任何东西加载的文件。从 4.1.39 之后的版本起，如果一个文件被其他文件导入，又没有任何地方按输出路径提到它，构建会为它打印一条警告。警告里给出可以直接粘贴的 `exclude` 值：
+
+```plaintext
+scripts/helper.js is built as an entry of its own because every file in scripts/ is, yet other files import it and nothing names its output path. For a helper module, add exclude: ['scripts/helper.js'] to extension.config.js. For a script the extension injects, keep it.
+```
+
+```js extension.config.js
+export default {
+  exclude: ["scripts/helper.js"],
+};
+```
+
+加上这个键之后，这个文件不再输出，警告也随之消失。你的代码按输出路径提到的文件不会触发警告，因为那是一个被注入的脚本。
+
 ### 重要契约
 
 当你把 `scripts/` 中的某个条目当作类似 content script 的运行时入口使用时，请遵循 content script 初始化模式。这是 Extension.js 期望的默认导出契约，用于安全地热重载注入脚本：

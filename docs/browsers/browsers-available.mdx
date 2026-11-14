@@ -259,7 +259,11 @@ if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "firefox") {
 }
 ```
 
-A runtime guard such as `chrome.sidePanel?.setPanelBehavior()` still warns. addons-linter matches the static read of the namespace, not what runs, so only a build-time branch clears the finding. See [Environment variables](/docs/features/environment-variables) for the `EXTENSION_PUBLIC_BROWSER` value on each target.
+On 4.1.39 and earlier, a runtime guard such as `chrome.sidePanel?.setPanelBehavior()` still warns.
+
+From the release after 4.1.39, a call that Firefox never reaches does not warn. That covers a call behind `if (chrome.sidePanel)`, a call written as `chrome.sidePanel?.setPanelBehavior()`, and a call behind a `typeof chrome.sidePanel !== "undefined"` check. The Safari warning reads the same guards, see [Safari](/docs/browsers/safari#the-one-call-that-kills-a-safari-background).
+
+A runtime guard quiets the build warning only. addons-linter matches the static read of the namespace, not what runs. Only a build-time branch on `import.meta.env.EXTENSION_PUBLIC_BROWSER` drops the call from the Firefox bundle, and that is what clears the `UNSUPPORTED_API` finding in the [store check](/docs/commands/build#store-check-for-firefox-builds). See [Environment variables](/docs/features/environment-variables) for the `EXTENSION_PUBLIC_BROWSER` value on each target.
 
 ## Best practices
 

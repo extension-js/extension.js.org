@@ -74,7 +74,7 @@ extension inspect [project-path] [options]
 | `--tab <id>`              | 用於 `content`/`page`：指定某個分頁。不指定時，`--url` 的比對結果優先，否則使用目前作用中的分頁。                    | 作用中的分頁    |
 | `--list-tabs`             | 以 `{id, url, title, active, windowId}` 的形式列出開啟的分頁，然後結束。                                             | 關閉            |
 | `--include <list>`        | 以逗號分隔的結果組成部分：`html`、`summary`。                                                                        | `summary`       |
-| `--max-bytes <n>`         | 回傳 HTML 的位元組數上限。                                                                                          | `262144`        |
+| `--max-bytes <n>`         | 回傳 HTML 的位元組數上限。從 4.1.39 之後的版本起，大於 `262144` 的值會被降到 `262144`。 | `262144`        |
 | `--with-console [n]`      | 同時附上該目標最近 `n` 行主控台輸出。                                                                               | 指定時為 `20`   |
 | `--browser <browser>`     | 目標是哪個工作階段（`chrome`、`chromium`、`edge`、`firefox`）。                                                     | `chromium`      |
 | `--timeout <ms>`          | 指令逾時時間，單位為毫秒。                                                                                          | `5000`          |
@@ -110,6 +110,14 @@ extension inspect --tab 412 --with-console
 ## 截斷
 
 超過 `--max-bytes` 的 HTML 回傳時會被截斷。pretty 模式會在 stderr 上印出一則截斷提示，`--output json` 則會在信封中設定 `truncated: true`（參見 [結果信封](/zh-Hant/docs/contracts/result-envelope)）。
+
+從 4.1.39 之後的版本起，一個結果最多攜帶 256 KB，`--max-bytes` 無法調高這個上限。大於 `262144` 的值會被降到這個數，並有一則 `warnings` 項目說明這一點。
+
+這個上限依整個結果的 JSON 計算，而標記在跳脫之後會變長。沒有超過 `--max-bytes` 的 HTML 仍然可能為了放得下而被截斷。這時結果會帶上 `truncated: true`、`value.htmlTruncated: true`，以及一則 `warnings` 項目，給出用來讀取剩餘部分的 `eval` 呼叫：
+
+```plaintext
+html cut to 180000 of 400000 characters to fit the 262144-byte result cap. Read on with eval: document.documentElement.outerHTML.slice(180000, 380000)
+```
 
 ## 失敗模式
 

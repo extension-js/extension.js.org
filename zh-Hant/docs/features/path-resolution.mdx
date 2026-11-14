@@ -87,6 +87,20 @@ Extension.js 會將常見的路徑輸入正規化如下：
 
 Extension.js 會把所有編譯後的輸出寫入 `dist/<browser>`。
 
+## 被移動的頁面裡設定的相對路徑
+
+manifest 宣告的每個頁面都會輸出到以它的介面命名的資料夾裡。寫成 `index.html` 的側邊面板會輸出為 `sidebar/index.html`。建置會改寫頁面 HTML 裡的路徑。頁面的腳本設定的相對 `src` 或 `href` 不會被改寫，瀏覽器會相對於新資料夾解析這個路徑：
+
+```js
+// 原始檔：index.html，以及 public/images/logo.png
+// 輸出：sidebar/index.html 與 images/logo.png
+
+image.src = "images/logo.png"; // 請求 sidebar/images/logo.png，得到 404
+image.src = "/images/logo.png"; // 請求 images/logo.png
+```
+
+讓路徑以 `/` 開頭，它就會從擴充功能根目錄解析。從 4.1.39 之後的版本起，如果檔案只存在於原本的相對位置，建置會印出一則 `Runtime-risk` 警告。警告會寫明頁面、頁面請求的路徑、輸出裡實際的路徑，以及應該寫的路徑。
+
 ## 引用輸出檔案
 
 像 `chrome.runtime.getURL()` 這類瀏覽器 API，請優先使用穩定的輸出根目錄路徑：

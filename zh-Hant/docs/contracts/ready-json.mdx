@@ -37,6 +37,19 @@ act 類工具(`eval`、`storage`、`reload`、`open`、`inspect`)需要第二個
 
 attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也會清掉先前的 `extension_load_refused` 狀態,因為執行器就跑在被控的瀏覽器裡面。
 
+### 接受 act 指令的工作階段會按住 ready
+
+從 4.1.39 之後的版本起,接受 act 指令的工作階段會保持 `status: "starting"`,直到擴充功能的 background 連上,或者過去 10 秒。適用的情形是:
+
+- 帶 `--allow-control` 或 `--allow-eval` 的 `preview` 與 `start`。沒有 background 的建置不會等待,因為它沒有任何東西會來連線。
+- 帶 `--allow-control` 或 `--allow-eval`,並且由工作階段啟動瀏覽器的 `dev`。
+
+`dev` 等待期間,契約裡帶有 `awaitingExecutorSince`。background 連上或者等待結束之後,這個欄位就會消失。
+
+等待有上限,所以從不連線的擴充功能仍然會得到 `ready`,只是旁邊沒有 `executorAttachedAt`。說明 act 指令可以執行的欄位仍然是 `executorAttachedAt`。
+
+在 Firefox 上,處於等待中的 `dev` 工作階段要同時有 RDP 連接埠和 background,才會回報 `ready`。
+
 ## 欄位參考(schema v2)
 
 一定存在的欄位:
@@ -102,6 +115,7 @@ attach 這個標記是冪等的,而且能撐過重新編譯。一次 attach 也�
 | `runtime`            | `"attached"` 或 `"detached"` | service worker 連上且可被驅動後為 `attached`。從 4.1.20 起,最後一個已連線的擴充功能情境斷線後為 `detached`,重新連線後又回到 `attached`。 |
 | `executorAttachedAt` | ISO string     | service worker 第一次連上的時間。斷線後會作為來源記錄保留。 |
 | `executorDetachedAt` | ISO string     | 從 4.1.20 起,最後一個已連線的擴充功能情境斷線的時間。 |
+| `awaitingExecutorSince` | ISO string | `dev` 工作階段,從 4.1.39 之後的版本起:工作階段開始為 background 按住 `ready` 的時間。background 連上或過去 10 秒之後移除。 |
 | `managedExtensions`  | array          | 除了你的擴充功能之外,引擎還載入的每一個擴充功能,形式是 `{path, id?}` 記錄。做盤點時依 ID 把它們扣掉。                                                  |
 
 ## 開發附加項

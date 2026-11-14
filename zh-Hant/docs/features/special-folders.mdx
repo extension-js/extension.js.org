@@ -177,6 +177,22 @@ export default {
 
 完整的 `folders` 鍵請參閱[特殊資料夾的位置](/zh-Hant/docs/features/extension-configuration#特殊資料夾的位置)。
 
+### `scripts/` 裡的輔助模組
+
+`scripts/` 裡的每個檔案都會被建置成一個獨立的 entry。被其他檔案匯入的輔助模組會多輸出一個沒有任何東西載入的檔案。從 4.1.39 之後的版本起，如果一個檔案被其他檔案匯入，又沒有任何地方依輸出路徑提到它，建置會為它印出一則警告。警告裡給出可以直接貼上的 `exclude` 值：
+
+```plaintext
+scripts/helper.js is built as an entry of its own because every file in scripts/ is, yet other files import it and nothing names its output path. For a helper module, add exclude: ['scripts/helper.js'] to extension.config.js. For a script the extension injects, keep it.
+```
+
+```js extension.config.js
+export default {
+  exclude: ["scripts/helper.js"],
+};
+```
+
+加上這個鍵之後，這個檔案不再輸出，警告也隨之消失。你的程式碼依輸出路徑提到的檔案不會觸發警告，因為那是一個被注入的腳本。
+
 ### 重要合約
 
 當你用 `scripts/` entry 作為類似 content script 的執行階段 entry 時，請遵循 content script 初始化模式。這是 Extension.js 預期的預設匯出合約，可確保注入腳本的熱重載安全：

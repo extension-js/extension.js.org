@@ -259,7 +259,11 @@ if (import.meta.env.EXTENSION_PUBLIC_BROWSER !== "firefox") {
 }
 ```
 
-像 `chrome.sidePanel?.setPanelBehavior()` 這樣的執行期防護仍然會觸發警告。addons-linter 比對的是對命名空間的靜態讀取，而不是實際執行的程式碼，所以只有建置時分支才能消除這條發現。各目標上 `EXTENSION_PUBLIC_BROWSER` 的值見[環境變數](/zh-Hant/docs/features/environment-variables)。
+在 4.1.39 及更早的版本裡，像 `chrome.sidePanel?.setPanelBehavior()` 這樣的執行期防護仍然會觸發警告。
+
+從 4.1.39 之後的版本起，Firefox 永遠執行不到的呼叫不會觸發警告。這包括位於 `if (chrome.sidePanel)` 之後的呼叫、寫成 `chrome.sidePanel?.setPanelBehavior()` 的呼叫，以及位於 `typeof chrome.sidePanel !== "undefined"` 檢查之後的呼叫。Safari 的警告辨識同樣的防護，見 [Safari](/zh-Hant/docs/browsers/safari#一個呼叫就能殺掉-safari-的-background)。
+
+執行期防護只能讓建置警告安靜下來。addons-linter 比對的是對命名空間的靜態讀取，而不是實際執行的程式碼。只有基於 `import.meta.env.EXTENSION_PUBLIC_BROWSER` 的建置時分支才會把這個呼叫從 Firefox 的 bundle 裡去掉，而這正是消除[商店檢查](/zh-Hant/docs/commands/build#firefox-建置的商店檢查)裡 `UNSUPPORTED_API` 發現的方法。各目標上 `EXTENSION_PUBLIC_BROWSER` 的值見[環境變數](/zh-Hant/docs/features/environment-variables)。
 
 ## 最佳實務
 

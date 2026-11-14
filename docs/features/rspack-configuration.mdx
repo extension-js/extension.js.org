@@ -78,16 +78,14 @@ Extension.js is Rspack-native, but you can still use much of the webpack ecosyst
 - Many webpack loaders/plugins work through compatibility layers.
 - Some webpack internals/plugins are not 1:1 compatible with Rspack.
 
-Example using a Rspack-native plugin:
+Example using a Rspack-native plugin. From the release after 4.1.39, the hook's second argument carries `rspack`, the bundler that Extension.js compiles with. Take plugin classes from it, so your project needs no `@rspack/core` of its own:
 
 ```js
-import { DefinePlugin } from "@rspack/core";
-
 export default {
-  config: (config) => {
+  config: (config, { rspack }) => {
     config.plugins = [
       ...config.plugins,
-      new DefinePlugin({
+      new rspack.DefinePlugin({
         __FEATURE_FLAG__: JSON.stringify("enabled"),
       }),
     ];
@@ -96,9 +94,17 @@ export default {
 };
 ```
 
+On 4.1.39 and earlier, import the class from `@rspack/core`. See [the hook context](/docs/features/extension-configuration#the-hook-context) for every field of that argument, and [Node APIs in browser extensions](/docs/languages-and-frameworks/node) for the `resolve.fallback` recipe.
+
+### The bundler name in diagnostics
+
+Build output says Extension.js where the bundler's own text says Rspack, because Extension.js is the tool that you run. From the release after 4.1.39, a name that you type stays as written. That covers text in backticks, the quoted key `"rspack"`, the destructured `{rspack}`, and a member such as `rspack.ProvidePlugin`. You can paste a line such as `new rspack.NormalModuleReplacementPlugin(...)` from a diagnostic as printed.
+
 ## Share a module between entries
 
 Extension.js splits HTML pages only. The default `optimization.splitChunks` gives pages two stable siblings: `shared/framework.js` for the UI framework runtime, and `shared/commons.js` for anything two or more pages import. The framework group covers React, Preact, Vue, Svelte and Lit. Neither name carries a hash, so a manifest entry or a public asset can keep pointing at it.
+
+From the release after 4.1.39, a Firefox build ships a shared file past 4 MB as numbered parts, such as `shared/commons-0.js`. See [Firefox builds split large files](/docs/commands/build#firefox-builds-split-large-files).
 
 Every other surface keeps exactly one file. The manifest names a single script for a background worker, a content script or an injected script, and those surfaces never load a sibling.
 

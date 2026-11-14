@@ -351,6 +351,27 @@ Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it 
 
 用 `--no-addon-lint`，或在 `extension.config.js` 中設定 `commands.build.addonLint: false`，即可關閉檢查。非正式模式會略過它，因為開發產物帶有僅供開發的授權，linter 會白白地標記它們。`extension start` 也會略過它，因為 `start` 是預覽建置，而不是出貨建置。
 
+## Firefox 建置會拆分大檔案
+
+addons.mozilla.org 不解析 5 MB 以上的腳本，商店檢查遇到這樣的檔案就會失敗。從 4.1.39 之後的版本起，針對 Gecko 目標的建置會把它能拆分的檔案限制在 4 MB 原始碼以內。Chrome、Edge 與 Safari 的輸出不變。
+
+| 程式碼 | 輸出內容 |
+| --- | --- |
+| 兩個或更多頁面共享的程式碼 | 低於上限時是 `shared/commons.js`。超過之後是帶編號的檔案，例如 `shared/commons-0.js` 與 `shared/commons-1.js`。 |
+| 某個頁面自己的程式碼 | 低於上限時是 `action/index.js`。超過之後是 `action/index-0.js` 與 `action/index-1.js`，所以可能沒有 `action/index.js`。 |
+| 用動態 `import()` 載入的 chunk | 拆成低於上限的幾個部分，頁面、background 腳本與 content script 都一樣。 |
+| background 腳本、content script 或被注入的腳本 | 無論多大都是一個檔案。瀏覽器把它們各自當作單一檔案載入，所以建置無法拆分。 |
+
+頁面會在自己的 HTML 裡列出每個部分，所以被拆分的頁面不需要你做任何更動。針對 Firefox 建置時，不要在自己的程式碼裡寫死 `action/index.js` 或 `shared/commons.js`。
+
+對於超過限制的單檔腳本，商店檢查會回報 `FILE_TOO_LARGE`，這一行的結尾給出修正方法：用動態 `import()` 載入那個大型相依套件，讓它作為低於限制的獨立檔案輸出。如果沒有安裝 addons-linter，或者它沒有給出結果，建置會在以 `Firefox build:` 開頭的一行裡印出同樣的修正方法：
+
+```plaintext
+Firefox build: background/scripts.js is 6.2 MB - addons.mozilla.org does not parse a file of 5 MB or more, and Firefox loads a background script as one file, so the build cannot split it: load a large dependency with a dynamic import() so it ships as its own file under the limit, or remove it
+```
+
+這個上限是 Gecko 目標預設 `optimization.splitChunks` 的一部分。可以在 `config` hook 裡修改它，見 [Rspack 設定](/zh-Hant/docs/features/rspack-configuration#在多個-entry-之間共享模組)。
+
 ## 面向 Opera Add-ons 的可讀輸出
 
 Opera 的[審核標準](https://help.opera.com/en/extensions/acceptance-criteria/)要求審核者能讀懂程式碼：擴充功能自身的程式碼若被壓縮或混淆會被拒絕，第三方函式庫則可以保持壓縮。因此正式模式下的 `extension build --browser=opera` 不做壓縮，並印出一行提示：

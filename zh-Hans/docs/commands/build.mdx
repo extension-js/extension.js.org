@@ -352,6 +352,27 @@ Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it 
 
 用 `--no-addon-lint`，或在 `extension.config.js` 中设置 `commands.build.addonLint: false`，即可关闭检查。非生产模式会跳过它，因为开发产物带有仅供开发的授权，linter 会白白地标记它们。`extension start` 也会跳过它，因为 `start` 是预览构建，而不是发布构建。
 
+## Firefox 构建会拆分大文件
+
+addons.mozilla.org 不解析 5 MB 及以上的脚本，商店检查遇到这样的文件就会失败。从 4.1.39 之后的版本起，面向 Gecko 目标的构建会把它能拆分的文件限制在 4 MB 源码以内。Chrome、Edge 和 Safari 的输出不变。
+
+| 代码 | 输出内容 |
+| --- | --- |
+| 两个或更多页面共享的代码 | 低于上限时是 `shared/commons.js`。超过之后是带编号的文件，例如 `shared/commons-0.js` 和 `shared/commons-1.js`。 |
+| 某个页面自己的代码 | 低于上限时是 `action/index.js`。超过之后是 `action/index-0.js` 和 `action/index-1.js`，所以可能没有 `action/index.js`。 |
+| 用动态 `import()` 加载的 chunk | 拆成低于上限的几个部分，页面、background 脚本和 content script 都一样。 |
+| background 脚本、content script 或被注入的脚本 | 无论多大都是一个文件。浏览器把它们各自当作单个文件加载，所以构建无法拆分。 |
+
+页面会在自己的 HTML 里列出每个部分，所以被拆分的页面不需要你做任何改动。面向 Firefox 构建时，不要在自己的代码里写死 `action/index.js` 或 `shared/commons.js`。
+
+对于超过限制的单文件脚本，商店检查会报告 `FILE_TOO_LARGE`，这一行的结尾给出修复办法：用动态 `import()` 加载那个大依赖，让它作为低于限制的独立文件输出。如果没有安装 addons-linter，或者它没有给出结果，构建会在以 `Firefox build:` 开头的一行里打印同样的修复办法：
+
+```plaintext
+Firefox build: background/scripts.js is 6.2 MB - addons.mozilla.org does not parse a file of 5 MB or more, and Firefox loads a background script as one file, so the build cannot split it: load a large dependency with a dynamic import() so it ships as its own file under the limit, or remove it
+```
+
+这个上限是 Gecko 目标默认 `optimization.splitChunks` 的一部分。可以在 `config` 钩子里修改它，见 [Rspack 配置](/zh-Hans/docs/features/rspack-configuration#在多个入口之间共享模块)。
+
 ## 面向 Opera Add-ons 的可读输出
 
 Opera 的[审核标准](https://help.opera.com/en/extensions/acceptance-criteria/)要求审核者能读懂代码：扩展自身的代码若被压缩或混淆会被拒绝，第三方库则可以保持压缩。因此生产模式下的 `extension build --browser=opera` 不做压缩，并打印一行提示：
