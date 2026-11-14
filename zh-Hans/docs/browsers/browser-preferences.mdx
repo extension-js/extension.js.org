@@ -89,6 +89,32 @@ export default {
   临时 profile 运行，才能重新预置。
 </Note>
 
+### 保留的 profile 上的启动偏好
+
+比会话活得更久的 profile（例如 `--profile <path>`）会记住它打开的页面。下一次启动时，Chrome 会抢在你的扩展之前恢复上一次运行的页面。
+
+从 4.1.39 之后的版本起，`dev` 会在这样的 profile 里把 `session.restore_on_startup` 设为 `5`，这样浏览器会打开新标签页。会话通过浏览器只写一次这个值，之后它就留在那个 profile 里。身份卡会写明这一点：
+
+```text
+    Dev pref       session.restore_on_startup=5 written to this kept profile and stays there, preferences changes it
+```
+
+想让浏览器继续恢复上一次会话，就在第一次启动之前自己设置这个偏好：
+
+```js
+export default {
+  browser: {
+    chrome: {
+      preferences: {
+        session: { restore_on_startup: 1 },
+      },
+    },
+  },
+};
+```
+
+这时卡片会显示 `left to the browser, preferences sets it`。已经有这个值的 profile 会一直保留它，直到你在 `chrome://settings` 里修改“启动时”。临时 profile 在退出时会被删除，所以会话不会往里面写任何东西。
+
 对于 Chromium 通过命令行控制的启动行为，请改用 flag：
 
 - `browserFlags`

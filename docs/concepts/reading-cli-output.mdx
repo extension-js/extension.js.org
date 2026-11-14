@@ -53,7 +53,40 @@ At boot, a command prints one identity card per browser and dist pair:
 
 Run two browsers on one project and you get two cards, one per session. The boot order is fixed: the compile line, then the card, then the green ready line.
 
-Rows with no value are omitted. There is no `n/a` placeholder, so row presence tells you what the session actually knows. A binary pinned with `--chromium-binary` is noted in the Browser row rather than a row of its own, and `build` swaps the Profile and Run ID rows for an Output row.
+Rows with no value are omitted. There is no `n/a` placeholder, so row presence tells you what the session actually knows. There is no Binary row. `build` swaps the Profile and Run ID rows for an Output row.
+
+From the release after 4.1.39, the Browser row says where the binary came from when you can act on it:
+
+- `(pinned with --chromium-binary)` names the flag or the variable that chose the binary, such as `(pinned with FIREFOX_BINARY)`.
+- `(system install)` marks a browser found on your system, for a target that `extension install` covers.
+- A managed binary gets no note.
+- A Firefox nightly reads `Firefox Nightly`, so nobody takes it for a release build.
+
+```text
+    Browser        Edge 142.0.3595.53 (system install)
+```
+
+Read the full path from `binary` in `ready.json`. See [How the binary is chosen](/docs/browsers/browsers-available#how-the-binary-is-chosen).
+
+### Lines under the card
+
+From the release after 4.1.39, a `dev` card carries extra lines when the session has something that the production build lacks:
+
+```text
+    Dev only       permissions scripting, tabs
+    Dev only       web_accessible_resources hot/*, extension-js-control.json
+    Dev flag       --silent-debugger-extension-api hides the debugger bar, excludeBrowserFlags shows it
+```
+
+A `Dev only` line lists permissions, host access, or web accessible resources that only the dev manifest has. A `Dev flag` line names a launch flag that changes what you see, and the config key that flips it. The reasons live in `ready.json` under [`devAdditions`](/docs/contracts/ready-json#dev-additions).
+
+A `Dev pref` line names a browser preference that the session wrote to a profile that outlives it:
+
+```text
+    Dev pref       session.restore_on_startup=5 written to this kept profile and stays there, preferences changes it
+```
+
+See [Browser preferences](/docs/browsers/browser-preferences#the-startup-preference-on-a-kept-profile) for what it does and how to opt out.
 
 ## One fact once
 

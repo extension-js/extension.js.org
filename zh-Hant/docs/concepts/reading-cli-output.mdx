@@ -53,7 +53,40 @@ debug 通道只在 `--debug` 或 `EXTENSION_DEBUG=1` 之下印出。debug 會額
 
 在同一個專案上執行兩個瀏覽器，你就會得到兩張卡，每個工作階段一張。啟動順序是固定的：先是編譯行，接著是身分卡，最後是綠色的 ready 行。
 
-沒有值的列會被略過。這裡沒有 `n/a` 佔位符，所以某一列在不在，直接告訴你這次工作階段究竟知道些什麼。以 `--chromium-binary` 指定的二進位檔會記在 Browser 那一列裡，而不是自成一列；`build` 則會把 Profile 與 Run ID 兩列換成一列 Output。
+沒有值的列會被略過。這裡沒有 `n/a` 佔位符，所以某一列在不在，直接告訴你這次工作階段究竟知道些什麼。卡片上沒有 Binary 列。`build` 會把 Profile 與 Run ID 兩列換成一列 Output。
+
+從 4.1.39 之後的版本起，當二進位檔的來源是你能處理的事情時，Browser 列會把它寫出來：
+
+- `(pinned with --chromium-binary)` 寫明選定二進位檔的那個旗標或變數，例如 `(pinned with FIREFOX_BINARY)`。
+- `(system install)` 表示瀏覽器是在你的系統上找到的，只用於 `extension install` 涵蓋的目標。
+- 受管理的二進位檔沒有任何標註。
+- Firefox nightly 會顯示為 `Firefox Nightly`，這樣沒有人會把它當成正式版。
+
+```text
+    Browser        Edge 142.0.3595.53 (system install)
+```
+
+完整路徑請從 `ready.json` 的 `binary` 讀取。見[執行檔如何選定](/zh-Hant/docs/browsers/browsers-available#執行檔如何選定)。
+
+### 卡片下方的列
+
+從 4.1.39 之後的版本起，當工作階段有正式建置所沒有的東西時，`dev` 的卡片會多出幾列：
+
+```text
+    Dev only       permissions scripting, tabs
+    Dev only       web_accessible_resources hot/*, extension-js-control.json
+    Dev flag       --silent-debugger-extension-api hides the debugger bar, excludeBrowserFlags shows it
+```
+
+`Dev only` 列列出只有 dev manifest 才有的權限、主機存取或 web accessible 資源。`Dev flag` 列寫明一個會改變你所見內容的啟動旗標，以及能把它反過來的設定鍵。原因記在 `ready.json` 的 [`devAdditions`](/zh-Hant/docs/contracts/ready-json#開發附加項) 下。
+
+`Dev pref` 列寫明工作階段寫進一個比工作階段活得更久的設定檔裡的瀏覽器偏好設定：
+
+```text
+    Dev pref       session.restore_on_startup=5 written to this kept profile and stays there, preferences changes it
+```
+
+它的作用以及如何退出，見[瀏覽器偏好設定](/zh-Hant/docs/browsers/browser-preferences#保留的設定檔上的啟動偏好設定)。
 
 ## 一項事實只出現一次
 

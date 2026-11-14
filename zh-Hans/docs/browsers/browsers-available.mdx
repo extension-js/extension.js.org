@@ -94,29 +94,61 @@ safari | webkit-based | chromium-emulator
 - 请求 `chromium` 但缺失：回退到受管理的 Chrome，再回退到受管理的 Edge。
 - 请求 `chrome` 但缺失：回退到受管理的 Chromium，再回退到受管理的 Edge。
 
-发生这种情况时，CLI 会打印一条警告，说明缺失的浏览器以及修复方式，例如 `npx extension install chromium`。这条警告刻意不写出替代二进制的路径。会话的身份卡片里已经有一行 Binary 指明正在使用的确切二进制，所以这个事实只打印一次。输出目录与产出的 manifest 与没有回退时完全一致。
+发生这种情况时，CLI 会打印一条警告，说明缺失的浏览器以及修复方式，例如 `npx extension install chromium`。这条警告刻意不写出替代二进制的路径。请从 [`ready.json`](/zh-Hans/docs/contracts/ready-json) 的 `binary` 读取这个路径。输出目录与产出的 manifest 与没有回退时完全一致。
 
-### 没有受管理 Edge 时 `--browser=edge` 会做什么
+### `--browser=edge` 运行的是什么
 
-`edge` 永远不会换成另一个浏览器。Extension.js 按这个顺序解析 Edge 二进制：
+`edge` 永远不会换成另一个浏览器，它也没有固定版本的受管理副本。`npx extension install edge` 通过 Playwright 把 Microsoft Edge 安装到你的系统上。Extension.js 按这个顺序解析 Edge 二进制：
 
-1. `EDGE_BINARY` 环境变量中的路径(如果设置了)。
-2. 来自 `npx extension install edge` 的受管理 Edge，或你系统上已安装的 Edge。
+1. `--chromium-binary` 中的路径(如果传入了)。
+2. `EDGE_BINARY` 环境变量中的路径(如果设置了)。
+3. 你系统上已安装的 Edge。
 
-当两者都解析不到时，命令会打印安装指引(`npx extension install edge`)并以退出码 `1` 退出。缺失的 Edge 不会被静默替换成 Chromium。
+身份卡随后显示 `Edge <version> (system install)`。什么都解析不到时，命令会打印安装指引(`npx extension install edge`)并以退出码 `1` 退出。缺失的 Edge 不会被静默替换成 Chromium。
 
-如果一个 Chromium 窗口仍然让你意外，请查看身份卡片。它的 Binary 行指明实际启动的确切二进制，来源标签说明原因。请求的 `chrome` 或 `chromium` 可以借用一个受管理的家族二进制(见上文)，但请求的 `edge` 不行。无论哪种情况，输出契约都成立：只有当 `edge` 是请求的目标时，`dist/edge` 才会存在。
+如果一个 Chromium 窗口仍然让你意外，请读取 `ready.json` 的 `binary`。它指明实际启动的确切二进制，`binaryProvenance` 说明原因。请求的 `chrome` 或 `chromium` 可以借用一个受管理的家族二进制(见上文)，但请求的 `edge` 不行。无论哪种情况，输出契约都成立：只有当 `edge` 是请求的目标时，`dist/edge` 才会存在。
+
+### 二进制如何选定
+
+从 4.1.39 之后的版本起，`dev`、`start` 和 `preview` 对每个浏览器都按同一个顺序解析二进制：
+
+1. flag：`--chromium-binary` 或 `--gecko-binary`。
+2. 该浏览器的环境变量。
+3. 来自 `npx extension install <browser>` 的受管理二进制。
+4. 系统安装。
+
+| 浏览器     | 变量（按读取顺序）                                            |
+| ---------- | ------------------------------------------------------------- |
+| `chrome`   | `CHROME_FOR_TESTING_PATH`、`CHROMIUM_BINARY`、`CHROME_BINARY` |
+| `chromium` | `CHROMIUM_BINARY`                                             |
+| `edge`     | `EDGE_BINARY`                                                 |
+| `firefox`  | `FIREFOX_BINARY`                                              |
+
+变量和 flag 一样，是你做出的选择。变量指向不存在的路径或无法运行的文件时，启动会以 `E_BROWSER_BINARY_INVALID` 失败。运行绝不会跳过它去走下一步。
+
+请求 `chrome` 时仍然会拒绝品牌版的系统 Chrome。指向品牌版 Chrome 的变量不会被采用，运行会继续使用受管理的二进制。
+
+对 Firefox 来说，受管理这一步会优先选择稳定版。同一个缓存里的 nightly 只有在没有稳定版时才会运行，这时卡片会显示 `Firefox Nightly`。
 
 ### 二进制来源标签
 
-身份卡片会标注本次会话的二进制来自哪里：
+`ready.json` 用 `binaryProvenance` 记录本次会话的二进制来自哪里：
 
 | 标签       | 含义                                                       |
 | ---------- | ---------------------------------------------------------- |
 | `managed`  | 来自受管理缓存的二进制（`npx extension install <browser>`）。 |
-| `pinned`   | 你用 `--chromium-binary` 或 `--gecko-binary` 指定的二进制。 |
+| `pinned`   | 由 flag 或二进制变量指明的二进制。`binaryPinnedBy` 说明是哪一个。 |
 | `system`   | 在你系统上找到的浏览器。                                   |
 | `snapshot` | 受管理的 Chromium 主干快照。                               |
+
+身份卡上没有 Binary 行。它的 Browser 行只为你能处理的两种情况加上标注：
+
+```text
+    Browser        Firefox 144.0 (pinned with FIREFOX_BINARY)
+    Browser        Edge 142.0.3595.53 (system install)
+```
+
+`(pinned with <flag 或变量>)` 写明是什么选定了二进制。当二进制来自你的系统时，`chrome`、`chromium`、`edge` 和 `firefox` 会打印 `(system install)`。受管理的二进制和具名分支没有任何标注。
 
 ### Chromium 快照 vs 稳定版
 

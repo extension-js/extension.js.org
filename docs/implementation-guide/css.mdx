@@ -163,6 +163,32 @@ A `scripts/` file that you inject at runtime gets no automatic placement. Read t
 
 From the release after 4.1.39, the build prints a warning for a side-effect style import that nothing places.
 
+### A page with a strict style policy
+
+A page's Content Security Policy (CSP) also decides what a content script's own DOM calls can do. The answer depends on the world that the script runs in. On a page that sends `style-src 'self'`:
+
+| The script's own call                           | Isolated world | MAIN world |
+| ----------------------------------------------- | -------------- | ---------- |
+| `fetch(href)`                                   | Answers        | Answers    |
+| A `<style>` element that holds the fetched text | Applies        | Refused    |
+| A `<link>` to the `data:` URL                   | Applies        | Refused    |
+| A `<link>` to a web accessible extension file   | Applies        | Applies    |
+| A constructed sheet in `adoptedStyleSheets`     | Applies        | Applies    |
+
+These results were measured on Chrome 151 and Firefox 160, in `dev` and in a production build. A `<style>` element inside a shadow root is refused the same way as one in the document.
+
+On a page that sends `default-src 'self'`, `fetch(href)` is refused too. That holds in the MAIN world on both browsers, and in the isolated world on Firefox.
+
+The build cannot see the policy of a page that the script will visit. It changes none of these calls and prints no warning. A MAIN world script that must work under such a policy reads the sheet out of the URL, with no request, and adopts it:
+
+```ts
+import href from "./panel.css";
+
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(decodeURIComponent(href.slice(href.indexOf(",") + 1)));
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+```
+
 ## Web fonts in a content script
 
 A content script that renders into a shadow root cannot load a webfont through

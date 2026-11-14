@@ -127,6 +127,28 @@ Extension.js merges what you declare with what the build discovers, then normali
 - A group that you wrote with `extension_ids` and no `matches` keeps `matches` absent in the emitted manifest.
 - In development, Extension.js patches the entry set so reload and hot module replacement assets stay reachable. That patching is development only. See [Reload and HMR](/docs/features/reload-and-hmr).
 
+### A page stays private until a script builds its URL
+
+From the release after 4.1.39, the build adds an HTML page to `web_accessible_resources` only when a content script builds the page's URL. Passing the path to `runtime.getURL` is the signal:
+
+```ts
+const frame = document.createElement("iframe");
+frame.src = chrome.runtime.getURL("pages/panel.html");
+document.body.appendChild(frame);
+```
+
+The build follows a literal path, a constant that holds the path, and a helper that passes its first argument to `getURL`. A URL that joins the extension origin or `runtime.id` with the path counts too.
+
+A script that only names the page does not expose it. A content script that sends the path to the background, which then opens the page in a tab, is the usual case. The page stays private, and the build prints one note per page:
+
+```text
+content_scripts/content-0.js names pages/panel.html without building its URL, so the page stays out of web_accessible_resources and no web page can frame or fetch it.
+Nothing to do when the script only passes the path along, for the background to open in a tab for example.
+If the script loads the page itself, pass the path to chrome.runtime.getURL or list it under web_accessible_resources in manifest.json, scoped to the matches that need it.
+```
+
+A page that you list under `web_accessible_resources` yourself stays exposed, and the note does not print for it.
+
 Automatic merging is convenient, and it is not a review. Read the emitted `dist/<browser>/manifest.json` before a release and confirm that the exposed set is the set that you meant to expose:
 
 - Keep `matches` on the domains that actually need the file.

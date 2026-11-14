@@ -229,7 +229,11 @@ Extension.js 在编译时注入内置变量，因此你总能在扩展代码里�
 | `EXTENSION_HEADLESS`              | 强制使用 headless 后端（设为 `1`/`true`）                                                             | macOS 上自动化会话的抢焦点防护                                    |
 | `EXTENSION_PREFER_CHROMIUM_SNAPSHOT` | 优先使用托管的 Chromium tip-of-tree 快照，而不是系统的稳定版浏览器（设为 `true`）                  | 针对最新的 Chromium 做测试                                        |
 | `EXTENSIONJS_BINARIES_IN_DIST`    | 把托管的浏览器二进制存到项目的 `dist/` 下，而不是共享缓存（设为 `1`）                                 | 完全自包含的项目检出                                              |
-| `EDGE_BINARY`                     | 要启动的 Edge 二进制的绝对路径                                                                        | 非标准的 Edge 安装位置                                            |
+| `EDGE_BINARY`                     | `--browser=edge` 要启动的 Edge 二进制的绝对路径。路径不存在或不可执行时以 `E_BROWSER_BINARY_INVALID` 失败 | 非标准的 Edge 安装位置                                            |
+| `CHROME_BINARY`                   | `--browser=chrome` 要启动的二进制的绝对路径。在三个 Chrome 变量里最后读取                             | 受管理缓存之外的 Chrome for Testing 构建                          |
+| `CHROME_FOR_TESTING_PATH`         | `--browser=chrome` 使用的 Chrome for Testing 二进制的绝对路径。最先读取                               | 自带 Chrome for Testing 的 CI 镜像                                |
+| `CHROMIUM_BINARY`                 | `--browser=chromium` 与 `--browser=chrome` 要启动的二进制的绝对路径                                   | 系统里的或自己构建的 Chromium                                     |
+| `FIREFOX_BINARY`                  | `--browser=firefox` 要启动的 Firefox 二进制的绝对路径                                                 | Firefox Developer Edition，或自带 Firefox 的 CI 镜像              |
 | `EXTENSION_DEV_NO_BROWSER`        | 在开发服务器中禁用浏览器启动                                                                          | Monorepo 中不启动浏览器只监听                                     |
 | `EXTENSION_NO_RELOAD`             | 跳过开发模式下的 content-script 重载运行时                                                            | 等价于 `extension dev --no-reload`                                |
 | `EXTENSION_DEV_DRY_RUN`           | 跳过开发服务器启动(提前返回)                                                                          | 烟雾测试 CLI 接线                                                 |
@@ -237,6 +241,8 @@ Extension.js 在编译时注入内置变量，因此你总能在扩展代码里�
 | `EXTENSION_ALLOW_INSTALL_SCRIPTS` | 依赖自动安装时运行生命周期脚本（设为 `true`）——自动安装默认带 `--ignore-scripts` 以保安全             | 依赖确实需要 postinstall 脚本的项目                               |
 | `EXTENSION_STRICT_REFS`           | 让失效的 HTML 资源引用导致构建失败（设为 `true`）——默认只警告并跳过，与 Chrome 静默 404 的行为一致    | CI 中对 HTML 引用做严格校验                                       |
 | `EXT_BROWSERS_CACHE_DIR`          | 覆盖托管浏览器缓存目录                                                                                | 自定义 CI 缓存路径                                                |
+
+从 4.1.39 之后的版本起，每个浏览器都按同一个顺序解析二进制。先是二进制 flag，然后是变量、受管理的二进制，最后是系统安装。变量指向不存在或不可执行的路径时，启动会以 `E_BROWSER_BINARY_INVALID` 失败。见[二进制如何选定](/zh-Hans/docs/browsers/browsers-available#二进制如何选定)。
 
 ### 遥测控制变量
 

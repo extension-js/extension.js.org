@@ -163,6 +163,32 @@ export default function main() {
 
 从 4.1.39 之后的版本起，如果一条只为副作用而写的样式导入没有被任何东西放置，构建会打印一条警告。
 
+### 样式策略严格的页面
+
+页面的内容安全策略（CSP）也决定 content script 自己的 DOM 调用能做什么。结果取决于脚本运行在哪个 world。在发送 `style-src 'self'` 的页面上：
+
+| 脚本自己的调用                          | isolated world | MAIN world |
+| --------------------------------------- | -------------- | ---------- |
+| `fetch(href)`                           | 有应答         | 有应答     |
+| 装着所取文本的 `<style>` 元素           | 生效           | 被拒绝     |
+| 指向这个 `data:` URL 的 `<link>`        | 生效           | 被拒绝     |
+| 指向 web accessible 扩展文件的 `<link>` | 生效           | 生效       |
+| `adoptedStyleSheets` 里的构造样式表     | 生效           | 生效       |
+
+这些结果是在 Chrome 151 与 Firefox 160 上测得的，`dev` 与生产构建都一样。shadow root 里的 `<style>` 元素会和文档里的一样被拒绝。
+
+在发送 `default-src 'self'` 的页面上，`fetch(href)` 也会被拒绝。在 MAIN world 里两个浏览器都是如此，在 isolated world 里只有 Firefox 如此。
+
+构建看不到脚本将要访问的页面的策略。它不会改动这些调用，也不会打印警告。必须在这种策略下工作的 MAIN world 脚本，可以不发请求，直接从 URL 里读出样式表并采用它：
+
+```ts
+import href from "./panel.css";
+
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(decodeURIComponent(href.slice(href.indexOf(",") + 1)));
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+```
+
 ## 内容脚本中的网页字体
 
 把界面渲染到 shadow root 的内容脚本，无法只靠 CSS 加载网页字体。有两条平台规则会挡住它，而且都是静默的。

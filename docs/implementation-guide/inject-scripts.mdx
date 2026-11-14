@@ -112,6 +112,8 @@ Pass `persistAcrossSessions: true` again in the update. In Chrome 155, an update
 
 On Safari, enabling the extension is not enough. Until you grant website access, no content script runs, and the same applies to scripts you inject at runtime. See [Safari](/docs/browsers/safari) for the enable and grant steps.
 
+From the release after 4.1.39, `chrome.scripting` and `browser.scripting` both work on a Firefox Manifest V2 background page, in `dev` and in a production build. Each keeps its own calling style: `chrome.scripting` answers a callback, and `browser.scripting` returns a promise.
+
 ## Console lines you will see
 
 Copy the line that you see into search. Each one maps to one cause.
@@ -153,6 +155,8 @@ During `extension dev`, scripts that you inject with `executeScript` from `scrip
 
 From the release after 4.1.39, `executeScript` with a `scripts/` file resolves with the value of the file's last expression, as a native file does. This holds on Chrome and Firefox. A value that the browser cannot clone, such as a DOM node or a function, gives no value.
 
+A background script can call `registerContentScripts` as it starts. From the release after 4.1.39, `extension dev` holds the first page for a bounded time until those registrations answer. See [`dev`](/docs/commands/dev#the-first-page-waits-for-boot-registrations).
+
 ### Run a `scripts/` file in the MAIN world
 
 Pass `world: "MAIN"` in the call, and the build compiles that `scripts/` file for the page's own world. Needs the release after 4.1.39.
@@ -181,6 +185,33 @@ await chrome.scripting.registerContentScripts([
 That hand-off covers the build's own plumbing only. The page can read any extension URL that your script places in the DOM, and on Firefox that URL identifies the install. See the MAIN world notes in [Content scripts](/docs/implementation-guide/content-scripts) for the cases and the fix.
 
 Write the path and `world: "MAIN"` as literals in the call. A `const` in the same file works too, and so does an exported `const` that the file imports. The build does not detect a call that is built from another value. When you add or remove a call during a session, `extension dev` restarts by itself to build the file for its new world. If the session cannot restart, it prints a warning that asks for a restart.
+
+### Register one file in both worlds
+
+Chromium injects one file path once per frame. A file that you register in both worlds under one path runs in the isolated world alone. The two worlds also need different builds.
+
+From the release after 4.1.39, the build covers this case. When your source registers a `scripts/` file in the MAIN world and in the isolated world, the build emits two files:
+
+- `scripts/<name>.js` is the isolated world build.
+- `scripts/<name>.extjs-main-world.js` is the MAIN world build.
+
+Keep the path `/scripts/<name>.js` in every call. The build routes a `world: "MAIN"` call to the second file, and `getRegisteredContentScripts` answers with the name that you wrote. If your project already has a file with that second name, your file wins and the build makes no copy.
+
+A file that `registerContentScripts` places in the MAIN world only gets the second file too. The browser keeps a registered path across sessions, so that path stays a MAIN world build.
+
+The build reads the world from the call. It reads a literal, a `const`, a choice between the two literals, a spread of a literal object, and a `.map()` over a literal list. A call with no `world` is an isolated one.
+
+The build cannot read a world that exists only when the call runs, such as a function parameter. It builds the file for the isolated world and prints a warning that names the call:
+
+```text
+background.ts:12 names scripts/hook.js in a scripting call whose world is only known when the call runs.
+CALL background.ts:12
+FILE scripts/hook.js
+It is treated as an isolated world script, so a call that runs with world: 'MAIN' puts the isolated world build on the page.
+Write the world as 'MAIN' or 'ISOLATED' in the call, or as a choice between the two, and the build prepares the file for each world it names.
+```
+
+### Paths in an extension page
 
 In an extension page, start the path at the root, as in `/scripts/hook.js`. Firefox resolves `scripts/hook.js` against the page, so the script never runs and no error is thrown. A build for a Firefox target prints a warning that names the path to write.
 

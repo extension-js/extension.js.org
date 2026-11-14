@@ -56,6 +56,8 @@ If your extension lives inside a monorepo/submodule, review how `extension.confi
 
 The watcher follows the build graph: the manifest and everything it names, each entry and its imports, the `pages/`, `scripts/` and `public/` folders, `_locales/`, and the project config and env files. A write anywhere else in the project, such as a screenshot under `store/`, a demo page, a README or a test fixture, never rebuilds or reloads the extension. A special folder created while `dev` runs is picked up on the next compile.
 
+From the release after 4.1.39, a project under a symlinked folder is watched by one path. On macOS, the first build waits a bounded time for the watcher's first scan before it reports ready. An early save is then not missed.
+
 ## Usage
 
 <CodeGroup>
@@ -110,8 +112,8 @@ These cover the 80% case. Skip to the [full reference](#arguments-and-flags) for
 | `[path or url]`                | -                  | Extension path or remote URL.                                                                                                                    | `process.cwd()`                                 |
 | `--browser <browser>`          | `-b`               | Browser/engine target (`chromium`, `chrome`, `edge`, `firefox`, named forks like `brave`/`waterfox`, engine aliases, or comma-separated values). | `chromium`                                      |
 | `--profile <path\|boolean>`    | -                  | Browser profile path or boolean profile mode.                                                                                                    | fresh profile                                   |
-| `--chromium-binary <path>`     | -                  | [Custom Chromium-family binary path](/docs/browsers/running-other-browsers).                                                                     | system default                                  |
-| `--gecko-binary <path>`        | `--firefox-binary` | [Custom Gecko-family binary path](/docs/browsers/running-other-browsers).                                                                        | system default                                  |
+| `--chromium-binary <path>`     | -                  | [Custom Chromium-family binary path](/docs/browsers/running-other-browsers).                                                                     | managed install, then system install |
+| `--gecko-binary <path>`        | `--firefox-binary` | [Custom Gecko-family binary path](/docs/browsers/running-other-browsers).                                                                        | managed install, then system install |
 | `--polyfill [boolean]`         | -                  | Enable `browser.*` API compatibility polyfill for Chromium targets.                                                                              | `true`                                          |
 | `--no-polyfill`                | -                  | Disable the cross-browser polyfill.                                                                                                              | polyfill enabled                                |
 | `--starting-url <url>`         | -                  | Starting URL in launched browser.                                                                                                                | unset                                           |
@@ -176,6 +178,47 @@ The dev server keeps running. `--logs` has no effect on this target: the extensi
 ### How the port resolves
 
 `--port` is a request, not a guarantee. When the requested port is busy, the dev server walks upward to the nearest free port. `--port 0` asks the OS for any free port. Read the bound port from `ready.json`, not from the flag you passed.
+
+`--port` sets the dev server port only. The control bridge listens on its own port, and no flag sets it. On the first run, the session asks the OS for a free port and stores it in `.extension-js/control-port-<browser>`. The next run asks for the same port, so a browser profile that still holds the old one can reconnect. When that port is busy, the OS assigns another. Read it from `controlPort` in `ready.json`.
+
+### What `dev` adds to your extension
+
+A dev session grants itself what the reload needs, and the production build of the same source has none of it. From the release after 4.1.39, the session names each addition under the identity card:
+
+```text
+    Dev only       permissions scripting, tabs
+    Dev only       host access https://example.com/*
+    Dev only       web_accessible_resources hot/*, extension-js-control.json
+    Dev flag       --silent-debugger-extension-api hides the debugger bar, excludeBrowserFlags shows it
+```
+
+- A `Dev only` line lists the permissions, host access, or web accessible resources that only the dev manifest has.
+- A `Dev flag` line names a launch flag that changes what you see, and the config key that flips it.
+- A `Dev pref` line names a browser preference that the session wrote to a profile that outlives it. See [Browser preferences](/docs/browsers/browser-preferences#the-startup-preference-on-a-kept-profile).
+
+`ready.json` lists every entry with its reason under [`devAdditions`](/docs/contracts/ready-json#dev-additions). Nothing on these lines ships. Run `extension build` and read `dist/<browser>/manifest.json` to see what a store receives.
+
+### The first page waits for boot registrations
+
+A background script can register content scripts as it starts, with `scripting.registerContentScripts`. A page that loads before that call answers never runs the registered script.
+
+From the release after 4.1.39, `dev` holds the first page until the background finishes its startup work. That covers a registration made after awaited calls, such as a `fetch` or a storage read. The wait is bounded at about five seconds, so the page always opens.
+
+A registration behind a timer is not waited for. `dev` cannot tell when a `setTimeout` callback or an alarm will fire.
+
+The CLI can print two lines. The first one prints when the wait runs out:
+
+```text
+Opened https://example.com/ before the background finished registering content scripts (waited 5s). Reload the page if a registered script did not run on it.
+```
+
+The second one prints when a registration arrives after the page opened:
+
+```text
+The background registered a content script 6.2s after it started, when the first page was already open. Reload that page to run the script on it.
+```
+
+In both cases, reload the page. A registered script runs only on pages that load after the registration.
 
 ## Automation metadata (recommended for scripts/agents)
 

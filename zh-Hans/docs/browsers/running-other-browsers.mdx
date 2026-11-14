@@ -204,15 +204,28 @@ export default {
 - 无效路径会以清晰的 CLI / 运行时错误立即失败。
 - `build` 不接受二进制 flag。基于二进制的启动只能配合 `dev`、`start` 与 `preview` 使用。
 
-## Edge 二进制覆盖
+## 二进制变量
 
-设置 `EDGE_BINARY` 环境变量，可以在不改动配置的情况下用指定的二进制启动 `--browser=edge`：
+设置一个环境变量，可以在不改动配置的情况下用指定的二进制启动某个具名目标：
 
 ```bash
 EDGE_BINARY="/path/to/msedge" npx extension@latest dev --browser=edge
 ```
 
-如果该路径不存在，启动会直接失败，而不会静默回退。
+```bash
+FIREFOX_BINARY="/path/to/firefox" npx extension@latest dev --browser=firefox
+```
+
+| 浏览器     | 变量（按读取顺序）                                            |
+| ---------- | ------------------------------------------------------------- |
+| `chrome`   | `CHROME_FOR_TESTING_PATH`、`CHROMIUM_BINARY`、`CHROME_BINARY` |
+| `chromium` | `CHROMIUM_BINARY`                                             |
+| `edge`     | `EDGE_BINARY`                                                 |
+| `firefox`  | `FIREFOX_BINARY`                                              |
+
+从 4.1.39 之后的版本起，每个浏览器都按同一个顺序解析二进制。先是 flag，然后是变量、受管理的二进制，最后是系统安装。
+
+如果该路径不存在或无法运行，启动会以 `E_BROWSER_BINARY_INVALID` 失败，而不会静默回退。身份卡会写明选定二进制的那个变量，例如 `(pinned with EDGE_BINARY)`。见[二进制如何选定](/zh-Hans/docs/browsers/browsers-available#二进制如何选定)。
 
 ## 不启动浏览器运行
 

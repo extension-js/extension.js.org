@@ -221,6 +221,24 @@ Extension.js applies these flags automatically when launching Chromium-family br
 | `--enable-unsafe-extension-debugging`                      | Allow Chrome DevTools Protocol (CDP) extension management (Chrome 126+) |
 | `--silent-debugger-extension-api`                          | Suppress the "X is debugging this browser" infobar                      |
 
+### The `debugger` permission changes two flags
+
+An extension that attaches `chrome.debugger` must handle the Cancel button on Chrome's debugging bar. From the release after 4.1.39, a session shows that bar when your manifest lists `debugger` under `permissions` or `optional_permissions`:
+
+- `--silent-debugger-extension-api` is left out, because that flag hides the bar.
+- `--disable-infobars` is passed, because it clears the notice that holds the bar back.
+
+Chrome for Testing shows its own testing notice in the same slot, and the debugging bar waits behind it. `--disable-infobars` hides every infobar that has no button, so the bar can show. Other Chromium builds honor that flag only in headless mode.
+
+To hide the bar again, list `--silent-debugger-extension-api` under `browserFlags`. To keep the testing notice, list `--disable-infobars` under `excludeBrowserFlags`. The identity card prints a `Dev flag` line for each verdict:
+
+```text
+    Dev flag       --silent-debugger-extension-api left out for the debugger permission, browserFlags restores it
+    Dev flag       --disable-infobars passed for the debugger permission, clears the testing notice so the debugger bar shows
+```
+
+`ready.json` carries the reason for each verdict under [`devAdditions`](/docs/contracts/ready-json#dev-additions).
+
 ### Always-on session flags
 
 Beyond the default table, every Chromium launch gets a fixed block of session-stability flags. They keep background timers, occluded windows, and renderer throttling from distorting automated and AI-driven sessions. `excludeBrowserFlags` cannot remove them:

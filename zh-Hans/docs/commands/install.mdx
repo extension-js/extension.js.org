@@ -35,7 +35,7 @@ keywords:
 
 - 你需要一致、可复现的浏览器二进制，用于持续集成（CI）、自动化或团队一致的本地运行。
 - 你想用 Chrome for Testing，而不是依赖你系统上恰好安装的某个 Chrome 版本。
-- 你正在用受管理的 Firefox 或 Edge 运行时搭建跨浏览器测试。
+- 你正在用受管理的 Firefox 或者 Edge 搭建跨浏览器测试。
 
 ## 为什么 Extension.js 会下载一个浏览器
 
@@ -53,15 +53,40 @@ keywords:
 
 - 按名称运行一个分支浏览器：`extension dev --browser=brave` 会为你定位已安装的 Brave。见[运行其他浏览器](/zh-Hans/docs/browsers/running-other-browsers)。
 - 固定任意二进制：给 `dev`、`start` 或 `preview` 传 `--chromium-binary <path>` 或 `--gecko-binary <path>`。固定值会覆盖所有定位器。
-- 请求 `edge` 时，如果没有受管理的 Edge，会启动你系统上已安装的 Edge。
+- 设置一个二进制变量，例如 `FIREFOX_BINARY`。见[运行哪个二进制](#运行哪个二进制)。
+- 请求 `edge` 时，会启动你系统上已安装的 Edge。
 - 请求 `chrome` 时会拒绝品牌版的系统 Chrome，并要求改用 Chrome for Testing。
 - 如果无论如何都要运行品牌版 Chrome，用 `--chromium-binary` 固定它。
 
-### 当 Edge 已经安装时
+### Edge 安装在你的系统上
 
-`--browser=edge` 会自己找到系统 Edge，所以你可以跳过 `extension install edge`。只有当你想要一份固定的受管理副本用于自动化时，才运行 `extension install edge`。
+`extension install edge` 会运行 `playwright install msedge`，它把 Microsoft Edge 安装到你的系统上。Extension.js 的缓存里没有固定版本的 Edge 副本。`--browser=edge` 会自己找到系统 Edge，所以 Edge 已经安装时你可以跳过这条命令。
 
-在 Linux 上，受管理的 Edge 下载需要一个有 sudo 权限的交互会话。当这次下载失败且系统中存在 Edge 时，安装器会报告系统二进制并以它成功完成。
+在 Linux 上，这次安装需要一个有 sudo 权限的交互会话。当安装失败且系统中存在 Edge 时，安装器会报告系统二进制并以它成功完成。
+
+## 运行哪个二进制
+
+从 4.1.39 之后的版本起，`dev`、`start` 和 `preview` 对每个浏览器都按同一个顺序选定二进制：
+
+1. flag：`--chromium-binary` 或 `--gecko-binary`。
+2. 该浏览器的环境变量。
+3. 来自 `extension install` 的受管理二进制。
+4. 系统安装。
+
+| 浏览器     | 变量（按读取顺序）                                            |
+| ---------- | ------------------------------------------------------------- |
+| `chrome`   | `CHROME_FOR_TESTING_PATH`、`CHROMIUM_BINARY`、`CHROME_BINARY` |
+| `chromium` | `CHROMIUM_BINARY`                                             |
+| `edge`     | `EDGE_BINARY`                                                 |
+| `firefox`  | `FIREFOX_BINARY`                                              |
+
+变量指向不存在的路径或无法运行的文件时，启动会以 `E_BROWSER_BINARY_INVALID` 失败。出错的变量绝不会被跳过。
+
+身份卡会说明是哪一步给出了结果。`(pinned with FIREFOX_BINARY)` 写明那个 flag 或变量，`(system install)` 表示浏览器来自你的系统。受管理的二进制没有任何标注。`ready.json` 用 `binaryProvenance` 和 `binaryPinnedBy` 记录同一件事。
+
+对 Firefox 来说，受管理这一步会优先选择稳定版，而不是同一个缓存里的 nightly。运行的是 nightly 时，卡片会显示 `Firefox Nightly`。
+
+请求 `chrome` 时仍然会拒绝品牌版的系统 Chrome。指向品牌版 Chrome 的变量不会被采用，运行会继续使用受管理的二进制。见[二进制如何选定](/zh-Hans/docs/browsers/browsers-available#二进制如何选定)。
 
 ## 标准用法
 
@@ -187,7 +212,7 @@ extension install chrome --where
 每个浏览器在缓存根目录下都有自己的目录，但目录内部的布局取决于下载引擎：
 
 - `chrome`、`chromium` 与 `firefox` 来自 `@puppeteer/browsers`。每个浏览器目录里会有它那套嵌套的平台与版本子目录。
-- `edge` 来自 `playwright install msedge`，它用自己的结构摆放二进制。
+- `edge` 不在缓存里。`playwright install msedge` 会把 Microsoft Edge 安装到你的系统上。
 - `safari` 没有可下载的东西。Safari 随 macOS 一起提供，构建还需要完整的 Xcode app，所以 `extension install safari` 会带着解释拒绝执行。
 - 像 Brave 这样的具名分支永远不会被下载。请改用 `--chromium-binary` 或 `--gecko-binary` 指向它们。
 
@@ -202,7 +227,8 @@ extension install chrome --where
 - **在 CI 中使用 `install`**，固定一个稳定的浏览器二进制，而不是依赖 runner 提供的版本。
 - **优先使用 `chrome`** 而不是 `chromium`：Chrome for Testing 更贴近稳定版 Chrome 的行为。
 - **使用 `--where`** 在围绕受管理浏览器做脚本化自动化之前先确认缓存路径。
-- `install` 只管理 Extension.js 缓存中的浏览器，不会修改系统上已有的浏览器安装。
+- `install` 把 `chrome`、`chromium` 和 `firefox` 放在 Extension.js 缓存里，不会改动这些浏览器的系统安装。
+- `edge` 是例外。它会把 Microsoft Edge 安装到你的系统上。
 
 ## 行为说明
 

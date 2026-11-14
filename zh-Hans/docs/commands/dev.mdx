@@ -53,6 +53,8 @@ keywords:
 
 watcher 跟随构建图：manifest 及其点名的一切、每个入口及其 import、`pages/`、`scripts/` 与 `public/` 文件夹、`_locales/`，以及项目配置与 env 文件。项目中其他任何位置的写入，例如 `store/` 下的一张截图、一个演示页面、一份 README 或一个测试 fixture，都不会重新构建或重载扩展。在 `dev` 运行期间新建的特殊文件夹会在下一次编译时被纳入。
 
+从 4.1.39 之后的版本起，位于符号链接文件夹下的项目只按一个路径被监视。在 macOS 上，第一次构建会在有限的时间内等待 watcher 完成首次扫描，然后才报告就绪，这样过早的保存不会被漏掉。
+
 ## 用法
 
 <CodeGroup>
@@ -106,8 +108,8 @@ extension dev [path-or-url] [options]
 | `[path or url]`                | -                  | 扩展路径或远程 URL。                                                                                                             | `process.cwd()`    |
 | `--browser <browser>`          | `-b`               | 浏览器 / 引擎目标（`chromium`、`chrome`、`edge`、`firefox`、像 `brave`/`waterfox` 这样的命名分支、引擎别名或逗号分隔的多个值）。 | `chromium`         |
 | `--profile <path\|boolean>`    | -                  | 浏览器 profile 路径或布尔的 profile 模式。                                                                                       | 全新 profile       |
-| `--chromium-binary <path>`     | -                  | [自定义的 Chromium 家族二进制路径](/zh-Hans/docs/browsers/running-other-browsers)。                                                      | 系统默认           |
-| `--gecko-binary <path>`        | `--firefox-binary` | [自定义的 Gecko 家族二进制路径](/zh-Hans/docs/browsers/running-other-browsers)。                                                         | 系统默认           |
+| `--chromium-binary <path>`     | -                  | [自定义的 Chromium 家族二进制路径](/zh-Hans/docs/browsers/running-other-browsers)。                                                      | 受管理的安装，然后是系统安装 |
+| `--gecko-binary <path>`        | `--firefox-binary` | [自定义的 Gecko 家族二进制路径](/zh-Hans/docs/browsers/running-other-browsers)。                                                         | 受管理的安装，然后是系统安装 |
 | `--polyfill [boolean]`         | -                  | 为 Chromium 目标启用 `browser.*` API 兼容 polyfill。                                                                             | `true`             |
 | `--no-polyfill`                | -                  | 关闭跨浏览器 polyfill。                                                                                                          | 默认启用 polyfill  |
 | `--starting-url <url>`         | -                  | 启动浏览器时的起始 URL。                                                                                                         | 未设置             |
@@ -171,6 +173,47 @@ dev 服务器会继续运行。`--logs` 对这个目标不起作用：扩展运�
 ### 端口如何确定
 
 `--port` 是一个请求，而不是保证。请求的端口被占用时，dev 服务器会向上寻找最近的空闲端口。`--port 0` 会向 OS 要一个任意空闲端口。请从 `ready.json` 读取实际绑定的端口，而不是你传入的那个 flag。
+
+`--port` 只设置 dev 服务器的端口。控制桥监听它自己的端口，没有任何 flag 能设置它。第一次运行时，会话向 OS 要一个空闲端口，并把它存进 `.extension-js/control-port-<browser>`。下一次运行会请求同一个端口，这样仍然记着旧端口的浏览器配置文件可以重新连上。这个端口被占用时，OS 会另行分配一个。请从 `ready.json` 的 `controlPort` 读取它。
+
+### `dev` 给你的扩展加了什么
+
+dev 会话会给自己授予重载所需的东西，而同一份源码的生产构建里完全没有这些。从 4.1.39 之后的版本起，会话会在身份卡下方写明每一项：
+
+```text
+    Dev only       permissions scripting, tabs
+    Dev only       host access https://example.com/*
+    Dev only       web_accessible_resources hot/*, extension-js-control.json
+    Dev flag       --silent-debugger-extension-api hides the debugger bar, excludeBrowserFlags shows it
+```
+
+- `Dev only` 行列出只有 dev manifest 才有的权限、主机访问或 web accessible 资源。
+- `Dev flag` 行写明一个会改变你所见内容的启动 flag，以及能把它反过来的配置键。
+- `Dev pref` 行写明会话写进一个比会话活得更久的 profile 里的浏览器偏好。见[浏览器偏好设置](/zh-Hans/docs/browsers/browser-preferences#保留的-profile-上的启动偏好)。
+
+`ready.json` 在 [`devAdditions`](/zh-Hans/docs/contracts/ready-json#开发附加项) 下列出每一项及其原因。这些行里的东西都不会随扩展发布。运行 `extension build` 并阅读 `dist/<browser>/manifest.json`，就能看到商店实际收到的内容。
+
+### 第一个页面会等待启动时的注册
+
+background 脚本可以在启动时用 `scripting.registerContentScripts` 注册 content script。在这个调用应答之前加载的页面，永远不会运行被注册的脚本。
+
+从 4.1.39 之后的版本起，`dev` 会按住第一个页面，直到 background 完成它的启动工作。这也包括在 await 过的调用（例如 `fetch` 或一次 storage 读取）之后才做的注册。等待的上限大约是五秒，所以页面一定会打开。
+
+放在定时器后面的注册不会被等待。`dev` 无法知道 `setTimeout` 回调或 alarm 什么时候触发。
+
+CLI 可能打印两行。等待超时时打印第一行：
+
+```text
+Opened https://example.com/ before the background finished registering content scripts (waited 5s). Reload the page if a registered script did not run on it.
+```
+
+注册在页面打开之后才到达时打印第二行：
+
+```text
+The background registered a content script 6.2s after it started, when the first page was already open. Reload that page to run the script on it.
+```
+
+两种情况下都请重新加载页面。被注册的脚本只会在注册之后加载的页面上运行。
 
 ## 自动化元数据（推荐用于脚本 / agent）
 

@@ -86,9 +86,12 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `profileReused` | boolean | Chromium 启动：此次启动之前是否已有浏览器用过该配置目录。被复用的配置目录是浏览器启动后却没有任何连接的常见原因。 |
 | `profilePath`        | string         | 解析出来的配置文件目录。临时配置文件的名字是生成的，所以要从这里读。                                                                                               |
 | `binary`             | string         | 这个会话实际启动的浏览器二进制文件的绝对路径。每次运行都会盖章，包括那些没有指定二进制文件的运行：恰恰是在那些运行里，解析器替你做了选择，而这个路径在别处看不到。 |
-| `binaryProvenance`   | string         | 这个二进制是怎么选出来的：`managed`（Extension.js 的缓存）、`pinned`（`--chromium-binary`）、`system`（已安装的浏览器）或 `snapshot`（缓存的 dev 频道构建）。      |
+| `binaryProvenance`   | string         | 这个二进制是怎么选出来的：`managed`（Extension.js 的缓存）、`pinned`（二进制 flag 或二进制变量）、`system`（已安装的浏览器）或 `snapshot`（缓存的 dev 频道构建）。 |
+| `binaryPinnedBy`     | string         | 从 4.1.39 之后的版本起：指明 `pinned` 二进制的那个 flag 或变量，例如 `--chromium-binary` 或 `FIREFOX_BINARY`。其他来源下不出现。 |
 | `browserPid`         | number         | 浏览器进程 id。这是拆掉浏览器时受支持的句柄。                                                                                                                      |
 | `extensionId`        | string         | 浏览器用来提供这份 dist 的 id。能拿到时由浏览器确认，否则是推导出来的。                                                                                            |
+| `extensionBaseUrl`   | string         | Firefox 启动，从 4.1.39 之后的版本起：浏览器提供这个扩展所用的 `moz-extension://<uuid>/` 地址。Firefox 按配置文件选定这个 UUID，所以从附加组件 id 看不出它。 |
+| `devAdditions`       | array          | `dev` 会话，从 4.1.39 之后的版本起：会话有而生产构建没有的东西。见[开发附加项](#开发附加项)。 |
 | `extensionName`      | string         | 扩展的名字，作为构建溯源信息。                                                                                                                                     |
 | `extensionVersion`   | string         | 扩展的版本，作为构建溯源信息。                                                                                                                                     |
 | `browserExitedAt`    | ISO string     | 浏览器在会话中途、没被要求就退出时盖上。跨重新编译保留。                                                                                                           |
@@ -100,6 +103,52 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `executorAttachedAt` | ISO string     | service worker 第一次连上的时间。断开后会作为来源记录保留。 |
 | `executorDetachedAt` | ISO string     | 从 4.1.20 起，最后一个已连接的扩展上下文断开的时间。 |
 | `managedExtensions`  | array          | 除了你的扩展之外、引擎还加载的每一个扩展，形式是 `{path, id?}` 记录。做统计时按 id 把它们减掉。                                                                    |
+
+## 开发附加项
+
+从 4.1.39 之后的版本起，`dev` 契约会列出会话有、而同一份源码的生产构建没有的东西。每个 `devAdditions` 条目都带有 `kind`、`value` 和 `reason`：
+
+| `kind`                    | `value`                                        | 额外字段                                                  |
+| ------------------------- | ---------------------------------------------- | --------------------------------------------------------- |
+| `permission`              | dev manifest 添加的权限，例如 `scripting`。    | 无                                                        |
+| `host_permission`         | dev manifest 添加的主机匹配模式。              | 无                                                        |
+| `web_accessible_resource` | dev manifest 暴露的资源，例如 `hot/*`。        | `matches`，可以读取它的来源。Manifest V2 下不出现。       |
+| `browser_flag`            | 一个会改变你在浏览器里所见内容的启动 flag。    | `applied`、`cause` 和 `change`。                          |
+| `browser_preference`      | 会话写进被保留的 profile 的浏览器偏好，形式为 `name=value`。 | `applied`、`cause` 和 `change`。 |
+
+前三种是你的 manifest 与 dev manifest 之间的差异。每次重新编译都会替换它们。`browser_flag` 与 `browser_preference` 条目由启动器写入，重新编译会保留它们。
+
+`browser_flag` 条目说明这次启动是否传入了该 flag（`applied`），以及是什么决定了这一点（`cause`）。`cause` 的取值是 `default`、`browser-flags`、`debugger-permission` 或 `exclude-browser-flags`。`change` 写明能把结论反过来的那一处修改。
+
+当 profile 比会话活得更久时（例如 `--profile <path>`），Chromium 上会出现一个 `browser_preference` 条目。会话把 `session.restore_on_startup` 设为 `5`，这样 Chrome 会打开新标签页，而不是恢复上一次运行的页面。会话结束后，这个值仍然留在那个 profile 里。它的 `cause` 是 `default`；你的配置设置了这个偏好时是 `preferences`；浏览器拒绝写入时是 `unavailable`。见[浏览器偏好设置](/zh-Hans/docs/browsers/browser-preferences#保留的-profile-上的启动偏好)。
+
+```json
+{
+  "devAdditions": [
+    {
+      "kind": "permission",
+      "value": "scripting",
+      "reason": "the dev reload registers content scripts and injects the rebuilt files into open tabs"
+    },
+    {
+      "kind": "web_accessible_resource",
+      "value": "hot/*",
+      "matches": ["https://example.com/*"],
+      "reason": "a content script fetches its hot update chunks from the page"
+    },
+    {
+      "kind": "browser_flag",
+      "value": "--silent-debugger-extension-api",
+      "applied": false,
+      "cause": "debugger-permission",
+      "reason": "the manifest declares \"debugger\", so the debugging bar and its Cancel button show as they do for a user",
+      "change": "list the flag under browserFlags in extension.config.js to hide the bar"
+    }
+  ]
+}
+```
+
+身份卡会把同样的条目打印成 `Dev only` 与 `Dev flag` 行。见[读懂 CLI 输出](/zh-Hans/docs/concepts/reading-cli-output#卡片下方的行)。有两个 flag 跟随 `debugger` 权限。见[浏览器 flag](/zh-Hans/docs/browsers/browser-flags#debugger-权限会改动两个-flag)。
 
 ## 错误状态
 

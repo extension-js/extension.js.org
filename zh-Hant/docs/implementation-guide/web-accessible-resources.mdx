@@ -127,6 +127,28 @@ Extension.js 會把你宣告的內容與建置發現的內容合併，然後為�
 - 如果你寫的某個群組只有 `extension_ids` 而沒有 `matches`，產出的 manifest 裡也不會出現 `matches`。
 - 在開發中，Extension.js 會為項目集合打補丁，讓重新載入與熱模組替換所需的資源保持可達。該補丁僅用於開發。請見 [重新載入與 HMR](/zh-Hant/docs/features/reload-and-hmr)。
 
+### 在腳本建構出頁面 URL 之前，頁面保持私有
+
+從 4.1.39 之後的版本起，只有當 content script 建構出某個 HTML 頁面的 URL 時，建置才會把這個頁面加入 `web_accessible_resources`。把路徑傳給 `runtime.getURL` 就是這個訊號：
+
+```ts
+const frame = document.createElement("iframe");
+frame.src = chrome.runtime.getURL("pages/panel.html");
+document.body.appendChild(frame);
+```
+
+建置能追蹤字面值路徑、保存這個路徑的常數，以及把第一個引數傳給 `getURL` 的輔助函式。把擴充功能來源或 `runtime.id` 與路徑串接起來的 URL 也算。
+
+只是提到頁面名稱的腳本不會公開它。常見的情況是：content script 把路徑傳給 background，再由 background 在分頁裡開啟這個頁面。頁面保持私有，建置會為每個頁面印出一則說明：
+
+```text
+content_scripts/content-0.js names pages/panel.html without building its URL, so the page stays out of web_accessible_resources and no web page can frame or fetch it.
+Nothing to do when the script only passes the path along, for the background to open in a tab for example.
+If the script loads the page itself, pass the path to chrome.runtime.getURL or list it under web_accessible_resources in manifest.json, scoped to the matches that need it.
+```
+
+你自己列在 `web_accessible_resources` 下的頁面仍然是公開的，也不會為它印出這則說明。
+
 自動合併很方便，但它不是審閱。發布前請讀一遍產出的 `dist/<browser>/manifest.json`，確認公開出去的集合正是你打算公開的集合：
 
 - 把 `matches` 限定在確實需要該檔案的網域上。

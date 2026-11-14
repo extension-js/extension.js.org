@@ -92,29 +92,61 @@ If the requested browser is not installed, Extension.js does not change the targ
 - Requested `chromium` missing: falls back to managed Chrome, then managed Edge.
 - Requested `chrome` missing: falls back to managed Chromium, then managed Edge.
 
-When this happens, the CLI prints a warn naming the missing browser and the fix, for example `npx extension install chromium`. The warn deliberately omits the substitute binary path. The session's identity card already carries a Binary row that names the exact binary in use, so the fact is printed once. The output folder and the emitted manifest are exactly what they would be without the fallback.
+When this happens, the CLI prints a warn naming the missing browser and the fix, for example `npx extension install chromium`. The warn deliberately omits the substitute binary path. Read that path from `binary` in [`ready.json`](/docs/contracts/ready-json). The output folder and the emitted manifest are exactly what they would be without the fallback.
 
-### What `--browser=edge` does without a managed Edge
+### What `--browser=edge` runs
 
-`edge` never swaps to another browser. Extension.js resolves the Edge binary in this order:
+`edge` never swaps to another browser, and it has no pinned managed copy. `npx extension install edge` installs Microsoft Edge on your system through Playwright. Extension.js resolves the Edge binary in this order:
 
-1. The path in the `EDGE_BINARY` environment variable, when set.
-2. A managed Edge from `npx extension install edge`, or the Edge that is installed on your system.
+1. The path in `--chromium-binary`, when passed.
+2. The path in the `EDGE_BINARY` environment variable, when set.
+3. The Edge that is installed on your system.
 
-When neither resolves, the command prints install guidance (`npx extension install edge`) and exits with code `1`. There is no silent Chromium substitute for a missing Edge.
+The identity card then reads `Edge <version> (system install)`. When nothing resolves, the command prints install guidance (`npx extension install edge`) and exits with code `1`. There is no silent Chromium substitute for a missing Edge.
 
-If a Chromium window still surprises you, check the identity card. Its Binary row names the exact binary that launched, and its provenance label tells you why. A requested `chrome` or `chromium` can borrow a managed family binary (see above), but a requested `edge` cannot. The output contract holds either way: `dist/edge` exists only when `edge` was the requested target.
+If a Chromium window still surprises you, read `binary` in `ready.json`. It names the exact binary that launched, and `binaryProvenance` tells you why. A requested `chrome` or `chromium` can borrow a managed family binary (see above), but a requested `edge` cannot. The output contract holds either way: `dist/edge` exists only when `edge` was the requested target.
+
+### How the binary is chosen
+
+From the release after 4.1.39, `dev`, `start`, and `preview` resolve the binary in one order for every browser:
+
+1. The flag, `--chromium-binary` or `--gecko-binary`.
+2. The environment variable of the browser.
+3. The managed binary from `npx extension install <browser>`.
+4. The system install.
+
+| Browser    | Variables, in the order that they are read                    |
+| ---------- | ------------------------------------------------------------- |
+| `chrome`   | `CHROME_FOR_TESTING_PATH`, `CHROMIUM_BINARY`, `CHROME_BINARY` |
+| `chromium` | `CHROMIUM_BINARY`                                             |
+| `edge`     | `EDGE_BINARY`                                                 |
+| `firefox`  | `FIREFOX_BINARY`                                              |
+
+A variable is a choice, as the flag is. A variable that names a missing path, or a file that cannot run, fails the launch with `E_BROWSER_BINARY_INVALID`. The run never skips it for the next step.
+
+Requested `chrome` still refuses a branded system Chrome. A variable that names branded Chrome is not taken, and the run continues with the managed binary.
+
+For Firefox, the managed step prefers a stable build. A nightly that sits in the same cache runs only when no stable build is there, and the card then says `Firefox Nightly`.
 
 ### Binary provenance labels
 
-The identity card labels where the session's binary came from:
+`ready.json` records where the session's binary came from in `binaryProvenance`:
 
-| Label      | Meaning                                                            |
-| ---------- | ------------------------------------------------------------------ |
+| Label      | Meaning                                                              |
+| ---------- | -------------------------------------------------------------------- |
 | `managed`  | A binary from the managed cache (`npx extension install <browser>`). |
-| `pinned`   | A binary you pinned with `--chromium-binary` or `--gecko-binary`.  |
-| `system`   | A browser found on your system.                                    |
-| `snapshot` | The managed Chromium tip-of-tree snapshot.                         |
+| `pinned`   | A binary that a flag or a binary variable named. `binaryPinnedBy` says which one. |
+| `system`   | A browser found on your system.                                      |
+| `snapshot` | The managed Chromium tip-of-tree snapshot.                           |
+
+The identity card has no Binary row. Its Browser row carries a note for the two cases that you can act on:
+
+```text
+    Browser        Firefox 144.0 (pinned with FIREFOX_BINARY)
+    Browser        Edge 142.0.3595.53 (system install)
+```
+
+`(pinned with <flag or variable>)` names what chose the binary. `(system install)` prints for `chrome`, `chromium`, `edge`, and `firefox` when the binary came from your system. A managed binary and a named fork get no note.
 
 ### Chromium snapshots vs stable
 

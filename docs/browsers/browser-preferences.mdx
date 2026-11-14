@@ -90,6 +90,32 @@ Your values win over the baseline on key conflicts, and nested objects merge key
   profile, or run an ephemeral profile, to re-seed.
 </Note>
 
+### The startup preference on a kept profile
+
+A profile that outlives the session, such as `--profile <path>`, remembers its open pages. On its next launch, Chrome would restore the pages of the previous run, ahead of your extension.
+
+From the release after 4.1.39, `dev` sets `session.restore_on_startup` to `5` in such a profile, so the browser opens a new tab. The session writes the value once through the browser, and it stays in that profile afterward. The identity card says so:
+
+```text
+    Dev pref       session.restore_on_startup=5 written to this kept profile and stays there, preferences changes it
+```
+
+To keep the browser restoring its last session, set the preference yourself before the first launch:
+
+```js
+export default {
+  browser: {
+    chrome: {
+      preferences: {
+        session: { restore_on_startup: 1 },
+      },
+    },
+  },
+};
+```
+
+The card then reads `left to the browser, preferences sets it`. A profile that already has the value keeps it until you change "On startup" in `chrome://settings`. An ephemeral profile is deleted on exit, so the session writes nothing there.
+
 For launch behavior that Chromium controls through the command line, use flags instead:
 
 - `browserFlags`
