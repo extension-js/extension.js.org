@@ -174,6 +174,12 @@ deno run -A npm:extension@latest dev --chromium-binary /Applications/Brave\\ Bro
 
 在 Chromium 方向上，`scripts` 总是会从输出中移除。只要出现 `background.scripts`，哪怕旁边有一个合法的 `service_worker`，Chromium MV3 也会拒绝整个扩展，所以这个键永远不能出现在 Chromium 构建里。
 
+#### Firefox 构建会移除 Firefox 拒绝的权限
+
+从 4.1.39 之后的版本起，Gecko 构建会从 `permissions` 和 `optional_permissions` 里移除 Firefox 拒绝的权限字符串，例如 `sidePanel`、`debugger` 和 `offscreen`。构建会打印一条警告，列出每一项。这些字符串在 Firefox 上不授予任何东西，所以扩展不会失去任何它本来能运行的功能。如果你有只用于 Firefox 的替代项，请用 `firefox:` 前缀声明它。
+
+构建会按声明保留 `incognito: "split"`，并打印一条警告说明这一点。Firefox 没有 split 模式，会把这个值读作 `"not_allowed"`，所以扩展永远不会在隐私窗口里运行。把 `firefox:incognito` 设为 `"spanning"` 或 `"not_allowed"` 来做出选择。
+
 ### 3) 按浏览器目标输出
 
 Extension.js 会把每个目标写入各自的构建目录：

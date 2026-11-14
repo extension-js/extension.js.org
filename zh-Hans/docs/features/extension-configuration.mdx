@@ -344,6 +344,21 @@ export default {
 
 `extension` 包为这个参数导出了 `ConfigHookContext` 类型。只接收一个参数的钩子仍然可以正常工作。
 
+从 4.1.39 之后的版本起，上下文还带有 `rspack`，也就是本次运行用来编译的打包器。它和 `@rspack/core` 以 `rspack` 导出的是同一个对象。请从它上面取插件类，不要在配置文件里导入 `@rspack/core`。你的项目可能没有这个包，也可能装的是另一个版本：
+
+```js
+export default {
+  config: (config, { rspack }) => {
+    config.plugins.push(
+      new rspack.ProvidePlugin({ Buffer: ["buffer", "Buffer"] }),
+    );
+    return config;
+  },
+};
+```
+
+完整的做法见[在浏览器扩展中使用 Node API](/zh-Hans/docs/languages-and-frameworks/node#一次只加一个回退)。
+
 #### 为某一个浏览器保留一组 locale
 
 商店接受的语言可能少于你的 `_locales` 文件夹所包含的语言。Extension.js 会为每个浏览器复制整个文件夹。要为某一个浏览器只发布其中一部分，请从 `config` 推入一个插件，删除其他 locale 的资源：

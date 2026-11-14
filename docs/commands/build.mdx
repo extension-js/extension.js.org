@@ -355,6 +355,27 @@ The install command is phrased for the package manager that your project uses.
 
 Turn the check off with `--no-addon-lint`, or with `commands.build.addonLint: false` in `extension.config.js`. Non-production modes skip it, because a dev artifact carries dev-only grants that the linter would flag for nothing. `extension start` skips it too, since `start` previews a build rather than shipping one.
 
+## Firefox builds split large files
+
+addons.mozilla.org does not parse a script of 5 MB or more, and the store check fails on one. From the release after 4.1.39, a build for a Gecko target caps the files it can split at 4 MB of source. Chrome, Edge and Safari output is unchanged.
+
+| Code                                                   | What ships                                                                                                                  |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| Code that two or more pages share                      | `shared/commons.js` under the cap. Past it, numbered files such as `shared/commons-0.js` and `shared/commons-1.js`.         |
+| A page's own code                                      | `action/index.js` under the cap. Past it, `action/index-0.js` and `action/index-1.js`, so there may be no `action/index.js`. |
+| A chunk loaded with dynamic `import()`                 | Parts under the cap, on a page, a background script and a content script alike.                                             |
+| A background script, content script or injected script | One file at any size. The browser loads each as a single file, so the build cannot split it.                                |
+
+The page lists each part in its HTML, so a split page needs no change from you. Do not name `action/index.js` or `shared/commons.js` in your own code for a Firefox build.
+
+For a single-file script past the limit, the store check reports `FILE_TOO_LARGE`, and the line ends with the fix: load the large dependency with a dynamic `import()` so that it ships as its own file under the limit. When addons-linter is not installed or does not answer, the build prints the same fix on a line that starts with `Firefox build:`:
+
+```plaintext
+Firefox build: background/scripts.js is 6.2 MB - addons.mozilla.org does not parse a file of 5 MB or more, and Firefox loads a background script as one file, so the build cannot split it: load a large dependency with a dynamic import() so it ships as its own file under the limit, or remove it
+```
+
+The cap is part of the default `optimization.splitChunks` for Gecko targets. Change it from the `config` hook, see [Rspack configuration](/docs/features/rspack-configuration#share-a-module-between-entries).
+
 ## Readable output for Opera Add-ons
 
 Opera's [acceptance criteria](https://help.opera.com/en/extensions/acceptance-criteria/) require code the reviewers can read: an extension whose own code is minified or obfuscated is rejected, while third-party libraries may stay minified. So `extension build --browser=opera` in production mode does not minify, and prints one info line:

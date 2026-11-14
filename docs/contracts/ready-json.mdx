@@ -39,6 +39,19 @@ Act tooling (`eval`, `storage`, `reload`, `open`, `inspect`) needs the second ph
 
 The attach stamp is idempotent and survives recompiles. An attach also clears any earlier `extension_load_refused` state, because the executor runs inside the guest.
 
+### Sessions that take act verbs hold ready
+
+From the release after 4.1.39, a session that takes act verbs keeps `status: "starting"` until the extension's background connects or 10 seconds pass. This applies to:
+
+- `preview` and `start` with `--allow-control` or `--allow-eval`. A build with no background does not wait, because nothing connects from it.
+- `dev` with `--allow-control` or `--allow-eval` and a browser that the session launches.
+
+While `dev` waits, the contract carries `awaitingExecutorSince`. The field goes away when the background connects or the wait runs out.
+
+The wait is bounded, so `ready` still arrives for an extension that never connects, with no `executorAttachedAt` beside it. `executorAttachedAt` stays the field that says an act verb can run.
+
+On Firefox, a `dev` session that waits needs both the RDP port and the background before it reports `ready`.
+
 ## Field reference (schema v2)
 
 Fields that are always present:
@@ -104,6 +117,7 @@ Fields that appear when known:
 | `runtime`          | `"attached"` or `"detached"` | `attached` once the service worker has connected and can be driven. From 4.1.20, `detached` once the last connected extension context disconnects, and `attached` again on reconnect. |
 | `executorAttachedAt` | ISO string | When the service worker first connected. Kept as provenance after a detach.  |
 | `executorDetachedAt` | ISO string | From 4.1.20, when the last connected extension context disconnected.          |
+| `awaitingExecutorSince` | ISO string | `dev` sessions, from the release after 4.1.39: when the session began to hold `ready` for the background. Removed once the background connects or 10 seconds pass. |
 | `managedExtensions` | array   | Every extension that the engine loads besides yours, as `{path, id?}` records. Subtract them by id in a census. |
 
 ## Dev additions

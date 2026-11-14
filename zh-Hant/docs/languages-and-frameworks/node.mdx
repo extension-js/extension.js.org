@@ -132,6 +132,21 @@ Repository: [extension-js/templates/newtab-crypto](https://github.com/extension-
 所以缺少的 Node API 會出現在兩個地方之一，是哪一個取決於該模組。
 用下面的明確 fallback 來處理這兩種情況。
 
+### `node:` 指定符與建置錯誤
+
+從 4.1.39 之後的版本起，`node:fs` 和 `fs` 是同一個請求，所以兩種寫法得到同樣的結果：
+
+- `crypto`、`fs` 與 `path` 無論哪種寫法都會解析到一個空模組，`fs/promises` 這樣的子路徑也一樣。
+- 其他任何內建模組都會讓建置停下。訊息會寫明這個內建模組、匯入它的檔案，以及要設定的 `resolve.fallback` 鍵。
+- 對沒有替身的內建模組呼叫 `require()` 只是一則警告。這個呼叫會原樣留在輸出裡，只有那條程式碼路徑真的執行時才會拋錯。設定 `EXTENSION_STRICT_REFS=true` 可以讓它使建置失敗。
+
+```plaintext
+The Node.js built-in util does not exist in a browser, and this build has no stand-in for it. background.js imports it.
+Only crypto, fs, path are replaced with an empty module. In extension.config.js, set resolve.fallback from the config hook: {'util': false} for an empty module, or the path of a browser polyfill you installed, such as require.resolve('util/'). node:util and util read the same key.
+```
+
+在 4.1.39 及更早的版本裡，帶 `node:` 前綴的指定符對每個模組都會讓建置失敗，`crypto`、`fs` 與 `path` 也不例外。
+
 ## 設定 Node polyfill
 
 使用 `extension.config.js`（或 `.mjs` / `.cjs`）擴充 Rspack 設定，並定義安全的 fallback。
@@ -153,6 +168,79 @@ export default {
     };
     config.plugins = config.plugins || [];
     config.plugins.push(new NodePolyfillPlugin());
+    return config;
+  },
+};
+```
+
+### 一次只加一個 fallback
+
+只需要一兩個模組時，不必用 polyfill plugin。安裝對應的瀏覽器套件，然後在 `config` hook 裡擴充 `resolve.fallback`。把某個鍵設為 `false` 就得到一個空模組。`Buffer` 在 Node.js 裡是全域變數，所以用 `ProvidePlugin` 來提供它。
+
+從 4.1.39 之後的版本起，hook 的第二個引數帶有 `rspack`，也就是 Extension.js 用來編譯的 bundler。從它上面取 plugin 類別，你的專案就不需要自己安裝 `@rspack/core`：
+
+<CodeGroup>
+
+```bash npm
+npm install buffer util
+```
+
+```bash pnpm
+pnpm add buffer util
+```
+
+```bash yarn
+yarn add buffer util
+```
+
+```bash bun
+bun add buffer util
+```
+
+```bash deno
+deno add npm:buffer npm:util
+```
+
+</CodeGroup>
+
+```js extension.config.js
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
+export default {
+  config: (config, { rspack }) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      buffer: require.resolve("buffer/"),
+      util: require.resolve("util/"),
+      os: false,
+    };
+    config.plugins.push(
+      new rspack.ProvidePlugin({ Buffer: ["buffer", "Buffer"] }),
+    );
+    return config;
+  },
+};
+```
+
+請展開既有的 `resolve.fallback`，這樣三個預設鍵會保留下來。`require.resolve("buffer/")` 結尾的斜線指向已安裝的套件，而不是 Node.js 的內建模組。
+
+只以帶前綴的形式存在的名稱，例如 `node:test`，沒有 `resolve.fallback` 能對應到的裸鍵。請透過 `rspack.NormalModuleReplacementPlugin` 把它替換成你自己的模組：
+
+```js extension.config.js
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
+export default {
+  config: (config, { rspack }) => {
+    config.plugins.push(
+      new rspack.NormalModuleReplacementPlugin(
+        /^node:test$/,
+        require.resolve("./src/test-stand-in.js"),
+      ),
+    );
     return config;
   },
 };
@@ -195,7 +283,7 @@ deno add -D npm:node-polyfill-webpack-plugin npm:crypto-browserify npm:path-brow
 - 不要假設擴充功能執行期可以存取檔案系統；除非你有明確的瀏覽器安全策略，否則請保持 `fs: false`。
 - 盡量採用 Web Crypto（`crypto.subtle`），而非引入體積較大的 Node crypto shim。
 - Polyfill（Node API 的瀏覽器相容替代品）會增加 bundle 體積，可能影響擴充功能頁面與 content script 的啟動時間。
-- 部分使用 `node:` specifier 的套件可能需要明確的 fallback 處理。
+- 從 4.1.39 之後的版本起，`node:` specifier 讀取的 `resolve.fallback` 鍵與它的裸名相同。在更早的版本裡，它會讓建置失敗。
 
 ## 下一步
 

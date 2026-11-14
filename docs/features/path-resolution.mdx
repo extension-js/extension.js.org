@@ -87,6 +87,20 @@ Not every manifest field maps to a folder with the same source name. Extension.j
 
 Extension.js emits all compiled outputs under `dist/<browser>`.
 
+## Relative paths set from a moved page
+
+Each page that the manifest declares ships in a folder named after its surface. A side panel written as `index.html` ships as `sidebar/index.html`. The build rewrites the paths in the page's HTML. It does not rewrite a relative `src` or `href` that the page's script sets, and the browser resolves that path against the new folder:
+
+```js
+// Source: index.html, with public/images/logo.png
+// Output: sidebar/index.html and images/logo.png
+
+image.src = "images/logo.png"; // requests sidebar/images/logo.png, a 404
+image.src = "/images/logo.png"; // requests images/logo.png
+```
+
+Start the path with `/` so that it resolves from the extension root. From the release after 4.1.39, the build prints a `Runtime-risk` warning when the file exists at the old relative location only. The warning names the page, the path that the page requests, the path that the output holds, and the path to write.
+
 ## Referencing output files
 
 For browser APIs like `chrome.runtime.getURL()`, prefer stable, output-root paths:

@@ -372,6 +372,21 @@ export default {
 
 The `extension` package exports the `ConfigHookContext` type for the argument. A hook that takes one argument keeps working.
 
+From the release after 4.1.39, the context also carries `rspack`, the bundler that this run compiles with. It is the same object that `@rspack/core` exports as `rspack`. Take plugin classes from it and do not import `@rspack/core` in the config file. Your project may not have that package, or may have another version of it:
+
+```js
+export default {
+  config: (config, { rspack }) => {
+    config.plugins.push(
+      new rspack.ProvidePlugin({ Buffer: ["buffer", "Buffer"] }),
+    );
+    return config;
+  },
+};
+```
+
+See [Node APIs in browser extensions](/docs/languages-and-frameworks/node#add-one-fallback-at-a-time) for the full recipe.
+
 #### Keep a set of locales for one browser
 
 A store may accept fewer languages than your `_locales` folder holds. Extension.js copies the whole folder for every browser. To ship a subset for one browser, push a plugin from `config` that deletes the other locale assets:

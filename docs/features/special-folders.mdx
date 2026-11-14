@@ -179,6 +179,22 @@ export default {
 
 See [special folder locations](/docs/features/extension-configuration#special-folder-locations) for the full `folders` key.
 
+### A helper module inside `scripts/`
+
+Every file in `scripts/` is built as an entry of its own. A helper that other files import ships as one more file that nothing loads. From the release after 4.1.39, the build prints one warning for a file that other files import and that nothing names by its output path. The warning prints the `exclude` value to paste:
+
+```plaintext
+scripts/helper.js is built as an entry of its own because every file in scripts/ is, yet other files import it and nothing names its output path. For a helper module, add exclude: ['scripts/helper.js'] to extension.config.js. For a script the extension injects, keep it.
+```
+
+```js extension.config.js
+export default {
+  exclude: ["scripts/helper.js"],
+};
+```
+
+With that key, the file is no longer emitted and the warning stops. A file that your code names by its output path does not warn, because that script is injected.
+
 ### Important contract
 
 When you use a `scripts/` entry as a content-script-like runtime entry, follow the content script initialization pattern. This is the default-export contract Extension.js expects for safe hot-reload of injected scripts:

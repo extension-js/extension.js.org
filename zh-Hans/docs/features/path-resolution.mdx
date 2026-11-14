@@ -87,6 +87,20 @@ Extension.js 对常见的路径输入做如下规范化：
 
 Extension.js 把所有编译产物输出到 `dist/<browser>` 下。
 
+## 被移动的页面里设置的相对路径
+
+manifest 声明的每个页面都会输出到以它的界面命名的文件夹里。写成 `index.html` 的侧边栏会输出为 `sidebar/index.html`。构建会重写页面 HTML 里的路径。页面的脚本设置的相对 `src` 或 `href` 不会被重写，浏览器会相对于新文件夹解析这个路径：
+
+```js
+// 源文件：index.html，以及 public/images/logo.png
+// 输出：sidebar/index.html 与 images/logo.png
+
+image.src = "images/logo.png"; // 请求 sidebar/images/logo.png，得到 404
+image.src = "/images/logo.png"; // 请求 images/logo.png
+```
+
+让路径以 `/` 开头，它就会从扩展根目录解析。从 4.1.39 之后的版本起，如果文件只存在于原来的相对位置，构建会打印一条 `Runtime-risk` 警告。警告会写明页面、页面请求的路径、输出里实际的路径，以及应该写的路径。
+
 ## 引用产物文件
 
 对于像 `chrome.runtime.getURL()` 这样的浏览器 API，请使用稳定的、以输出根目录为基的路径：

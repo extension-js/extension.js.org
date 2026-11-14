@@ -344,6 +344,21 @@ export default {
 
 `extension` 套件為這個引數匯出了 `ConfigHookContext` 型別。只接收一個引數的 hook 仍然可以正常運作。
 
+從 4.1.39 之後的版本起，上下文還帶有 `rspack`，也就是本次執行用來編譯的 bundler。它和 `@rspack/core` 以 `rspack` 匯出的是同一個物件。請從它上面取 plugin 類別，不要在設定檔裡匯入 `@rspack/core`。你的專案可能沒有這個套件，也可能裝的是另一個版本：
+
+```js
+export default {
+  config: (config, { rspack }) => {
+    config.plugins.push(
+      new rspack.ProvidePlugin({ Buffer: ["buffer", "Buffer"] }),
+    );
+    return config;
+  },
+};
+```
+
+完整的做法見[在瀏覽器擴充功能中使用 Node API](/zh-Hant/docs/languages-and-frameworks/node#一次只加一個-fallback)。
+
 #### 為某一個瀏覽器保留一組 locale
 
 商店接受的語言可能少於你的 `_locales` 資料夾所包含的語言。Extension.js 會為每個瀏覽器複製整個資料夾。要為某一個瀏覽器只發布其中一部分，請從 `config` 推入一個外掛，刪除其他 locale 的資源：

@@ -132,6 +132,21 @@ Repository: [extension-js/templates/newtab-crypto](https://github.com/extension-
 So a missing Node API shows up in one of two places, and which one depends on the module.
 Add explicit fallbacks below to handle either case.
 
+### `node:` specifiers and the build error
+
+From the release after 4.1.39, `node:fs` and `fs` are the same request, so both spellings get the same answer:
+
+- `crypto`, `fs`, and `path` resolve to an empty module under either spelling. That includes a subpath such as `fs/promises`.
+- Any other built-in stops the build. The message names the built-in, the file that imports it, and the `resolve.fallback` key to set.
+- A `require()` of a built-in with no stand-in is a warning. The call stays verbatim in the output and throws only if that code path runs. Set `EXTENSION_STRICT_REFS=true` to fail the build on it.
+
+```plaintext
+The Node.js built-in util does not exist in a browser, and this build has no stand-in for it. background.js imports it.
+Only crypto, fs, path are replaced with an empty module. In extension.config.js, set resolve.fallback from the config hook: {'util': false} for an empty module, or the path of a browser polyfill you installed, such as require.resolve('util/'). node:util and util read the same key.
+```
+
+On 4.1.39 and earlier, a `node:`-prefixed specifier fails the build for every module, `crypto`, `fs`, and `path` included.
+
 ## Setting up Node polyfills
 
 Use `extension.config.js` (or `.mjs` / `.cjs`) to extend the Rspack configuration and define safe fallbacks.
@@ -153,6 +168,79 @@ export default {
     };
     config.plugins = config.plugins || [];
     config.plugins.push(new NodePolyfillPlugin());
+    return config;
+  },
+};
+```
+
+### Add one fallback at a time
+
+You do not need a polyfill plugin for one or two modules. Install the browser packages, then extend `resolve.fallback` from the `config` hook. Set a key to `false` for an empty module. `Buffer` is a global in Node.js, so provide it with a `ProvidePlugin`.
+
+From the release after 4.1.39, the hook's second argument carries `rspack`, the bundler that Extension.js compiles with. Take the plugin class from it, so your project needs no `@rspack/core` of its own:
+
+<CodeGroup>
+
+```bash npm
+npm install buffer util
+```
+
+```bash pnpm
+pnpm add buffer util
+```
+
+```bash yarn
+yarn add buffer util
+```
+
+```bash bun
+bun add buffer util
+```
+
+```bash deno
+deno add npm:buffer npm:util
+```
+
+</CodeGroup>
+
+```js extension.config.js
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
+export default {
+  config: (config, { rspack }) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      buffer: require.resolve("buffer/"),
+      util: require.resolve("util/"),
+      os: false,
+    };
+    config.plugins.push(
+      new rspack.ProvidePlugin({ Buffer: ["buffer", "Buffer"] }),
+    );
+    return config;
+  },
+};
+```
+
+Spread the existing `resolve.fallback` so the three default keys stay. The trailing slash in `require.resolve("buffer/")` names the installed package, not the Node.js built-in.
+
+A name that exists only with the prefix, such as `node:test`, has no bare key for `resolve.fallback` to reach. Replace it with a module of your own through `rspack.NormalModuleReplacementPlugin`:
+
+```js extension.config.js
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
+export default {
+  config: (config, { rspack }) => {
+    config.plugins.push(
+      new rspack.NormalModuleReplacementPlugin(
+        /^node:test$/,
+        require.resolve("./src/test-stand-in.js"),
+      ),
+    );
     return config;
   },
 };
@@ -195,7 +283,7 @@ Use Node polyfills only for libraries that cannot run with standard Web APIs.
 - Do not assume filesystem access in extension runtime; keep `fs: false` unless you have a specific browser-safe strategy.
 - Prefer Web Crypto (`crypto.subtle`) over large Node crypto shims when possible.
 - Polyfills (browser-compatible replacements for Node APIs) increase bundle size and can affect startup time in extension pages and content scripts.
-- Some packages using `node:` specifiers may need explicit fallback handling.
+- From the release after 4.1.39, a `node:` specifier reads the same `resolve.fallback` key as its bare name. On earlier versions, it fails the build.
 
 ## Next steps
 

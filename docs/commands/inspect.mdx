@@ -74,7 +74,7 @@ extension inspect [project-path] [options]
 | `--tab <id>`              | For `content`/`page`: a specific tab. Without it, the `--url` match wins, else the active tab.                                            | active tab      |
 | `--list-tabs`             | List open tabs as `{id, url, title, active, windowId}` and exit.                                                                          | off             |
 | `--include <list>`        | Comma-separated result parts: `html`, `summary`.                                                                                          | `summary`       |
-| `--max-bytes <n>`         | Cap on returned HTML bytes.                                                                                                               | `262144`        |
+| `--max-bytes <n>`         | Cap on returned HTML bytes. From the release after 4.1.39, a value above `262144` is lowered to `262144`. | `262144`        |
 | `--with-console [n]`      | Also include the last `n` console lines for the target.                                                                                   | `20` when set   |
 | `--browser <browser>`     | Which session to target (`chrome`, `chromium`, `edge`, `firefox`).                                                                        | `chromium`      |
 | `--timeout <ms>`          | Command timeout in milliseconds.                                                                                                          | `5000`          |
@@ -110,6 +110,14 @@ Both output modes show it. Pretty mode prints the console lines after the DOM su
 ## Truncation
 
 HTML larger than `--max-bytes` comes back truncated. Pretty mode prints a truncation notice on stderr, and `--output json` sets `truncated: true` in the envelope (see [Result envelope](/docs/contracts/result-envelope)).
+
+From the release after 4.1.39, one result carries at most 256 KB, and `--max-bytes` cannot raise that. A value above `262144` is lowered to it, and a `warnings` entry says so.
+
+The cap counts the whole result as JSON, and markup grows when it is escaped. HTML under `--max-bytes` can still be cut to fit. The result then carries `truncated: true`, `value.htmlTruncated: true`, and a `warnings` entry that gives the `eval` call to read the rest:
+
+```plaintext
+html cut to 180000 of 400000 characters to fit the 262144-byte result cap. Read on with eval: document.documentElement.outerHTML.slice(180000, 380000)
+```
 
 ## Failure modes
 

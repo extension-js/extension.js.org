@@ -175,6 +175,12 @@ You do not need prefixed background keys for the common case. Extension.js trans
 
 In the Chromium direction, `scripts` is always removed from the output. Chromium MV3 rejects the whole extension whenever `background.scripts` is present, even beside a valid `service_worker`, so the key can never ship in a Chromium build.
 
+#### Firefox builds drop permissions that Firefox rejects
+
+From the release after 4.1.39, a Gecko build removes the permission strings that Firefox rejects from `permissions` and `optional_permissions`, for example `sidePanel`, `debugger`, and `offscreen`. The build prints a warning that lists each one. Those strings grant nothing on Firefox, so the extension loses nothing that it could have run. Declare a Firefox-only replacement with the `firefox:` prefix if you have one.
+
+The build keeps `incognito: "split"` as declared and says so. Firefox has no split mode and reads the value as `"not_allowed"`, so the extension never runs in private windows. Set `firefox:incognito` to `"spanning"` or `"not_allowed"` to choose.
+
 ### 3) Output per browser target
 
 Extension.js writes each target to its own build folder:

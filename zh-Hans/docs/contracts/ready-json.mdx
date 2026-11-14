@@ -37,6 +37,19 @@ act 类工具（`eval`、`storage`、`reload`、`open`、`inspect`）需要第�
 
 attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也会清除之前的 `extension_load_refused` 状态，因为执行器就跑在被托管的浏览器里面。
 
+### 接受 act 命令的会话会按住 ready
+
+从 4.1.39 之后的版本起，接受 act 命令的会话会保持 `status: "starting"`，直到扩展的 background 连上，或者过去 10 秒。适用的情形是：
+
+- 带 `--allow-control` 或 `--allow-eval` 的 `preview` 与 `start`。没有 background 的构建不会等待，因为它没有任何东西会来连接。
+- 带 `--allow-control` 或 `--allow-eval`，并且由会话启动浏览器的 `dev`。
+
+`dev` 等待期间，契约里带有 `awaitingExecutorSince`。background 连上或者等待结束之后，这个字段就会消失。
+
+等待有上限，所以从不连接的扩展仍然会得到 `ready`，只是旁边没有 `executorAttachedAt`。说明 act 命令可以运行的字段仍然是 `executorAttachedAt`。
+
+在 Firefox 上，处于等待中的 `dev` 会话要同时有 RDP 端口和 background，才会报告 `ready`。
+
 ## 字段参考（schema v2）
 
 始终存在的字段：
@@ -102,6 +115,7 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `runtime`            | `"attached"` 或 `"detached"` | service worker 连上并且可以被驱动后为 `attached`。从 4.1.20 起，最后一个已连接的扩展上下文断开后为 `detached`，重新连接后又回到 `attached`。 |
 | `executorAttachedAt` | ISO string     | service worker 第一次连上的时间。断开后会作为来源记录保留。 |
 | `executorDetachedAt` | ISO string     | 从 4.1.20 起，最后一个已连接的扩展上下文断开的时间。 |
+| `awaitingExecutorSince` | ISO string | `dev` 会话，从 4.1.39 之后的版本起：会话开始为 background 按住 `ready` 的时间。background 连上或过去 10 秒之后移除。 |
 | `managedExtensions`  | array          | 除了你的扩展之外、引擎还加载的每一个扩展，形式是 `{path, id?}` 记录。做统计时按 id 把它们减掉。                                                                    |
 
 ## 开发附加项

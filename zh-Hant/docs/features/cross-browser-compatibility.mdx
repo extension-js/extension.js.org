@@ -174,6 +174,12 @@ deno run -A npm:extension@latest dev --chromium-binary /Applications/Brave\\ Bro
 
 在 Chromium 這個方向，`scripts` 一律會從輸出中移除。只要出現 `background.scripts`，即使旁邊有合法的 `service_worker`，Chromium MV3 也會拒絕整個擴充功能，因此這個鍵永遠不能出現在 Chromium 建置中。
 
+#### Firefox 建置會移除 Firefox 拒絕的權限
+
+從 4.1.39 之後的版本起，Gecko 建置會從 `permissions` 與 `optional_permissions` 裡移除 Firefox 拒絕的權限字串，例如 `sidePanel`、`debugger` 與 `offscreen`。建置會印出一則警告，列出每一項。這些字串在 Firefox 上不授予任何東西，所以擴充功能不會失去任何它本來能執行的功能。如果你有只用於 Firefox 的替代項，請用 `firefox:` 前綴宣告它。
+
+建置會依宣告保留 `incognito: "split"`，並印出一則警告說明這一點。Firefox 沒有 split 模式，會把這個值讀作 `"not_allowed"`，所以擴充功能永遠不會在隱私視窗裡執行。把 `firefox:incognito` 設為 `"spanning"` 或 `"not_allowed"` 來做出選擇。
+
 ### 3) 為每個瀏覽器目標輸出
 
 Extension.js 會把各目標寫入各自的建置資料夾：

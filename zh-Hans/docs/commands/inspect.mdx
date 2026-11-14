@@ -74,7 +74,7 @@ extension inspect [project-path] [options]
 | `--tab <id>`              | 用于 `content`/`page`：指定某个标签页。不指定时，`--url` 的匹配结果优先，否则用当前活动标签页。                      | 活动标签页      |
 | `--list-tabs`             | 以 `{id, url, title, active, windowId}` 的形式列出打开的标签页，然后退出。                                           | 关闭            |
 | `--include <list>`        | 用逗号分隔的结果组成部分：`html`、`summary`。                                                                        | `summary`       |
-| `--max-bytes <n>`         | 返回的 HTML 字节数上限。                                                                                            | `262144`        |
+| `--max-bytes <n>`         | 返回的 HTML 字节数上限。从 4.1.39 之后的版本起，大于 `262144` 的值会被降到 `262144`。 | `262144`        |
 | `--with-console [n]`      | 同时包含该目标最近 `n` 行控制台输出。                                                                               | 指定时为 `20`   |
 | `--browser <browser>`     | 目标是哪个会话（`chrome`、`chromium`、`edge`、`firefox`）。                                                         | `chromium`      |
 | `--timeout <ms>`          | 命令超时时间，单位毫秒。                                                                                            | `5000`          |
@@ -110,6 +110,14 @@ extension inspect --tab 412 --with-console
 ## 截断
 
 超过 `--max-bytes` 的 HTML 返回时会被截断。pretty 模式会在 stderr 上打印一条截断提示，`--output json` 会在信封中设置 `truncated: true`（参见 [结果信封](/zh-Hans/docs/contracts/result-envelope)）。
+
+从 4.1.39 之后的版本起，一个结果最多携带 256 KB，`--max-bytes` 无法调高这个上限。大于 `262144` 的值会被降到这个数，并有一条 `warnings` 条目说明这一点。
+
+这个上限按整个结果的 JSON 计算，而标记在转义之后会变长。没有超过 `--max-bytes` 的 HTML 仍然可能为了放得下而被截断。这时结果会带上 `truncated: true`、`value.htmlTruncated: true`，以及一条 `warnings` 条目，给出用来读取剩余部分的 `eval` 调用：
+
+```plaintext
+html cut to 180000 of 400000 characters to fit the 262144-byte result cap. Read on with eval: document.documentElement.outerHTML.slice(180000, 380000)
+```
 
 ## 失败模式
 
