@@ -1,6 +1,6 @@
 ---
 title: "Cross-browser extension development"
-description: "Ship one extension to Chrome, Edge, and Firefox from a single project. Extension.js handles browser-specific manifest fields and build output for each target."
+description: "Ship one extension to Chrome, Edge, Firefox, and Safari from a single project. Extension.js handles browser-specific manifest fields and build output for each target."
 keywords:
   [
     "cross-browser extension development",
@@ -12,6 +12,7 @@ keywords:
     "chrome",
     "firefox",
     "edge",
+    "safari",
     "browser",
     "manifest",
     "popup",
@@ -19,12 +20,12 @@ keywords:
 ---
 
 Extension.js handles browser-specific setup during development and build. You
-produce runtime-correct outputs for Chromium and Gecko (Firefox engine) targets
-from one project.
+produce runtime-correct outputs for Chromium, Gecko (Firefox engine), and Safari
+targets from one project.
 
 ## Cross-browser extension development
 
-Cross-browser extension development means writing one extension that ships to Chrome, Edge, and Firefox without forking the codebase. Extension.js compiles a single project into per-browser artifacts (`dist/chrome`, `dist/edge`, `dist/firefox`) and filters the manifest for the active target. The reload loop, runtime APIs, and packaging all match the browser you are debugging.
+Cross-browser extension development means writing one extension that ships to Chrome, Edge, Firefox, and Safari without forking the codebase. Extension.js compiles a single project into per-browser artifacts (`dist/chrome`, `dist/edge`, `dist/firefox`, `dist/safari`) and filters the manifest for the active target. The reload loop, runtime APIs, and packaging all match the browser you are debugging.
 
 Use one `manifest.json` and target specific browsers or custom binaries. Enable the polyfill when you need `browser.*` in Chromium browsers older than version 148.
 
@@ -38,7 +39,7 @@ Chrome and Firefox extensions share most of the WebExtensions surface but differ
 
 ## Browser-specific manifest fields
 
-Browser-specific manifest fields are how Extension.js keeps a single `manifest.json` working across browsers. At compile time, Extension.js filters prefixed keys (`chromium:`, `chrome:`, `edge:`, `firefox:`, `gecko:`) to the active target. `chromium:` reaches every Chromium-family browser, while `chrome:` and `edge:` reach only that browser. Unprefixed keys apply everywhere. See [Browser-specific manifest fields](/docs/features/browser-specific-fields) for the full prefix list.
+Browser-specific manifest fields are how Extension.js keeps a single `manifest.json` working across browsers. At compile time, Extension.js filters prefixed keys (`chromium:`, `chrome:`, `edge:`, `firefox:`, `gecko:`, `safari:`) to the active target. `chromium:` reaches every Chromium-family browser, while `chrome:` and `edge:` reach only that browser. Unprefixed keys apply everywhere. See [Browser-specific manifest fields](/docs/features/browser-specific-fields) for the full prefix list.
 
 ## Template examples
 
@@ -136,6 +137,8 @@ Use a binary path that matches your OS:
 - **Linux**: `/usr/bin/brave-browser` (or another Chromium-based browser binary)
 - **Windows**: `"C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"`
 
+On macOS, `--browser safari` converts the extension and builds a Safari app through Xcode. See [Building Safari extensions](/docs/browsers/safari).
+
 When you pass a binary, Extension.js maps it to a browser engine target:
 
 - `chromium-based` for `--chromium-binary`
@@ -159,7 +162,8 @@ For example:
 ```
 
 For Chromium-family targets, Extension.js uses `chromium:` for the whole family, and `chrome:` or `edge:` for one browser.  
-For Firefox-family targets, Extension.js uses `firefox:` and `gecko:`.
+For Firefox-family targets, Extension.js uses `firefox:` and `gecko:`.  
+For Safari targets, `safari:` and `webkit:` win over the `chromium:` keys that Safari inherits.
 
 <Note>
   See [Browser-specific manifest fields](/docs/features/browser-specific-fields)
@@ -191,6 +195,7 @@ Extension.js writes each target to its own build folder:
 - `dist/chromium` (the default target)
 - `dist/chromium-based` (custom Chromium engines)
 - `dist/gecko-based` (custom Gecko engines)
+- `dist/safari` (Safari, with the generated Xcode project in `dist/safari-xcode`)
 
 This keeps your builds organized and easier to ship in CI.
 

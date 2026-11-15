@@ -1,6 +1,6 @@
 ---
 title: "為 Chrome 與 Firefox 開發跨瀏覽器擴充功能"
-description: "用單一專案同時支援 Chrome、Edge 與 Firefox。Extension.js 會處理各目標的瀏覽器專屬 manifest 欄位與建置輸出。"
+description: "用單一專案同時支援 Chrome、Edge、Firefox 與 Safari。Extension.js 會處理各目標的瀏覽器專屬 manifest 欄位與建置輸出。"
 keywords:
   [
     "cross-browser extension development",
@@ -12,6 +12,7 @@ keywords:
     "chrome",
     "firefox",
     "edge",
+    "safari",
     "browser",
     "manifest",
     "popup",
@@ -19,11 +20,11 @@ keywords:
 ---
 
 Extension.js 會在開發與建置期間處理瀏覽器專屬的設定。你可以用同一個專案 為
-Chromium 與 Gecko（Firefox 引擎）目標產出符合執行階段需求的輸出。
+Chromium、Gecko（Firefox 引擎）與 Safari 目標產出符合執行階段需求的輸出。
 
 ## 跨瀏覽器擴充功能開發
 
-跨瀏覽器擴充功能開發指的是寫一個擴充功能，能同時上架到 Chrome、Edge 與 Firefox，而不需要分叉程式碼。Extension.js 會把單一專案編譯成各瀏覽器專屬的產物（`dist/chrome`、`dist/edge`、`dist/firefox`），並依當前目標過濾 manifest。重新載入流程、執行階段 API 與打包行為都會對應你正在除錯的瀏覽器。
+跨瀏覽器擴充功能開發指的是寫一個擴充功能，能同時上架到 Chrome、Edge、Firefox 與 Safari，而不需要分叉程式碼。Extension.js 會把單一專案編譯成各瀏覽器專屬的產物（`dist/chrome`、`dist/edge`、`dist/firefox`、`dist/safari`），並依當前目標過濾 manifest。重新載入流程、執行階段 API 與打包行為都會對應你正在除錯的瀏覽器。
 
 只使用一份 `manifest.json`，就能鎖定特定瀏覽器或自訂瀏覽器二進位檔。若你需要在早於 148 版的 Chromium 瀏覽器中使用 `browser.*`，可以啟用 polyfill。
 
@@ -37,7 +38,7 @@ Chrome 與 Firefox 擴充功能共用大部分 WebExtensions 表面，但每天�
 
 ## 瀏覽器專屬的 manifest 欄位
 
-Extension.js 透過帶前綴的 manifest 欄位，讓單一份 `manifest.json` 在各瀏覽器上都能運作。在編譯時，Extension.js 會把帶前綴的鍵（`chromium:`、`chrome:`、`edge:`、`firefox:`、`gecko:`）過濾到當前目標。`chromium:` 套用到所有 Chromium 家族瀏覽器，`chrome:` 與 `edge:` 只套用到對應的那個瀏覽器，未加前綴的鍵則套用到所有目標。完整前綴清單請見 [瀏覽器專屬的 manifest 欄位](/zh-Hant/docs/features/browser-specific-fields)。
+Extension.js 透過帶前綴的 manifest 欄位，讓單一份 `manifest.json` 在各瀏覽器上都能運作。在編譯時，Extension.js 會把帶前綴的鍵（`chromium:`、`chrome:`、`edge:`、`firefox:`、`gecko:`、`safari:`）過濾到當前目標。`chromium:` 套用到所有 Chromium 家族瀏覽器，`chrome:` 與 `edge:` 只套用到對應的那個瀏覽器，未加前綴的鍵則套用到所有目標。完整前綴清單請見 [瀏覽器專屬的 manifest 欄位](/zh-Hant/docs/features/browser-specific-fields)。
 
 ## 範本範例
 
@@ -135,6 +136,8 @@ deno run -A npm:extension@latest dev --chromium-binary /Applications/Brave\\ Bro
 - **Linux**：`/usr/bin/brave-browser`（或其他 Chromium 系瀏覽器的二進位檔）
 - **Windows**：`"C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"`
 
+在 macOS 上，`--browser safari` 會轉換擴充功能，並透過 Xcode 建置 Safari 應用程式。請見[建置 Safari 擴充功能](/zh-Hant/docs/browsers/safari)。
+
 當你傳入二進位檔時，Extension.js 會把它對應到一個瀏覽器引擎目標：
 
 - `--chromium-binary` 對應 `chromium-based`
@@ -158,7 +161,8 @@ deno run -A npm:extension@latest dev --chromium-binary /Applications/Brave\\ Bro
 ```
 
 對 Chromium 家族目標，Extension.js 以 `chromium:` 涵蓋整個家族，以 `chrome:` 或 `edge:` 指定單一瀏覽器。  
-對 Firefox 家族目標，Extension.js 會使用 `firefox:` 與 `gecko:`。
+對 Firefox 家族目標，Extension.js 會使用 `firefox:` 與 `gecko:`。  
+對 Safari 目標，`safari:` 與 `webkit:` 優先於 Safari 繼承的 `chromium:` 鍵。
 
 <Note>
   完整的帶前綴 manifest 欄位細節，請參閱 [瀏覽器專屬的 manifest
@@ -190,6 +194,7 @@ Extension.js 會把各目標寫入各自的建置資料夾：
 - `dist/chromium`（預設目標）
 - `dist/chromium-based`（自訂 Chromium 引擎）
 - `dist/gecko-based`（自訂 Gecko 引擎）
+- `dist/safari`（Safari，產生的 Xcode 專案位於 `dist/safari-xcode`）
 
 這讓你的建置產物結構分明，也更容易在 CI 中發佈。
 
