@@ -92,7 +92,7 @@ deno run -A npm:extension@latest create my-extension --template=content-typescri
 
 ## 自动生成的环境类型
 
-对于 TypeScript 项目，Extension.js 会在项目根目录生成 `extension-env.d.ts`，里面包含环境声明（浏览器/运行时全局变量、`EXTENSION_PUBLIC_*` 环境变量以及打包器类型）。[`dev`](/zh-Hans/docs/commands/dev) 和 [`build`](/zh-Hans/docs/commands/build) 都会重新生成它，所以编辑器的类型与 CI 中的 `tsc --noEmit` 始终保持一致。把它提交进版本库（或加进 git-ignore）都可以，下次运行时会重新创建。
+对于 TypeScript 项目，Extension.js 会在项目根目录生成 `extension-env.d.ts`，里面包含环境声明（浏览器/运行时全局变量、`EXTENSION_PUBLIC_*` 环境变量以及打包器类型）。[`dev`](/zh-Hans/docs/commands/dev)、[`build`](/zh-Hans/docs/commands/build) 和 [`start`](/zh-Hans/docs/commands/start) 都会重新生成它，所以编辑器的类型与 CI 中的 `tsc --noEmit` 始终保持一致。把它提交进版本库（或加进 git-ignore）都可以，下次运行时会重新创建。
 
 从 4.1.39 之后的版本起，这个文件不存在时，只有在你的 `tsconfig.json` 会读到它的情况下才会被创建。见[让 extension-env.d.ts 留在 include 列表里](/zh-Hans/docs/languages-and-frameworks/extension-api-types)。
 
@@ -194,9 +194,9 @@ Extension.js 会在 `package.json` 旁边查找 `tsconfig.json`。
 
 #### 自动类型
 
-Extension.js 在开发期会在项目根目录生成 `extension-env.d.ts`。该文件包含 Extension.js API 与浏览器 polyfill 类型的声明。
+Extension.js 会在项目根目录生成 `extension-env.d.ts`。`dev`、`build` 和 `start` 每次都会重写它。该文件引用扩展 API、Extension.js 环境变量键和资源导入的类型声明。
 
-```ts
+```ts extension-env.d.ts
 // Required Extension.js types for TypeScript projects.
 // This file is auto-generated and should not be excluded.
 // If you need additional types, consider creating a new *.d.ts file and
@@ -204,9 +204,62 @@ Extension.js 在开发期会在项目根目录生成 `extension-env.d.ts`。该�
 // See https://www.typescriptlang.org/tsconfig#include for more information.
 /// <reference types="extension/types" />
 
-// Polyfill types for browser.* APIs.
+// Polyfill types for browser.* APIs
 /// <reference types="extension/types/polyfill" />
 ```
+
+#### 扩展 API 的类型
+
+Extension.js 用 [`chrome-types`](https://www.npmjs.com/package/chrome-types) 为扩展 API 提供类型。这个包由 Chrome 从 Chromium 源码生成。`browser` 是原生命名空间，它的方法返回 Promise。`chrome` 是它的别名。这个包随 `extension` 一起安装，所以新项目不需要额外的类型包。
+
+```ts
+const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+```
+
+`chrome-types` 没有声明只有 Firefox 才有的 API。Firefox 的 `browser.sidebarAction` 和 `browser.browserAction` 由 Extension.js 自己提供类型。
+
+#### 安装了 @types/chrome 的项目
+
+安装了 `@types/chrome` 的项目会继续使用它。`chrome` 的类型来自这个包，`browser` 的类型和以前一样来自 `webextension-polyfill`。
+
+`@types/chrome` 和 `chrome-types` 都声明了 `chrome` 全局变量，所以这两个包不能同时加载。生成的 `extension-env.d.ts` 只引用其中一个。当你的 `package.json` 列出了 `@types/chrome` 时，它引用 `@types/chrome`。当项目目录或某个上级目录里存在 `node_modules/@types/chrome` 时，也是如此：
+
+```ts extension-env.d.ts
+/// <reference types="extension/types/legacy" />
+
+// This project installs @types/chrome, so it types the extension APIs.
+// Remove that package to get chrome-types and the native browser namespace.
+/// <reference types="chrome" />
+
+// Polyfill types for browser.* APIs
+/// <reference types="extension/types/polyfill" />
+```
+
+改用 `chrome-types`：
+
+1. 从项目里移除 `@types/chrome`。
+2. 运行一次 `extension dev` 或 `extension build`。
+
+回到 `@types/chrome`：
+
+1. 把 `@types/chrome` 安装为开发依赖。
+2. 运行一次 `extension dev` 或 `extension build`。
+
+#### Polyfill 的类型
+
+在默认配置下，`browser` 全局变量拥有来自 `chrome-types` 的原生类型。想要 `webextension-polyfill` 的类型，请导入这个模块：
+
+```ts
+import browser from "webextension-polyfill";
+```
+
+这条导入只改变类型，以及你的代码所调用的对象。polyfill 何时运行，请阅读[跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
+
+#### 升级说明
+
+更早的版本会随 `extension` 一起安装 `@types/chrome`，并用 `webextension-polyfill` 为 `browser` 提供类型。安装了 `@types/chrome` 的项目会保留这些类型。没有 `@types/chrome` 的项目在升级后会改用 `chrome-types`。
+
+改用之后，`tsc` 可能会报告 `chrome.tabs.TabChangeInfo` 这样的名称不存在。安装 `@types/chrome` 可以保留以前的类型，然后运行一次 `extension dev` 或 `extension build`。
 
 #### 转译与类型检查
 
@@ -221,6 +274,13 @@ Extension.js 在开发期会在项目根目录生成 `extension-env.d.ts`。该�
     "typecheck": "tsc --noEmit"
   }
 }
+```
+
+`tsc` 不会写出 `extension-env.d.ts`。只有 `dev`、`build` 和 `start` 会重新生成它。在 CI 中，请先运行其中一条命令，再运行 `tsc`：
+
+```bash
+npx extension build
+npx tsc --noEmit
 ```
 
 ## 下一步
