@@ -179,9 +179,33 @@ If your content script appears to compile but never mounts, check the default ex
 
 ### What survives a whole-extension reload
 
-When a background edit reloads the whole extension, the browser discards the old copy's code. No cleanup runs for it, and no listener of its own can run either, so an event sent to it is never heard. What the old copy added to the page stays.
+When an edit in `extension dev` reloads the whole extension, a tab that stays open still holds the copy of your content script from before the reload. What happens to that old copy depends on the browser engine:
 
-Put everything that your script adds to the page under one host element marked `data-extension-root`. When the next copy starts, Extension.js removes the hosts that an older copy left behind:
+- **Chromium** keeps the old copy running in the open tab beside the new one until the tab reloads, timers and listeners included. Its `chrome.runtime.id` is gone, and no cleanup is called for it, even when the script has a default export that returns one.
+- **Firefox** discards the old copy. No cleanup is called for it, and it never runs again.
+
+On both engines, what the old copy added to the page stays until the next copy removes it.
+
+To end the old copy on Chromium, reload the tab. Or have long-lived work stop once `chrome.runtime.id` is gone:
+
+```ts
+const timer = setInterval(() => {
+  if (!chrome.runtime?.id) {
+    clearInterval(timer);
+    return;
+  }
+
+  // Your periodic work.
+}, 1000);
+```
+
+For a script with no default export, the dev session warning says the same on Chromium:
+
+```plaintext
+On Chromium a whole-extension reload leaves the old copy running in the open tab beside the new one, timers and listeners included, and no cleanup runs for it. Reload the tab to end it, or have long-lived work stop once chrome.runtime.id is gone. What it added to the page stays too, so mount that under an element with data-extension-root and the next copy removes it.
+```
+
+Put everything that your script adds to the page under one host element marked `data-extension-root`. When the next copy starts, Extension.js removes the hosts that an older copy left behind, on Chromium and on Firefox:
 
 ```ts
 export default function main() {

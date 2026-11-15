@@ -134,7 +134,14 @@ deno run -A npm:extension@latest create my-extension --template=action
 
 Chromium 只有在開啟 `ExtensionIconVariants` 旗標時才會讀取 `icon_variants`，Firefox 目前還不讀取這個鍵。對於這些目標，建置會保留你的 manifest 中宣告的 `icons` 與 action 的 `default_icon`。
 
-如果 manifest 中沒有它們，建置會先用不帶 `color_schemes` 的變體群組來填入，其次用淺色群組。Chromium 只接受 PNG 尺寸，Firefox 還可以使用 `any` 的 SVG。Safari 的輸出會原樣保留 manifest。
+如果 manifest 中沒有它們，建置會先用不帶 `color_schemes` 的變體群組來填入，其次用淺色群組。Chromium 只接受 PNG 尺寸，Firefox 還可以使用 `any` 的 SVG。
+
+Safari 的應用程式轉換器目前還不讀取 `icon_variants`，只用 `icons` 來產生應用程式圖示。Safari 建置會得到同樣的後備處理：
+
+- 如果 manifest 中有 `icons` 與 action 的 `default_icon`，建置會保留它們。
+- 如果 manifest 中沒有它們，建置會先用不帶 `color_schemes` 的變體群組來填入，其次用淺色群組。
+- 建置優先使用 PNG 尺寸，只有在沒有任何群組提供 PNG 時才使用 SVG。
+- `icon_variants` 本身會留在 Safari 的輸出裡，所以 Apple 的轉換器仍然會把這個鍵列為不支援。
 
 建置會印出一則提示，說明瀏覽器顯示的是哪些圖示：
 
@@ -148,6 +155,13 @@ Firefox shows icons from your manifest instead.
 ```plaintext
 Chromium reads icon_variants only with its ExtensionIconVariants flag on.
 The manifest had no icons, so the build filled it from the variant that fits every color scheme, or the light one.
+```
+
+在 Safari 建置中，第一行會寫出 Safari：
+
+```plaintext
+Safari's app converter does not read icon_variants yet.
+Safari shows icons from your manifest instead.
 ```
 
 瀏覽器前綴對這個鍵同樣有效。`chromium:icon_variants` 或 `firefox:icon_variants` 底下的清單只會在對應瀏覽器的建置中輸出它的檔案。請見[瀏覽器專屬的 manifest 欄位](/zh-Hant/docs/features/browser-specific-fields)。

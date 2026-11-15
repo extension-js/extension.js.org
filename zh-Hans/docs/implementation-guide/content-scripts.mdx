@@ -179,9 +179,33 @@ export default {};
 
 ### 整个扩展重载后什么会留下
 
-当一次 background 修改触发整个扩展重载时，浏览器会丢弃旧副本的代码。不会为它运行任何清理，它自己的监听器也无法再运行，所以发给它的事件永远不会被收到。旧副本添加到页面上的东西会留在那里。
+当 `extension dev` 中的一次修改触发整个扩展重载时，保持打开的标签页里仍然留着重载之前的那份 content script 副本。这个旧副本的去向取决于浏览器引擎：
 
-把你的脚本添加到页面上的一切都放在一个标记了 `data-extension-root` 的宿主元素之下。下一个副本启动时，Extension.js 会移除旧副本遗留的这些宿主：
+- **Chromium** 会让旧副本在打开的标签页里和新副本一起继续运行，定时器和监听器也包括在内，直到标签页重新加载为止。它的 `chrome.runtime.id` 已经不存在，也不会为它调用任何清理，即使脚本的默认导出返回了清理函数也一样。
+- **Firefox** 会丢弃旧副本。不会为它调用任何清理，它也不会再运行。
+
+在这两个引擎上，旧副本添加到页面上的东西都会留在那里，直到下一个副本把它移除。
+
+要在 Chromium 上结束旧副本，请重新加载标签页。或者让长时间运行的工作在 `chrome.runtime.id` 消失后停下来：
+
+```ts
+const timer = setInterval(() => {
+  if (!chrome.runtime?.id) {
+    clearInterval(timer);
+    return;
+  }
+
+  // Your periodic work.
+}, 1000);
+```
+
+对于没有默认导出的脚本，开发会话的警告在 Chromium 上也是这样说的：
+
+```plaintext
+On Chromium a whole-extension reload leaves the old copy running in the open tab beside the new one, timers and listeners included, and no cleanup runs for it. Reload the tab to end it, or have long-lived work stop once chrome.runtime.id is gone. What it added to the page stays too, so mount that under an element with data-extension-root and the next copy removes it.
+```
+
+把你的脚本添加到页面上的一切都放在一个标记了 `data-extension-root` 的宿主元素之下。下一个副本启动时，Extension.js 会移除旧副本遗留的这些宿主，在 Chromium 和 Firefox 上都是如此：
 
 ```ts
 export default function main() {
