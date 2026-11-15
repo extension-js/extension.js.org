@@ -38,8 +38,10 @@ Manifest V2 support differs by browser:
 
 - **Chrome**: Chrome 138 was the last version to support Manifest V2, as Google's [Manifest V2 support timeline](https://developer.chrome.com/docs/extensions/develop/migrate/mv2-deprecation-timeline) states.
 - **Chromium**: Chromium 151 removed the last flag that loaded a Manifest V2 extension unpacked.
-- **Microsoft Edge**: Edge has deprecated Manifest V2 and still loads it. [Microsoft's timeline](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/manifest-v3) shows a warning to some users and names no final version.
+- **Microsoft Edge**: Edge has deprecated Manifest V2 and still runs it. Edge 157 loaded and ran an unpacked Manifest V2 extension with no warning, measured on 2026-11-15. [Microsoft's timeline](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/manifest-v3) names no final version.
 - **Firefox and Safari**: both keep Manifest V2.
+
+A Manifest V2 theme, a manifest with a `theme` key, is not flagged. Chrome 151 still installs it.
 
 A build of a Manifest V2 extension for a Chromium target prints one warning with those versions and the ways out:
 
@@ -54,7 +56,37 @@ The chrome build will not install. Options:
     (chromium:manifest_version: 3, firefox:manifest_version: 2, …)
 ```
 
-An Edge build prints a deprecation notice with the same options, because Edge still loads Manifest V2.
+An Edge build prints a deprecation notice with the same options, because Edge still runs Manifest V2. An Edge session launches the extension and does not count the manifest as a refusal:
+
+```plaintext
+This extension declares Manifest V2, which Microsoft Edge has deprecated.
+Edge 157 still loads and runs one unpacked with no warning, and Microsoft names no final version yet.
+Chrome 138 was the last Chrome version to support it. Options:
+```
+
+#### One verdict per session
+
+A Manifest V2 project on a Chromium target hears the verdict once per session:
+
+- **`dev` and `start`**: the build warning above says it. No second line prints before the launch.
+- **`preview`**: no build runs, so one line says it before the launch.
+
+```plaintext
+This extension declares Manifest V2, and Chrome no longer runs it.
+PATH /path/to/project/dist/chrome
+Chrome 138 was the last version to support Manifest V2, and Chrome 151 removed the flag that still loaded one unpacked.
+Run it on a browser that keeps Manifest V2 (--browser firefox) or migrate the manifest to Manifest V3.
+```
+
+On a target that refuses Manifest V2, `start` and `preview` then stop with this exit message:
+
+```plaintext
+Chrome refuses to load this extension, so there is nothing to preview.
+PATH /path/to/project/dist/chrome
+Read the reason above, fix the manifest, then run the command again.
+```
+
+A `dev` session stays up after the build warning. The refusal that the browser reports is recorded in `ready.json` as `extension_load_refused`, and in `extension logs`. The terminal does not print it a second time. A refusal for any other reason still prints.
 
 ### Invalid match patterns
 

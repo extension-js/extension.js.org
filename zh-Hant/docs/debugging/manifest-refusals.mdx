@@ -38,8 +38,10 @@ Extension.js 在兩個位置補上了這個落差：
 
 - **Chrome**：Chrome 138 是最後一個支援 Manifest V2 的版本，Google 的 [Manifest V2 支援時間表](https://developer.chrome.com/docs/extensions/develop/migrate/mv2-deprecation-timeline)寫明了這一點。
 - **Chromium**：Chromium 151 移除了最後一個能以未封裝方式載入 Manifest V2 擴充功能的旗標。
-- **Microsoft Edge**：Edge 已經淘汰 Manifest V2，但仍然會載入它。[Microsoft 的時間表](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/manifest-v3)會向部分使用者顯示警告，並且沒有給出最終版本。
+- **Microsoft Edge**：Edge 已經淘汰 Manifest V2，但仍然會執行它。在 2026-11-15 的實測中，Edge 157 載入並執行了一個未封裝的 Manifest V2 擴充功能，沒有任何警告。[Microsoft 的時間表](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/manifest-v3)沒有給出最終版本。
 - **Firefox 與 Safari**：兩者都繼續支援 Manifest V2。
+
+Manifest V2 佈景主題（帶有 `theme` 鍵的 manifest）不會被標記。Chrome 151 仍然會安裝它。
 
 為 Chromium 目標建置 Manifest V2 擴充功能時，建置會印出一則警告，其中包含這些版本與幾條出路：
 
@@ -54,7 +56,37 @@ The chrome build will not install. Options:
     (chromium:manifest_version: 3, firefox:manifest_version: 2, …)
 ```
 
-Edge 的建置印出的是一則淘汰提示，附帶同樣的選項，因為 Edge 仍然會載入 Manifest V2。
+Edge 的建置印出的是一則淘汰提示，附帶同樣的選項，因為 Edge 仍然會執行 Manifest V2。Edge session 會正常啟動擴充功能，不會把這個 manifest 算作拒絕：
+
+```plaintext
+This extension declares Manifest V2, which Microsoft Edge has deprecated.
+Edge 157 still loads and runs one unpacked with no warning, and Microsoft names no final version yet.
+Chrome 138 was the last Chrome version to support it. Options:
+```
+
+#### 每個 session 只說一次
+
+以 Chromium 為目標的 Manifest V2 專案，每個 session 只會聽到一次這個結論：
+
+- **`dev` 與 `start`**：由上面的建置警告說出。啟動之前不會再印出第二行。
+- **`preview`**：不會執行建置，所以在啟動之前用一行說出。
+
+```plaintext
+This extension declares Manifest V2, and Chrome no longer runs it.
+PATH /path/to/project/dist/chrome
+Chrome 138 was the last version to support Manifest V2, and Chrome 151 removed the flag that still loaded one unpacked.
+Run it on a browser that keeps Manifest V2 (--browser firefox) or migrate the manifest to Manifest V3.
+```
+
+在拒絕 Manifest V2 的目標上，`start` 與 `preview` 隨後會以這則結束訊息停止：
+
+```plaintext
+Chrome refuses to load this extension, so there is nothing to preview.
+PATH /path/to/project/dist/chrome
+Read the reason above, fix the manifest, then run the command again.
+```
+
+`dev` session 在建置警告之後會繼續執行。瀏覽器回報的拒絕會以 `extension_load_refused` 記錄在 `ready.json` 裡，也會記錄在 `extension logs` 裡。終端機不會再印出第二次。其他原因造成的拒絕仍然會印出。
 
 ### 無效的 match 樣式
 
