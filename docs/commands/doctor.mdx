@@ -116,6 +116,35 @@ Some legs have deliberate soft answers:
 
 The pretty output prints one line per check plus the first failing check's remediation. Each status has a glyph: `✓` pass, `✗` fail, `!` warn, `–` skip. The exit code is `0` when nothing failed and `1` when any check failed, so CI and scripts can gate on it directly.
 
+## Sessions from `start` and `preview`
+
+From the release after 4.1.39, `doctor` also diagnoses an `extension start` or `extension preview` session that has a control channel, which is one started with `--allow-control` or `--allow-eval`. The rows name that command where they named the dev server.
+
+Such a session runs no dev server and persists no control port, so `port-agreement` is not applicable. The row prints as a skip and leaves the pass count, and the header says so:
+
+```plaintext
+doctor (chrome), 7/7 checks passed, 1 not applicable
+```
+
+Under `--output json`, the row carries `"applicable": false`:
+
+```json
+{
+  "check": "port-agreement",
+  "status": "skip",
+  "applicable": false,
+  "detail": "not applicable: an extension preview session runs no dev server, so it persists no control port to compare"
+}
+```
+
+A `start` or `preview` run that holds its browser open without a control channel gives `doctor` nothing to reach. The `ready-contract` check fails, says that the command is running with no control channel, and names the command that restarts it with one:
+
+```plaintext
+extension preview --browser=chrome --allow-control
+```
+
+On Firefox, the rows say `background page` where a Chromium session says `service worker`, because Firefox runs the background as a page.
+
 ## Machine-readable output
 
 `--output json` prints one schema-1 envelope. The check results ride in `value` on both verdicts, because an unhealthy report is still a report:

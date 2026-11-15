@@ -116,6 +116,35 @@ extension doctor [project-path] [options]
 
 pretty 輸出每個檢查印出一行,並附上第一個失敗檢查的修復建議。每個狀態都有一個字形:`✓` pass、`✗` fail、`!` warn、`–` skip。全部通過時結束碼為 `0`,任一檢查失敗時為 `1`,CI 與指令稿可以直接據此把關。
 
+## 來自 `start` 與 `preview` 的工作階段
+
+從 4.1.39 之後的版本起,`doctor` 也會診斷帶控制通道的 `extension start` 或 `extension preview` 工作階段,也就是用 `--allow-control` 或 `--allow-eval` 啟動的工作階段。各行會點名那個指令,而不是 dev 伺服器。
+
+這樣的工作階段不執行 dev 伺服器,也不持久化控制連接埠,所以 `port-agreement` 不適用。這一行印出為 skip,不計入通過數,標題行會說明這一點:
+
+```plaintext
+doctor (chrome), 7/7 checks passed, 1 not applicable
+```
+
+在 `--output json` 下,這一行帶有 `"applicable": false`:
+
+```json
+{
+  "check": "port-agreement",
+  "status": "skip",
+  "applicable": false,
+  "detail": "not applicable: an extension preview session runs no dev server, so it persists no control port to compare"
+}
+```
+
+一個讓瀏覽器保持開啟、卻沒有控制通道的 `start` 或 `preview` 執行,沒有任何東西可供 `doctor` 連線。`ready-contract` 檢查會失敗,說明該指令正在沒有控制通道的情況下執行,並給出帶控制通道重新啟動它的指令:
+
+```plaintext
+extension preview --browser=chrome --allow-control
+```
+
+在 Firefox 上,Chromium 工作階段說 `service worker` 的那些行說的是 `background page`,因為 Firefox 把 background 當作一個頁面來執行。
+
 ## 機器可讀輸出
 
 `--output json` 會印出一個 schema-1 信封。兩種結論下檢查結果都放在 `value` 裡,因為不健康的報告也依然是報告:

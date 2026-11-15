@@ -197,6 +197,8 @@ Notes:
 | `zip`         | Generates a packaged zip artifact.                                 |
 | `zipSource`   | Adds source bundle/archive output for review/compliance workflows. |
 | `zipFilename` | Names both archives, like `--zip-filename`. The browser is always appended to the distribution archive, and the source archive is `<name>-source.zip` with no browser. |
+| `zipDir`      | From the release after 4.1.39. Sets the folder for both archives, like `--zip-dir`. Relative to the project root, or absolute. |
+| `sourceMaps`  | From the release after 4.1.39. Writes a `.map` file beside each script and stylesheet of a production build, like `--source-maps`. The maps stay out of the ZIP file. Defaults to `false`. |
 | `silent`      | Reduces build log output.                                          |
 | `perfBudgets` | Overrides the top-level per-category asset budgets for builds.     |
 
@@ -279,7 +281,8 @@ export default {
 };
 ```
 
-- The file lands at the output path as is, like a file in `public/`: no hashing, no transform.
+- The file lands at the output path with no hashing. A file that is not a script ships as is, like a file in `public/`.
+- From the release after 4.1.39, a production build minifies a `.js`, `.mjs` or `.cjs` file that `include` copies. It shortens names and drops comments, and it rewrites no statement. The value that `chrome.scripting.executeScript` reads from the file is unchanged, and a `/*!` banner stays. A `.min.js` file is left alone.
 - In `dev`, an edit to the source lands on the next compile.
 - A source that is not there fails the build.
 - An output path that is absolute, climbs out of the extension root, or is `manifest.json` fails the build too.
@@ -296,6 +299,18 @@ export default {
     : { "models/small.onnx": "./models/small.onnx" },
 };
 ```
+
+To ship one script exactly as you wrote it, use the object form with `minify: false`:
+
+```js
+export default {
+  include: {
+    "vendor/lib.js": { from: "vendor/lib.js", minify: false },
+  },
+};
+```
+
+`extension build --no-minify` does the same for every included script. A file under `public/` always ships byte for byte.
 
 To keep a page or a script out of production builds instead, name it `.dev.`, see [development-only entries](/docs/features/special-folders#development-only-entries).
 

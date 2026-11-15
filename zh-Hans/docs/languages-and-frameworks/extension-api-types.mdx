@@ -153,6 +153,16 @@ deno add -D npm:@types/webextension-polyfill
 
 当 Extension.js 为一个还没有 `tsconfig.json` 的项目写下这份文件时，那份文件里不带 `include` 数组。TypeScript 于是会读取项目目录下的每一个文件，所以照样能找到 `extension-env.d.ts`。而一个你自己写的、漏掉了这个文件的 `include` 数组，会让资源导入和 `browser` 全局变量一起失效。
 
+从 4.1.39 之后的版本起，只有当你的 `tsconfig.json` 会在 `package.json` 旁边读到这个文件时，Extension.js 才会创建它。没有 `include` 数组、`include` 覆盖了项目根目录，或者 `include` 或 `files` 点名了这个文件，都属于这种情况。如果 `include` 更窄，例如 `["src"]`，这个文件就不会被创建，所以请把它加进去：
+
+```json tsconfig.json
+{
+  "include": ["src", "extension-env.d.ts"]
+}
+```
+
+已经存在的那一份无论如何都会保持最新。重新格式化它，例如换一种引号或去掉分号，不会触发重写。
+
 ## 症状与修复
 
 | 症状                                | 原因                                             | 修复                                          |

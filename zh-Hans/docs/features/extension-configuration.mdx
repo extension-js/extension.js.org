@@ -189,6 +189,8 @@ export default {
 | `zip`         | 生成打包好的 zip 产物。                        |
 | `zipSource`   | 额外生成源码包/归档输出，供审查/合规流程使用。 |
 | `zipFilename` | 同时命名两个归档，与 `--zip-filename` 相同。分发归档总会追加浏览器名，源代码归档则是不带浏览器的 `<name>-source.zip`。 |
+| `zipDir`      | 从 4.1.39 之后的版本起。设置两个归档所在的文件夹，与 `--zip-dir` 相同。路径相对于项目根目录，也可以是绝对路径。 |
+| `sourceMaps`  | 从 4.1.39 之后的版本起。在生产构建的每个脚本和样式表旁边写出一个 `.map` 文件，与 `--source-maps` 相同。这些 map 不会进入 ZIP 文件。默认值是 `false`。 |
 | `silent`      | 减少构建日志输出。                             |
 | `perfBudgets` | 为构建覆盖顶层按类别设置的资源预算。           |
 
@@ -271,7 +273,8 @@ export default {
 };
 ```
 
-- 文件会原样落到输出路径，就像 `public/` 里的文件一样：不加哈希，不做转换。
+- 文件落到输出路径时不加哈希。不是脚本的文件会原样产出，就像 `public/` 里的文件一样。
+- 从 4.1.39 之后的版本起，生产构建会压缩 `include` 复制的 `.js`、`.mjs` 或 `.cjs` 文件。它缩短名称并去掉注释，不改写任何语句。`chrome.scripting.executeScript` 从这个文件读到的值不变，`/*!` 头注释也会保留。`.min.js` 文件保持原样。
 - 在 `dev` 中，对源文件的修改会在下一次编译时落地。
 - 源文件不存在会让构建失败。
 - 输出路径是绝对路径、逃出扩展根目录，或者是 `manifest.json`，同样会让构建失败。
@@ -288,6 +291,18 @@ export default {
     : { "models/small.onnx": "./models/small.onnx" },
 };
 ```
+
+要让某个脚本完全按你写的样子产出，请使用带 `minify: false` 的对象写法：
+
+```js
+export default {
+  include: {
+    "vendor/lib.js": { from: "vendor/lib.js", minify: false },
+  },
+};
+```
+
+`extension build --no-minify` 对每个 include 进来的脚本都这样做。`public/` 下的文件始终逐字节产出。
 
 如果你反过来想让某个页面或脚本不进入生产构建，请把它命名为 `.dev.`，见[仅开发期的入口](/zh-Hans/docs/features/special-folders#development-only-entries)。
 

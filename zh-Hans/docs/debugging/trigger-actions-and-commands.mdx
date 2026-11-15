@@ -111,6 +111,19 @@ Extension.js 会在重要时提示你：结果中会上报 `gesture: false`，�
 
 对于绝大多数处理器逻辑——切换状态、写 storage、打开标签页、发送消息——重放正是你想要的：确定性且可脚本化。只有在你确实需要用户手势语义时，才需要下面提到的真实点击方式。
 
+## 界面已经打开或无法打开时
+
+从 4.1.39 之后的版本起，`extension open` 对 Firefox 上的三种情况给出明确的回答：
+
+- 对一个已经打开的 popup 运行 `open popup` 或 `open action` 会成功，返回值带有 `"alreadyOpen": true`。
+- 浏览器窗口里开着另一个面板时，调用以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 失败，因为同一时间只显示一个面板。提示会让你关掉那个面板，再运行一次命令。
+- `open sidebar` 会以 `E_NOT_IMPLEMENTED` 被拒绝，因为 `sidebar_action` 的 sidebar 只在用户操作时打开。原因和提示如下：
+
+```plaintext
+the sidebar comes from sidebar_action here and opens only on a user action, so the CLI cannot open it
+Open it from the Firefox sidebar button, or View > Sidebar. Once it is open, extension eval --context sidebar and extension inspect --context sidebar reach it.
+```
+
 ## 需要真正的手势点击？
 
 真实的 action 点击会授予 `activeTab`——在 Chrome 149 上已确认。重放刻意**不**携带这一手势（因此依赖 `activeTab` 的处理器表现会不同）。对于少数确实需要真实手势语义的场景，可以使用 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 的 `trigger_extension_action`（仅限 Chromium），它会通过 Puppeteer 在受支持的 pipe 传输上发起一次真实的调用。
