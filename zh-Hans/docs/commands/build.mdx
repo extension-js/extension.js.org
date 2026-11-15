@@ -127,6 +127,8 @@ npx extension@latest build --out-dir build --zip
 | `--zip [boolean]`        | -               | 在任何模式下都创建打包好的 zip 产物。                                                                    | `false`         |
 | `--zip-source [boolean]` | -               | 在 zip 输出中包含源代码文件。                                                              | `false`         |
 | `--zip-filename <name>`  | -               | 同时命名分发归档与源代码归档。分发归档总会追加浏览器名。                                    | 清洗过的扩展名、版本号和浏览器 |
+| `--zip-dir <path>`       | -               | 从 4.1.39 之后的版本起。把 ZIP 文件写到这个文件夹，路径相对于项目根目录，也可以是绝对路径。见 [zip 行为](#zip-行为)。 | `dist/<browser>` 所在的文件夹 |
+| `--source-maps [boolean]` | -              | 从 4.1.39 之后的版本起。在生产构建的每个脚本和样式表旁边写出一个 `.map` 文件。这些 map 不会进入 ZIP 文件。见 [生产构建的 source map](#生产构建的-source-map)。 | `false` |
 | `--out-dir <path>`       | -               | 把构建写到 `<path>/<browser>` 而不是 `dist/<browser>`，路径相对于项目根目录，这样生产构建可以与正在服务 `dist` 的 dev 会话并存。往正在被 dev 会话服务的目录里构建会被拒绝，错误码为 `E_DEV_SESSION_DIST_SHARED`。 | `dist`                   |
 | `--silent [boolean]`     | -               | 抑制构建日志。                                                                             | `false`         |
 | `--addon-lint [boolean]` | -               | 当项目里装有 addons-linter 时，按 addons.mozilla.org 的规则检查 Firefox 生产构建。发现的问题以警告形式打印。见 [Firefox 构建的商店检查](#firefox-构建的商店检查)。 | `true`          |
@@ -198,11 +200,28 @@ development 模式的构建是可以直接发布的。它保留你在 manifest �
 | ---------------- | -------------------------- | ------------------- |
 | `--zip`          | 创建打包产物的 zip         | 商店提交 / 手动分发 |
 | `--zip-filename` | 设置自定义 zip 名称        | CI 命名规范         |
+| `--zip-dir`      | 设置 ZIP 文件所在的文件夹  | `dist` 之外的发布目录 |
 | `--zip-source`   | 在产物旁额外加上源代码归档 | 合规 / 审核流水线   |
 
 每个 zip 都落在 `dist/` 里，与 `dist/<browser>` 目录并列而不是放在它里面，因为 `dist/<browser>` 是商店上传或 load-unpacked 整个取走的目录。不带 `--zip-filename` 时，名称由 manifest 的 `name` 转小写、去掉 `a-z0-9` 与空格以外的所有字符、把剩下的空格换成连字符，再接上 manifest 的 `version` 和浏览器得到。一个名为 `My Extension+`、版本为 `1.0.0` 的 manifest 会打包成 `dist/my-extension-1.0.0-chrome.zip`。因为名称被改写过，请从构建输出里读取实际路径，而不要用 manifest 名称自行拼接。在 `--output json` 下，每个归档都会列在 `zip_artifacts` 里，带有路径和大小。
 
 `--zip-filename` 同时命名两个归档，而且分发归档总会追加浏览器名，所以在不同运行里用同一个名字构建两个浏览器时，彼此不会互相覆盖。在 Chrome 构建里传入 `--zip-filename=review-bundle.zip` 与 `--zip-source` 会写出 `dist/review-bundle-chrome.zip` 与 `dist/review-bundle-source.zip`。源代码归档对每个浏览器都一样，所以它的名字不带浏览器，一次构建只写一个源代码归档。已经以浏览器名结尾的名字会保持原样。`--browser=edge,chrome --zip-filename=my-extension.zip` 会写出 `dist/my-extension-edge.zip` 与 `dist/my-extension-chrome.zip`。
+
+从 4.1.39 之后的版本起，`--zip-dir <path>` 决定 ZIP 文件写到哪个文件夹。路径相对于项目根目录，也可以是绝对路径。`--zip-dir release` 会写出 `release/my-extension-1.0.0-chrome.zip`，源代码归档也落在同一个文件夹里。同样的设置可以写进 `extension.config.js`，键是 `commands.build.zipDir`。
+
+有两种路径会让构建报错并停止。一种是离开项目的相对路径，例如 `../release`。要写到项目之外，请传绝对路径。另一种是 `dist/<browser>` 里面的文件夹，因为那个文件夹是整个发布出去的。
+
+`--zip-filename` 只决定名称。值里带的文件夹会被去掉，所以在 Chrome 构建里传 `--zip-filename=out/review.zip`，文件名是 `review-chrome.zip`。
+
+## 生产构建的 source map
+
+生产构建不写 source map。从 4.1.39 之后的版本起，`--source-maps` 会在 `dist/<browser>` 里的每个脚本和样式表旁边写出一个 `.map` 文件：
+
+```bash
+npx extension@latest build --source-maps --zip
+```
+
+这些 map 从不进入 ZIP 文件。它们留在 `dist/<browser>` 里供你使用，所以你可以读懂已发布构建抛出的堆栈。在 `extension.config.js` 里设置 `commands.build.sourceMaps: true`，每次构建都会写出它们。默认值是 `false`。
 
 ## 示例
 
@@ -311,8 +330,18 @@ deno run -A npm:extension@latest build ./my-extension --zip --zip-source
 
 每个目标都会打印属于自己的这一对行，所以多浏览器构建会按浏览器重复打印一次。
 
+从 4.1.39 之后的版本起，那一行里的体积只统计发布出去的文件。source map 单独统计，那一行会说明有多少没有进入 ZIP 文件：
+
+```plaintext
+⏵⏵⏵ Extension built for production in dist/chrome (35.5 KB, plus 112.4 KB of source maps left out of the zip).
+```
+
 带警告成功的构建会在这两行之上打印警告详情，
 并且编译那一行会显示 `compiled with warnings` 而不是 `compiled in`。
+
+从 4.1.39 之后的版本起，如果一个文件被多个入口导入，它产生的警告或错误只打印一次，也只计数一次。
+
+当输出不是终端，或者设置了 `NO_COLOR` 时，打包器的错误和警告也会以纯文本打印，`build` 和 `dev` 都是如此。`FORCE_COLOR=1` 保留颜色，`FORCE_COLOR=0` 关闭颜色。
 
 不要用这些文案来给 CI 把关。它是写给人看的，会随版本变化。
 请使用退出码，或者下面的 `--output json`，那才是受支持的机器契约。
@@ -326,6 +355,8 @@ deno run -A npm:extension@latest build ./my-extension --zip --zip-source
 - 路径参数是远程 URL 时，下载进度行同样写到 stderr。返回的不是 ZIP 归档、归档已损坏或含有位于其文件夹之外的条目带 `E_REMOTE_ZIP_INVALID`，超时带 `E_REMOTE_FETCH_TIMEOUT`，连接被拒绝或 HTTP 错误带 `E_REMOTE_DOWNLOAD`。含有位于其文件夹之外的条目的归档会在写入任何内容之前被拒绝，消息会点名该条目。
 
 每次构建还会写出 `dist/extension-js/<browser>/build-summary.json`。通过 shell 调用 `extension build` 的脚本可以从那里读取结构化的警告。请检查文件的修改时间，避免读到过期文件。
+
+从 4.1.39 之后的版本起，每份汇总里的 `total_assets`、`total_bytes` 和 `largest_asset_bytes` 只统计发布出去的文件。写出了 source map 的构建会用 `source_map_assets` 和 `source_map_bytes` 单独报告它们。没有写出 source map 的构建不带这两个字段。
 
 ## Firefox 构建的商店检查
 

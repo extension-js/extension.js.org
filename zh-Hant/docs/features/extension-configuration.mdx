@@ -189,6 +189,8 @@ export default {
 | `zip`         | 產生封裝後的 zip 產物。                         |
 | `zipSource`   | 為審查／合規流程額外產出原始碼 bundle／封存檔。 |
 | `zipFilename` | 同時命名兩個壓縮檔，與 `--zip-filename` 相同。發佈壓縮檔一定會附加瀏覽器名稱，原始碼壓縮檔則是不帶瀏覽器的 `<name>-source.zip`。 |
+| `zipDir`      | 從 4.1.39 之後的版本起。設定兩個壓縮檔所在的資料夾，與 `--zip-dir` 相同。路徑相對於專案根目錄，也可以是絕對路徑。 |
+| `sourceMaps`  | 從 4.1.39 之後的版本起。在正式建置的每個腳本與樣式表旁邊寫出一個 `.map` 檔，與 `--source-maps` 相同。這些 map 不會進入 ZIP 檔。預設值是 `false`。 |
 | `silent`      | 減少建置記錄輸出。                              |
 | `perfBudgets` | 為建置覆寫頂層依類別設定的資源預算。            |
 
@@ -271,7 +273,8 @@ export default {
 };
 ```
 
-- 檔案會原樣落到輸出路徑，就像 `public/` 裡的檔案一樣：不加雜湊，不做轉換。
+- 檔案落到輸出路徑時不加雜湊。不是腳本的檔案會原樣產出，就像 `public/` 裡的檔案一樣。
+- 從 4.1.39 之後的版本起，正式建置會壓縮 `include` 複製的 `.js`、`.mjs` 或 `.cjs` 檔案。它縮短名稱並去掉註解，不改寫任何陳述式。`chrome.scripting.executeScript` 從這個檔案讀到的值不變，`/*!` 標頭註解也會保留。`.min.js` 檔案保持原樣。
 - 在 `dev` 中，對來源檔的修改會在下一次編譯時落地。
 - 來源檔不存在會讓建置失敗。
 - 輸出路徑是絕對路徑、逃出擴充功能根目錄，或者是 `manifest.json`，同樣會讓建置失敗。
@@ -288,6 +291,18 @@ export default {
     : { "models/small.onnx": "./models/small.onnx" },
 };
 ```
+
+要讓某個腳本完全照你寫的樣子產出，請使用帶 `minify: false` 的物件寫法：
+
+```js
+export default {
+  include: {
+    "vendor/lib.js": { from: "vendor/lib.js", minify: false },
+  },
+};
+```
+
+`extension build --no-minify` 對每個 include 進來的腳本都這樣做。`public/` 下的檔案一律逐位元組產出。
 
 如果你反過來想讓某個頁面或腳本不進入正式建置，請把它命名為 `.dev.`，見[僅開發期的進入點](/zh-Hant/docs/features/special-folders#development-only-entries)。
 

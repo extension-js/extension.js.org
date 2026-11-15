@@ -112,6 +112,19 @@ Extension.js 會在這件事重要時告訴你：結果會回報 `gesture: false
 
 對大多數處理邏輯而言 — 切換狀態、寫入儲存空間、開啟分頁、傳訊息 — 重播正是你想要的：可重現且可寫成腳本。只有在你明確需要手勢語意時，才需要採用下面所說的真實點擊。
 
+## 介面已經開啟或無法開啟時
+
+從 4.1.39 之後的版本起，`extension open` 對 Firefox 上的三種情況給出明確的回答：
+
+- 對一個已經開啟的 popup 執行 `open popup` 或 `open action` 會成功，回傳值帶有 `"alreadyOpen": true`。
+- 瀏覽器視窗裡開著另一個面板時，呼叫以 `E_COMMAND_UNSUPPORTED_FOR_TARGET` 失敗，因為同一時間只顯示一個面板。提示會請你關掉那個面板，再執行一次指令。
+- `open sidebar` 會以 `E_NOT_IMPLEMENTED` 被拒絕，因為 `sidebar_action` 的 sidebar 只在使用者操作時開啟。原因與提示如下：
+
+```plaintext
+the sidebar comes from sidebar_action here and opens only on a user action, so the CLI cannot open it
+Open it from the Firefox sidebar button, or View > Sidebar. Once it is open, extension eval --context sidebar and extension inspect --context sidebar reach it.
+```
+
 ## 需要真正帶手勢的點擊？
 
 真正的動作點擊會授予 `activeTab` — 已在 Chrome 149 上確認。重播刻意**不**帶有該手勢（因此依賴 `activeTab` 的處理函式行為會不同）。在極少數真的需要手勢語意的情況下，使用 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) 的 `trigger_extension_action`（僅限 Chromium），它會透過 Puppeteer 經由支援的 pipe transport 進行真實呼叫。

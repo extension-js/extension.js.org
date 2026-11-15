@@ -91,6 +91,14 @@ Without `--follow`, the command reads `dist/extension-js/<browser>/logs.ndjson` 
 
 If the file does not exist, `logs` prints a hint to start `extension dev` first and exits with code `1`. Machine formats also emit a failure envelope with code `E_LOGS_NOT_FOUND` (see [Result envelope](/docs/contracts/result-envelope)).
 
+From the release after 4.1.39, when another browser of the same project has a log file, the refusal names it:
+
+```plaintext
+Logs exist for chromium: pass --browser chromium to read them.
+```
+
+A log file outlives its session. The hint says that there is something to read for that browser, not that its session is up.
+
 When the session dropped records, the file holds a gap record in their place. An unfiltered `ndjson` or `json` read prints that record on stdout as it is. Once any filter narrows the read (`--context`, `--level`, `--since`, `--url`, `--tab`), stdout carries log records only, and the loss is reported as one line on stderr with the drop count and reason, in every output format.
 
 ## Follow mode
@@ -106,6 +114,8 @@ If the stream falls behind and the session drops records, `logs` prints a one-li
 When you stop the stream with `Ctrl+C`, machine formats print one terminating success envelope with status `interrupted`, so a consumer can tell a clean stop from a crash. The exit code is `0`.
 
 If no session is found for the chosen browser, the command fails with `E_SESSION_NOT_FOUND` and names the `extension dev` command to run.
+
+From the release after 4.1.39, a session that has ended fails the same way. The message says that the session ended and prints the command that starts it again, which is `extension dev`, `extension start`, or `extension preview`. The hint `A session is running for <browser>` appears only when that browser's session is up and its control port answers. See [When the session has ended](/docs/debugging#when-the-session-has-ended).
 
 ## Output formats
 

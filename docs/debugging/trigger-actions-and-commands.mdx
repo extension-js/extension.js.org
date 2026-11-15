@@ -112,6 +112,19 @@ Extension.js tells you when this matters: the result reports `gesture: false`, a
 
 For most handler logic (toggling state, writing storage, opening a tab, messaging), replay is exactly what you want: deterministic and scriptable. Reach for the real click below only when you specifically need gesture semantics.
 
+## When a surface is already open or cannot open
+
+From the release after 4.1.39, `extension open` answers three Firefox cases in plain terms:
+
+- `open popup` or `open action` on a popup that is already open succeeds, and the value carries `"alreadyOpen": true`.
+- When another panel is open in the browser window, the call fails with `E_COMMAND_UNSUPPORTED_FOR_TARGET`, because one panel shows at a time. The hint tells you to close the open panel and run the command again.
+- `open sidebar` is refused with `E_NOT_IMPLEMENTED`, because a `sidebar_action` sidebar opens only on a user action. The reason and the hint read:
+
+```plaintext
+the sidebar comes from sidebar_action here and opens only on a user action, so the CLI cannot open it
+Open it from the Firefox sidebar button, or View > Sidebar. Once it is open, extension eval --context sidebar and extension inspect --context sidebar reach it.
+```
+
 ## Need a genuine-gesture click?
 
 A real action click grants `activeTab`, confirmed on Chrome 149. The replay deliberately does **not** carry that gesture (so `activeTab`-dependent handlers behave differently). For the rare case where you need true gesture semantics, use [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp)'s `trigger_extension_action` (Chromium only), which drives a real invocation through Puppeteer over the supported pipe transport.

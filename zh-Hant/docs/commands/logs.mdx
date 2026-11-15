@@ -91,6 +91,14 @@ extension logs [project-path] [options]
 
 如果該檔案不存在，`logs` 會提示你先啟動 `extension dev`，並以結束碼 `1` 結束。機器可讀格式還會輸出一個錯誤碼為 `E_LOGS_NOT_FOUND` 的失敗信封（參見 [結果信封](/zh-Hant/docs/contracts/result-envelope)）。
 
+從 4.1.39 之後的版本起，如果同一個專案裡另一個瀏覽器有記錄檔，拒絕訊息會指名它：
+
+```plaintext
+Logs exist for chromium: pass --browser chromium to read them.
+```
+
+記錄檔比它的工作階段活得久。這則提示說的是那個瀏覽器有內容可讀，而不是它的工作階段正在執行。
+
 當工作階段丟棄過記錄時，檔案裡會在對應位置保留一筆 gap 記錄。不帶任何過濾的 `ndjson` 或 `json` 讀取會把這筆記錄原樣印到 stdout。一旦有任何過濾條件縮小了讀取範圍（`--context`、`--level`、`--since`、`--url`、`--tab`），stdout 上就只有日誌記錄，遺失的情況會在 stderr 上以一行回報，附上丟棄筆數與原因，所有輸出格式都如此。
 
 ## 跟隨模式
@@ -106,6 +114,8 @@ extension logs --follow --context background,content --level info
 當你用 `Ctrl+C` 停止串流時，機器可讀格式會印出一個狀態為 `interrupted` 的終止成功信封，讓消費端能分辨乾淨的停止與當機。結束碼為 `0`。
 
 如果找不到所選瀏覽器對應的工作階段，指令會以 `E_SESSION_NOT_FOUND` 失敗，並指名該執行的 `extension dev` 指令。
+
+從 4.1.39 之後的版本起，已經結束的工作階段也會以同樣的方式失敗。訊息會說明工作階段已經結束，並印出重新啟動它的指令，也就是 `extension dev`、`extension start` 或 `extension preview`。只有那個瀏覽器的工作階段正在執行，而且它的控制埠有回應時，才會出現 `A session is running for <browser>` 這則提示。見 [session 已經結束時](/zh-Hant/docs/debugging#session-已經結束時)。
 
 ## 輸出格式
 

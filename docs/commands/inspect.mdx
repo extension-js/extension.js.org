@@ -122,8 +122,12 @@ html cut to 180000 of 400000 characters to fit the 262144-byte result cap. Read 
 ## Failure modes
 
 - No session found for the browser: `E_SESSION_NOT_FOUND`, with the exact `extension dev` command to run.
+- From the release after 4.1.39, a session that has ended answers `E_SESSION_NOT_FOUND` too, and the message prints the command that starts it again. See [When the session has ended](/docs/debugging#when-the-session-has-ended).
 - Session running without `--allow-control`: the connection is refused and the error names the flag.
 - Target surface not open, or a `--tab` id that no longer exists: `E_TARGET_NOT_FOUND`.
+- From the release after 4.1.39, the refusal for a closed surface names a step that works on that browser. See the table in [`eval`](/docs/commands/eval#arguments-and-flags).
+- From the release after 4.1.39, an MV3 `start` or `preview` build whose manifest has no `scripting` permission refuses `--context content` and `--context page`. The message tells you to add `"scripting"` to `permissions`, or to use a dev session, which adds it. A `--tab` id that does not exist answers `E_TARGET_NOT_FOUND` on such a build too.
+- `--context background` is refused on every browser. On Chromium, the reason is that the service worker has no DOM. On the other browsers, it is that the background has no page to read. Inspect a content script or a page with `--tab`, or an open surface.
 - The target took longer than `--timeout`: `E_TIMEOUT`.
 
 Run [`doctor`](/docs/commands/doctor) when the same session refuses every verb and you want the first broken leg named.

@@ -79,6 +79,14 @@ Without `--browser`, `doctor` diagnoses the session that exists, not a hardcoded
 - With several contracts, `chromium` wins when present, otherwise the first one alphabetically. A `session-resolution` warn check then names every candidate before the numbered checks run.
 - With no contracts at all, `doctor` falls back to `chromium`.
 
+From the release after 4.1.39, a session that still runs wins over one that has ended. A session has ended when its contract reads `status: "stopped"` or its process is gone. With one session running and the others ended, `doctor` diagnoses the running one. When every session has ended, `doctor` diagnoses one of them by the same rule, and the `session-resolution` check says so:
+
+```plaintext
+multiple ended sessions found (chrome, firefox), diagnosing chrome
+```
+
+For a stopped session, the `ready-contract` check then fails and its remediation names the command that starts the session again.
+
 <Frame>
   <iframe
     className="w-full aspect-video rounded-xl"
@@ -94,7 +102,7 @@ Without `--browser`, `doctor` diagnoses the session that exists, not a hardcoded
 
 Checks run in dependency order. When a leg fails, later checks that depend on it are marked **skip** and name the check that blocked them: a skip is not a pass.
 
-A zeroth `session-resolution` check appears only when several live sessions exist. It warns and names the session that the run diagnoses.
+A zeroth `session-resolution` check appears only when several live sessions exist. It warns and names the session that the run diagnoses. From the release after 4.1.39, it also appears when several sessions exist and all of them have ended.
 
 Two more checks run before the numbered ones. `engine` fails when the session runs the `chromium-emulator` target, which `doctor` cannot diagnose. `peer-rspack` needs only the project, so it runs with or without a dev session. It fails when a direct dependency declares an `@rspack/core` peer range that misses the version Extension.js ships. That mismatch is why `npm install` fails with `ERESOLVE`, and the remediation names the upgrade to run.
 
@@ -115,6 +123,35 @@ Some legs have deliberate soft answers:
 - `browser` reports **skip** when the contract has no `cdpPort` stamped and no exit recorded. Absence of exit evidence is not proof of a live browser.
 
 The pretty output prints one line per check plus the first failing check's remediation. Each status has a glyph: `✓` pass, `✗` fail, `!` warn, `–` skip. The exit code is `0` when nothing failed and `1` when any check failed, so CI and scripts can gate on it directly.
+
+## Sessions from `start` and `preview`
+
+From the release after 4.1.39, `doctor` also diagnoses an `extension start` or `extension preview` session that has a control channel, which is one started with `--allow-control` or `--allow-eval`. The rows name that command where they named the dev server.
+
+Such a session runs no dev server and persists no control port, so `port-agreement` is not applicable. The row prints as a skip and leaves the pass count, and the header says so:
+
+```plaintext
+doctor (chrome), 7/7 checks passed, 1 not applicable
+```
+
+Under `--output json`, the row carries `"applicable": false`:
+
+```json
+{
+  "check": "port-agreement",
+  "status": "skip",
+  "applicable": false,
+  "detail": "not applicable: an extension preview session runs no dev server, so it persists no control port to compare"
+}
+```
+
+A `start` or `preview` run that holds its browser open without a control channel gives `doctor` nothing to reach. The `ready-contract` check fails, says that the command is running with no control channel, and names the command that restarts it with one:
+
+```plaintext
+extension preview --browser=chrome --allow-control
+```
+
+On Firefox, the rows say `background page` where a Chromium session says `service worker`, because Firefox runs the background as a page.
 
 ## Machine-readable output
 

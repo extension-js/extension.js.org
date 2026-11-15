@@ -72,6 +72,14 @@ extension eval "({title: document.title, url: location.href})" --context page
 
 擴充功能頁面（`popup`、`options`、`sidebar`、`devtools`、`newtab`、`history`、`bookmarks`）是透過它們自己的頁內轉送來回應的，因此該介面必須已在瀏覽器中開啟。請先用 `open`（記載於 [觸發 action 與 command](/zh-Hant/docs/debugging/trigger-actions-and-commands)）把它開起來。devtools 頁面只在某個分頁開著 DevTools 時才會執行，而 `open` 開不了 DevTools。
 
+從 4.1.39 之後的版本起，介面沒有開啟時，拒絕訊息會給出在那個瀏覽器上行得通的做法：
+
+| 介面                  | Chromium                                   | Firefox                                 |
+| --------------------- | ------------------------------------------ | --------------------------------------- |
+| Popup                 | 點擊擴充功能在工具列上的項目，或它在擴充功能選單裡的那一列 | `extension open popup`                  |
+| Side panel 或 sidebar | 點擊擴充功能在工具列上的項目，或它在擴充功能選單裡的那一列 | 工具列上的 sidebar 按鈕，或 View > Sidebar |
+| Options 頁面          | `extension open options`                   | `extension open options`                |
+
 在 Firefox 上，當擴充功能的政策禁止 eval 時，擴充功能的文件改為透過除錯器協定回應。從 4.1.32 起這條路徑也接受陳述式清單：它會回傳最後一個陳述式的完成值，並等待陳述式最終得到的 promise。超過 256 KiB 的結果會以 1024 個字元的預覽回傳，信封上帶有 `truncated: true`，pretty 輸出會印出一行 `result truncated (byte cap)`。
 
 從 4.1.39 之後的版本起，`--context page` 也能在顯示著你自己擴充功能頁面的分頁裡求值，Chrome 與 Firefox 上都可以。瀏覽器拒絕向擴充功能頁面注入腳本，所以 CLI 使用瀏覽器的偵錯埠。它要求恰好只有一個開啟的分頁位於該 URL。對這樣的分頁使用 `--context content` 會失敗，提示裡會寫出 `--context page`。
@@ -93,8 +101,10 @@ pretty 輸出印出的是值本身：字串原樣輸出，其餘一律以縮排 
 - 運算式在目標中拋出例外：`E_EVAL`，並附上提示指出問題出在運算式本身。這是一個結果，不是傳輸錯誤。
 - 目標的內容安全政策禁止 eval：`E_CSP_BLOCKS_EVAL`。MV3 擴充功能在它自己的文件和內容腳本中禁止 eval，網頁也可以為自己禁止它。在 Firefox 上，當擴充功能的政策禁止 eval 時，CLI 會透過除錯器協定對擴充功能的文件求值。遇到這個代碼時，改用 [`inspect`](/zh-Hant/docs/commands/inspect) 讀取目標。從 4.1.32 起，當恰好只有一個開啟的分頁位於該 url 時，Firefox 也會透過除錯器對自行禁止 eval 的網頁求值。若有重複的分頁開啟，呼叫會維持拒絕，提示會說明要關閉的分頁。
 - 該瀏覽器沒有工作階段：`E_SESSION_NOT_FOUND`，並給出應該執行的完整 `extension dev` 指令。
+- 從 4.1.39 之後的版本起，已經結束的工作階段同樣回答 `E_SESSION_NOT_FOUND`，訊息會印出重新啟動它的指令。見 [session 已經結束時](/zh-Hant/docs/debugging#session-已經結束時)。
 - 目標介面未開啟，或 `--tab` id 已失效：`E_TARGET_NOT_FOUND`。請用 [`inspect --list-tabs`](/zh-Hant/docs/commands/inspect#the-discovery-loop) 找出仍然存活的 id。
 - manifest 沒有為該情境宣告頁面：`E_TARGET_NOT_FOUND`。從 4.1.39 之後的版本起，訊息會寫 `the manifest declares no <context> page`，提示會指出要加入的 manifest 鍵。
+- 從 4.1.39 之後的版本起，如果一個 MV3 的 `start` 或 `preview` 建置的 manifest 沒有 `scripting` 權限，`--context content` 與 `--context page` 會被拒絕。訊息會請你把 `"scripting"` 加進 `permissions`，或是改用 dev 工作階段，dev 工作階段會加上它。`--context background` 仍然可用。在這樣的建置上，不存在的 `--tab` id 同樣回答 `E_TARGET_NOT_FOUND`。
 - 呼叫超過了 `--timeout`：`E_TIMEOUT`。
 
 運算式成功時結束碼為 `0`，否則為 `1`，因此腳本可以直接據此做判斷。當每個動詞都失敗、而你想知道是哪一環斷掉時，請執行 [`doctor`](/zh-Hant/docs/commands/doctor)。

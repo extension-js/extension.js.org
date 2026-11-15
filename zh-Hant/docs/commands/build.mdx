@@ -126,6 +126,8 @@ npx extension@latest build --out-dir build --zip
 | `--zip [boolean]`        | -               | 在任何模式下都產生打包好的 zip 產物。                                                             | `false`             |
 | `--zip-source [boolean]` | -               | 在 zip 輸出中包含原始檔。                                                           | `false`             |
 | `--zip-filename <name>`  | -               | 同時命名發佈壓縮檔與原始碼壓縮檔。發佈壓縮檔一定會附加瀏覽器名稱。                      | 清理過的擴充功能名稱、版本與瀏覽器 |
+| `--zip-dir <path>`       | -               | 從 4.1.39 之後的版本起。把 ZIP 檔寫到這個資料夾，路徑相對於專案根目錄，也可以是絕對路徑。見 [Zip 行為](#zip-行為)。 | `dist/<browser>` 所在的資料夾 |
+| `--source-maps [boolean]` | -              | 從 4.1.39 之後的版本起。在正式建置的每個腳本與樣式表旁邊寫出一個 `.map` 檔。這些 map 不會進入 ZIP 檔。見 [正式建置的 source map](#正式建置的-source-map)。 | `false` |
 | `--out-dir <path>`       | -               | 把建置寫到 `<path>/<browser>` 而不是 `dist/<browser>`,路徑相對於專案根目錄,這樣正式建置可以與正在提供 `dist` 的 dev 工作階段並存。往正在被 dev 工作階段提供的資料夾建置會被拒絕,錯誤碼為 `E_DEV_SESSION_DIST_SHARED`。 | `dist`                   |
 | `--silent [boolean]`     | -               | 隱藏建置記錄。                                                                      | `false`             |
 | `--addon-lint [boolean]` | -               | 當專案裡裝有 addons-linter 時，依 addons.mozilla.org 的規則檢查 Firefox 正式建置。發現的問題以警告印出。見 [Firefox 建置的商店檢查](#firefox-建置的商店檢查)。 | `true`              |
@@ -197,11 +199,28 @@ development 模式的建置是可以直接發布的。它保留你在 manifest �
 | ---------------- | ------------------------ | ------------------- |
 | `--zip`          | 產生打包好的 zip 產物    | 商店送審 / 手動散布 |
 | `--zip-filename` | 設定自訂 zip 名稱        | CI 的命名規則       |
+| `--zip-dir`      | 設定 ZIP 檔所在的資料夾  | `dist` 之外的發佈資料夾 |
 | `--zip-source`   | 在產物旁附加原始碼壓縮檔 | 合規 / 審查流程     |
 
 每個 zip 都落在 `dist/` 裡,與 `dist/<browser>` 資料夾並列而不是放在它裡面,因為 `dist/<browser>` 是商店上傳或 load-unpacked 整個取走的資料夾。沒有 `--zip-filename` 時,名稱是 manifest 的 `name` 轉小寫、移除 `a-z0-9` 與空白以外的所有字元、把剩下的空白換成連字號,再接上 manifest 的 `version` 與瀏覽器。一個名為 `My Extension+`、版本為 `1.0.0` 的 manifest 會打包成 `dist/my-extension-1.0.0-chrome.zip`。因為名稱經過改寫,請從建置輸出讀取實際路徑,而不要用 manifest 名稱自行組合。在 `--output json` 下,每個壓縮檔都會列在 `zip_artifacts` 裡,附上路徑與大小。
 
 `--zip-filename` 同時命名兩個壓縮檔,而且發佈壓縮檔一定會附加瀏覽器名稱,所以在不同次執行裡用同一個名稱建置兩個瀏覽器時,彼此不會互相覆寫。在 Chrome 建置裡傳入 `--zip-filename=review-bundle.zip` 與 `--zip-source` 會寫出 `dist/review-bundle-chrome.zip` 與 `dist/review-bundle-source.zip`。原始碼壓縮檔對每個瀏覽器都一樣,所以它的名稱不帶瀏覽器,一次建置只寫一個原始碼壓縮檔。已經以瀏覽器名稱結尾的名稱會保持原樣。`--browser=edge,chrome --zip-filename=my-extension.zip` 會寫出 `dist/my-extension-edge.zip` 與 `dist/my-extension-chrome.zip`。
+
+從 4.1.39 之後的版本起,`--zip-dir <path>` 決定 ZIP 檔寫到哪個資料夾。路徑相對於專案根目錄,也可以是絕對路徑。`--zip-dir release` 會寫出 `release/my-extension-1.0.0-chrome.zip`,原始碼壓縮檔也落在同一個資料夾裡。同樣的設定可以寫進 `extension.config.js`,鍵是 `commands.build.zipDir`。
+
+有兩種路徑會讓建置報錯並停止。一種是離開專案的相對路徑,例如 `../release`。要寫到專案之外,請傳絕對路徑。另一種是 `dist/<browser>` 裡面的資料夾,因為那個資料夾是整個發佈出去的。
+
+`--zip-filename` 只決定名稱。值裡帶的資料夾會被去掉,所以在 Chrome 建置裡傳 `--zip-filename=out/review.zip`,檔名是 `review-chrome.zip`。
+
+## 正式建置的 source map
+
+正式建置不寫 source map。從 4.1.39 之後的版本起,`--source-maps` 會在 `dist/<browser>` 裡的每個腳本與樣式表旁邊寫出一個 `.map` 檔:
+
+```bash
+npx extension@latest build --source-maps --zip
+```
+
+這些 map 從不進入 ZIP 檔。它們留在 `dist/<browser>` 裡供你使用,所以你可以讀懂已發佈建置拋出的堆疊。在 `extension.config.js` 裡設定 `commands.build.sourceMaps: true`,每次建置都會寫出它們。預設值是 `false`。
 
 ## 範例
 
@@ -310,8 +329,18 @@ deno run -A npm:extension@latest build ./my-extension --zip --zip-source
 
 每個目標都會印出自己的這一組行,所以多瀏覽器建置會按瀏覽器重複一次。
 
+從 4.1.39 之後的版本起,那一行裡的大小只計算發佈出去的檔案。source map 另外計算,那一行會說明有多少沒有進入 ZIP 檔:
+
+```plaintext
+⏵⏵⏵ Extension built for production in dist/chrome (35.5 KB, plus 112.4 KB of source maps left out of the zip).
+```
+
 帶警告成功的建置會在那兩行之上印出警告細節,
 而且編譯那一行會顯示 `compiled with warnings` 而不是 `compiled in`。
+
+從 4.1.39 之後的版本起,如果一個檔案被多個 entry 匯入,它產生的警告或錯誤只印出一次,也只計數一次。
+
+當輸出不是終端機,或是設定了 `NO_COLOR` 時,打包工具的錯誤與警告也會以純文字印出,`build` 與 `dev` 都是如此。`FORCE_COLOR=1` 保留顏色,`FORCE_COLOR=0` 關閉顏色。
 
 不要用這些文字為 CI 把關。它是寫給人看的,會隨版本改變。
 請改用結束碼,或下面的 `--output json`,那才是受支援的機器契約。
@@ -325,6 +354,8 @@ deno run -A npm:extension@latest build ./my-extension --zip --zip-source
 - 路徑引數是遠端 URL 時,下載進度行同樣寫到 stderr。回傳的不是 ZIP 封存檔、封存檔已損毀或含有位於其資料夾之外的條目帶 `E_REMOTE_ZIP_INVALID`,逾時帶 `E_REMOTE_FETCH_TIMEOUT`,連線遭拒或 HTTP 錯誤帶 `E_REMOTE_DOWNLOAD`。含有位於其資料夾之外的條目的封存檔會在寫入任何內容之前遭拒,訊息會點名該條目。
 
 每次建置也會寫出 `dist/extension-js/<browser>/build-summary.json`。以 shell 呼叫 `extension build` 的指令碼可以從那裡讀取結構化的警告。請檢查檔案的修改時間,以免讀到過期檔案。
+
+從 4.1.39 之後的版本起,每份摘要裡的 `total_assets`、`total_bytes` 與 `largest_asset_bytes` 只計算發佈出去的檔案。寫出了 source map 的建置會用 `source_map_assets` 與 `source_map_bytes` 另外回報它們。沒有寫出 source map 的建置不帶這兩個欄位。
 
 ## Firefox 建置的商店檢查
 
