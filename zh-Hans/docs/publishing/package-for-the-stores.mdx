@@ -121,6 +121,12 @@ Firefox 构建完成但没有做 AMO 检查。zip 是完整的。安装 `addons-
 `Edge Add-ons refuses a package whose manifest carries key, so dist/zipprobe-1.0.0-edge.zip leaves it out.`
 商店 zip 写出时去掉了顶层的 `key` 字段，因为 Partner Center 会分配扩展 ID，并拒绝带有该字段的包。`dist/edge` 保留这个字段，所以把该文件夹解包安装时仍是 key 所固定的 ID，由它构成的 OAuth 重定向 URL 也保持有效。这一行在每次 Edge `--zip` 构建时打印一次。这个行为需要 4.1.39 或更高版本，更早的构建会把该字段从 `dist/edge` 中也去掉。
 
+`manifest.json description runs 133 characters, and the Chrome Web Store refuses a chrome build whose description is over 132.`
+manifest 的 `description` 超过了商店接受的长度。Chromium 构建（`chrome`、`edge`、`brave`、`opera` 以及其他 Chromium 浏览器）按 132 个字符检查。Safari 构建按 112 检查，这是 App Store Connect 的上限，这一行还会加上 `(Apple error 90849)`。Firefox 构建按 250 检查，这是 addons.mozilla.org 的摘要上限，`addons-linter` 10.14.0 及更高版本会把超长的值报告为 `JSON_INVALID`。请把这个字段缩短到这一行给出的上限以内。构建仍会完成，所以第一个拒绝上传的地方是商店。在 `dev` 里，每条不同的警告每个会话打印一次。生产构建每次运行都会打印。
+
+`manifest.json has no description, and App Store Connect refuses a safari build without one (Apple error 90849).`
+Safari 构建在 manifest 里没有找到 `description`，或者它只有空白。App Store Connect 要求必须有，所以请加上一条不超过 112 个字符的描述。Chromium 构建不会对缺少描述发出警告，Firefox 构建也不会。像 `__MSG_extDescription__` 这样的本地化值同样会被跳过，因为它的文本在 `_locales` 里，所以请自己检查每个译文的长度。
+
 `default_locale is set, but the _locales folder is missing.`
 manifest 检查在打包前停止了构建。商店会拒绝缺少默认语言环境的包，所以请恢复 `_locales/<default>/messages.json` 再重新构建。
 
