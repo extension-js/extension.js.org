@@ -83,6 +83,32 @@ Extension.js validates:
 - DNR ruleset shape (array-based ruleset expectations)
 - Managed storage schema shape (object-based expectations)
 
+### Rulesets that Chrome refuses
+
+A Chromium build warns about two `declarativeNetRequest` ruleset shapes. Chrome refuses to load the whole extension over either one, and Firefox loads the same file.
+
+- **A repeated rule id**: two rules in one ruleset share an `id`.
+- **A `regexFilter` that Chrome cannot compile**: the filter has a lookahead, a lookbehind, or a backreference.
+
+```plaintext
+The Declarative Net Request ruleset listed in declarative_net_request/main uses a rule id more than once, and Chrome refuses to load an extension whose ruleset does.
+PATH rules/main.json
+RULE id 3
+Firefox loads the same ruleset and leaves a rule out. Give every rule in the file its own id.
+The build continues.
+```
+
+```plaintext
+A rule in the Declarative Net Request ruleset listed in declarative_net_request/main has a regexFilter Chrome cannot compile, and Chrome refuses to load an extension whose ruleset has one.
+PATH rules/main.json
+RULE id 3
+REASON the filter uses a lookbehind
+Chrome reads the filter as RE2, which has no lookahead, lookbehind or backreference, and Firefox accepts the rule. Rewrite the filter without it.
+The build continues.
+```
+
+Both are warnings, not errors, because the same file is valid on Firefox. Firefox and Safari builds print nothing.
+
 ## Environment placeholders
 
 Extension.js replaces `$EXTENSION_*` placeholders in emitted `.json` assets during compilation, using the same pass as static HTML placeholder replacement.

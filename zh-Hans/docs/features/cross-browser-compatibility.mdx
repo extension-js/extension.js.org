@@ -275,6 +275,50 @@ background.ts:3 uses browser.*, which chrome has natively only from Chromium 148
 
 声明了 `devtools_page` 的扩展也需要同样的改动，直到它的用户都运行 Chromium 152 或更高版本，因为 `dev` 启动的浏览器仍可能低于 152。`build` 原本就默认关闭 polyfill，所以它的输出没有变化。
 
+## 针对浏览器差异的构建警告
+
+有些代码在一个浏览器里能用，在另一个浏览器里却会失败，而构建时没有任何报错。构建会对三种这样的情况发出警告。每条警告都不会改动输出，构建会继续。
+
+### 在 Chrome 上，内容脚本的 matches 不等于主机访问权限
+
+Firefox 会把内容脚本的 `matches` 当作主机访问权限，Chrome 不会。当 manifest 声明了 `scripting`、`cookies` 或 `webRequest`，带有内容脚本，却没有写任何主机权限时，Manifest V3 扩展的 Chromium 构建会发出警告：
+
+```plaintext
+manifest.json declares "scripting", "cookies", "webRequest" and no host permission, and Chromium takes none from content_scripts matches.
+MATCHES http://localhost/*
+The content script still runs on those pages, but on Chrome the permission reaches none of them: scripting.executeScript rejects, cookies.getAll comes back empty, webRequest events never fire. Firefox reads the same matches as host access, so this works on Firefox and not on Chrome.
+Add the hosts to host_permissions, or to chromium:host_permissions to keep them out of the other builds.
+```
+
+请把这些主机加到 `host_permissions`，或者加到 `chromium:host_permissions`。只要 manifest 里有任何 `host_permissions`、任何 `optional_host_permissions` 或 `activeTab`，这条警告就不会出现。Firefox 和 Safari 构建不会打印它。`dev` 会话只打印一次，生产构建每次运行都会打印。
+
+在 Chrome 上，即使没有主机权限，`permissions.contains` 也会列出匹配到的源，所以这个调用查不出这个缺口。
+
+### 六个方法在 Firefox 上不接受回调
+
+Firefox 只接受这些方法的 Promise 形式，脚本传入回调时会抛出 `Incorrect argument types`：
+
+- `action.setBadgeTextColor`
+- `action.getBadgeTextColor`
+- `action.isEnabled`
+- `action.openPopup`
+- `tabs.discard`
+- `tabs.ungroup`
+
+Chrome 对这六个方法都会执行回调。Firefox 生产构建会按每个文件里的每个方法警告一次：
+
+```plaintext
+background.js passes a callback to chrome.tabs.discard, which Firefox takes in promise form only.
+Firefox throws "Incorrect argument types for tabs.discard" on that call, where Chrome runs the callback.
+Drop the callback and await browser.tabs.discard, which returns a promise on Firefox.
+```
+
+请改为 await 这个 Promise。
+
+### Chrome 拒绝的规则集
+
+Chromium 构建会对两种 `declarativeNetRequest` 规则集形态发出警告，它们会让 Chrome 拒绝整个扩展。两种形态都写在 [Chrome 拒绝的规则集](/zh-Hans/docs/implementation-guide/json)里。
+
 ## 最佳实践
 
 - **保持一份代码**：尽量用带前缀的 manifest 字段表达浏览器差异。

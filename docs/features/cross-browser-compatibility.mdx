@@ -277,6 +277,50 @@ Earlier releases turned the polyfill on by default in `dev` and `start`. If your
 
 An extension that declares a `devtools_page` needs the same change until its users run Chromium 152 or later, because the browser that `dev` launches can still be below 152. `build` already left the polyfill off, so its output does not change.
 
+## Build warnings for browser differences
+
+Some code works in one browser and fails in another with no error at build time. The build warns about three such cases. Each warning leaves the output unchanged, and the build continues.
+
+### Content script matches are not host access on Chrome
+
+Firefox reads the `matches` of a content script as host access, and Chrome does not. A Chromium build of a Manifest V3 extension warns when the manifest declares `scripting`, `cookies`, or `webRequest`, has content scripts, and names no host permission:
+
+```plaintext
+manifest.json declares "scripting", "cookies", "webRequest" and no host permission, and Chromium takes none from content_scripts matches.
+MATCHES http://localhost/*
+The content script still runs on those pages, but on Chrome the permission reaches none of them: scripting.executeScript rejects, cookies.getAll comes back empty, webRequest events never fire. Firefox reads the same matches as host access, so this works on Firefox and not on Chrome.
+Add the hosts to host_permissions, or to chromium:host_permissions to keep them out of the other builds.
+```
+
+Add the hosts to `host_permissions`, or to `chromium:host_permissions`. The warning stays quiet when the manifest has any `host_permissions`, any `optional_host_permissions`, or `activeTab`. Firefox and Safari builds do not print it. A `dev` session prints it once, and a production build prints it on every run.
+
+On Chrome, `permissions.contains` lists the matched origin even without the host permission, so that call cannot detect the gap.
+
+### Six methods take no callback on Firefox
+
+Firefox takes these methods in promise form only and throws `Incorrect argument types` when a script passes a callback:
+
+- `action.setBadgeTextColor`
+- `action.getBadgeTextColor`
+- `action.isEnabled`
+- `action.openPopup`
+- `tabs.discard`
+- `tabs.ungroup`
+
+Chrome runs the callback for all six. A Firefox production build warns once per method in each file:
+
+```plaintext
+background.js passes a callback to chrome.tabs.discard, which Firefox takes in promise form only.
+Firefox throws "Incorrect argument types for tabs.discard" on that call, where Chrome runs the callback.
+Drop the callback and await browser.tabs.discard, which returns a promise on Firefox.
+```
+
+Await the promise instead.
+
+### Rulesets that Chrome refuses
+
+A Chromium build warns about two `declarativeNetRequest` ruleset shapes that make Chrome refuse the whole extension. See [Rulesets that Chrome refuses](/docs/implementation-guide/json) for both.
+
 ## Best practices
 
 - **Keep one codebase**: Put browser differences in prefixed manifest fields when possible.

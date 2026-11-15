@@ -275,6 +275,50 @@ background.ts:3 uses browser.*, which chrome has natively only from Chromium 148
 
 宣告了 `devtools_page` 的擴充功能也需要同樣的改動，直到它的使用者都執行 Chromium 152 或更新版本，因為 `dev` 啟動的瀏覽器仍可能低於 152。`build` 原本就預設關閉 polyfill，所以它的輸出沒有變化。
 
+## 針對瀏覽器差異的建置警告
+
+有些程式碼在一個瀏覽器裡能用，在另一個瀏覽器裡卻會失敗，而建置時沒有任何錯誤。建置會對三種這樣的情況發出警告。每則警告都不會更動輸出，建置會繼續。
+
+### 在 Chrome 上，內容腳本的 matches 不等於主機存取權限
+
+Firefox 會把內容腳本的 `matches` 當作主機存取權限，Chrome 不會。當 manifest 宣告了 `scripting`、`cookies` 或 `webRequest`，帶有內容腳本，卻沒有寫任何主機權限時，Manifest V3 擴充功能的 Chromium 建置會發出警告：
+
+```plaintext
+manifest.json declares "scripting", "cookies", "webRequest" and no host permission, and Chromium takes none from content_scripts matches.
+MATCHES http://localhost/*
+The content script still runs on those pages, but on Chrome the permission reaches none of them: scripting.executeScript rejects, cookies.getAll comes back empty, webRequest events never fire. Firefox reads the same matches as host access, so this works on Firefox and not on Chrome.
+Add the hosts to host_permissions, or to chromium:host_permissions to keep them out of the other builds.
+```
+
+請把這些主機加到 `host_permissions`，或者加到 `chromium:host_permissions`。只要 manifest 裡有任何 `host_permissions`、任何 `optional_host_permissions` 或 `activeTab`，這則警告就不會出現。Firefox 與 Safari 建置不會印出它。`dev` session 只印出一次，正式建置每次執行都會印出。
+
+在 Chrome 上，即使沒有主機權限，`permissions.contains` 也會列出比對到的來源，所以這個呼叫查不出這個落差。
+
+### 六個方法在 Firefox 上不接受回呼
+
+Firefox 只接受這些方法的 Promise 形式，腳本傳入回呼時會拋出 `Incorrect argument types`：
+
+- `action.setBadgeTextColor`
+- `action.getBadgeTextColor`
+- `action.isEnabled`
+- `action.openPopup`
+- `tabs.discard`
+- `tabs.ungroup`
+
+Chrome 對這六個方法都會執行回呼。Firefox 正式建置會依每個檔案裡的每個方法警告一次：
+
+```plaintext
+background.js passes a callback to chrome.tabs.discard, which Firefox takes in promise form only.
+Firefox throws "Incorrect argument types for tabs.discard" on that call, where Chrome runs the callback.
+Drop the callback and await browser.tabs.discard, which returns a promise on Firefox.
+```
+
+請改為 await 這個 Promise。
+
+### Chrome 拒絕的規則集
+
+Chromium 建置會對兩種 `declarativeNetRequest` 規則集形態發出警告，它們會讓 Chrome 拒絕整個擴充功能。兩種形態都寫在 [Chrome 拒絕的規則集](/zh-Hant/docs/implementation-guide/json)裡。
+
 ## 最佳實務
 
 - **保持單一程式碼庫**：可能的話，把瀏覽器差異放在帶前綴的 manifest 欄位裡。
