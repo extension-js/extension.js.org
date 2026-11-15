@@ -30,9 +30,31 @@ These checks run against the built extension, right before the browser spawns.
 
 | Shape                                                | Why Chromium refuses                                                              |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `manifest_version: 2`                                | Modern Chromium refuses MV2 outright. Run it on Firefox or migrate to MV3.       |
+| `manifest_version: 2`                                | Chrome 138 was the last version to support MV2. Run it on Firefox or migrate.    |
 | MV3 with `background.scripts` and no `service_worker` | A Firefox-style background. Chromium needs `background.service_worker`.          |
 | Any other value (missing, `1`, above `3`)            | Refused as an unsupported manifest version.                                       |
+
+Manifest V2 support differs by browser:
+
+- **Chrome**: Chrome 138 was the last version to support Manifest V2, as Google's [Manifest V2 support timeline](https://developer.chrome.com/docs/extensions/develop/migrate/mv2-deprecation-timeline) states.
+- **Chromium**: Chromium 151 removed the last flag that loaded a Manifest V2 extension unpacked.
+- **Microsoft Edge**: Edge has deprecated Manifest V2 and still loads it. [Microsoft's timeline](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/manifest-v3) shows a warning to some users and names no final version.
+- **Firefox and Safari**: both keep Manifest V2.
+
+A build of a Manifest V2 extension for a Chromium target prints one warning with those versions and the ways out:
+
+```plaintext
+This extension declares Manifest V2, and Chrome no longer runs it.
+Chrome 138 was the last version to support Manifest V2, and Chrome 151 removed the flag that still loaded one unpacked.
+The chrome build will not install. Options:
+
+  • Build for Firefox (still supports MV2):  extension build --browser firefox
+  • Migrate the manifest to MV3 (action, background.service_worker, host_permissions)
+  • Or ship both from one source with browser-prefixed keys
+    (chromium:manifest_version: 3, firefox:manifest_version: 2, …)
+```
+
+An Edge build prints a deprecation notice with the same options, because Edge still loads Manifest V2.
 
 ### Invalid match patterns
 

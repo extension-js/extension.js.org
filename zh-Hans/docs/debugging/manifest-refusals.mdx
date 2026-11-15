@@ -30,9 +30,31 @@ Extension.js 在两个位置补上了这个缺口：
 
 | 形态                                             | Chromium 为什么拒绝                                                    |
 | ------------------------------------------------ | ---------------------------------------------------------------------- |
-| `manifest_version: 2`                            | 现代 Chromium 直接拒绝 MV2。请改在 Firefox 上运行，或迁移到 MV3。      |
+| `manifest_version: 2`                            | Chrome 138 是最后一个支持 MV2 的版本。请改在 Firefox 上运行，或迁移到 MV3。 |
 | MV3 有 `background.scripts` 而没有 `service_worker` | 这是 Firefox 风格的 background。Chromium 需要 `background.service_worker`。 |
 | 其他任何值（缺失、`1`、大于 `3`）                | 作为不受支持的 manifest 版本被拒绝。                                   |
+
+各浏览器对 Manifest V2 的支持并不相同：
+
+- **Chrome**：Chrome 138 是最后一个支持 Manifest V2 的版本，Google 的 [Manifest V2 支持时间表](https://developer.chrome.com/docs/extensions/develop/migrate/mv2-deprecation-timeline)写明了这一点。
+- **Chromium**：Chromium 151 移除了最后一个能以未打包方式加载 Manifest V2 扩展的标志。
+- **Microsoft Edge**：Edge 已经弃用 Manifest V2，但仍然会加载它。[Microsoft 的时间表](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/manifest-v3)会向部分用户显示警告，并且没有给出最终版本。
+- **Firefox 和 Safari**：两者都继续支持 Manifest V2。
+
+为 Chromium 目标构建 Manifest V2 扩展时，构建会打印一条警告，其中包含这些版本和几条出路：
+
+```plaintext
+This extension declares Manifest V2, and Chrome no longer runs it.
+Chrome 138 was the last version to support Manifest V2, and Chrome 151 removed the flag that still loaded one unpacked.
+The chrome build will not install. Options:
+
+  • Build for Firefox (still supports MV2):  extension build --browser firefox
+  • Migrate the manifest to MV3 (action, background.service_worker, host_permissions)
+  • Or ship both from one source with browser-prefixed keys
+    (chromium:manifest_version: 3, firefox:manifest_version: 2, …)
+```
+
+Edge 的构建打印的是一条弃用提示，附带同样的选项，因为 Edge 仍然会加载 Manifest V2。
 
 ### 无效的 match 模式
 
