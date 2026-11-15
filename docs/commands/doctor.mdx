@@ -79,6 +79,14 @@ Without `--browser`, `doctor` diagnoses the session that exists, not a hardcoded
 - With several contracts, `chromium` wins when present, otherwise the first one alphabetically. A `session-resolution` warn check then names every candidate before the numbered checks run.
 - With no contracts at all, `doctor` falls back to `chromium`.
 
+From the release after 4.1.39, a session that still runs wins over one that has ended. A session has ended when its contract reads `status: "stopped"` or its process is gone. With one session running and the others ended, `doctor` diagnoses the running one. When every session has ended, `doctor` diagnoses one of them by the same rule, and the `session-resolution` check says so:
+
+```plaintext
+multiple ended sessions found (chrome, firefox), diagnosing chrome
+```
+
+For a stopped session, the `ready-contract` check then fails and its remediation names the command that starts the session again.
+
 <Frame>
   <iframe
     className="w-full aspect-video rounded-xl"
@@ -94,7 +102,7 @@ Without `--browser`, `doctor` diagnoses the session that exists, not a hardcoded
 
 Checks run in dependency order. When a leg fails, later checks that depend on it are marked **skip** and name the check that blocked them: a skip is not a pass.
 
-A zeroth `session-resolution` check appears only when several live sessions exist. It warns and names the session that the run diagnoses.
+A zeroth `session-resolution` check appears only when several live sessions exist. It warns and names the session that the run diagnoses. From the release after 4.1.39, it also appears when several sessions exist and all of them have ended.
 
 Two more checks run before the numbered ones. `engine` fails when the session runs the `chromium-emulator` target, which `doctor` cannot diagnose. `peer-rspack` needs only the project, so it runs with or without a dev session. It fails when a direct dependency declares an `@rspack/core` peer range that misses the version Extension.js ships. That mismatch is why `npm install` fails with `ERESOLVE`, and the remediation names the upgrade to run.
 

@@ -79,6 +79,14 @@ extension doctor [project-path] [options]
 - 有多個契約時,存在 `chromium` 就選 `chromium`,否則取字母序第一個。接著會有一個 `session-resolution` warn 檢查,在編號檢查開始前列出所有候選。
 - 完全沒有契約時,`doctor` 回退到 `chromium`。
 
+從 4.1.39 之後的版本起,仍在執行的工作階段優先於已經結束的工作階段。契約裡寫著 `status: "stopped"`,或者它的行程已經不在,都算工作階段已經結束。一個工作階段在執行而其餘都已結束時,`doctor` 診斷正在執行的那個。所有工作階段都已結束時,`doctor` 依同樣的規則診斷其中一個,`session-resolution` 檢查會如實說明:
+
+```plaintext
+multiple ended sessions found (chrome, firefox), diagnosing chrome
+```
+
+對於已停止的工作階段,`ready-contract` 檢查接著會失敗,它的修復建議會寫出重新啟動該工作階段的指令。
+
 <Frame>
   <iframe
     className="w-full aspect-video rounded-xl"
@@ -94,7 +102,7 @@ extension doctor [project-path] [options]
 
 檢查依相依順序執行。某個環節失敗時,依賴它的後續檢查會標成 **skip**,並註明被哪個檢查擋住——skip 不等於通過。
 
-只有存在多個存活工作階段時,才會出現第零個 `session-resolution` 檢查。它會給出 warn,並指明這次執行診斷的是哪個工作階段。
+只有存在多個存活工作階段時,才會出現第零個 `session-resolution` 檢查。它會給出 warn,並指明這次執行診斷的是哪個工作階段。從 4.1.39 之後的版本起,存在多個工作階段而且全部已經結束時,它也會出現。
 
 在編號檢查之前還有兩個檢查。當工作階段執行的是 `chromium-emulator` 目標時,`engine` 會失敗,因為 `doctor` 無法診斷它。`peer-rspack` 只需要專案本身,所以不論有沒有 dev 工作階段都會執行。當某個直接相依宣告的 `@rspack/core` peer 範圍不包含 Extension.js 內建的版本時,它會失敗。這種不相符正是 `npm install` 以 `ERESOLVE` 失敗的原因,修正建議會指出要執行的升級。
 

@@ -126,6 +126,47 @@ pnpm extension eval "globalThis.__lastSyncAt" --context background --browser fir
 
 在 Chromium MV3 上（默认模板为 Chrome 构建的就是它），后台是一个 service worker，而 Chrome 的扩展 CSP 会在那里阻止 eval。在这类构建上，`--context background` 返回的是一条解释性错误而不是值。在 Chromium MV3 上请改用 `--context page` 或 `--context content`。extension.dev 的 MCP 服务器在 Chromium MV3 会话上对其 eval 工具应用同样的默认值。
 
+## 会话已经结束时
+
+从 4.1.39 之后的版本起，act 命令或 `logs --follow` 在连接之前，会先确认所选浏览器的会话仍在运行。会话结束后，`ready.json` 文件仍然留在磁盘上，所以单凭这个文件并不能证明有会话在运行。你用 `Ctrl+C` 停止了会话（文件里会留下 `status: "stopped"`），或者它的进程已经不在、控制端口也无人应答，都算会话已经结束。
+
+这时命令会以退出码 `1` 和 `E_SESSION_NOT_FOUND` 退出。消息会说明会话已经结束，给出原因，并打印重新启动它的命令。这条命令是 `extension dev`、`extension start` 或 `extension preview`，取决于当初是哪一个启动了会话：
+
+```plaintext
+The extension preview session for chrome ended: /path/to/project/dist/extension-js/chrome/ready.json reads status 'stopped'. Run `extension preview --browser=chrome --allow-control` to start one.
+```
+
+打印出来的命令带着该命令所需的 flag：`eval` 是 `--allow-eval`，其他 act 命令是 `--allow-control`，`logs --follow` 则不带 flag。
+
+如果同一个项目里另一个浏览器的会话正在运行，消息末尾会带一条提示：
+
+```plaintext
+A session is running for firefox: pass --browser firefox to use it.
+```
+
+只有那个浏览器的会话没有被停止，而且它的控制端口有应答时，这条提示才会出现。已结束的会话留下的 `ready.json` 不会触发它。某个浏览器根本没有 `ready.json` 时，拒绝信息后面也会跟着同样的提示。
+
+## start 或 preview 会话上的拒绝
+
+从 4.1.39 之后的版本起，由 `extension start` 或 `extension preview` 带 `--allow-control` 或 `--allow-eval` 打开的会话，会在每一条拒绝信息里写出它自己的命令。dev 会话说 `restart the dev session` 的地方，这类会话说的是 `restart the extension start session` 或 `restart the extension preview session`。例如，在没有 `--allow-eval` 的 `preview` 会话上运行 `eval`，得到的回答是：
+
+```plaintext
+eval is disabled for this session: restart the extension preview session with --allow-eval
+```
+
+没有 background 脚本或 service worker 的构建无法被控制，因为控制通道是从 background 连出来的。会话在启动时会给出警告，同一条警告接下来还会写出浏览器加载的文件夹：
+
+```plaintext
+Control channel open for the chrome production build, but this build has no background, so nothing in it can connect and every act verb will be refused.
+Add a background script or service worker to the manifest and build again.
+```
+
+此后每一个 act 命令都会以 `E_CONTROL_UNAVAILABLE` 失败，并说明这个构建没有 background：
+
+```plaintext
+no executor connected: the build this session loaded has no background, so nothing in it dials the control channel and no retry changes that. Add a background script or service worker to the manifest, build again and restart extension preview
+```
+
 ## 跨浏览器支持
 
 Extension.js 通过**浏览器内伴侣进程**进行调试，而不是 Chrome DevTools Protocol，因此核心循环可以在 **Chrome 与 Firefox** 上都到达你自己的界面——曾经那堵“Firefox 用 RDP，所以不支持”的墙在这些工具上已经不存在了。

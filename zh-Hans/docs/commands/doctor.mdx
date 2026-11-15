@@ -79,6 +79,14 @@ extension doctor [project-path] [options]
 - 有多个契约时，存在 `chromium` 就选 `chromium`，否则按字母序选第一个。随后会有一个 `session-resolution` warn 检查，在编号检查开始前列出所有候选。
 - 完全没有契约时，`doctor` 回退到 `chromium`。
 
+从 4.1.39 之后的版本起，仍在运行的会话优先于已经结束的会话。契约里写着 `status: "stopped"`，或者它的进程已经不在，都算会话已经结束。一个会话在运行而其余都已结束时，`doctor` 诊断正在运行的那个。所有会话都已结束时，`doctor` 按同样的规则诊断其中一个，`session-resolution` 检查会如实说明：
+
+```plaintext
+multiple ended sessions found (chrome, firefox), diagnosing chrome
+```
+
+对于已停止的会话，`ready-contract` 检查随后会失败，它的修复建议会写出重新启动该会话的命令。
+
 <Frame>
   <iframe
     className="w-full aspect-video rounded-xl"
@@ -94,7 +102,7 @@ extension doctor [project-path] [options]
 
 检查按依赖顺序运行。当某个环节失败时，依赖它的后续检查会标记为 **skip**，并注明是被哪个检查阻塞的——skip 不等于通过。
 
-只有当存在多个存活会话时，才会出现第零个 `session-resolution` 检查。它会给出 warn，并指明本次运行诊断的是哪个会话。
+只有当存在多个存活会话时，才会出现第零个 `session-resolution` 检查。它会给出 warn，并指明本次运行诊断的是哪个会话。从 4.1.39 之后的版本起，存在多个会话而且全部已经结束时，它也会出现。
 
 在编号检查之前还有两个检查。当会话运行的是 `chromium-emulator` 目标时，`engine` 会失败，因为 `doctor` 无法诊断它。`peer-rspack` 只需要项目本身，所以无论有没有 dev 会话都会运行。当某个直接依赖声明的 `@rspack/core` peer 范围不包含 Extension.js 自带的版本时，它会失败。这种不匹配正是 `npm install` 以 `ERESOLVE` 失败的原因，修复建议会指出要执行的升级。
 

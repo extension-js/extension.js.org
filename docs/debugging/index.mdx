@@ -126,6 +126,47 @@ pnpm extension eval "globalThis.__lastSyncAt" --context background --browser fir
 
 On Chromium MV3 (what the default template builds for Chrome) the background is a service worker, and Chrome's extension CSP blocks eval there. `--context background` returns an explanatory error instead of a value on those builds. Use `--context page` or `--context content` on Chromium MV3. The extension.dev MCP server applies the same default to its eval tool on Chromium MV3 sessions.
 
+## When the session has ended
+
+From the release after 4.1.39, an act verb or `logs --follow` checks that the session for the chosen browser still runs before it connects. The `ready.json` file stays on disk after its session ends, so the file alone does not prove that a session is up. A session has ended when you stopped it with `Ctrl+C`, which leaves `status: "stopped"` in the file, or when its process is gone and nothing answers its control port.
+
+The command then exits with code `1` and `E_SESSION_NOT_FOUND`. The message says that the session ended, gives the reason, and prints the command that starts it again. That command is `extension dev`, `extension start`, or `extension preview`, whichever started the session:
+
+```plaintext
+The extension preview session for chrome ended: /path/to/project/dist/extension-js/chrome/ready.json reads status 'stopped'. Run `extension preview --browser=chrome --allow-control` to start one.
+```
+
+The printed command carries the flag that the verb needs: `--allow-eval` for `eval`, `--allow-control` for the other act verbs, and no flag for `logs --follow`.
+
+When the session of another browser in the same project is up, the message ends with a hint:
+
+```plaintext
+A session is running for firefox: pass --browser firefox to use it.
+```
+
+The hint appears only when that browser's session is not stopped and its control port answers. A `ready.json` left by a session that ended never produces it. The same hint follows the refusal for a browser that has no `ready.json` at all.
+
+## Refusals on a start or preview session
+
+From the release after 4.1.39, a session that `extension start` or `extension preview` opened with `--allow-control` or `--allow-eval` names its own command in every refusal. Where a dev session says `restart the dev session`, these sessions say `restart the extension start session` or `restart the extension preview session`. For example, `eval` on a `preview` session that runs without `--allow-eval` answers:
+
+```plaintext
+eval is disabled for this session: restart the extension preview session with --allow-eval
+```
+
+A build with no background script or service worker cannot be controlled, because the control channel connects from the background. The session warns when it starts, and the same warning goes on to name the folder that the browser loads:
+
+```plaintext
+Control channel open for the chrome production build, but this build has no background, so nothing in it can connect and every act verb will be refused.
+Add a background script or service worker to the manifest and build again.
+```
+
+Every act verb then fails with `E_CONTROL_UNAVAILABLE` and says that the build has no background:
+
+```plaintext
+no executor connected: the build this session loaded has no background, so nothing in it dials the control channel and no retry changes that. Add a background script or service worker to the manifest, build again and restart extension preview
+```
+
 ## Cross-browser support
 
 Extension.js debugs through an **in-browser companion**, not the Chrome DevTools Protocol, so the core loop reaches your own surfaces on **both Chrome and Firefox**. The old "Firefox uses RDP, not supported" wall is gone for these tools.

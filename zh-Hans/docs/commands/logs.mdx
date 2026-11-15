@@ -91,6 +91,14 @@ extension logs [project-path] [options]
 
 如果该文件不存在，`logs` 会提示你先启动 `extension dev`，并以退出码 `1` 退出。机器可读格式还会输出一个错误码为 `E_LOGS_NOT_FOUND` 的失败信封（参见 [结果信封](/zh-Hans/docs/contracts/result-envelope)）。
 
+从 4.1.39 之后的版本起，如果同一个项目里另一个浏览器有日志文件，拒绝信息会指名它：
+
+```plaintext
+Logs exist for chromium: pass --browser chromium to read them.
+```
+
+日志文件比它的会话活得久。这条提示说的是那个浏览器有内容可读，而不是它的会话正在运行。
+
 当会话丢弃过记录时，文件里会在对应位置保留一条 gap 记录。不带任何过滤的 `ndjson` 或 `json` 读取会把这条记录原样打印到 stdout。一旦有任何过滤条件收窄了读取范围（`--context`、`--level`、`--since`、`--url`、`--tab`），stdout 上就只有日志记录，丢失的情况会在 stderr 上以一行报告，带上丢弃条数和原因，所有输出格式都如此。
 
 ## 跟随模式
@@ -106,6 +114,8 @@ extension logs --follow --context background,content --level info
 当你用 `Ctrl+C` 停止这个流时，机器可读格式会打印一个状态为 `interrupted` 的终止成功信封，这样消费方就能区分正常停止与崩溃。退出码为 `0`。
 
 如果找不到所选浏览器对应的会话，命令会以 `E_SESSION_NOT_FOUND` 失败，并指名应当运行的 `extension dev` 命令。
+
+从 4.1.39 之后的版本起，已经结束的会话也会以同样的方式失败。消息会说明会话已经结束，并打印重新启动它的命令，也就是 `extension dev`、`extension start` 或 `extension preview`。只有那个浏览器的会话正在运行，而且它的控制端口有应答时，才会出现 `A session is running for <browser>` 这条提示。见 [会话已经结束时](/zh-Hans/docs/debugging#会话已经结束时)。
 
 ## 输出格式
 
