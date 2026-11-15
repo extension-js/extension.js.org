@@ -185,6 +185,24 @@ From the release after 4.1.39, a Gecko build removes the permission strings that
 
 The build keeps `incognito: "split"` as declared and says so. Firefox has no split mode and reads the value as `"not_allowed"`, so the extension never runs in private windows. Set `firefox:incognito` to `"spanning"` or `"not_allowed"` to choose.
 
+#### Each build repairs the keys that its browser refuses
+
+Some manifest keys load in one browser and make another browser refuse the whole extension. A build repairs the emitted manifest for its own target and names each repair. Your source `manifest.json` stays as written.
+
+- **`options_ui.chrome_style`**: a Chromium build under Manifest V3 removes the key. Chrome refuses the extension over it, whatever its value. Firefox and Safari builds keep it, and so does a Manifest V2 build.
+- **Icon size keys**: Chrome and Firefox builds remove each size key that the engine refuses. This covers `icons` and the `default_icon` of `action`, `browser_action`, and `page_action`. Both engines take only a whole pixel size such as `"48"`, so `"48.5"`, `"big"`, and `"0"` go. Firefox also refuses a leading zero such as `"016"`, so only a Firefox build removes that key. A Safari build keeps every key.
+- **Empty `background.scripts`**: a Firefox build removes an empty list. Firefox starts an empty background page for it, where Chrome and Safari start none. When nothing else names a background, the `background` key goes too.
+- **`web_accessible_resources` pattern with `../`**: the pattern stays in the manifest, the build copies no file for it, and a warning names the path to write instead. Chrome and Firefox expose no file for such a pattern. Write it from the extension root, for example `assets/*`.
+- **`trial_tokens` and `background.async_listener_registration`**: both keys pass through unchanged on every target.
+
+Each removed key prints a repair line that names the engine:
+
+```plaintext
+Repaired the icons.48.5 field, which Firefox refuses to load the extension over.
+REASON removed "48.5": "images/icon.png", Firefox takes only a whole pixel size such as "48" as the key and refuses the whole extension over any other
+Fix the field in your manifest.json file.
+```
+
 ### 3) Output per browser target
 
 Extension.js writes each target to its own build folder:

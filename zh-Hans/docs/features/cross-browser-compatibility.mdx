@@ -184,6 +184,24 @@ deno run -A npm:extension@latest dev --chromium-binary /Applications/Brave\\ Bro
 
 构建会按声明保留 `incognito: "split"`，并打印一条警告说明这一点。Firefox 没有 split 模式，会把这个值读作 `"not_allowed"`，所以扩展永远不会在隐私窗口里运行。把 `firefox:incognito` 设为 `"spanning"` 或 `"not_allowed"` 来做出选择。
 
+#### 每个构建只修复它的浏览器拒绝的键
+
+有些 manifest 键在一个浏览器里能加载，却会让另一个浏览器拒绝整个扩展。构建只为自己的目标修复产出的 manifest，并点名每一次修复。你的源 `manifest.json` 保持原样。
+
+- **`options_ui.chrome_style`**：Manifest V3 下的 Chromium 构建会移除这个键。无论它的值是什么，Chrome 都会因为它拒绝整个扩展。Firefox 和 Safari 构建会保留它，Manifest V2 构建也会保留。
+- **图标尺寸键**：Chrome 和 Firefox 构建会移除引擎拒绝的每一个尺寸键，范围包括 `icons`，以及 `action`、`browser_action` 和 `page_action` 的 `default_icon`。两个引擎都只接受 `"48"` 这样的整数像素尺寸，所以 `"48.5"`、`"big"` 和 `"0"` 会被移除。Firefox 还会拒绝 `"016"` 这样带前导零的键，所以只有 Firefox 构建会移除它。Safari 构建保留所有键。
+- **空的 `background.scripts`**：Firefox 构建会移除空列表。Firefox 会为它启动一个空的 background 页面，而 Chrome 和 Safari 不会启动任何 background。如果没有别的字段指明 background，`background` 键也会一并移除。
+- **带 `../` 的 `web_accessible_resources` 模式**：这个模式会原样留在 manifest 里，构建不会为它复制任何文件，并会打印一条警告，给出应该改写成的路径。Chrome 和 Firefox 都不会为这样的模式暴露任何文件。请从扩展根目录写起，例如 `assets/*`。
+- **`trial_tokens` 和 `background.async_listener_registration`**：这两个键在每个目标上都原样通过。
+
+每个被移除的键都会打印一行修复说明，并点名是哪个引擎：
+
+```plaintext
+Repaired the icons.48.5 field, which Firefox refuses to load the extension over.
+REASON removed "48.5": "images/icon.png", Firefox takes only a whole pixel size such as "48" as the key and refuses the whole extension over any other
+Fix the field in your manifest.json file.
+```
+
 ### 3) 按浏览器目标输出
 
 Extension.js 会把每个目标写入各自的构建目录：

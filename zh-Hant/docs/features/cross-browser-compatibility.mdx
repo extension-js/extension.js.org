@@ -184,6 +184,24 @@ deno run -A npm:extension@latest dev --chromium-binary /Applications/Brave\\ Bro
 
 建置會依宣告保留 `incognito: "split"`，並印出一則警告說明這一點。Firefox 沒有 split 模式，會把這個值讀作 `"not_allowed"`，所以擴充功能永遠不會在隱私視窗裡執行。把 `firefox:incognito` 設為 `"spanning"` 或 `"not_allowed"` 來做出選擇。
 
+#### 每個建置只修復它的瀏覽器拒絕的鍵
+
+有些 manifest 鍵在一個瀏覽器裡能載入，卻會讓另一個瀏覽器拒絕整個擴充功能。建置只為自己的目標修復產出的 manifest，並指名每一次修復。你的原始 `manifest.json` 保持原樣。
+
+- **`options_ui.chrome_style`**：Manifest V3 下的 Chromium 建置會移除這個鍵。無論它的值是什麼，Chrome 都會因為它拒絕整個擴充功能。Firefox 與 Safari 建置會保留它，Manifest V2 建置也會保留。
+- **圖示尺寸鍵**：Chrome 與 Firefox 建置會移除引擎拒絕的每一個尺寸鍵，範圍包括 `icons`，以及 `action`、`browser_action` 與 `page_action` 的 `default_icon`。兩個引擎都只接受 `"48"` 這樣的整數像素尺寸，所以 `"48.5"`、`"big"` 與 `"0"` 會被移除。Firefox 還會拒絕 `"016"` 這樣帶前導零的鍵，所以只有 Firefox 建置會移除它。Safari 建置保留所有鍵。
+- **空的 `background.scripts`**：Firefox 建置會移除空清單。Firefox 會為它啟動一個空的 background 頁面，而 Chrome 與 Safari 不會啟動任何 background。如果沒有別的欄位指明 background，`background` 鍵也會一併移除。
+- **帶 `../` 的 `web_accessible_resources` 樣式**：這個樣式會原樣留在 manifest 裡，建置不會為它複製任何檔案，並會印出一則警告，給出應該改寫成的路徑。Chrome 與 Firefox 都不會為這樣的樣式公開任何檔案。請從擴充功能根目錄寫起，例如 `assets/*`。
+- **`trial_tokens` 與 `background.async_listener_registration`**：這兩個鍵在每個目標上都原樣通過。
+
+每個被移除的鍵都會印出一行修復說明，並指名是哪個引擎：
+
+```plaintext
+Repaired the icons.48.5 field, which Firefox refuses to load the extension over.
+REASON removed "48.5": "images/icon.png", Firefox takes only a whole pixel size such as "48" as the key and refuses the whole extension over any other
+Fix the field in your manifest.json file.
+```
+
 ### 3) 為每個瀏覽器目標輸出
 
 Extension.js 會把各目標寫入各自的建置資料夾：
