@@ -198,7 +198,16 @@ This keeps your builds organized and easier to ship in CI.
 
 Chromium 148 and later expose every extension API under `browser` as well as `chrome`, so `browser.*` code runs there without a polyfill. An extension that declares a `devtools_page` gets the native `browser` namespace only from Chromium 152. The Chromium version decides this, not the Chrome brand, so the same numbers apply to Edge and other Chromium browsers.
 
+The polyfill is off by default in `dev`, `start`, and `build`. To opt in, pass `--polyfill` or set `commands.<command>.polyfill` to `true` in `extension.config.js`.
+
 You still need the polyfill when your users run a Chromium browser older than 148, or older than 152 with a `devtools_page`. If you do not support those versions, set `"minimum_chrome_version": "148"` in the manifest (`"152"` with a `devtools_page`) and build without the polyfill.
+
+<Warning>
+  On Chromium below 152, an extension that declares a `devtools_page` has no
+  `browser` object in any of its scripts. That covers the background, the
+  pages, and the content scripts as well as the DevTools page. Enable the
+  polyfill or call `chrome.*` in such an extension.
+</Warning>
 
 If your code uses `browser.*` and you support those older versions, enable `--polyfill` for Chromium-family targets:
 
@@ -231,11 +240,25 @@ Extension.js skips this step for Firefox because Firefox already supports `brows
 
 The polyfill module resolves from your project first, then from the bundled Extension.js dependency. Package managers may hoist `webextension-polyfill` to your project root, and a copy you installed yourself wins over the bundled one. When no copy resolves at all, the build prints a warning and continues without the polyfill instead of failing.
 
+When a script reads `browser.*` with the polyfill off, and the manifest still lets an older Chromium in, the build prints one warning:
+
+```plaintext
+background.ts:3 uses browser.*, which chrome has natively only from Chromium 148. The cross-browser polyfill is off, the default for every command, and manifest.json sets no minimum_chrome_version, so a chrome older than 148 can install this extension, where this code may throw "browser is not defined". Set minimum_chrome_version to "148" in manifest.json if older versions are out of scope, run extension build with --polyfill, set commands.build.polyfill to true in extension.config.js, guard the read with a typeof browser check or a branch on import.meta.env.EXTENSION_PUBLIC_BROWSER, or call chrome.* instead.
+```
+
+A `dev` session prints that warning only for an extension that declares a `devtools_page`.
+
+#### Upgrade note
+
+Earlier releases turned the polyfill on by default in `dev` and `start`. If your code reads `browser.*` and you support a Chromium browser older than 148, add `--polyfill` to those commands. You can also set `commands.dev.polyfill` and `commands.start.polyfill` to `true`.
+
+An extension that declares a `devtools_page` needs the same change until its users run Chromium 152 or later, because the browser that `dev` launches can still be below 152. `build` already left the polyfill off, so its output does not change.
+
 ## Best practices
 
 - **Keep one codebase**: Put browser differences in prefixed manifest fields when possible.
 - **Build one target at a time**: Generate dedicated artifacts (`dist/<browser>`) for each browser in continuous integration (CI).
-- **Use `--polyfill` when needed**: `build` leaves it off until you pass `--polyfill`, while `dev` and `start` apply it by default. Pass `--no-polyfill` there when your code does not depend on `browser.*`. You need the polyfill only for a Chromium browser older than 148, or older than 152 with a `devtools_page`.
+- **Use `--polyfill` when needed**: `dev`, `start`, and `build` leave it off until you pass `--polyfill`. You need the polyfill only for a Chromium browser older than 148, or older than 152 with a `devtools_page`.
 - **Check API support early**: Use [MDN WebExtensions docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions) before relying on browser-specific APIs.
 
 ## Next steps

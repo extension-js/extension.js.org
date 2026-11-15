@@ -96,7 +96,7 @@ extension dev [path-or-url] [options]
 | 旗標                   | 用途                                                               | 預設值     |
 | ---------------------- | ------------------------------------------------------------------ | ---------- |
 | `--browser <target>`   | 以 Chrome、Edge、Firefox 為目標,或以逗號分隔列出。                 | `chromium` |
-| `--polyfill`           | 為 Chromium 目標銜接 `browser.*` API,以執行 Firefox 風格的原始碼。 | `true`     |
+| `--polyfill`           | 為 Chromium 目標銜接 `browser.*` API,以執行 Firefox 風格的原始碼。 | `false`    |
 | `--port <port>`        | 開發伺服器埠號。設 `0` 讓作業系統指定。                            | `8080`     |
 | `--starting-url <url>` | 瀏覽器啟動時開啟此 URL。                                           | 未設       |
 | `--no-reload`          | 略過自動重新載入。當你想得到乾淨的開發包時使用。                   | 啟用       |
@@ -110,8 +110,8 @@ extension dev [path-or-url] [options]
 | `--profile <path\|boolean>`    | -                  | 瀏覽器設定檔路徑,或布林模式。                                                                                      | 全新設定檔              |
 | `--chromium-binary <path>`     | -                  | [自訂 Chromium 系列執行檔路徑](/zh-Hant/docs/browsers/running-other-browsers)。                                            | 受管理的安裝,接著是系統安裝 |
 | `--gecko-binary <path>`        | `--firefox-binary` | [自訂 Gecko 系列執行檔路徑](/zh-Hant/docs/browsers/running-other-browsers)。                                               | 受管理的安裝,接著是系統安裝 |
-| `--polyfill [boolean]`         | -                  | 為 Chromium 目標啟用 `browser.*` API 相容性 polyfill。                                                             | `true`                  |
-| `--no-polyfill`                | -                  | 停用跨瀏覽器 polyfill。                                                                                            | 預設啟用 polyfill       |
+| `--polyfill [boolean]`         | -                  | 為 Chromium 目標啟用 `browser.*` API 相容性 polyfill。                                                             | `false`                 |
+| `--no-polyfill`                | -                  | 停用跨瀏覽器 polyfill。                                                                                            | 預設停用 polyfill       |
 | `--starting-url <url>`         | -                  | 啟動瀏覽器後開啟的 URL。                                                                                           | 未設                    |
 | `--port <port>`                | -                  | 請求的開發伺服器埠號。設 `0` 讓作業系統指定。參見[埠號如何決定](#埠號如何決定)。                                   | `8080`                  |
 | `--host <host>`                | -                  | 開發伺服器要綁定的主機。Docker/dev container 請用 `0.0.0.0`。                                                      | `127.0.0.1`             |
@@ -605,7 +605,7 @@ deno run -A npm:extension@latest dev ./my-extension --chromium-binary /path/to/b
 ## 最佳實務
 
 - **瀏覽器相容性:** 在不同瀏覽器中測試,確認每個目標都能正常運作。
-- **使用 polyfill:** `dev` 中 polyfill 預設開啟,所以 `browser.*` 呼叫在早於 148 的 Chromium 瀏覽器（帶有 `devtools_page` 時為早於 152）中也能運作。更新的版本原生提供 `browser`。想要未經處理的原始打包時,請傳入 `--no-polyfill`。
+- **使用 polyfill:** `dev` 中 polyfill 預設關閉。Chromium 148 及更新版本原生提供 `browser`，所以只有面向更舊的版本時才需要傳入 `--polyfill`。在低於 152 的 Chromium 上，宣告了 `devtools_page` 的擴充功能在任何指令碼裡都沒有 `browser` 物件。請參閱[跨瀏覽器相容性](/zh-Hant/docs/features/cross-browser-compatibility)。
 - **自動化可靠性:** 把 `dev` 視為監看模式的搭配(`--no-browser` + `dev --wait`)。把 `start` 視為正式版的搭配(`--no-browser` + `start --wait`)。對腳本與 CI 自動化,使用 `--output=json`。
 
 ## 後續步驟

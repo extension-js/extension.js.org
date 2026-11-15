@@ -197,7 +197,15 @@ Extension.js 會把各目標寫入各自的建置資料夾：
 
 Chromium 148 及更新版本把每個擴充功能 API 同時放在 `browser` 與 `chrome` 之下，所以 `browser.*` 程式碼在那裡不需要 polyfill 就能執行。宣告了 `devtools_page` 的擴充功能要到 Chromium 152 才有原生的 `browser` 命名空間。起決定作用的是 Chromium 版本，而不是 Chrome 這個品牌，所以同樣的版本號也適用於 Edge 與其他 Chromium 瀏覽器。
 
+polyfill 在 `dev`、`start` 與 `build` 中預設關閉。要啟用它，請傳入 `--polyfill`，或在 `extension.config.js` 中把 `commands.<command>.polyfill` 設為 `true`。
+
 當你的使用者執行早於 148 的 Chromium 瀏覽器（帶有 `devtools_page` 時為早於 152）時，你仍然需要 polyfill。如果你不支援這些版本，請在 manifest 中設定 `"minimum_chrome_version": "148"`（帶有 `devtools_page` 時為 `"152"`），並在不帶 polyfill 的情況下建置。
+
+<Warning>
+  在低於 152 的 Chromium 上，宣告了 `devtools_page` 的擴充功能在任何指令碼裡都沒有
+  `browser` 物件。不只是 DevTools 頁面，background、各個頁面與 content script
+  也都沒有。請為這樣的擴充功能啟用 polyfill，或改用 `chrome.*`。
+</Warning>
 
 如果你的程式碼使用 `browser.*`，並且要支援這些更舊的版本，可為 Chromium 家族目標啟用 `--polyfill`：
 
@@ -230,11 +238,25 @@ Firefox 本身已原生支援 `browser.*`，Extension.js 會略過這一步。
 
 polyfill 模組會先從你的專案解析，接著才是 Extension.js 內建的相依套件。套件管理器可能會把 `webextension-polyfill` 提升到你的專案根目錄，而你自己安裝的那份會優先於內建的那份。若完全解析不到任何一份，建置會印出警告並在沒有 polyfill 的情況下繼續，而不是直接失敗。
 
+如果某個指令碼在 polyfill 關閉時讀取 `browser.*`，而 manifest 仍然允許更舊的 Chromium 安裝這個擴充功能，建置會印出一則警告：
+
+```plaintext
+background.ts:3 uses browser.*, which chrome has natively only from Chromium 148. The cross-browser polyfill is off, the default for every command, and manifest.json sets no minimum_chrome_version, so a chrome older than 148 can install this extension, where this code may throw "browser is not defined". Set minimum_chrome_version to "148" in manifest.json if older versions are out of scope, run extension build with --polyfill, set commands.build.polyfill to true in extension.config.js, guard the read with a typeof browser check or a branch on import.meta.env.EXTENSION_PUBLIC_BROWSER, or call chrome.* instead.
+```
+
+`dev` 工作階段只會對宣告了 `devtools_page` 的擴充功能印出這則警告。
+
+#### 升級說明
+
+更早的版本在 `dev` 與 `start` 中預設開啟 polyfill。如果你的程式碼讀取 `browser.*`，並且要支援早於 148 的 Chromium 瀏覽器，請為這兩個指令加上 `--polyfill`。你也可以把 `commands.dev.polyfill` 與 `commands.start.polyfill` 設為 `true`。
+
+宣告了 `devtools_page` 的擴充功能也需要同樣的改動，直到它的使用者都執行 Chromium 152 或更新版本，因為 `dev` 啟動的瀏覽器仍可能低於 152。`build` 原本就預設關閉 polyfill，所以它的輸出沒有變化。
+
 ## 最佳實務
 
 - **保持單一程式碼庫**：可能的話，把瀏覽器差異放在帶前綴的 manifest 欄位裡。
 - **一次只建一個目標**：在持續整合（CI）中為每個瀏覽器產出獨立的產物（`dist/<browser>`）。
-- **必要時才使用 `--polyfill`**：`build` 預設關閉，需要你明確傳入 `--polyfill`；`dev` 與 `start` 則預設開啟。若你的程式碼不依賴 `browser.*`，在這兩個指令傳入 `--no-polyfill` 將其關閉。只有面向早於 148 的 Chromium 瀏覽器（帶有 `devtools_page` 時為早於 152）時才需要 polyfill。
+- **必要時才使用 `--polyfill`**：`dev`、`start` 與 `build` 預設都關閉它，需要你明確傳入 `--polyfill`。只有面向早於 148 的 Chromium 瀏覽器（帶有 `devtools_page` 時為早於 152）時才需要 polyfill。
 - **及早確認 API 支援**：在依賴特定瀏覽器 API 前，先查閱 [MDN WebExtensions 文件](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions)。
 
 ## 下一步
