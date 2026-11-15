@@ -102,6 +102,56 @@ deno run -A npm:extension@latest create my-extension --template=action
 }
 ```
 
+## 图标变体
+
+`icon_variants` 为每种配色方案声明一组图标。Extension.js 会读取顶层的这个键，以及 `action`、`browser_action` 和 `page_action` 之下的这个键。
+
+```json
+{
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png"
+  },
+  "icon_variants": [
+    {
+      "16": "icons/dark-16.png",
+      "48": "icons/dark-48.png",
+      "color_schemes": ["dark"]
+    },
+    {
+      "16": "icons/light-16.png",
+      "48": "icons/light-48.png",
+      "color_schemes": ["light"]
+    }
+  ]
+}
+```
+
+这个键下的文件会像 `icons` 一样被输出和检查：
+
+- 每个变体文件都输出在它的源位置，它在 manifest 中的路径遵循与 `icons` 相同的规则。
+- 缺少变体文件时，构建会以图标错误停止，错误里会写出这个键：`Can't find an icon file listed in icon_variants.`
+
+Chromium 只有在开启 `ExtensionIconVariants` 标志时才读取 `icon_variants`，Firefox 目前还不读取这个键。对于这些目标，构建会保留你的 manifest 中声明的 `icons` 和 action 的 `default_icon`。
+
+如果 manifest 中没有它们，构建会先用不带 `color_schemes` 的变体组来填充，其次用浅色组。Chromium 只接受 PNG 尺寸，Firefox 还可以使用 `any` 的 SVG。Safari 的输出会原样保留 manifest。
+
+构建会打印一条提示，说明浏览器显示的是哪些图标：
+
+```plaintext
+Firefox does not read icon_variants yet.
+Firefox shows icons from your manifest instead.
+```
+
+当构建替你填充 `icons` 时，提示也会说明：
+
+```plaintext
+Chromium reads icon_variants only with its ExtensionIconVariants flag on.
+The manifest had no icons, so the build filled it from the variant that fits every color scheme, or the light one.
+```
+
+浏览器前缀对这个键同样有效。`chromium:icon_variants` 或 `firefox:icon_variants` 下的列表只会在对应浏览器的构建中输出它的文件。参见[浏览器特定的 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)。
+
 ## 从 SVG 生成各尺寸 PNG
 
 把 SVG 保留为设计源文件，导出所有浏览器都接受的 PNG 尺寸。下面这条命令使用 librsvg 提供的 `rsvg-convert`（macOS 上 `brew install librsvg`，Debian 与 Ubuntu 上 `apt install librsvg2-bin`）：
