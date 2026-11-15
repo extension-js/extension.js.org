@@ -1,8 +1,9 @@
 ---
 title: "Types for the chrome and browser APIs"
-description: "Get TypeScript types for chrome.*, browser.*, and process.env. Extension.js 4.1.19 and later installs them automatically; older versions need @types/chrome."
+description: "Get TypeScript types for chrome.*, browser.*, and process.env. Extension.js installs chrome-types, and a project that installs @types/chrome keeps it."
 keywords:
   [
+    "chrome-types",
     "@types/chrome",
     "types chrome",
     "chrome types",
@@ -20,7 +21,7 @@ Extension.js compiles TypeScript with SWC, which strips types and never checks t
 
 ## What Extension.js generates
 
-When a project uses TypeScript, `extension dev` and `extension build` write an `extension-env.d.ts` file beside `package.json`. It is regenerated on every run, so do not edit it.
+When a project uses TypeScript, `extension dev`, `extension build`, and `extension start` write an `extension-env.d.ts` file beside `package.json`. It is regenerated on every run, so do not edit it.
 
 The file pulls in the ambient types that the `extension` package publishes:
 
@@ -33,23 +34,29 @@ Those references give you:
 
 | Reference                  | What it declares                                                                    |
 | -------------------------- | ----------------------------------------------------------------------------------- |
-| `extension/types`          | The `browser` global, the `chrome` namespace, `process.env` and `import.meta.env` keys |
-| `extension/types/polyfill` | The `browser.*` namespace shape from `webextension-polyfill`                        |
+| `extension/types`          | The `browser` namespace and its `chrome` alias, `process.env` and `import.meta.env` keys |
+| `extension/types/polyfill` | The `webextension-polyfill` module, for `import browser from 'webextension-polyfill'` |
 | Wildcard modules           | `import` of `.css`, `.module.css`, `.png`, `.svg`, and other assets, plus `?raw` and `?url` imports |
 
 The `EXTENSION_*` environment keys are typed here too. That is why `process.env.EXTENSION_MODE` resolves without extra setup.
+
+A project that installs `@types/chrome` gets a different first reference. The section "Keep @types/chrome" on this page shows it.
 
 When the `extension` package does not resolve from the project, for example a project that only runs the CLI through `npx`, the two references find nothing. The generated file then also carries the wildcard module declarations inline, so stylesheet, image, `?raw`, and `?url` imports still type-check.
 
 ## Types that install with Extension.js
 
-From Extension.js 4.1.19, the `extension` package lists the three type packages that its references need as dependencies:
+The `extension` package lists the three type packages that its references need as dependencies:
 
 | Package                        | What it types             |
 | ------------------------------ | ------------------------- |
-| `@types/chrome`                | The `chrome.*` namespace  |
-| `@types/webextension-polyfill` | The `browser.*` namespace |
+| `chrome-types`                 | The `browser.*` namespace and its `chrome.*` alias |
+| `@types/webextension-polyfill` | The `webextension-polyfill` module |
 | `@types/node`                  | `process.env`             |
+
+[`chrome-types`](https://www.npmjs.com/package/chrome-types) is the package that Chrome generates from the Chromium source. Its `browser` is the native namespace, and its methods return promises. `chrome` is an alias of it.
+
+`chrome-types` does not declare the APIs that only Firefox has. Extension.js types Firefox's `browser.sidebarAction` and `browser.browserAction` itself.
 
 They install with `extension`, so `tsc` resolves `chrome.*` and `browser.*` in a new project without an extra install:
 
@@ -59,16 +66,49 @@ npx tsc --noEmit
 
 The build does not need these packages. SWC never reads the types, so the build succeeds with or without them.
 
+## Keep @types/chrome
+
+A project that installs `@types/chrome` keeps it. That package types `chrome`, and `browser` is typed from `webextension-polyfill` as before.
+
+`@types/chrome` and `chrome-types` both declare the `chrome` global, so the two packages cannot load together. The generated `extension-env.d.ts` references one or the other. It references `@types/chrome` when your `package.json` lists that package. It does the same when `node_modules/@types/chrome` exists in the project folder or in a parent folder:
+
+```ts extension-env.d.ts
+/// <reference types="extension/types/legacy" />
+
+// This project installs @types/chrome, so it types the extension APIs.
+// Remove that package to get chrome-types and the native browser namespace.
+/// <reference types="chrome" />
+
+// Polyfill types for browser.* APIs
+/// <reference types="extension/types/polyfill" />
+```
+
+To move to `chrome-types`:
+
+1. Remove `@types/chrome` from your project.
+2. Run `extension dev` or `extension build` once.
+
+To go back to `@types/chrome`:
+
+1. Install `@types/chrome` as a development dependency.
+2. Run `extension dev` or `extension build` once.
+
+On the default setup, the `browser` global has the native types. For the `webextension-polyfill` types, import the module:
+
+```ts
+import browser from "webextension-polyfill";
+```
+
 ## Pin your own version
 
-The `extension` package accepts any version of the three type packages. When your project declares one of them, npm, pnpm, and Bun reuse the copy that your project installs.
+The `extension` package accepts any version of `@types/node` and `@types/webextension-polyfill`. It accepts `chrome-types` 0.1.460 or later. When your project declares one of them, npm, pnpm, and Bun reuse the copy that your project installs.
 
 When your `tsconfig.json` has no `types` array, TypeScript also loads the copy that your project declares. The version in your own `package.json` wins:
 
 ```json package.json
 {
   "devDependencies": {
-    "@types/chrome": "^0.0.287"
+    "@types/webextension-polyfill": "^0.12.0"
   }
 }
 ```
@@ -134,11 +174,13 @@ deno add -D npm:@types/webextension-polyfill
 
 </CodeGroup>
 
-## Type errors on browser.\* after an upgrade
+## Type errors after an upgrade
 
-From 4.1.19, `browser` has the full `webextension-polyfill` type instead of `any`. Code that passed `tsc` before can show new type errors, for example a call to an API that the polyfill does not declare.
+Earlier releases installed `@types/chrome` with `extension` and typed `browser` from `webextension-polyfill`. A project that installs `@types/chrome` keeps those types. A project without `@types/chrome` moves to `chrome-types` on upgrade.
 
-Fix the call, or use `chrome.*` for an API that only Chromium ships. Read [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the runtime side of the same choice.
+After that move, code that passed `tsc` before can show new type errors. For example, `tsc` can report names such as `chrome.tabs.TabChangeInfo` missing.
+
+Install `@types/chrome` to keep the previous types, then run `extension dev` or `extension build` once. Read [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for the runtime side of `browser.*`.
 
 ## Keep extension-env.d.ts in the include list
 
@@ -171,13 +213,15 @@ A copy that already exists is kept up to date either way. Reformatting it, for e
 | `Cannot find namespace 'chrome'`          | Same cause, in a type position                        | Upgrade to 4.1.19, or install `@types/chrome`          |
 | `Cannot find module './styles.css'`       | `extension-env.d.ts` is out of `include`              | Add the file to `include`                              |
 | `Cannot find name 'browser'`              | The project never ran `dev` or `build`                | Run either command once to generate types              |
-| New type errors on `browser.*` calls      | From 4.1.19, `browser` is typed instead of `any`      | Fix the call, or use `chrome.*` for a Chromium-only API |
+| A name such as `chrome.tabs.TabChangeInfo` is missing after an upgrade | The project moved from `@types/chrome` to `chrome-types` | Install `@types/chrome`, then run `dev` or `build` once |
+| Type errors in a committed `extension-env.d.ts` in CI | `tsc` ran before the CLI rewrote the file | Run `dev`, `build`, or `start` before `tsc` |
 
 ## Best practices
 
 - Treat `extension-env.d.ts` as build output. Commit it if you like, but never edit it.
-- Declare a type package in your own `devDependencies` only when you need a specific version of it.
+- Declare a type package in your own `devDependencies` only when you need a specific version of it, or to keep `@types/chrome`.
 - Run `tsc --noEmit` in continuous integration. The Extension.js build does not fail on type errors.
+- Run `extension build` before `tsc` in continuous integration. `dev`, `build`, and `start` regenerate `extension-env.d.ts`, and `tsc` does not.
 
 ## Next steps
 

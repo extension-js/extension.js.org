@@ -101,6 +101,70 @@ Repository: [extension-js/templates/action](https://github.com/extension-js/temp
 }
 ```
 
+## Icon variants
+
+`icon_variants` declares one icon group per color scheme. Extension.js reads the key at the top level and under `action`, `browser_action`, and `page_action`.
+
+```json
+{
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png"
+  },
+  "icon_variants": [
+    {
+      "16": "icons/dark-16.png",
+      "48": "icons/dark-48.png",
+      "color_schemes": ["dark"]
+    },
+    {
+      "16": "icons/light-16.png",
+      "48": "icons/light-48.png",
+      "color_schemes": ["light"]
+    }
+  ]
+}
+```
+
+The files under the key ship and are checked like `icons`:
+
+- Each variant file is emitted at its source location, and its manifest path follows the same rules as `icons`.
+- A missing variant file stops the build with the icons error, which names the key: `Can't find an icon file listed in icon_variants.`
+
+Chromium reads `icon_variants` only with its `ExtensionIconVariants` flag on, and Firefox does not read the key yet. For those targets, the build keeps the `icons` and the action `default_icon` that your manifest declares.
+
+When the manifest has none, the build fills them from the variant group with no `color_schemes`, then from the light group. Chromium takes PNG sizes only, and Firefox can also take the `any` SVG.
+
+Safari's app converter does not read `icon_variants` yet, and it builds the app icon from `icons` only. A Safari build gets the same fallback:
+
+- It keeps `icons` and the action `default_icon` when the manifest has them.
+- When the manifest has none, it fills them from the variant group with no `color_schemes`, then from the light group.
+- It prefers PNG sizes and uses an SVG only when no group has a PNG.
+- `icon_variants` itself stays in the Safari output, so Apple's converter still lists the key as unsupported.
+
+The build prints one notice that says which icons the browser shows:
+
+```plaintext
+Firefox does not read icon_variants yet.
+Firefox shows icons from your manifest instead.
+```
+
+When the build fills `icons` for you, the notice says so:
+
+```plaintext
+Chromium reads icon_variants only with its ExtensionIconVariants flag on.
+The manifest had no icons, so the build filled it from the variant that fits every color scheme, or the light one.
+```
+
+On a Safari build, the first line names Safari:
+
+```plaintext
+Safari's app converter does not read icon_variants yet.
+Safari shows icons from your manifest instead.
+```
+
+Browser prefixes work on the key. A list under `chromium:icon_variants` or `firefox:icon_variants` ships its files in that browser's build only. See [Browser-specific manifest fields](/docs/features/browser-specific-fields).
+
 ## Generate PNG sizes from an SVG
 
 Keep the SVG as the design source and export the PNG sizes that every browser accepts. This one-liner uses `rsvg-convert` from librsvg (`brew install librsvg` on macOS, `apt install librsvg2-bin` on Debian and Ubuntu):

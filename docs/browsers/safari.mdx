@@ -102,6 +102,8 @@ Both `dev` and `build` accept identity overrides (Safari targets only):
 
 Without `--bundle-id`, Extension.js derives `dev.extensionjs.<name>`, where `<name>` is your sanitized app name (non-alphanumeric runs become hyphens). A user-provided bundle id must be reverse-DNS shaped: at least two dot-separated segments of letters, digits, and hyphens, each starting with a letter. Invalid values are rejected before packaging.
 
+Without `--app-icon`, the app icon comes from the manifest `icons`. A manifest with no `icons` builds an app with no icon. The build says so and names the ways to give it one: add `icons` to the manifest, set `browser.safari.appIcon`, or pass `--app-icon`.
+
 The same options can live in `extension.config.js` (CLI flags win):
 
 ```js
@@ -255,7 +257,7 @@ A plain `extension dev --browser safari` opens the container app that the conver
 
 Each save prints what it did. A resync ends with `Rebuilt <App>.`, and a content script change follows it with `Reloading content_script (content.ts)…`. When the extension is not connected at that moment, the line reads `Queued content_script (content.ts) for the extension to apply when it reconnects.` instead. A background or manifest edit prints only `Rebuilt`, because Safari restarts the extension itself after the resync, and there is nothing left to dispatch.
 
-After a conversion, the converter's own warning list is printed, one line per manifest key that it does not know. A key that the build keeps on purpose is annotated under `Extension.js kept one of these keys on purpose:`. Today that is `world`, with the reason `Safari has honored the MAIN world since Safari 18, so the key stays`.
+After a conversion, the converter's own warning list is printed, one line per manifest key that it does not know. A key that the build keeps on purpose is annotated under `Extension.js kept one of these keys on purpose:`. Today those are `world`, with the reason `Safari has honored the MAIN world since Safari 18, so the key stays`, and `icon_variants`, with the reason `WebKit has code for the key and the build fills icons beside it, so the key stays`.
 
 In dev, the bridge parks early errors. An error thrown before the extension's socket to the dev server opens is stored in the extension's `chrome.storage.local` under `__extjsPendingErrors` and replayed once the socket connects, so `extension logs` still shows it.
 

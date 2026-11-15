@@ -1,6 +1,6 @@
 ---
 title: "Cross-browser extension development"
-description: "Ship one extension to Chrome, Edge, and Firefox from a single project. Extension.js handles browser-specific manifest fields and build output for each target."
+description: "Ship one extension to Chrome, Edge, Firefox, and Safari from a single project. Extension.js handles browser-specific manifest fields and build output for each target."
 keywords:
   [
     "cross-browser extension development",
@@ -12,6 +12,7 @@ keywords:
     "chrome",
     "firefox",
     "edge",
+    "safari",
     "browser",
     "manifest",
     "popup",
@@ -19,12 +20,12 @@ keywords:
 ---
 
 Extension.js handles browser-specific setup during development and build. You
-produce runtime-correct outputs for Chromium and Gecko (Firefox engine) targets
-from one project.
+produce runtime-correct outputs for Chromium, Gecko (Firefox engine), and Safari
+targets from one project.
 
 ## Cross-browser extension development
 
-Cross-browser extension development means writing one extension that ships to Chrome, Edge, and Firefox without forking the codebase. Extension.js compiles a single project into per-browser artifacts (`dist/chrome`, `dist/edge`, `dist/firefox`) and filters the manifest for the active target. The reload loop, runtime APIs, and packaging all match the browser you are debugging.
+Cross-browser extension development means writing one extension that ships to Chrome, Edge, Firefox, and Safari without forking the codebase. Extension.js compiles a single project into per-browser artifacts (`dist/chrome`, `dist/edge`, `dist/firefox`, `dist/safari`) and filters the manifest for the active target. The reload loop, runtime APIs, and packaging all match the browser you are debugging.
 
 Use one `manifest.json` and target specific browsers or custom binaries. Enable the polyfill when you need `browser.*` in Chromium browsers older than version 148.
 
@@ -38,7 +39,7 @@ Chrome and Firefox extensions share most of the WebExtensions surface but differ
 
 ## Browser-specific manifest fields
 
-Browser-specific manifest fields are how Extension.js keeps a single `manifest.json` working across browsers. At compile time, Extension.js filters prefixed keys (`chromium:`, `chrome:`, `edge:`, `firefox:`, `gecko:`) to the active target. `chromium:` reaches every Chromium-family browser, while `chrome:` and `edge:` reach only that browser. Unprefixed keys apply everywhere. See [Browser-specific manifest fields](/docs/features/browser-specific-fields) for the full prefix list.
+Browser-specific manifest fields are how Extension.js keeps a single `manifest.json` working across browsers. At compile time, Extension.js filters prefixed keys (`chromium:`, `chrome:`, `edge:`, `firefox:`, `gecko:`, `safari:`) to the active target. `chromium:` reaches every Chromium-family browser, while `chrome:` and `edge:` reach only that browser. Unprefixed keys apply everywhere. See [Browser-specific manifest fields](/docs/features/browser-specific-fields) for the full prefix list.
 
 ## Template examples
 
@@ -136,6 +137,8 @@ Use a binary path that matches your OS:
 - **Linux**: `/usr/bin/brave-browser` (or another Chromium-based browser binary)
 - **Windows**: `"C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"`
 
+On macOS, `--browser safari` converts the extension and builds a Safari app through Xcode. See [Building Safari extensions](/docs/browsers/safari).
+
 When you pass a binary, Extension.js maps it to a browser engine target:
 
 - `chromium-based` for `--chromium-binary`
@@ -159,7 +162,8 @@ For example:
 ```
 
 For Chromium-family targets, Extension.js uses `chromium:` for the whole family, and `chrome:` or `edge:` for one browser.  
-For Firefox-family targets, Extension.js uses `firefox:` and `gecko:`.
+For Firefox-family targets, Extension.js uses `firefox:` and `gecko:`.  
+For Safari targets, `safari:` and `webkit:` win over the `chromium:` keys that Safari inherits.
 
 <Note>
   See [Browser-specific manifest fields](/docs/features/browser-specific-fields)
@@ -181,6 +185,24 @@ From the release after 4.1.39, a Gecko build removes the permission strings that
 
 The build keeps `incognito: "split"` as declared and says so. Firefox has no split mode and reads the value as `"not_allowed"`, so the extension never runs in private windows. Set `firefox:incognito` to `"spanning"` or `"not_allowed"` to choose.
 
+#### Each build repairs the keys that its browser refuses
+
+Some manifest keys load in one browser and make another browser refuse the whole extension. A build repairs the emitted manifest for its own target and names each repair. Your source `manifest.json` stays as written.
+
+- **`options_ui.chrome_style`**: a Chromium build under Manifest V3 removes the key. Chrome refuses the extension over it, whatever its value. Firefox and Safari builds keep it, and so does a Manifest V2 build.
+- **Icon size keys**: Chrome and Firefox builds remove each size key that the engine refuses. This covers `icons` and the `default_icon` of `action`, `browser_action`, and `page_action`. Both engines take only a whole pixel size such as `"48"`, so `"48.5"`, `"big"`, and `"0"` go. Firefox also refuses a leading zero such as `"016"`, so only a Firefox build removes that key. A Safari build keeps every key.
+- **Empty `background.scripts`**: a Firefox build removes an empty list. Firefox starts an empty background page for it, where Chrome and Safari start none. When nothing else names a background, the `background` key goes too.
+- **`web_accessible_resources` pattern with `../`**: the pattern stays in the manifest, the build copies no file for it, and a warning names the path to write instead. Chrome and Firefox expose no file for such a pattern. Write it from the extension root, for example `assets/*`.
+- **`trial_tokens` and `background.async_listener_registration`**: both keys pass through unchanged on every target.
+
+Each removed key prints a repair line that names the engine:
+
+```plaintext
+Repaired the icons.48.5 field, which Firefox refuses to load the extension over.
+REASON removed "48.5": "images/icon.png", Firefox takes only a whole pixel size such as "48" as the key and refuses the whole extension over any other
+Fix the field in your manifest.json file.
+```
+
 ### 3) Output per browser target
 
 Extension.js writes each target to its own build folder:
@@ -191,6 +213,7 @@ Extension.js writes each target to its own build folder:
 - `dist/chromium` (the default target)
 - `dist/chromium-based` (custom Chromium engines)
 - `dist/gecko-based` (custom Gecko engines)
+- `dist/safari` (Safari, with the generated Xcode project in `dist/safari-xcode`)
 
 This keeps your builds organized and easier to ship in CI.
 
@@ -198,7 +221,16 @@ This keeps your builds organized and easier to ship in CI.
 
 Chromium 148 and later expose every extension API under `browser` as well as `chrome`, so `browser.*` code runs there without a polyfill. An extension that declares a `devtools_page` gets the native `browser` namespace only from Chromium 152. The Chromium version decides this, not the Chrome brand, so the same numbers apply to Edge and other Chromium browsers.
 
+The polyfill is off by default in `dev`, `start`, and `build`. To opt in, pass `--polyfill` or set `commands.<command>.polyfill` to `true` in `extension.config.js`.
+
 You still need the polyfill when your users run a Chromium browser older than 148, or older than 152 with a `devtools_page`. If you do not support those versions, set `"minimum_chrome_version": "148"` in the manifest (`"152"` with a `devtools_page`) and build without the polyfill.
+
+<Warning>
+  On Chromium below 152, an extension that declares a `devtools_page` has no
+  `browser` object in any of its scripts. That covers the background, the
+  pages, and the content scripts as well as the DevTools page. Enable the
+  polyfill or call `chrome.*` in such an extension.
+</Warning>
 
 If your code uses `browser.*` and you support those older versions, enable `--polyfill` for Chromium-family targets:
 
@@ -231,11 +263,74 @@ Extension.js skips this step for Firefox because Firefox already supports `brows
 
 The polyfill module resolves from your project first, then from the bundled Extension.js dependency. Package managers may hoist `webextension-polyfill` to your project root, and a copy you installed yourself wins over the bundled one. When no copy resolves at all, the build prints a warning and continues without the polyfill instead of failing.
 
+When a script reads `browser.*` with the polyfill off, and the manifest still lets an older Chromium in, the build prints one warning:
+
+```plaintext
+background.ts:3 uses browser.*, which chrome has natively only from Chromium 148. The cross-browser polyfill is off, the default for every command, and manifest.json sets no minimum_chrome_version, so a chrome older than 148 can install this extension, where this code may throw "browser is not defined". Set minimum_chrome_version to "148" in manifest.json if older versions are out of scope, run extension build with --polyfill, set commands.build.polyfill to true in extension.config.js, guard the read with a typeof browser check or a branch on import.meta.env.EXTENSION_PUBLIC_BROWSER, or call chrome.* instead.
+```
+
+A `dev` session prints that warning only for an extension that declares a `devtools_page`.
+
+#### Upgrade note
+
+Earlier releases turned the polyfill on by default in `dev` and `start`. If your code reads `browser.*` and you support a Chromium browser older than 148, add `--polyfill` to those commands. You can also set `commands.dev.polyfill` and `commands.start.polyfill` to `true`.
+
+An extension that declares a `devtools_page` needs the same change until its users run Chromium 152 or later, because the browser that `dev` launches can still be below 152. `build` already left the polyfill off, so its output does not change.
+
+## Build warnings for browser differences
+
+Some code works in one browser and fails in another with no error at build time. The build warns about three such cases. Each warning leaves the output unchanged, and the build continues.
+
+### Content script matches are not host access on Chrome
+
+Firefox reads the `matches` of a content script as host access, and Chrome does not. A Chromium build of a Manifest V3 extension warns when all three conditions hold:
+
+- The manifest declares `scripting`, `cookies`, or `webRequest`.
+- The manifest has content scripts.
+- The manifest names no host permission.
+
+
+```plaintext
+manifest.json declares "scripting", "cookies", "webRequest" and no host permission, and Chromium takes none from content_scripts matches.
+MATCHES http://localhost/*
+The content script still runs on those pages, but on Chrome the permission reaches none of them: scripting.executeScript rejects, cookies.getAll comes back empty, webRequest events never fire. Firefox reads the same matches as host access, so this works on Firefox and not on Chrome.
+Add the hosts to host_permissions, or to chromium:host_permissions to keep them out of the other builds.
+```
+
+Add the hosts to `host_permissions`, or to `chromium:host_permissions`. The warning stays quiet when the manifest has any `host_permissions`, any `optional_host_permissions`, or `activeTab`. Firefox and Safari builds do not print it. A `dev` session prints it once, and a production build prints it on every run.
+
+On Chrome, `permissions.contains` lists the matched origin even without the host permission, so that call cannot detect the gap.
+
+### Six methods take no callback on Firefox
+
+Firefox takes these methods in promise form only and throws `Incorrect argument types` when a script passes a callback:
+
+- `action.setBadgeTextColor`
+- `action.getBadgeTextColor`
+- `action.isEnabled`
+- `action.openPopup`
+- `tabs.discard`
+- `tabs.ungroup`
+
+Chrome runs the callback for all six. A Firefox production build warns once per method in each file:
+
+```plaintext
+background.js passes a callback to chrome.tabs.discard, which Firefox takes in promise form only.
+Firefox throws "Incorrect argument types for tabs.discard" on that call, where Chrome runs the callback.
+Drop the callback and await browser.tabs.discard, which returns a promise on Firefox.
+```
+
+Await the promise instead.
+
+### Rulesets that Chrome refuses
+
+A Chromium build warns about two `declarativeNetRequest` ruleset shapes that make Chrome refuse the whole extension. See [Rulesets that Chrome refuses](/docs/implementation-guide/json) for both.
+
 ## Best practices
 
 - **Keep one codebase**: Put browser differences in prefixed manifest fields when possible.
 - **Build one target at a time**: Generate dedicated artifacts (`dist/<browser>`) for each browser in continuous integration (CI).
-- **Use `--polyfill` when needed**: `build` leaves it off until you pass `--polyfill`, while `dev` and `start` apply it by default. Pass `--no-polyfill` there when your code does not depend on `browser.*`. You need the polyfill only for a Chromium browser older than 148, or older than 152 with a `devtools_page`.
+- **Use `--polyfill` when needed**: `dev`, `start`, and `build` leave it off until you pass `--polyfill`. You need the polyfill only for a Chromium browser older than 148, or older than 152 with a `devtools_page`.
 - **Check API support early**: Use [MDN WebExtensions docs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions) before relying on browser-specific APIs.
 
 ## Next steps

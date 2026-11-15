@@ -45,7 +45,7 @@ Extension.js 与 [WXT](https://wxt.dev) 都是用于构建跨浏览器扩展的�
 | Manifest V3          | 默认                                                               | 默认                                                         |
 | Manifest V2          | 不作为主要目标支持                                                 | 通过 `manifestVersion: 2` 支持                               |
 | 重载模型             | popup/options/devtools 使用 HMR，content script 和 SW 使用精准重载 | popup/options/devtools 使用 HMR，content script 使用精准重载 |
-| `browser.*` polyfill | `--polyfill`，`dev` 下默认开启，`build` 下默认关闭                 | `browser` 别名到 `chrome`，真正的 polyfill 需通过 `@wxt-dev/webextension-polyfill` 选择启用 |
+| `browser.*` polyfill | `--polyfill`，`dev`、`start` 和 `build` 下默认关闭                 | `browser` 别名到 `chrome`，真正的 polyfill 需通过 `@wxt-dev/webextension-polyfill` 选择启用 |
 | 模板                 | React、Preact、Vue、Svelte、TypeScript、JavaScript、init           | React、Vue、Svelte、Solid、原生                              |
 | TypeScript           | 一等公民                                                           | 一等公民                                                     |
 | AI 接入              | 文档 MCP 端点 + `llms.txt`（[详情](/zh-Hans/docs/ai-access)）            | 提供 `llms.txt`                                              |
@@ -88,7 +88,7 @@ WXT 把 dev/build/zip 拆成不同的命令。Extension.js 则把打包整合进
 - **Extension.js** 在单一的 `manifest.json` 内使用 [按浏览器前缀的 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)（`chrome:`、`firefox:`、`gecko:` 等）。未加前缀的键到处都生效，加前缀的键只会落到匹配的构建中。
 - **WXT** 从 `wxt.config.ts` 和按目标的覆盖项计算出 manifest。浏览器差异存在于 TypeScript 配置里，而不是 manifest 本身。
 
-两个项目触达 `browser` 命名空间的方式也不同。当你传入 `--polyfill` 时，Extension.js 会打包 [webextension-polyfill](https://github.com/mozilla/webextension-polyfill)，`extension dev` 默认这么做，而 `extension build` 不会。WXT 则从 `wxt/browser` 自动导入一个 `browser` 对象。在 wxt 0.21.4 中，那个对象只是原生别名：浏览器提供 `globalThis.browser` 时用它，否则用 `globalThis.chrome`，所以它并不是 polyfill。完整的 polyfill 是一个需要单独启用的模块 `@wxt-dev/webextension-polyfill`。
+两个项目触达 `browser` 命名空间的方式也不同。当你传入 `--polyfill` 时，Extension.js 会打包 [webextension-polyfill](https://github.com/mozilla/webextension-polyfill)，没有哪个命令会默认传入它。WXT 则从 `wxt/browser` 自动导入一个 `browser` 对象。在 wxt 0.21.4 中，那个对象只是原生别名：浏览器提供 `globalThis.browser` 时用它，否则用 `globalThis.chrome`，所以它并不是 polyfill。完整的 polyfill 是一个需要单独启用的模块 `@wxt-dev/webextension-polyfill`。
 
 如果你的团队里有会去读 `manifest.json` 的设计师或 PM，前缀化的键能保留那个文件作为唯一事实来源。如果你的团队希望扩展配置与其他 TypeScript 配置放在一起，WXT 的方式读起来会更自然。
 

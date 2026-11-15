@@ -1,8 +1,9 @@
 ---
 title: "chrome 与 browser API 的类型"
-description: "从 Extension.js 4.1.19 起，chrome.*、browser.* 与 process.env 的类型会随 extension 包一起安装。更早的版本需要你手动安装 @types/chrome。"
+description: "为 chrome.*、browser.* 与 process.env 提供 TypeScript 类型。Extension.js 会安装 chrome-types，安装了 @types/chrome 的项目会继续使用它。"
 keywords:
   [
+    "chrome-types",
     "@types/chrome",
     "types chrome",
     "chrome types",
@@ -20,7 +21,7 @@ Extension.js 用 SWC 编译 TypeScript，它只擦除类型，从不检查类型
 
 ## Extension.js 会生成什么
 
-当项目使用 TypeScript 时，`extension dev` 和 `extension build` 会在 `package.json` 旁边写下一个 `extension-env.d.ts` 文件。它在每次运行时都会被重新生成，所以不要编辑它。
+当项目使用 TypeScript 时，`extension dev`、`extension build` 和 `extension start` 会在 `package.json` 旁边写下一个 `extension-env.d.ts` 文件。它在每次运行时都会被重新生成，所以不要编辑它。
 
 这个文件会引入 `extension` 包发布的环境类型：
 
@@ -33,23 +34,29 @@ Extension.js 用 SWC 编译 TypeScript，它只擦除类型，从不检查类型
 
 | 引用                       | 它声明了什么                                                        |
 | -------------------------- | ------------------------------------------------------------------- |
-| `extension/types`          | `browser` 全局变量、`chrome` 命名空间、`process.env` 与 `import.meta.env` 键 |
-| `extension/types/polyfill` | 来自 `webextension-polyfill` 的 `browser.*` 命名空间形状             |
+| `extension/types`          | `browser` 命名空间及其别名 `chrome`、`process.env` 与 `import.meta.env` 键 |
+| `extension/types/polyfill` | `webextension-polyfill` 模块，供 `import browser from 'webextension-polyfill'` 使用 |
 | 通配符模块                 | 对 `.css`、`.module.css`、`.png`、`.svg` 等资源的 `import`，以及 `?raw` 和 `?url` 导入 |
 
 `EXTENSION_*` 环境变量键也在这里被赋予类型。这就是 `process.env.EXTENSION_MODE` 不需要额外配置就能解析的原因。
+
+安装了 `@types/chrome` 的项目，第一条引用会不一样。本页的“保留 @types/chrome”一节展示了它。
 
 当 `extension` 包无法从项目里解析时（例如只通过 `npx` 运行 CLI 的项目），这两条引用什么也找不到。这时生成的文件还会把通配符模块声明直接写在文件里，所以样式表、图片、`?raw` 和 `?url` 导入仍然能通过类型检查。
 
 ## 随 Extension.js 一起安装的类型
 
-从 Extension.js 4.1.19 起，`extension` 包把这些引用需要的三个类型包列为依赖：
+`extension` 包把这些引用需要的三个类型包列为依赖：
 
 | 包                             | 它提供的类型            |
 | ------------------------------ | ----------------------- |
-| `@types/chrome`                | `chrome.*` 命名空间     |
-| `@types/webextension-polyfill` | `browser.*` 命名空间    |
+| `chrome-types`                 | `browser.*` 命名空间及其别名 `chrome.*` |
+| `@types/webextension-polyfill` | `webextension-polyfill` 模块 |
 | `@types/node`                  | `process.env`           |
+
+[`chrome-types`](https://www.npmjs.com/package/chrome-types) 是 Chrome 从 Chromium 源码生成的包。它的 `browser` 是原生命名空间，方法返回 Promise。`chrome` 是它的别名。
+
+`chrome-types` 没有声明只有 Firefox 才有的 API。Firefox 的 `browser.sidebarAction` 和 `browser.browserAction` 由 Extension.js 自己提供类型。
 
 它们会随 `extension` 一起安装，所以在一个新项目里，`tsc` 不需要额外安装就能解析 `chrome.*` 和 `browser.*`：
 
@@ -59,16 +66,49 @@ npx tsc --noEmit
 
 构建并不需要这些包。SWC 从来不读类型，所以不管有没有它们，构建都会成功。
 
+## 保留 @types/chrome
+
+安装了 `@types/chrome` 的项目会继续使用它。`chrome` 的类型来自这个包，`browser` 的类型和以前一样来自 `webextension-polyfill`。
+
+`@types/chrome` 和 `chrome-types` 都声明了 `chrome` 全局变量，所以这两个包不能同时加载。生成的 `extension-env.d.ts` 只引用其中一个。当你的 `package.json` 列出了 `@types/chrome` 时，它引用 `@types/chrome`。当项目目录或某个上级目录里存在 `node_modules/@types/chrome` 时，也是如此：
+
+```ts extension-env.d.ts
+/// <reference types="extension/types/legacy" />
+
+// This project installs @types/chrome, so it types the extension APIs.
+// Remove that package to get chrome-types and the native browser namespace.
+/// <reference types="chrome" />
+
+// Polyfill types for browser.* APIs
+/// <reference types="extension/types/polyfill" />
+```
+
+改用 `chrome-types`：
+
+1. 从项目里移除 `@types/chrome`。
+2. 运行一次 `extension dev` 或 `extension build`。
+
+回到 `@types/chrome`：
+
+1. 把 `@types/chrome` 安装为开发依赖。
+2. 运行一次 `extension dev` 或 `extension build`。
+
+在默认配置下，`browser` 全局变量拥有原生类型。想要 `webextension-polyfill` 的类型，请导入这个模块：
+
+```ts
+import browser from "webextension-polyfill";
+```
+
 ## 固定你自己的版本
 
-`extension` 包接受这三个类型包的任意版本。当你的项目自己声明了其中一个时，npm、pnpm 和 Bun 会复用你的项目安装的那一份。
+`extension` 包接受 `@types/node` 和 `@types/webextension-polyfill` 的任意版本。它接受 `chrome-types` 0.1.460 或更高版本。当你的项目自己声明了其中一个时，npm、pnpm 和 Bun 会复用你的项目安装的那一份。
 
 当你的 `tsconfig.json` 没有 `types` 数组时，TypeScript 也会加载你的项目声明的那一份。以你自己 `package.json` 里的版本为准：
 
 ```json package.json
 {
   "devDependencies": {
-    "@types/chrome": "^0.0.287"
+    "@types/webextension-polyfill": "^0.12.0"
   }
 }
 ```
@@ -134,11 +174,13 @@ deno add -D npm:@types/webextension-polyfill
 
 </CodeGroup>
 
-## 升级后 browser.\* 出现类型错误
+## 升级后出现类型错误
 
-从 4.1.19 起，`browser` 拥有完整的 `webextension-polyfill` 类型，而不再是 `any`。以前能通过 `tsc` 的代码可能会出现新的类型错误，例如调用了 polyfill 没有声明的 API。
+更早的版本会随 `extension` 一起安装 `@types/chrome`，并用 `webextension-polyfill` 为 `browser` 提供类型。安装了 `@types/chrome` 的项目会保留这些类型。没有 `@types/chrome` 的项目在升级后会改用 `chrome-types`。
 
-修正这个调用，或者对只有 Chromium 提供的 API 改用 `chrome.*`。同一个选择在运行时那一侧的样子，请阅读 [跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
+改用之后，以前能通过 `tsc` 的代码可能会出现新的类型错误。例如，`tsc` 可能会报告 `chrome.tabs.TabChangeInfo` 这样的名称不存在。
+
+安装 `@types/chrome` 可以保留以前的类型，然后运行一次 `extension dev` 或 `extension build`。`browser.*` 在运行时那一侧的样子，请阅读[跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
 
 ## 让 extension-env.d.ts 留在 include 列表里
 
@@ -171,13 +213,15 @@ deno add -D npm:@types/webextension-polyfill
 | `Cannot find namespace 'chrome'`    | 同样的原因，只是出现在类型位置                   | 升级到 4.1.19，或安装 `@types/chrome`         |
 | `Cannot find module './styles.css'` | `extension-env.d.ts` 落在 `include` 之外         | 把这个文件加进 `include`                      |
 | `Cannot find name 'browser'`        | 项目从来没跑过 `dev` 或 `build`                  | 跑一次任意一条命令来生成类型                  |
-| `browser.*` 调用出现新的类型错误    | 从 4.1.19 起，`browser` 有了类型，不再是 `any`   | 修正这个调用，或对只在 Chromium 上的 API 改用 `chrome.*` |
+| 升级后 `chrome.tabs.TabChangeInfo` 这样的名称不存在 | 项目从 `@types/chrome` 改用了 `chrome-types` | 安装 `@types/chrome`，然后跑一次 `dev` 或 `build` |
+| CI 中已提交的 `extension-env.d.ts` 出现类型错误 | `tsc` 在 CLI 重写这个文件之前就运行了 | 在 `tsc` 之前运行 `dev`、`build` 或 `start` |
 
 ## 最佳实践
 
 - 把 `extension-env.d.ts` 当作构建产物看待。愿意的话可以提交它，但绝不要编辑它。
-- 只有当你需要某个类型包的特定版本时，才在你自己的 `devDependencies` 里声明它。
+- 只有当你需要某个类型包的特定版本，或者想保留 `@types/chrome` 时，才在你自己的 `devDependencies` 里声明它。
 - 在持续集成中跑 `tsc --noEmit`。Extension.js 的构建不会因为类型错误而失败。
+- 在持续集成中，先跑 `extension build`，再跑 `tsc`。`dev`、`build` 和 `start` 会重新生成 `extension-env.d.ts`，而 `tsc` 不会。
 
 ## 下一步
 

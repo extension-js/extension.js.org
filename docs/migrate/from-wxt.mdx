@@ -45,8 +45,8 @@ guide migrates a typical WXT project to Extension.js without rewriting your UI c
 ## What changes, what stays
 
 **Stays the same:** your React/Vue/Svelte components, your styles, your tests, your
-`browser.*`/`chrome.*` API calls (`extension dev` applies the `browser` polyfill by
-default, and `extension build` takes `--polyfill`), and `@wxt-dev/storage` if you use it standalone (it wraps the extension
+`browser.*`/`chrome.*` API calls (Chromium 148 and later expose `browser` natively, and
+`--polyfill` covers older versions), and `@wxt-dev/storage` if you use it standalone (it wraps the extension
 storage APIs, which work the same here).
 
 **Changes:**
@@ -134,8 +134,8 @@ your background file. Two WXT-specific helpers need replacing:
 WXT auto-imports `browser`, `defineContentScript`, `storage`, and friends. Extension.js
 does not inject globals, so add explicit imports:
 
-- `browser.*` calls: keep them. `extension dev` applies the polyfill by default, and
-  `extension build` needs `--polyfill` only for a Chromium browser older than 148 (152 with a
+- `browser.*` calls: keep them. The polyfill is off by default, and you need
+  `--polyfill` only for a Chromium browser older than 148 (152 with a
   `devtools_page`). Switching to `chrome.*` also works.
 - `storage` from WXT: `import { storage } from "@wxt-dev/storage"` keeps working as a
   standalone package.
@@ -177,10 +177,9 @@ npx extension@latest dev --browser=chrome
 ```
 
 Check popup, options, content scripts, and background behavior, then run the same against
-Firefox with `--browser=firefox`. `extension dev` applies the polyfill by default, so
-`browser.*` code runs on Chromium as written. Pass `--polyfill` to `extension build`, where
-the default is off. Chromium 148 and later expose `browser` natively (152 and later with a
-`devtools_page`), so the flag matters only for older versions.
+Firefox with `--browser=firefox`. Chromium 148 and later expose `browser` natively (152 and later with a
+`devtools_page`), so `browser.*` code runs there as written. The polyfill is off by default
+in `dev`, `start`, and `build`. Pass `--polyfill` only for older versions.
 
 ## Common gotchas
 

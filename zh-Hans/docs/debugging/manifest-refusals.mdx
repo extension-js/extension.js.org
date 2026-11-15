@@ -30,9 +30,63 @@ Extension.js 在两个位置补上了这个缺口：
 
 | 形态                                             | Chromium 为什么拒绝                                                    |
 | ------------------------------------------------ | ---------------------------------------------------------------------- |
-| `manifest_version: 2`                            | 现代 Chromium 直接拒绝 MV2。请改在 Firefox 上运行，或迁移到 MV3。      |
+| `manifest_version: 2`                            | Chrome 138 是最后一个支持 MV2 的版本。请改在 Firefox 上运行，或迁移到 MV3。 |
 | MV3 有 `background.scripts` 而没有 `service_worker` | 这是 Firefox 风格的 background。Chromium 需要 `background.service_worker`。 |
 | 其他任何值（缺失、`1`、大于 `3`）                | 作为不受支持的 manifest 版本被拒绝。                                   |
+
+各浏览器对 Manifest V2 的支持并不相同：
+
+- **Chrome**：Chrome 138 是最后一个支持 Manifest V2 的版本，Google 的 [Manifest V2 支持时间表](https://developer.chrome.com/docs/extensions/develop/migrate/mv2-deprecation-timeline)写明了这一点。
+- **Chromium**：Chromium 151 移除了最后一个能以未打包方式加载 Manifest V2 扩展的标志。
+- **Microsoft Edge**：Edge 已经弃用 Manifest V2，但仍然会运行它。在 2026-11-15 的实测中，Edge 157 加载并运行了一个未打包的 Manifest V2 扩展，没有任何警告。[Microsoft 的时间表](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/manifest-v3)没有给出最终版本。
+- **Firefox 和 Safari**：两者都继续支持 Manifest V2。
+
+Manifest V2 主题（带有 `theme` 键的 manifest）不会被标记。Chrome 151 仍然会安装它。
+
+为 Chromium 目标构建 Manifest V2 扩展时，构建会打印一条警告，其中包含这些版本和几条出路：
+
+```plaintext
+This extension declares Manifest V2, and Chrome no longer runs it.
+Chrome 138 was the last version to support Manifest V2, and Chrome 151 removed the flag that still loaded one unpacked.
+The chrome build will not install. Options:
+
+  • Build for Firefox (still supports MV2):  extension build --browser firefox
+  • Migrate the manifest to MV3 (action, background.service_worker, host_permissions)
+  • Or ship both from one source with browser-prefixed keys
+    (chromium:manifest_version: 3, firefox:manifest_version: 2, …)
+```
+
+Edge 的构建打印的是一条弃用提示，附带同样的选项，因为 Edge 仍然会运行 Manifest V2。Edge 会话会正常启动扩展，不会把这个 manifest 算作拒绝：
+
+```plaintext
+This extension declares Manifest V2, which Microsoft Edge has deprecated.
+Edge 157 still loads and runs one unpacked with no warning, and Microsoft names no final version yet.
+Chrome 138 was the last Chrome version to support it. Options:
+```
+
+#### 每个会话只说一次
+
+面向 Chromium 目标的 Manifest V2 项目，每个会话只会听到一次这个结论：
+
+- **`dev` 和 `start`**：由上面的构建警告说出。启动之前不会再打印第二行。
+- **`preview`**：不会运行构建，所以在启动之前用一行说出。
+
+```plaintext
+This extension declares Manifest V2, and Chrome no longer runs it.
+PATH /path/to/project/dist/chrome
+Chrome 138 was the last version to support Manifest V2, and Chrome 151 removed the flag that still loaded one unpacked.
+Run it on a browser that keeps Manifest V2 (--browser firefox) or migrate the manifest to Manifest V3.
+```
+
+在拒绝 Manifest V2 的目标上，`start` 和 `preview` 随后会以这条退出信息停止：
+
+```plaintext
+Chrome refuses to load this extension, so there is nothing to preview.
+PATH /path/to/project/dist/chrome
+Read the reason above, fix the manifest, then run the command again.
+```
+
+`dev` 会话在构建警告之后会继续运行。浏览器报告的拒绝会以 `extension_load_refused` 记录在 `ready.json` 里，也会记录在 `extension logs` 里。终端不会再打印第二次。其他原因造成的拒绝仍然会打印。
 
 ### 无效的 match 模式
 
@@ -73,6 +127,8 @@ host 语法允许 `*`、`*.domain.tld` 或一个字面量 host。host 中任何�
 | 具名 command 的 `description` 缺失或为空                    | 回退为该 command 的名称（`_execute_*` 命令除外）。                |
 
 每一次修复都会在发生的那一刻在 CLI 输出中报告一行修复说明，并记录一条 `manifest.json` 构建警告，所以不会有任何东西被悄悄改写。
+
+有些修复只适用于某一个浏览器目标。完整列表请参见[跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
 
 <Note>
   修复只作用于产出的 `dist` manifest。你的源码 `manifest.json`

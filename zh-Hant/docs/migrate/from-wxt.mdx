@@ -21,7 +21,7 @@ keywords:
 
 ## 哪些會變、哪些不變
 
-**維持不變：** 你的 React／Vue／Svelte 元件、樣式、測試、`browser.*` 與 `chrome.*` API 呼叫（`extension dev` 預設會套用 `browser` polyfill，`extension build` 則接受 `--polyfill`），以及獨立使用的 `@wxt-dev/storage`（它包裝的是擴充功能的 storage API，在這裡運作方式相同）。
+**維持不變：** 你的 React／Vue／Svelte 元件、樣式、測試、`browser.*` 與 `chrome.*` API 呼叫（Chromium 148 及更新版本原生提供 `browser`，更舊的版本可以用 `--polyfill`），以及獨立使用的 `@wxt-dev/storage`（它包裝的是擴充功能的 storage API，在這裡運作方式相同）。
 
 **會改變：**
 
@@ -94,7 +94,7 @@ console.log("content script running");
 
 WXT 會自動 import `browser`、`defineContentScript`、`storage` 等等。Extension.js 不會注入全域變數，所以請補上明確的 import：
 
-- `browser.*` 呼叫：保持原樣。`extension dev` 預設會套用 polyfill，`extension build` 則只有面向早於 148 的 Chromium 瀏覽器（帶有 `devtools_page` 時為早於 152）時才需要 `--polyfill`。改用 `chrome.*` 同樣可行。
+- `browser.*` 呼叫：保持原樣。polyfill 預設關閉，只有面向早於 148 的 Chromium 瀏覽器（帶有 `devtools_page` 時為早於 152）時才需要 `--polyfill`。改用 `chrome.*` 同樣可行。
 - WXT 的 `storage`：`import { storage } from "@wxt-dev/storage"` 作為獨立套件可以繼續使用。
 - 框架的自動 import（來自 `@wxt-dev/module-react` 之類）：直接從框架套件本身 import。
 
@@ -127,7 +127,7 @@ npx extension@latest build --browser=chrome,firefox --zip
 npx extension@latest dev --browser=chrome
 ```
 
-檢查 popup、options、content scripts 與 background 的行為，再以 `--browser=firefox` 在 Firefox 上跑相同的驗證。`extension dev` 預設會套用 polyfill，因此 `browser.*` 的程式碼在 Chromium 上不用修改就能執行。若要在 `extension build` 使用，請加上 `--polyfill`，那裡的預設值是關閉。Chromium 148 及更新版本原生提供 `browser`（擴充功能宣告了 `devtools_page` 時為 152 及更新版本），所以這個 flag 只對更舊的版本有意義。
+檢查 popup、options、content scripts 與 background 的行為，再以 `--browser=firefox` 在 Firefox 上跑相同的驗證。Chromium 148 及更新版本原生提供 `browser`（擴充功能宣告了 `devtools_page` 時為 152 及更新版本），因此 `browser.*` 的程式碼在那裡不用修改就能執行。polyfill 在 `dev`、`start` 與 `build` 中預設關閉，只有面向更舊的版本時才需要加上 `--polyfill`。
 
 ## 常見陷阱
 

@@ -8,6 +8,7 @@ keywords:
     "chrome",
     "firefox",
     "edge",
+    "safari",
     "browser",
     "manifest",
     "hmr",
@@ -95,8 +96,8 @@ extension dev [path-or-url] [options]
 
 | flag                   | 作用                                                              | 默认值     |
 | ---------------------- | ----------------------------------------------------------------- | ---------- |
-| `--browser <target>`   | 目标设为 Chrome、Edge、Firefox 或逗号分隔的列表。                 | `chromium` |
-| `--polyfill`           | 为 Chromium 目标桥接 `browser.*` API，适配 Firefox 风格的源代码。 | `true`     |
+| `--browser <target>`   | 目标设为 Chrome、Edge、Firefox、Safari 或逗号分隔的列表。          | `chromium` |
+| `--polyfill`           | 为 Chromium 目标桥接 `browser.*` API，适配 Firefox 风格的源代码。 | `false`    |
 | `--port <port>`        | dev 服务器端口。用 `0` 让 OS 自动分配。                           | `8080`     |
 | `--starting-url <url>` | 浏览器启动时打开这个 URL。                                        | 未设置     |
 | `--no-reload`          | 跳过自动重载。需要干净的 dev bundle 时使用。                      | 默认开启   |
@@ -106,12 +107,12 @@ extension dev [path-or-url] [options]
 | flag                           | 别名               | 作用                                                                                                                             | 默认值             |
 | ------------------------------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
 | `[path or url]`                | -                  | 扩展路径或远程 URL。                                                                                                             | `process.cwd()`    |
-| `--browser <browser>`          | `-b`               | 浏览器 / 引擎目标（`chromium`、`chrome`、`edge`、`firefox`、像 `brave`/`waterfox` 这样的命名分支、引擎别名或逗号分隔的多个值）。 | `chromium`         |
+| `--browser <browser>`          | `-b`               | 浏览器 / 引擎目标（`chromium`、`chrome`、`edge`、`firefox`、`safari`、像 `brave`/`waterfox` 这样的命名分支、引擎别名或逗号分隔的多个值）。 | `chromium`         |
 | `--profile <path\|boolean>`    | -                  | 浏览器 profile 路径或布尔的 profile 模式。                                                                                       | 全新 profile       |
 | `--chromium-binary <path>`     | -                  | [自定义的 Chromium 家族二进制路径](/zh-Hans/docs/browsers/running-other-browsers)。                                                      | 受管理的安装，然后是系统安装 |
 | `--gecko-binary <path>`        | `--firefox-binary` | [自定义的 Gecko 家族二进制路径](/zh-Hans/docs/browsers/running-other-browsers)。                                                         | 受管理的安装，然后是系统安装 |
-| `--polyfill [boolean]`         | -                  | 为 Chromium 目标启用 `browser.*` API 兼容 polyfill。                                                                             | `true`             |
-| `--no-polyfill`                | -                  | 关闭跨浏览器 polyfill。                                                                                                          | 默认启用 polyfill  |
+| `--polyfill [boolean]`         | -                  | 为 Chromium 目标启用 `browser.*` API 兼容 polyfill。                                                                             | `false`            |
+| `--no-polyfill`                | -                  | 关闭跨浏览器 polyfill。                                                                                                          | 默认关闭 polyfill  |
 | `--starting-url <url>`         | -                  | 启动浏览器时的起始 URL。                                                                                                         | 未设置             |
 | `--port <port>`                | -                  | 请求的 dev 服务器端口。用 `0` 让 OS 自动分配端口。见[端口如何确定](#端口如何确定)。                                              | `8080`             |
 | `--host <host>`                | -                  | 绑定 dev 服务器的主机。Docker / dev container 中可用 `0.0.0.0`。                                                                 | `127.0.0.1`        |
@@ -605,7 +606,7 @@ deno run -A npm:extension@latest dev ./my-extension --chromium-binary /path/to/b
 ## 最佳实践
 
 - **浏览器兼容性：** 在不同浏览器中测试你的扩展，确保在每个目标上都能工作。
-- **polyfill：** `dev` 中 polyfill 默认开启，所以 `browser.*` 调用在早于 148 的 Chromium 浏览器（带 `devtools_page` 时为早于 152）里也能工作。更新的版本原生提供 `browser`。想要未经处理的原始 bundle 时，传 `--no-polyfill`。
+- **polyfill：** `dev` 中 polyfill 默认关闭。Chromium 148 及更高版本原生提供 `browser`，所以只有面向更旧的版本时才需要传 `--polyfill`。在低于 152 的 Chromium 上，声明了 `devtools_page` 的扩展在任何脚本里都没有 `browser` 对象。参见[跨浏览器兼容性](/zh-Hans/docs/features/cross-browser-compatibility)。
 - **自动化可靠性：** 把 `dev` 当作 watch 模式的伴侣（`--no-browser` + `dev --wait`）；把 `start` 当作生产的伴侣（`--no-browser` + `start --wait`）。脚本与 CI 自动化使用 `--output=json`。
 
 ## 下一步

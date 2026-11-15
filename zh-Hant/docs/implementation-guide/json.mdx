@@ -83,6 +83,32 @@ Extension.js 會驗證：
 - DNR 規則集的結構（以陣列為基礎的規則集預期）
 - Managed storage schema 的結構（以物件為基礎的預期）
 
+### Chrome 拒絕的規則集
+
+Chromium 建置會對兩種 `declarativeNetRequest` 規則集形態發出警告。Chrome 會因為其中任何一種拒絕載入整個擴充功能，而 Firefox 能載入同一個檔案。
+
+- **重複的規則 id**：同一個規則集裡有兩條規則共用一個 `id`。
+- **Chrome 無法編譯的 `regexFilter`**：過濾器裡用了先行斷言、後行斷言或反向參照。
+
+```plaintext
+The Declarative Net Request ruleset listed in declarative_net_request/main uses a rule id more than once, and Chrome refuses to load an extension whose ruleset does.
+PATH rules/main.json
+RULE id 3
+Firefox loads the same ruleset and leaves a rule out. Give every rule in the file its own id.
+The build continues.
+```
+
+```plaintext
+A rule in the Declarative Net Request ruleset listed in declarative_net_request/main has a regexFilter Chrome cannot compile, and Chrome refuses to load an extension whose ruleset has one.
+PATH rules/main.json
+RULE id 3
+REASON the filter uses a lookbehind
+Chrome reads the filter as RE2, which has no lookahead, lookbehind or backreference, and Firefox accepts the rule. Rewrite the filter without it.
+The build continues.
+```
+
+這兩則都是警告而不是錯誤，因為同一個檔案在 Firefox 上是合法的。Firefox 與 Safari 建置不會印出任何內容。
+
 ## 環境佔位字串
 
 Extension.js 會在編譯期間替換輸出的 `.json` 資產中的 `$EXTENSION_*` 佔位字串，與靜態 HTML 佔位字串替換使用相同流程。

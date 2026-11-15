@@ -92,7 +92,7 @@ Repository: [extension-js/templates/content-typescript](https://github.com/exten
 
 ## Generated ambient types
 
-For TypeScript projects, Extension.js generates an `extension-env.d.ts` file at your project root with ambient declarations (browser/runtime globals, `EXTENSION_PUBLIC_*` env, and bundler types). Both [`dev`](/docs/commands/dev) and [`build`](/docs/commands/build) regenerate it, so editor types and a CI `tsc --noEmit` stay in sync. Commit it (or git-ignore it). Either works; it's recreated on the next run.
+For TypeScript projects, Extension.js generates an `extension-env.d.ts` file at your project root with ambient declarations (browser/runtime globals, `EXTENSION_PUBLIC_*` env, and bundler types). [`dev`](/docs/commands/dev), [`build`](/docs/commands/build), and [`start`](/docs/commands/start) each regenerate it, so editor types and a CI `tsc --noEmit` stay in sync. Commit it (or git-ignore it). Either works, because the next run recreates it.
 
 From the release after 4.1.39, a missing file is created only where your `tsconfig.json` would read it. See [Keep extension-env.d.ts in the include list](/docs/languages-and-frameworks/extension-api-types).
 
@@ -194,9 +194,9 @@ Two defaults worth knowing:
 
 #### Automatic types
 
-Extension.js generates `extension-env.d.ts` in your project root during development. This file includes type declarations for Extension.js APIs and browser polyfill types.
+Extension.js generates `extension-env.d.ts` in your project root. `dev`, `build`, and `start` each rewrite it. This file references the type declarations for the extension APIs, the Extension.js environment keys, and asset imports.
 
-```ts
+```ts extension-env.d.ts
 // Required Extension.js types for TypeScript projects.
 // This file is auto-generated and should not be excluded.
 // If you need additional types, consider creating a new *.d.ts file and
@@ -204,9 +204,62 @@ Extension.js generates `extension-env.d.ts` in your project root during developm
 // See https://www.typescriptlang.org/tsconfig#include for more information.
 /// <reference types="extension/types" />
 
-// Polyfill types for browser.* APIs.
+// Polyfill types for browser.* APIs
 /// <reference types="extension/types/polyfill" />
 ```
+
+#### Extension API types
+
+Extension.js types the extension APIs with [`chrome-types`](https://www.npmjs.com/package/chrome-types). Chrome generates that package from the Chromium source. `browser` is the native namespace, and its methods return promises. `chrome` is an alias of it. The package installs with `extension`, so a new project needs no extra type package.
+
+```ts
+const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+```
+
+`chrome-types` does not declare the APIs that only Firefox has. Extension.js types Firefox's `browser.sidebarAction` and `browser.browserAction` itself.
+
+#### Projects that install @types/chrome
+
+A project that installs `@types/chrome` keeps it. That package types `chrome`, and `browser` is typed from `webextension-polyfill` as before.
+
+`@types/chrome` and `chrome-types` both declare the `chrome` global, so the two packages cannot load together. The generated `extension-env.d.ts` references one or the other. It references `@types/chrome` when your `package.json` lists that package. It does the same when `node_modules/@types/chrome` exists in the project folder or in a parent folder:
+
+```ts extension-env.d.ts
+/// <reference types="extension/types/legacy" />
+
+// This project installs @types/chrome, so it types the extension APIs.
+// Remove that package to get chrome-types and the native browser namespace.
+/// <reference types="chrome" />
+
+// Polyfill types for browser.* APIs
+/// <reference types="extension/types/polyfill" />
+```
+
+To move to `chrome-types`:
+
+1. Remove `@types/chrome` from your project.
+2. Run `extension dev` or `extension build` once.
+
+To go back to `@types/chrome`:
+
+1. Install `@types/chrome` as a development dependency.
+2. Run `extension dev` or `extension build` once.
+
+#### Polyfill types
+
+On the default setup, the `browser` global has the native types from `chrome-types`. For the `webextension-polyfill` types, import the module:
+
+```ts
+import browser from "webextension-polyfill";
+```
+
+The import only changes the types and the object that your code calls. Read [Cross-browser compatibility](/docs/features/cross-browser-compatibility) for when the polyfill runs.
+
+#### Upgrade note
+
+Earlier releases installed `@types/chrome` with `extension` and typed `browser` from `webextension-polyfill`. A project that installs `@types/chrome` keeps those types. A project without `@types/chrome` moves to `chrome-types` on upgrade.
+
+After that move, `tsc` can report names such as `chrome.tabs.TabChangeInfo` missing. Install `@types/chrome` to keep the previous types, then run `extension dev` or `extension build` once.
 
 #### Transpilation vs type-checking
 
@@ -221,6 +274,13 @@ Recommended scripts:
     "typecheck": "tsc --noEmit"
   }
 }
+```
+
+`tsc` does not write `extension-env.d.ts`. Only `dev`, `build`, and `start` regenerate it. In CI, run one of them before `tsc`:
+
+```bash
+npx extension build
+npx tsc --noEmit
 ```
 
 ## Next steps

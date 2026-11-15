@@ -179,9 +179,33 @@ export default {};
 
 ### 整個擴充功能重新載入後什麼會留下
 
-當一次 background 修改讓整個擴充功能重新載入時，瀏覽器會丟棄舊副本的程式碼。不會為它執行任何清理，它自己的 listener 也無法再執行，所以送給它的事件永遠不會被聽到。舊副本加到頁面上的東西會留在那裡。
+當 `extension dev` 中的一次修改讓整個擴充功能重新載入時，保持開啟的分頁裡仍然留著重新載入之前的那份 content script 副本。這個舊副本的去向取決於瀏覽器引擎：
 
-把你的腳本加到頁面上的一切都放在一個標記了 `data-extension-root` 的 host 元素底下。下一個副本啟動時，Extension.js 會移除舊副本留下的這些 host：
+- **Chromium** 會讓舊副本在開啟的分頁裡和新副本一起繼續執行，計時器和 listener 也包括在內，直到分頁重新載入為止。它的 `chrome.runtime.id` 已經不存在，也不會為它呼叫任何清理，即使腳本的預設匯出回傳了清理函式也一樣。
+- **Firefox** 會丟棄舊副本。不會為它呼叫任何清理，它也不會再執行。
+
+在這兩個引擎上，舊副本加到頁面上的東西都會留在那裡，直到下一個副本把它移除。
+
+要在 Chromium 上結束舊副本，請重新載入分頁。或者讓長時間執行的工作在 `chrome.runtime.id` 消失後停下來：
+
+```ts
+const timer = setInterval(() => {
+  if (!chrome.runtime?.id) {
+    clearInterval(timer);
+    return;
+  }
+
+  // Your periodic work.
+}, 1000);
+```
+
+對於沒有預設匯出的腳本，開發工作階段的警告在 Chromium 上也是這樣說的：
+
+```plaintext
+On Chromium a whole-extension reload leaves the old copy running in the open tab beside the new one, timers and listeners included, and no cleanup runs for it. Reload the tab to end it, or have long-lived work stop once chrome.runtime.id is gone. What it added to the page stays too, so mount that under an element with data-extension-root and the next copy removes it.
+```
+
+把你的腳本加到頁面上的一切都放在一個標記了 `data-extension-root` 的 host 元素底下。下一個副本啟動時，Extension.js 會移除舊副本留下的這些 host，在 Chromium 和 Firefox 上都是如此：
 
 ```ts
 export default function main() {

@@ -98,6 +98,8 @@ App 名稱與 bundle identifier 會根據你的 manifest `name` 推導而出（�
 
 沒有 `--bundle-id` 時，Extension.js 會推導出 `dev.extensionjs.<name>`，其中 `<name>` 是經過淨化的 app 名稱（連續的非英數字元會變成連字號）。你自行提供的 bundle id 必須符合反向 DNS 形狀：至少兩段以點分隔、由字母、數字與連字號組成，且每段以字母開頭。不合法的值會在打包前被拒絕。
 
+沒有 `--app-icon` 時，app 圖示來自 manifest 的 `icons`。沒有 `icons` 的 manifest 會建置出沒有圖示的 app。建置會說明這一點，並列出補上圖示的方法：在 manifest 中加入 `icons`，設定 `browser.safari.appIcon`，或傳入 `--app-icon`。
+
 同樣的選項也可以寫在 `extension.config.js` 中（CLI 旗標優先）：
 
 ```js
@@ -201,7 +203,7 @@ npx extension dev --browser=safari
 
 每次儲存都會印出它做了什麼。一次同步以 `Rebuilt <App>.` 結束，內容指令碼的改動會緊接著印出 `Reloading content_script (content.ts)…`。如果那一刻擴充功能沒有連線，這一行會改為 `Queued content_script (content.ts) for the extension to apply when it reconnects.`。background 或 manifest 的改動只會印出 `Rebuilt`，因為 Safari 會在同步之後自己重新啟動擴充功能，沒有什麼需要再派送的了。
 
-轉換之後，轉換器自己的警告清單會被印出來，它不認識的每個 manifest 鍵各佔一行。建置刻意保留的鍵會在 `Extension.js kept one of these keys on purpose:` 下面加註。目前那就是 `world`，理由是 `Safari has honored the MAIN world since Safari 18, so the key stays`。
+轉換之後，轉換器自己的警告清單會被印出來，它不認識的每個 manifest 鍵各佔一行。建置刻意保留的鍵會在 `Extension.js kept one of these keys on purpose:` 下面加註。目前有兩個：`world`，理由是 `Safari has honored the MAIN world since Safari 18, so the key stays`，以及 `icon_variants`，理由是 `WebKit has code for the key and the build fills icons beside it, so the key stays`。
 
 在 dev 模式下，橋接器會暫存早期錯誤。在擴充功能連到 dev 伺服器的 socket 開啟之前拋出的錯誤，會存進擴充功能的 `chrome.storage.local` 裡的 `__extjsPendingErrors`，等 socket 連上後再重播，所以 `extension logs` 仍然能看到它。
 
