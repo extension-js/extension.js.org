@@ -136,7 +136,7 @@ Chromium 只有在开启 `ExtensionIconVariants` 标志时才读取 `icon_varian
 
 如果 manifest 中没有它们，构建会先用不带 `color_schemes` 的变体组来填充，其次用浅色组。Chromium 只接受 PNG 尺寸，Firefox 还可以使用 `any` 的 SVG。
 
-Safari 的应用转换器目前还不读取 `icon_variants`，只用 `icons` 来生成应用图标。Safari 构建会得到同样的后备处理：
+Safari 会在工具栏上读取 `icon_variants`，写在顶层或 `action` 下都可以，并且优先于 `icons`。在 Safari 27 上实测，它始终绘制浅色组，在深色外观下也不会切换到深色组。Apple 的应用转换器不读取这个键，只用 `icons` 来生成应用图标。所以 Safari 构建会得到同样的后备处理：
 
 - 如果 manifest 中有 `icons` 和 action 的 `default_icon`，构建会保留它们。
 - 如果 manifest 中没有它们，构建会先用不带 `color_schemes` 的变体组来填充，其次用浅色组。
@@ -157,11 +157,11 @@ Chromium reads icon_variants only with its ExtensionIconVariants flag on.
 The manifest had no icons, so the build filled it from the variant that fits every color scheme, or the light one.
 ```
 
-在 Safari 构建中，第一行会写出 Safari：
+在 Safari 构建中，提示会说明工具栏和应用图标各自使用什么：
 
 ```plaintext
-Safari's app converter does not read icon_variants yet.
-Safari shows icons from your manifest instead.
+Safari draws the light group of icon_variants on its toolbar and does not switch to the dark group.
+Apple's app converter does not read the key, so it takes icons from your manifest.
 ```
 
 浏览器前缀对这个键同样有效。`chromium:icon_variants` 或 `firefox:icon_variants` 下的列表只会在对应浏览器的构建中输出它的文件。参见[浏览器特定的 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)。
