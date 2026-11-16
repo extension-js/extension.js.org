@@ -218,6 +218,14 @@ const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
 
 `chrome-types` 沒有宣告只有 Firefox 才有的 API。Firefox 的 `browser.sidebarAction` 與 `browser.browserAction` 由 Extension.js 自己提供型別。
 
+從 4.1.40 之後的版本起，Extension.js 還在 `chrome-types` 之上補充了三項內容，讓瀏覽器接受的程式碼能夠通過型別檢查：
+
+- 緊接在你傳入的引數之後的回呼，例如 `chrome.tabs.sendMessage(tabId, message, callback)`。單獨使用 `chrome-types` 時，回呼只有放在所有選用引數之後才有型別。
+- Chrome 在執行階段提供的列舉物件，例如 `chrome.runtime.OnInstalledReason.INSTALL`。這些是 Chrome 的物件。Firefox 提供的較少，部分鍵名也不同，所以同時支援兩個瀏覽器的程式碼應該直接比較字串，例如 `reason === 'install'`。
+- `chrome.tabs.OnUpdatedInfo`，也可以寫成 `chrome.tabs.TabChangeInfo`，用於 `tabs.onUpdated` 的變更引數。
+
+還有一個呼叫會回報 Chrome 並不會回報的錯誤：`new chrome.declarativeContent.ShowAction()` 會提示缺少引數。請寫成 `new chrome.declarativeContent.ShowAction({})`，Chrome 對兩者的處理相同。
+
 #### 安裝了 @types/chrome 的專案
 
 安裝了 `@types/chrome` 的專案會繼續使用它。`chrome` 的型別來自這個套件，`browser` 的型別和以前一樣來自 `webextension-polyfill`。
