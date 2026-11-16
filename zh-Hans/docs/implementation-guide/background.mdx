@@ -206,6 +206,8 @@ chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
 
   构建以这种方式复制数据文件和媒体文件，不会以这种方式复制脚本、页面或样式表。代码在运行时拼接出来的路径不对应任何具体文件。对这样的路径，构建会打印一条写明该文件夹的警告。请把这些文件放进 `public/`。
 - **按路径打开的页面的样式表。** 你的代码按路径打开的页面（例如通过 `chrome.runtime.getURL("/ui/options/index.html")`），会连同它的脚本和样式表一起发布。从 4.1.41 之后的版本起，这些样式表通过 `url()` 加载的字体和图片也会一起发布。
+- **按文件注入的样式表。** 从 4.1.41 之后的版本开始，由 `scripting.insertCSS({files})`、`tabs.insertCSS({file})` 或 `scripting.registerContentScripts` 的 `css` 列表指明的样式表，会连同它通过 `url()` 加载的字体和图片以及它导入的样式表一起发布。在 Chrome 上，注入的样式表里的 `url()` 是相对于被访问的页面解析的。请把目标写成 `chrome-extension://__MSG_@@extension_id__/path`，并把它列在 `web_accessible_resources` 下。
+- **被指明的文件发布在哪里。** 从 4.1.41 之后的版本开始，直接传给 `fetch` 的路径会发布在读取它的脚本旁边，直接传给 `chrome.runtime.getURL` 的路径会发布在扩展根目录，保存在表或变量里的路径会在两个位置都发布。
 
 如果被引用的文件在你的项目中不存在，构建会给出一条指明缺失路径的警告，而不是让它在运行时静默失败。
 

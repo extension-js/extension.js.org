@@ -206,6 +206,8 @@ chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
 
   建置以這種方式複製資料檔案和媒體檔案，不會以這種方式複製腳本、頁面或樣式表。程式碼在執行階段拼接出來的路徑不對應任何具體檔案。對這樣的路徑，建置會印出一則寫明該資料夾的警告。請把這些檔案放進 `public/`。
 - **依路徑開啟的頁面的樣式表。** 你的程式碼依路徑開啟的頁面（例如透過 `chrome.runtime.getURL("/ui/options/index.html")`），會連同它的腳本和樣式表一起發布。從 4.1.41 之後的版本起，這些樣式表透過 `url()` 載入的字型和圖片也會一起發布。
+- **依檔案注入的樣式表。** 從 4.1.41 之後的版本開始，由 `scripting.insertCSS({files})`、`tabs.insertCSS({file})` 或 `scripting.registerContentScripts` 的 `css` 清單指明的樣式表，會連同它透過 `url()` 載入的字型和圖片以及它匯入的樣式表一起發布。在 Chrome 上，注入的樣式表裡的 `url()` 是相對於被造訪的頁面解析的。請把目標寫成 `chrome-extension://__MSG_@@extension_id__/path`，並把它列在 `web_accessible_resources` 下。
+- **被指明的檔案發布在哪裡。** 從 4.1.41 之後的版本開始，直接傳給 `fetch` 的路徑會發布在讀取它的腳本旁邊，直接傳給 `chrome.runtime.getURL` 的路徑會發布在擴充功能根目錄，保存在表或變數裡的路徑會在兩個位置都發布。
 
 被參照的檔案若不存在於你的專案中，建置會產生一則指明缺少路徑的警告，而不是在執行階段靜默失敗。
 
