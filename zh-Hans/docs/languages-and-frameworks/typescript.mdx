@@ -218,6 +218,14 @@ const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
 
 `chrome-types` 没有声明只有 Firefox 才有的 API。Firefox 的 `browser.sidebarAction` 和 `browser.browserAction` 由 Extension.js 自己提供类型。
 
+从 4.1.40 之后的版本起，Extension.js 还在 `chrome-types` 之上补充了三项内容，让浏览器接受的代码能够通过类型检查：
+
+- 紧跟在你传入的参数之后的回调，例如 `chrome.tabs.sendMessage(tabId, message, callback)`。单独使用 `chrome-types` 时，回调只有放在所有可选参数之后才有类型。
+- Chrome 在运行时提供的枚举对象，例如 `chrome.runtime.OnInstalledReason.INSTALL`。这些是 Chrome 的对象。Firefox 提供的更少，部分键名也不同，所以面向两个浏览器的代码应当直接比较字符串，例如 `reason === 'install'`。
+- `chrome.tabs.OnUpdatedInfo`，也可以写作 `chrome.tabs.TabChangeInfo`，用于 `tabs.onUpdated` 的变更参数。
+
+还有一个调用会报出 Chrome 并不会报的错误：`new chrome.declarativeContent.ShowAction()` 会提示缺少参数。请写成 `new chrome.declarativeContent.ShowAction({})`，Chrome 对两者的处理相同。
+
 #### 安装了 @types/chrome 的项目
 
 安装了 `@types/chrome` 的项目会继续使用它。`chrome` 的类型来自这个包，`browser` 的类型和以前一样来自 `webextension-polyfill`。

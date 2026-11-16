@@ -218,6 +218,14 @@ const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
 
 `chrome-types` does not declare the APIs that only Firefox has. Extension.js types Firefox's `browser.sidebarAction` and `browser.browserAction` itself.
 
+From the release after 4.1.40, Extension.js also adds three things on top of `chrome-types`, so that code the browser accepts type-checks:
+
+- A callback right after the arguments that you passed, for example `chrome.tabs.sendMessage(tabId, message, callback)`. `chrome-types` alone only types a callback after every optional argument.
+- The enum objects that Chrome has at run time, such as `chrome.runtime.OnInstalledReason.INSTALL`. These are Chrome's objects. Firefox has fewer of them and names some keys differently, so code for both browsers should compare with the string, as in `reason === 'install'`.
+- `chrome.tabs.OnUpdatedInfo`, also available as `chrome.tabs.TabChangeInfo`, for the change argument of `tabs.onUpdated`.
+
+One call still reports an error that Chrome does not: `new chrome.declarativeContent.ShowAction()` reports a missing argument. Write `new chrome.declarativeContent.ShowAction({})`, which Chrome treats the same.
+
 #### Projects that install @types/chrome
 
 A project that installs `@types/chrome` keeps it. That package types `chrome`, and `browser` is typed from `webextension-polyfill` as before.
