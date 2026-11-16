@@ -192,6 +192,20 @@ chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
 
 - **classic service worker 的 `importScripts(...)` 相依項目。** 字串字面值參數會相對於輸出的 worker 位置遞迴解析（相依項目本身也可以呼叫 `importScripts`），因此即使 worker 移動到 `background/service_worker.js`，相對於 worker 的 URL 仍然可用。由 wasm-bindgen 膠水程式碼載入的 WebAssembly 同層檔案（`*_bg.wasm`）會與它的載入器一起發布。
 - **`chrome.scripting.executeScript({files: [...]})` 與 `insertCSS({files: [...]})` 的內容。** 只在 `files:` 陣列中被參照、而未在 manifest 的 `content_scripts` 中宣告的檔案，會依其擴充功能根目錄下的路徑原樣複製。
+- **`contentScripts.register` 與 `userScripts.register` 的檔案。** 從 4.1.41 之後的版本起，這些呼叫以 `{file: "..."}` 寫明的腳本，會依其擴充功能根目錄下的路徑複製。
+- **以一般字串保存的路徑。** 從 4.1.41 之後的版本起，如果腳本把一個路徑保存為字串，而這個檔案存在於你專案的某個資料夾裡，建置就會發布它。例如程式碼把一張路徑表交給 `fetch` 或 `chrome.action.setIcon`：
+
+  ```js
+  const CONFIG = {
+    remote: `${CONFIG_URL_BASE}/sites.config`,
+    local: "../config/sites.config", // 會發布 config/sites.config
+  };
+
+  const response = await fetch(CONFIG.local);
+  ```
+
+  建置以這種方式複製資料檔案和媒體檔案，不會以這種方式複製腳本、頁面或樣式表。程式碼在執行階段拼接出來的路徑不對應任何具體檔案。對這樣的路徑，建置會印出一則寫明該資料夾的警告。請把這些檔案放進 `public/`。
+- **依路徑開啟的頁面的樣式表。** 你的程式碼依路徑開啟的頁面（例如透過 `chrome.runtime.getURL("/ui/options/index.html")`），會連同它的腳本和樣式表一起發布。從 4.1.41 之後的版本起，這些樣式表透過 `url()` 載入的字型和圖片也會一起發布。
 
 被參照的檔案若不存在於你的專案中，建置會產生一則指明缺少路徑的警告，而不是在執行階段靜默失敗。
 
