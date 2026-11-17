@@ -130,6 +130,8 @@ manifest 并不会直接声明很多扩展文件，比如 iframe 页面、你用
 
 Extension.js 会把 `pages/` 中的每个 `.html` 文件视为一个入口，按和 manifest 声明页面相同的方式编译。
 
+从 4.1.41 之后的版本开始，如果脚本用 `getURL` 指明了 `pages/` 里的某个页面（例如 `pages/welcome/index.html`），编译后的页面也会在这个路径上提供。它的源文件不会被复制。
+
 sandbox iframe 示例可参见 [Chrome Sandbox Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox)。
 
 ## `scripts/`：独立的脚本入口
@@ -294,18 +296,14 @@ Extension.js 会自动下载、解包并与你的扩展一起加载这些商店 
 
 ## 开发期行为(watch 模式)
 
-在 watch 模式下，Extension.js 会监控 `pages/` 与 `scripts/` 的文件集合变化：
+在 watch 模式下，Extension.js 会监控 `pages/` 与 `scripts/` 的文件集合变化。
 
-- 添加受支持的文件会触发一个警告(你可以继续工作)。
-- 删除受支持的文件会触发一个编译错误。重启开发服务器即可恢复。
-
-这能保护正在运行的编译图，防止它出现过期或损坏的入口。
+从 4.1.41 之后的版本开始，在 `pages/` 或 `scripts/` 下添加、删除或重命名文件，会让编译器自行重启。重启会移除已不存在的文件的输出。不需要手动重启。
 
 ## 最佳实践
 
 - **把共享的运行时资产放在 `public/`**：用于必须在输出中保留原文件名和路径的文件。
 - **把 `pages/` 与 `scripts/` 用于真正的入口**：让 manifest 之外的执行路径保持显式。
-- **入口变化后重启开发服务器**：尤其在删除 `pages/` 或 `scripts/` 下的文件之后。
 - **让附属扩展保持隔离**：把 `extensions/` 视为本地工作流中的仅加载依赖。
 - **不要把 `manifest.json` 放进 `public/`**：Extension.js 会阻止 `public/manifest.json`，以保护生成的扩展产物。
 

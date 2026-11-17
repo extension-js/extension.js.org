@@ -130,6 +130,8 @@ manifest 並未直接宣告許多擴充功能檔案，包括 iframe 頁面、你
 
 Extension.js 會把 `pages/` 中的每個 `.html` 視為 entrypoint，並像 manifest 宣告的頁面一樣編譯。
 
+從 4.1.41 之後的版本開始，如果指令碼用 `getURL` 指明了 `pages/` 裡的某個頁面（例如 `pages/welcome/index.html`），編譯後的頁面也會在這個路徑上提供。它的來源檔案不會被複製。
+
 關於 sandbox iframe 範例，請參考 [Chrome Sandbox Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox)。
 
 ## `scripts/`：獨立的腳本 entrypoint
@@ -294,18 +296,14 @@ Extension.js 會自動下載、解壓並把商店 URL 與你的擴充功能一�
 
 ## 開發行為（監看模式）
 
-在開發監看模式下，Extension.js 會監控 `pages/` 與 `scripts/` 的檔案集合變更：
+在開發監看模式下，Extension.js 會監控 `pages/` 與 `scripts/` 的檔案集合變更。
 
-- 新增支援的檔案會觸發警告（你可以繼續工作）。
-- 移除支援的檔案會觸發編譯錯誤，需要重新啟動開發伺服器才能恢復。
-
-這能保護執行中的編譯圖，避免出現過期或損壞的 entrypoint。
+從 4.1.41 之後的版本開始，在 `pages/` 或 `scripts/` 下新增、刪除或重新命名檔案，會讓編譯器自行重新啟動。重新啟動會移除已不存在的檔案的輸出。不需要手動重新啟動。
 
 ## 最佳實務
 
 - **共用執行階段資產放在 `public/`**：用在必須保持名稱與路徑精確的檔案。
 - **`pages/` 與 `scripts/` 用於真正的 entrypoint**：讓 manifest 之外的執行路徑保持明確。
-- **entrypoint 變更後重啟開發伺服器**：特別是刪除 `pages/` 或 `scripts/` 下的檔案後。
 - **附屬擴充功能保持獨立**：把 `extensions/` 視為本地工作流程的僅載入相依。
 - **`public/` 中不要放 `manifest.json`**：Extension.js 會阻擋 `public/manifest.json` 以保護產生的擴充功能輸出。
 
