@@ -170,6 +170,20 @@ Extension.js applies PostCSS in both contexts but packages the output differentl
 - Extension.js handles both Tailwind v3 and v4, selecting plugins based on the detected version.
 - In ECMAScript Module (ESM) projects with incompatible CommonJS (CJS) PostCSS configuration patterns, Extension.js may bypass your configuration. It injects compatibility plugins instead.
 
+## When the config or a plugin does not load
+
+From the release after 4.1.41, a PostCSS config that Extension.js cannot use is set aside, and the build continues without it:
+
+- The config file throws, or fails to import.
+- The config exports a function that throws.
+- `plugins` is neither an array nor an object keyed by plugin name.
+
+The warning names the file and says that none of its plugins run. The styles still compile, so fix the file or remove it. A TypeScript config that your Node.js version cannot load, and a YAML rc file, go to `postcss-loader` as they are.
+
+A plugin that the config names but that cannot be resolved is skipped too. The warning says `Couldn't resolve the PostCSS plugin <name>.`, and the styles that the plugin would generate are missing from the output.
+
+Each of these warnings prints once per build, even though every style rule reads the same config. During `dev`, a warning prints again only when the problem went away and came back.
+
 ## Best practices
 
 - Keep plugin chains small and explicit (for example, `autoprefixer`, `postcss-preset-env`).

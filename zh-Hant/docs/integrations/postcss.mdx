@@ -170,6 +170,20 @@ Extension.js 會在兩種情境下都套用 PostCSS，但會以不同方式包�
 - Extension.js 同時處理 Tailwind v3 與 v4，並依偵測到的版本選擇對應的 plugin。
 - 在 ECMAScript Module（ESM）專案中，如果你的 PostCSS 設定使用了不相容的 CommonJS（CJS）寫法，Extension.js 可能會繞過你的設定，並改為注入相容性 plugin。
 
+## 設定或 plugin 無法載入時
+
+從 4.1.41 之後的版本起，Extension.js 無法使用的 PostCSS 設定會被擱置，建置在沒有它的情況下繼續：
+
+- 設定檔拋出錯誤，或匯入失敗。
+- 設定匯出的函式拋出錯誤。
+- `plugins` 既不是陣列，也不是以 plugin 名稱為鍵的物件。
+
+警告會給出該檔案，並說明它的 plugin 都不會執行。樣式仍會編譯，所以請修正或刪除這個檔案。你的 Node.js 版本無法載入的 TypeScript 設定，以及 YAML rc 檔，會原樣交給 `postcss-loader`。
+
+設定中列出但無法解析的 plugin 也會被跳過。警告為 `Couldn't resolve the PostCSS plugin <name>.`，該 plugin 本應產生的樣式不會出現在輸出中。
+
+即使每條樣式規則都讀取同一份設定，這些警告在每次建置中也只印出一次。在 `dev` 期間，只有當問題消失後又出現時，警告才會再次印出。
+
 ## 最佳實務
 
 - 讓 plugin 鏈保持精簡、明確（例如 `autoprefixer`、`postcss-preset-env`）。

@@ -372,6 +372,54 @@ pnpm install --filter {packages/my-extension}...
 This project is a pnpm workspace member, installing from the workspace root at /home/dev/monorepo.
 ```
 
+## 自動安裝相依套件
+
+當 `dev` 或 `build` 發現專案相依套件缺少時，會在編譯之前安裝它們。從 4.1.41 之後的版本起，只有專案自己的套件管理器會執行這次安裝。Extension.js 依以下順序選定它：
+
+1. 專案根目錄的鎖定檔：`pnpm-lock.yaml`、`yarn.lock`、`bun.lockb`、`bun.lock`，然後是 `package-lock.json`。
+2. `package.json` 中的 `packageManager` 欄位。
+3. `EXTENSION_JS_PACKAGE_MANAGER`，或 `EXTENSION_JS_PM_EXEC_PATH`、`npm_execpath` 中的套件管理器路徑。
+4. Deno 專案：有 `deno.lock`，或有 `deno.json`、`deno.jsonc` 且旁邊沒有 `package.json`。
+5. 執行指令的那個套件管理器，讀取自 `npm_config_user_agent` 的第一個詞。
+6. npm。
+
+Extension.js 做這個選擇時從不檢查你的 `PATH` 上有哪些套件管理器，所以同一個專案在每台機器上都選定同一個套件管理器。選定的套件管理器失敗時，指令以 `E_DEPENDENCY_INSTALL` 停止。不會有別的套件管理器代替它，因為那會產生一棵鎖定檔沒有描述的相依樹。選定的套件管理器沒有安裝時，訊息會說明這一點，並告訴你如何安裝它。
+
+### 新版本抵達 registry 期間的重試
+
+一個新版本需要一兩分鐘才能抵達整個 npm registry。從 4.1.41 之後的版本起，當失敗是 registry 造成的時，安裝會再執行一次：
+
+- registry 列出了某個版本，但還沒有提供它的 tarball。
+- 相依套件的相依套件要求一個 registry 還沒有列出的版本。
+- registry 回應 5xx 或 429 狀態、重設連線、逾時，或 DNS 查詢失敗。
+
+你自己的專案宣告的版本範圍不會重試，因為只有你能修正它。驗證錯誤（401 與 403）、磁碟與權限錯誤，以及 peer 相依衝突也不會重試。
+
+安裝最多執行 4 次。兩次嘗試之間依序等待 5、10、20 秒，總共 35 秒。每次等待都會印出一則警告，說明原因與下一次嘗試：
+
+```plaintext
+The registry lists some-package@1.2.3 but is not serving its tarball yet. Retrying the install in 5 seconds (attempt 2 of 4).
+```
+
+最後一次嘗試也失敗時，指令以 `E_DEPENDENCY_INSTALL` 停止：
+
+```plaintext
+Couldn't install the project dependencies with pnpm.
+The registry lists some-package@1.2.3 but is not serving its tarball yet.
+A new release takes a minute or two to reach the whole registry. Extension.js tried 4 times over 35 seconds.
+Run the command again in a minute. The pnpm error is printed above.
+```
+
+如果是 registry 本身沒有回應，第三行改為以 "The registry is having trouble answering right now." 開頭。
+
+### 從不重試的拒絕
+
+有兩種失敗會立即以 `E_DEPENDENCY_INSTALL` 停止安裝。Extension.js 從不重試它們，也從不繞過它們。
+
+**版本太新。** pnpm 的 `minimumReleaseAge` 與 Deno 的最小相依年齡會拒絕比限制更新的版本。訊息會說明是哪條規則，如果套件管理器印出了版本，也會給出該版本。要繼續，可以等到版本夠舊，或釘選到上一個版本。你也可以為這個套件放寬規則：pnpm 把它加入 `minimumReleaseAgeExclude`，Deno 在 `deno.json` 中設定 `minimumDependencyAge`。
+
+**Corepack 無法下載套件管理器。** 套件管理器根本沒有啟動。訊息會給出 Corepack 請求的 registry，如果有 HTTP 狀態也會給出。如果 Extension.js 是因為 `npm_config_registry` 或專案的 `.npmrc` 指定了該 registry 才選用它，訊息也會說明。請檢查該 registry 是否提供這個套件管理器、你能否連上它，或把 `COREPACK_NPM_REGISTRY` 設為一個能提供它的 registry。
+
 ## 範例
 
 ### 執行本地擴充功能

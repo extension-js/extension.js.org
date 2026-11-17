@@ -377,6 +377,54 @@ The lockfile and the linker layout stay the workspace's, so the result matches a
 This project is a pnpm workspace member, installing from the workspace root at /home/dev/monorepo.
 ```
 
+## Automatic dependency install
+
+When `dev` or `build` finds the project dependencies missing, it installs them before it compiles. From the release after 4.1.41, only the project's own package manager runs that install. Extension.js chooses it in this order:
+
+1. A lockfile at the project root: `pnpm-lock.yaml`, `yarn.lock`, `bun.lockb`, `bun.lock`, then `package-lock.json`.
+2. The `packageManager` field in `package.json`.
+3. `EXTENSION_JS_PACKAGE_MANAGER`, or a manager path in `EXTENSION_JS_PM_EXEC_PATH` or `npm_execpath`.
+4. A Deno project: a `deno.lock`, or a `deno.json` or `deno.jsonc` with no `package.json` beside it.
+5. The manager that ran the command, read from the first word of `npm_config_user_agent`.
+6. npm.
+
+Extension.js never checks which managers are on your `PATH` to make this choice, so every machine chooses the same manager for the same project. When the chosen manager fails, the command stops with `E_DEPENDENCY_INSTALL`. No other manager tries in its place, because it would build a tree that the lockfile does not describe. When the chosen manager is not installed, the message says so and tells you how to install it.
+
+### Retries while a new release reaches the registry
+
+A new release takes a minute or two to reach the whole npm registry. From the release after 4.1.41, the install runs again when the registry caused the failure:
+
+- The registry lists a version but does not serve its tarball yet.
+- A dependency of a dependency asks for a version that the registry does not list yet.
+- The registry answers with a 5xx or 429 status, resets the connection, times out, or fails a DNS lookup.
+
+A version range that your own project declares is not retried, because only you can fix it. Authentication errors (401 and 403), disk and permission errors, and peer dependency conflicts are not retried either.
+
+The install runs up to 4 times. It waits 5, 10, and then 20 seconds between attempts, 35 seconds in all. Each wait prints a warning that names the cause and the next attempt:
+
+```plaintext
+The registry lists some-package@1.2.3 but is not serving its tarball yet. Retrying the install in 5 seconds (attempt 2 of 4).
+```
+
+When the last attempt fails too, the command stops with `E_DEPENDENCY_INSTALL`:
+
+```plaintext
+Couldn't install the project dependencies with pnpm.
+The registry lists some-package@1.2.3 but is not serving its tarball yet.
+A new release takes a minute or two to reach the whole registry. Extension.js tried 4 times over 35 seconds.
+Run the command again in a minute. The pnpm error is printed above.
+```
+
+When the registry itself did not answer, the third line starts with "The registry is having trouble answering right now." instead.
+
+### Refusals that are never retried
+
+Two failures stop the install at once with `E_DEPENDENCY_INSTALL`. Extension.js never retries them and never works around them.
+
+**A release that is too new.** pnpm `minimumReleaseAge` and the Deno minimum dependency age refuse a release younger than the limit. The message names the rule and, when the manager printed it, the release. To continue, wait until the release is old enough, or pin the previous version. You can also lift the rule for that package: add it to `minimumReleaseAgeExclude` for pnpm, or set `minimumDependencyAge` in `deno.json` for Deno.
+
+**A manager that Corepack cannot download.** The manager never starts. The message names the registry that Corepack asked, and the HTTP status when there is one. It also says when Extension.js chose that registry because `npm_config_registry` or the project's `.npmrc` names it. Check that the registry serves the manager and that you can reach it, or set `COREPACK_NPM_REGISTRY` to a registry that does.
+
 ## Examples
 
 ### Running a local extension
