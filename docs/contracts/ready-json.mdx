@@ -86,8 +86,8 @@ Fields that appear when known:
 | `controlPort`      | number or null | The control bridge WebSocket port.                                         |
 | `controlPath`      | string   | The control bridge WebSocket path (`/extjs-control`).                            |
 | `logsPath`         | string   | Relative path to `logs.ndjson`.                                                  |
-| `cdpPort`          | number   | Chromium launches: the CDP port, stamped post-launch.                            |
-| `rdpPort`          | number   | Gecko launches: the RDP debugger-server port, stamped post-launch.               |
+| `cdpPort`          | number   | Chromium launches: the CDP port, stamped post-launch. From the release after 4.1.41, sessions started at the same time each get their own debugging port, so read this field instead of assuming 9222. On `preview` and `start`, it is on the record when the card prints. |
+| `rdpPort`          | number   | Gecko launches: the RDP debugger-server port, stamped post-launch. From the release after 4.1.41, sessions started at the same time each get their own port, so read this field. |
 | `webdriverPort`    | number   | Safari `dev` sessions: the port of the safaridriver session the launcher holds beside the app. Safari grants one automation session at a time, so attach to this one instead of opening your own. |
 | `webdriverSessionId` | string | The session id beside `webdriverPort`.                                           |
 | `webdriverUnavailableReason` | string | Why the launcher holds no WebDriver session, such as Safari's Allow Remote Automation being off, or another Safari being open when the session was asked for. |
@@ -104,7 +104,7 @@ Fields that appear when known:
 | `binaryProvenance` | string   | How that binary was chosen: `managed` (the Extension.js cache), `pinned` (a binary flag or a binary variable), `system` (an installed browser), or `snapshot` (a cached dev-channel build). |
 | `binaryPinnedBy`   | string   | From the release after 4.1.39, the flag or variable that named a `pinned` binary, such as `--chromium-binary` or `FIREFOX_BINARY`. Absent for every other provenance. |
 | `browserPid`       | number   | The browser process id. The supported handle for tearing the browser down.       |
-| `extensionId`      | string   | The id that the browser serves the dist under. Browser-confirmed when available, derived otherwise. |
+| `extensionId`      | string   | The id that the browser serves the dist under. Browser-confirmed when available, derived otherwise. From the release after 4.1.41, the field is absent while the contract records a load refusal, unless the browser itself confirmed the id. |
 | `extensionBaseUrl` | string   | Firefox launches, from the release after 4.1.39: the `moz-extension://<uuid>/` address that the browser serves the extension from. Firefox chooses the UUID per profile, so the add-on id does not reveal it. |
 | `devAdditions`     | array    | `dev` sessions, from the release after 4.1.39: what the session has that the production build lacks. See [Dev additions](#dev-additions). |
 | `extensionName`    | string   | The extension's name, as build provenance.                                       |
@@ -114,6 +114,9 @@ Fields that appear when known:
 | `browserExitSignal` | string or null | The signal beside `browserExitedAt` when the browser died of one, such as `SIGTRAP` for a crash. A crash carries no exit code, so this is the one clue about why it went. |
 | `browserLaunchFailedAt` | ISO string | Stamped when no browser process came up at all. Preserved across recompiles. |
 | `browserLaunchFailedReason` | string | The reason beside `browserLaunchFailedAt` as one plain line, such as the spawn error with the binary path. |
+| `extensionLoadRefusedAt` | ISO string | Stamped when the browser refused to load the extension. From the release after 4.1.41, a stopped contract keeps it. |
+| `extensionLoadRefusedReason` | string | The browser's reason beside `extensionLoadRefusedAt`. From the release after 4.1.41, a stopped contract keeps it. |
+| `extensionLoadRefusedCause` | string | From the release after 4.1.41. Present when the launcher knows from the manifest why the browser refused and the browser's words do not say it. Kept on a stopped contract, and cleared with the refusal. |
 | `runtime`          | `"attached"` or `"detached"` | `attached` once the service worker has connected and can be driven. From 4.1.20, `detached` once the last connected extension context disconnects, and `attached` again on reconnect. |
 | `executorAttachedAt` | ISO string | When the service worker first connected. Kept as provenance after a detach.  |
 | `executorDetachedAt` | ISO string | From 4.1.20, when the last connected extension context disconnected.          |
@@ -172,12 +175,12 @@ The `code` field names the failure class. Four codes matter for automation:
 
 | `code`                    | What happened                                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------------ |
-| `extension_load_refused`  | The session runs, but the browser threw the extension out. Every other surface looks healthy, only the contract says so. Carries `extensionLoadRefusedAt` and `extensionLoadRefusedReason`. |
+| `extension_load_refused`  | The session runs, but the browser threw the extension out. Every other surface looks healthy, only the contract says so. From the release after 4.1.41, the act commands (`eval`, `storage`, `reload`, `inspect`, `navigate`) answer `E_EXTENSION_LOAD_REFUSED` with the browser's reason, and `doctor` names it on the `ready-contract` row. Carries `extensionLoadRefusedAt` and `extensionLoadRefusedReason`. From the release after 4.1.41, it also carries `extensionLoadRefusedCause` when the launcher knows one. |
 | `profile_locked`          | Another live session holds the profile, so the browser never started. Carries `profileLockedAt` and a `profileLockOwner` with `host` and `pid`. |
 | `browser_exited`          | The browser process died. `start` and `preview` flip to `error`. `dev` flips to `error` only when the browser exits before the extension loaded. After that point `dev` keeps its compile status and only stamps `browserExitedAt`. A Firefox that exits before its debugger answers lands here within about a second. |
 | `browser_launch_failed`   | No browser process came up: the binary is missing, cannot be executed, or the pin is wrong. A Firefox that runs but whose debugger never answers lands here too, and Extension.js stops that process. `dev`, `start`, and `preview` all flip to `error`. Carries `browserLaunchFailedAt` and `browserLaunchFailedReason`. A launch refused for a bad `--chromium-binary` or `--gecko-binary` pin also carries `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"`. A Gecko launch refused in system profile mode carries `browserLaunchFailedCode: "E_FLAG_NOT_SUPPORTED_HERE"`. |
 
-A load refusal outlives the next successful compile. Only a new run (`starting`) or a real executor attach clears it.
+A load refusal outlives the next successful compile. Only a new run (`starting`) or a real executor attach clears it. From the release after 4.1.41, a stopped contract keeps `extensionLoadRefusedAt`, `extensionLoadRefusedReason`, and the cause.
 
 A `dev` session whose browser exited before the extension loaded stays in `error` across recompiles, because a recompile does not bring the browser back. A launch failure outlives recompiles too, until a browser does start or a new run begins.
 
@@ -205,6 +208,8 @@ A timeout exits with `E_READY_TIMEOUT`. A contract in `error` status fails the w
 | A code outside this list  | `E_READY_ERROR_STATUS`     |
 
 A `browser_launch_failed` contract that carries `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"` or `"E_FLAG_NOT_SUPPORTED_HERE"` fails the wait with that code and `status: "usage"` instead of `E_BROWSER_LAUNCH`.
+
+From the release after 4.1.41, a `--wait` on a run that ended on a refusal answers `E_EXTENSION_LOAD_REFUSED` at once and does not wait for `E_READY_TIMEOUT`, unless the manifest changed after the refusal.
 
 ## Joining the session files
 
@@ -236,7 +241,7 @@ The same directory holds `events.ndjson` (compile timeline) and `logs.ndjson` (e
   "controlPath": "/extjs-control",
   "logsPath": "dist/extension-js/chromium/logs.ndjson",
   "cdpPort": 9222,
-  "profilePath": "/tmp/extension-js/profiles/brisk-amber-fox",
+  "profilePath": "/home/dev/my-extension/dist/extension-js/profiles/chromium-profile/brisk-amber-fox",
   "browserPid": 51302,
   "extensionId": "abcdefghijklmnopabcdefghijklmnop",
   "toolchainVersion": "4.0.22",

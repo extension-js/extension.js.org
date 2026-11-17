@@ -85,7 +85,7 @@ From the release after 4.1.39, a session that still runs wins over one that has 
 multiple ended sessions found (chrome, firefox), diagnosing chrome
 ```
 
-For a stopped session, the `ready-contract` check then fails and its remediation names the command that starts the session again.
+For a stopped session, the `ready-contract` check then fails and its remediation names the command that starts the session again. From the release after 4.1.41, when that session ended on a load refusal, the check names the refusal and `doctor` answers `E_EXTENSION_LOAD_REFUSED`.
 
 <Frame>
   <iframe
@@ -120,6 +120,7 @@ Some legs have deliberate soft answers:
 
 - `port-agreement` passes when no port file exists yet. A first session for this project and browser has nothing to disagree with.
 - `executor` reports **warn**, not fail, within 10 seconds of a fresh compile. The service worker may still be attaching. Wait for `runtime: "attached"` in `ready.json` before acting.
+- From the release after 4.1.41, `executor` fails at once for a build with no background that the browser runs. The row carries the same sentence that `eval` prints. See [Refusals on a start or preview session](/docs/debugging#refusals-on-a-start-or-preview-session).
 - `browser` reports **skip** when the contract has no `cdpPort` stamped and no exit recorded. Absence of exit evidence is not proof of a live browser.
 
 The pretty output prints one line per check plus the first failing check's remediation. Each status has a glyph: `✓` pass, `✗` fail, `!` warn, `–` skip. The exit code is `0` when nothing failed and `1` when any check failed, so CI and scripts can gate on it directly.
@@ -187,6 +188,8 @@ On Firefox, the rows say `background page` where a Chromium session says `servic
 
 A healthy run answers `ok: true` with `status: "healthy"` and `error: null`.
 
+From the release after 4.1.41, a run that finds a load refusal keeps `status: "unhealthy"` and carries `error.code: "E_EXTENSION_LOAD_REFUSED"`. See [Manifest refusals](/docs/debugging/manifest-refusals#what-a-refused-load-prints).
+
 `status` on each check is `pass`, `fail`, `warn`, or `skip`. `remediation` is present on failures that have a known fix. The envelope's `error.code` maps from the first failing check:
 
 | First failing check                              | `error.code`            |
@@ -194,6 +197,7 @@ A healthy run answers `ok: true` with `status: "healthy"` and `error: null`.
 | `engine`                                         | `E_COMMAND_UNSUPPORTED_FOR_TARGET` |
 | `peer-rspack`                                    | `E_DEPENDENCY_INSTALL`  |
 | `ready-contract`, `server-process`               | `E_SESSION_NOT_FOUND`   |
+| `ready-contract`, when the contract records a load refusal | `E_EXTENSION_LOAD_REFUSED` |
 | `port-agreement`, `control-channel`, `executor`  | `E_CONTROL_UNAVAILABLE` |
 | `eval-token`                                     | `E_TOKEN_MISSING`       |
 | `browser`                                        | `E_BROWSER_LAUNCH`      |

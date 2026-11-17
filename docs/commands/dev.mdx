@@ -59,6 +59,11 @@ The watcher follows the build graph: the manifest and everything it names, each 
 
 From the release after 4.1.39, a project under a symlinked folder is watched by one path. On macOS, the first build waits a bounded time for the watcher's first scan before it reports ready. An early save is then not missed.
 
+From the release after 4.1.41, a restart of the compiler also cleans the output:
+
+- When a manifest edit removes an entry, the restart removes that entry's files from `dist/<browser>`.
+- Deleting or renaming a file under `pages/` or `scripts/` restarts the compiler by itself, as adding one already does. The restart removes the outputs of files that are gone. You do not restart the command.
+
 ## Usage
 
 <CodeGroup>
@@ -246,7 +251,7 @@ Treat `ready.json` as the readiness contract:
 - `toolchainVersion`, `extensionName`, and `extensionVersion` record which Extension.js version produced the tree, for which extension. The file doubles as a build receipt after the terminal scrollback is gone
 - `port` is the bound dev server port, and `host` is the connectable host clients dial (see [bind host vs. connectable host](#bind-host-vs-connectable-host))
 - `controlPort` / `instanceId` locate the control bridge used by `extension logs` and the act verbs
-- `cdpPort` (Chromium) and `rdpPort` (Gecko) expose the browser debugging ports
+- `cdpPort` (Chromium) and `rdpPort` (Gecko) expose the browser debugging ports. From the release after 4.1.41, sessions started at the same time each get their own debugging port, so read these fields instead of assuming 9222
 - `profilePath`, `browserPid`, and `extensionId` are stamped by the browser launcher after launch
 
 The full schema, error states, and two-phase readiness rules live in [the ready.json contract](/docs/contracts/ready-json).
@@ -310,6 +315,7 @@ From 4.1.21, a `--wait` that reads `ready.json` while the producer is still writ
 - A pinned binary that is executable but that the system cannot start also keeps the server up. Its failure frame has `status: "failed"`, `error.code: "E_READY_ERROR_STATUS"`, and the `browser_launch_failed` `readyCode`.
 - A `dev --wait` run prints one `status: "ready"` frame on success. Its `value.results` array carries the full ready contract per browser.
 - Failures print one `ok: false` frame with an `error.code` (for example `E_READY_TIMEOUT`) before the process exits `1`. A contract in `error` status names its cause: `E_BROWSER_BINARY_INVALID` with `status: "usage"` when the pinned binary was refused, `E_BROWSER_LAUNCH` when the browser never started, `E_BROWSER_EXITED` when it exited before the extension loaded, and `E_COMPILE` for a compile error. See [the ready.json contract](/docs/contracts/ready-json) for the full list.
+- From the release after 4.1.41, a browser that refuses to load the extension does not stop the session. The stream carries one `ok: false` frame with `status: "load-refused"` and `error.code: "E_EXTENSION_LOAD_REFUSED"`. A `dev --wait` against the session answers the same status and code and exits `1`. The session tries the load again on the next save. See [Manifest refusals](/docs/debugging/manifest-refusals#what-a-refused-load-prints).
 
 ### `--no-reload` for a clean dev bundle
 

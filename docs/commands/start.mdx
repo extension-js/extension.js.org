@@ -120,6 +120,8 @@ This is useful for automation when using `--no-browser`:
 - Handle `status: "error"` as a deterministic failure signal.
 - Use `runId` and `startedAt` to correlate a specific runtime session.
 
+From the release after 4.1.41, sessions started at the same time each get their own debugging port. Read `cdpPort` or `rdpPort` from `ready.json` instead of assuming 9222. `cdpPort` is on the record when the card prints.
+
 From the release after 4.1.39, with `--allow-control` or `--allow-eval`, the status stays `starting` until the extension's background connects or 10 seconds pass. Read `executorAttachedAt` to know that an act verb can run. See [the ready.json contract](/docs/contracts/ready-json#sessions-that-take-act-verbs-hold-ready).
 
 From the release after 4.1.39, a refusal from such a session names `extension start` as the command to restart. A build with no background script or service worker cannot be controlled: the session warns at startup, and every act verb answers that the build has no background. See [Refusals on a start or preview session](/docs/debugging#refusals-on-a-start-or-preview-session).
@@ -170,6 +172,7 @@ Passing both `--wait` and `--no-browser` in the same invocation exits with `E_IN
 - A failed build prints one `ok: false` frame with `status: "build-failed"` before the process exits `1`. A compile error carries `error.code: "E_COMPILE"`. A missing project folder carries `E_PROJECT_NOT_FOUND`, a folder with no manifest carries `E_MANIFEST_NOT_FOUND`, and a manifest that does not parse carries `E_MANIFEST_INVALID`. A config file that fails to load carries `E_CONFIG_LOAD`, and a remote URL that gives no usable archive carries `E_REMOTE_ZIP_INVALID`, `E_REMOTE_FETCH_TIMEOUT`, `E_REMOTE_ACCESS_DENIED`, or `E_REMOTE_DOWNLOAD`.
 - A bad `--chromium-binary` or `--gecko-binary` pin prints one `ok: false` frame with `status: "usage"` and `error.code: "E_BROWSER_BINARY_INVALID"`. That covers a path that does not exist, a file that is not executable, and a binary that does not answer its version probe within 10 seconds. The command ends and leaves nothing running.
 - A browser that cannot start prints one `ok: false` frame with `status: "failed"`. The code is `E_BROWSER_LAUNCH` when the binary is executable but the system cannot start it or Firefox exits before its debugger answers, and `E_BROWSER_CONNECT` when Firefox runs but its debugger never answers.
+- From the release after 4.1.41, a browser that refuses to load the extension prints one `ok: false` frame with `status: "load-refused"` and `error.code: "E_EXTENSION_LOAD_REFUSED"`. `start` stops the browser and exits `1`. A `start --wait` against that run answers the same status and code. See [Manifest refusals](/docs/debugging/manifest-refusals#what-a-refused-load-prints).
 
 ## Logging flags
 
@@ -285,6 +288,7 @@ deno run -A npm:extension@latest start --no-browser
 - `start` does not run a dev server and does not provide hot module replacement (HMR) or watch mode.
 - `start` is production-mode oriented. Use `dev` for iterative local development.
 - For machine consumers, parse `dist/extension-js/<browser>/ready.json` instead of terminal text.
+- From the release after 4.1.41, if the browser refuses the extension, `start` stops the browser and exits with code `1`. See [Manifest refusals](/docs/debugging/manifest-refusals#what-a-refused-load-prints).
 
 ## Next steps
 

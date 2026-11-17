@@ -122,7 +122,7 @@ deno run -A npm:extension@latest create my-extension --template=ai-chatgpt
 ## 開發行為
 
 - Extension.js 追蹤 service worker／原始碼變更，並可觸發整個擴充功能的 hard reload。
-- 影響 background 進入點的 manifest 變更會觸發「需要重新啟動」的診斷訊息。
+- 當 manifest 的修改新增、移除或重新命名了指令碼進入點時，正在執行的 `extension dev` 工作階段會自行重新啟動編譯器並重新載入擴充功能。你不需要重新啟動指令。從 4.1.41 之後的版本開始，指令碼移到另一個 manifest 鍵時工作階段也會重新啟動，例如把同一個檔案從 `background.scripts` 移到 `background.service_worker`。
 - 啟動瀏覽器的 plugin 會套用對應平台（Chromium／Firefox）的 hard reload 策略。
 - Extension.js 對結構性進入點變更的處理比一般模組編輯更嚴格。
 
@@ -134,7 +134,7 @@ Firefox 不會執行 MV3 的 `background.service_worker`（載入此類擴充功
 
 這個轉譯在另一個方向同樣成立。在 Chromium MV3 建置中，`background.scripts` 陣列會變成指向編譯產物的 `background.service_worker`。
 
-只要出現 `background.scripts`，Chromium MV3 就會拒絕整個擴充功能，即使旁邊還有一個有效的 `service_worker` 也一樣。因此 Extension.js 一律會從輸出的 Chromium MV3 manifest 中移除 `scripts` 鍵。當來源同時宣告這兩個欄位時，既有的 `service_worker` 條目勝出。
+Chromium MV3 永遠不會啟動 `background.scripts`。旁邊沒有 `service_worker` 時，Chrome 151 會載入這個擴充功能，不顯示任何錯誤，也不執行任何 background。因此 Extension.js 一律會從輸出的 Chromium MV3 manifest 中移除 `scripts` 鍵。當來源同時宣告這兩個欄位時，既有的 `service_worker` 條目勝出。
 
 ## Safari：使用 background 頁面，而不是 service worker
 
@@ -185,6 +185,7 @@ chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
 - `background.type: "module"` 採用 module worker 語義。
 - Classic service worker 模式採用基於 `importScripts` 的 chunk 載入行為。
 - 避免在 background 程式碼中使用動態 import，尤其是必須在啟動時立即載入的部分。
+- 從 4.1.41 之後的版本開始，在 service worker background 中，用 `import()` 載入的程式碼會被打包進 worker 檔案，因為 Chromium 只允許 service worker 在安裝期間擷取指令碼。這個模組仍然只在第一次被匯入時才執行。擴充功能頁面與 Firefox 的 background 頁面仍然保留獨立的延遲載入 chunk。
 
 ## 執行階段載入的檔案
 
@@ -206,6 +207,10 @@ chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
 
   建置以這種方式複製資料檔案和媒體檔案，不會以這種方式複製腳本、頁面或樣式表。程式碼在執行階段拼接出來的路徑不對應任何具體檔案。對這樣的路徑，建置會印出一則寫明該資料夾的警告。請把這些檔案放進 `public/`。
 - **依路徑開啟的頁面的樣式表。** 你的程式碼依路徑開啟的頁面（例如透過 `chrome.runtime.getURL("/ui/options/index.html")`），會連同它的腳本和樣式表一起發布。從 4.1.41 之後的版本起，這些樣式表透過 `url()` 載入的字型和圖片也會一起發布。
+- **依檔案注入的樣式表。** 從 4.1.41 之後的版本開始，由 `scripting.insertCSS({files})`、`tabs.insertCSS({file})` 或 `scripting.registerContentScripts` 的 `css` 清單指明的樣式表，會連同它透過 `url()` 載入的字型和圖片以及它匯入的樣式表一起發布。在 Chrome 上，注入的樣式表裡的 `url()` 是相對於被造訪的頁面解析的。請把目標寫成 `chrome-extension://__MSG_@@extension_id__/path`。建置會把樣式表載入的檔案列在 `web_accessible_resources` 下：Chromium 與 Safari 目標列出每一個檔案，Firefox 目標只列出字型。Firefox 的 Manifest V3 在沒有這個項目時會擋下注入樣式表的字型，而不列出也會載入它的圖片。
+- **注入的樣式表裡的 `@import`。** 從 4.1.41 之後的版本開始，在 Chromium 目標上，建置會把 `@import` 的內容寫進樣式表，並放在它的 media、supports 或 layer 條件之下。Chrome 會丟棄注入樣式表裡的這條規則。這適用於透過 `scripting.insertCSS` 或 `scripting.registerContentScripts` 依檔案注入的樣式表，也適用於在 `content_scripts` 中宣告的樣式表。指向其他來源的 import 維持原樣，建置會給出帶檔案與行號的警告。
+- **`public/` 裡被注入的樣式表。** 從 4.1.41 之後的版本開始，`public/` 裡的樣式表會逐位元組原樣發布。如果它是依檔案注入的，建置會為 Chrome 丟棄的 `@import` 警告一次。它還會為第一個被 Chrome 相對於被造訪頁面解析的 `url()` 警告一次，並建議使用 `chrome-extension://__MSG_@@extension_id__/…` 的寫法。
+- **被指明的檔案發布在哪裡。** 從 4.1.41 之後的版本開始，直接傳給 `fetch` 的路徑會發布在讀取它的腳本旁邊，直接傳給 `chrome.runtime.getURL` 的路徑會發布在擴充功能根目錄，保存在表或變數裡的路徑會在兩個位置都發布。Chrome 從擴充功能根目錄載入 `devtools.panels.create` 的頁面路徑與 `sidePanel.setOptions` 的路徑。由動態匯入的模組設定的圖示，會發布在載入該模組的 worker 或頁面旁邊。
 
 被參照的檔案若不存在於你的專案中，建置會產生一則指明缺少路徑的警告，而不是在執行階段靜默失敗。
 

@@ -20,7 +20,7 @@ keywords:
 
 - **HMR(热模块替换)**：当模块更新是安全的时候使用
 - **分类重载**(full、service worker、content scripts，或仅通知的 page)：当运行时资产发生变化时使用
-- **需要重启错误/警告**：当入口结构发生变化时
+- **编译器自动重启**：当入口结构发生变化时
 
 ## 重载前置条件(devtools 设置对话框)
 
@@ -102,15 +102,20 @@ keywords:
 >
 > Chrome 会激进缓存 `chrome-extension://` 资源。即便完整地重载扩展后，像 `content-0.js` 这样的稳定文件名仍可能提供过期的代码。Extension.js 在开发期会在文件名后追加一段短的构建哈希(例如 `content-0.abcd1234.js`)。每次重新构建都会产生一个新 URL，从而绕过缓存。生产构建则使用干净的文件名。在 `extension.config.*` 的 `commands.dev` 下设置 `hashContentScripts: false` 可以关闭它，保留稳定的开发期文件名。同名的顶层键会被忽略。
 
-### 3) 需要重启(开发服务器)
+### 3) 编译器重启(开发服务器)
 
-当扩展入口的引用发生变化(而不仅仅是模块内容)时，Extension.js 会报告需要重启的诊断。这可以防止你在依赖图过期的情况下继续工作。
+当扩展入口的引用发生变化(而不仅仅是模块内容)时，dev 会话会自行重启编译器并重载扩展。你不需要重启命令。
 
-典型的"需要重启"场景：
+会话会为这些变更重启：
 
-- manifest 中的脚本入口列表发生变化
-- HTML 入口的脚本/样式引用发生变化
-- watch 模式下 `pages/` / `scripts/` 的文件集合发生变化(尤其是删除)
+- manifest 的修改添加、移除或重命名了脚本、页面、图标或 JSON 入口
+- HTML 入口的脚本或样式引用发生变化
+- 在 `pages/` 或 `scripts/` 下添加了文件
+- `.env` 文件发生变化
+
+从 4.1.41 之后的版本开始，在 `pages/` 或 `scripts/` 下删除或重命名文件时，以及脚本移到另一个 manifest 键时，会话也会重启。重启会移除已不存在的入口的输出。
+
+只有一种变更仍然需要你来重启：编辑 `extension.config.*`。会话会继续使用启动时读到的配置，并打印一条警告。请停止会话，重新运行 `extension dev`。
 
 ## 行为矩阵
 
@@ -123,8 +128,11 @@ keywords:
 | 同时位于 background 与 content chunk 中的源文件   | `service-worker` + content 重新注入(扇出) |
 | 变更的产出静态资产(图标、web-accessible 资源)     | `full`                                    |
 | 仅属于页面的源文件(popup、options、sidebar、devtools) | `page`(仅通知，由 livereload 刷新)     |
-| 入口结构更新(manifest 列表、HTML 脚本/样式引用)   | 需要重启                                  |
-| watch 期间 `pages/` 或 `scripts/` 文件的增删      | 警告/错误，并提示重启                     |
+| HTML 脚本/样式引用更新 | 会话自行重启 |
+| manifest 入口列表更新 | 会话自行重启 |
+| watch 期间在 `pages/` 或 `scripts/` 添加文件 | 会话自行重启 |
+| watch 期间在 `pages/` 或 `scripts/` 删除或重命名文件 | 会话自行重启（从 4.1.41 之后的版本开始） |
+| 编辑 `extension.config.*` | 需要重启 |
 
 ## Safari
 
@@ -149,7 +157,7 @@ keywords:
 `pages/` 与 `scripts/` 与 manifest 声明的资产采用同样的重载策略。
 
 - 现有模块更新可以走热更新路径。
-- 入口集合变化(增删或引用图变化)可能需要重启。
+- 入口集合变化(增删或引用图变化)会让会话重启编译器。
 
 **示例：**
 
@@ -184,7 +192,7 @@ Ran scripts/highlight.js again in 2 open tabs, with no page reload.
 
 - 在活跃开发会话期间保持入口引用稳定，以最大化 HMR 的命中率。
 - 集中编辑 `manifest.json` 与 locale，避免反复触发完整的扩展重载。
-- 把 `pages/` 与 `scripts/` 用于 manifest 之外的资产，当文件集合或入口接线变化时再重启。
+- 把 `pages/` 与 `scripts/` 用于 manifest 之外的资产。
 - 把"需要重启"的诊断当作有意为之的安全检查，而不是临时警告。
 
 ## 下一步

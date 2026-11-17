@@ -117,6 +117,8 @@ extension start [path-or-url] [options]
 - 把 `status: "error"` 当作确定性的失败信号处理。
 - 用 `runId` 与 `startedAt` 关联某次具体的运行时会话。
 
+从 4.1.41 之后的版本开始，同时启动的会话各自拿到自己的调试端口。请从 `ready.json` 里读取 `cdpPort` 或 `rdpPort`，不要假定是 9222。卡片打印时，`cdpPort` 已经在记录里。
+
 从 4.1.39 之后的版本起，带 `--allow-control` 或 `--allow-eval` 时，状态会保持 `starting`，直到扩展的 background 连上，或者过去 10 秒。要知道 act 命令能否运行，请读取 `executorAttachedAt`。见 [ready.json 契约](/zh-Hans/docs/contracts/ready-json#接受-act-命令的会话会按住-ready)。
 
 从 4.1.39 之后的版本起，这类会话给出的拒绝信息会把 `extension start` 写成需要重启的命令。没有 background 脚本或 service worker 的构建无法被控制：会话在启动时会给出警告，每一个 act 命令都会回答这个构建没有 background。见 [start 或 preview 会话上的拒绝](/zh-Hans/docs/debugging#start-或-preview-会话上的拒绝)。
@@ -167,6 +169,7 @@ npx extension@latest start --no-open
 - 构建失败时会打印一个 `ok: false` 帧，其中 `status: "build-failed"`，随后进程以 `1` 退出。编译错误带 `error.code: "E_COMPILE"`。项目目录不存在带 `E_PROJECT_NOT_FOUND`，目录里没有 manifest 带 `E_MANIFEST_NOT_FOUND`，manifest 无法解析带 `E_MANIFEST_INVALID`。配置文件加载失败带 `E_CONFIG_LOAD`，远程 URL 没有给出可用的归档带 `E_REMOTE_ZIP_INVALID`、`E_REMOTE_FETCH_TIMEOUT` 或 `E_REMOTE_DOWNLOAD`。
 - `--chromium-binary` 或 `--gecko-binary` 固定的二进制有问题时会打印一个 `ok: false` 帧，其中 `status: "usage"`，`error.code: "E_BROWSER_BINARY_INVALID"`。这包括路径不存在、文件不可执行，以及二进制在 10 秒内没有应答版本探测。命令随即结束，不会留下任何运行中的进程。
 - 浏览器无法启动时会打印一个 `ok: false` 帧，其中 `status: "failed"`。二进制文件可执行但系统无法启动它，或 Firefox 在调试器应答之前就退出时为 `E_BROWSER_LAUNCH`，Firefox 在运行但调试器始终没有应答时为 `E_BROWSER_CONNECT`。
+- 从 4.1.41 之后的版本开始，浏览器拒绝加载扩展时会打印一个 `ok: false` 帧，其中 `status: "load-refused"`、`error.code: "E_EXTENSION_LOAD_REFUSED"`。`start` 会停止浏览器并以 `1` 退出。针对这次运行的 `start --wait` 会回答同样的状态和代码。见 [Manifest 拒绝](/zh-Hans/docs/debugging/manifest-refusals#被拒绝的加载会打印什么)。
 
 ## 日志 flag
 
@@ -271,6 +274,7 @@ deno run -A npm:extension@latest start --no-browser
 - `start` 不会运行 dev 服务器，也不提供热模块替换（HMR）或 watch 模式。
 - `start` 面向生产模式；本地迭代开发请用 `dev`。
 - 对于机器消费者，请解析 `dist/extension-js/<browser>/ready.json`，而不是终端文本。
+- 从 4.1.41 之后的版本开始，如果浏览器拒绝这个扩展，`start` 会停止浏览器并以退出码 `1` 退出。见 [Manifest 拒绝](/zh-Hans/docs/debugging/manifest-refusals#被拒绝的加载会打印什么)。
 
 ## 下一步
 

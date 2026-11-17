@@ -56,6 +56,11 @@ watcher 跟隨建置圖:manifest 與它點名的一切、每個進入點與其 i
 
 從 4.1.39 之後的版本起,位於符號連結資料夾下的專案只依一個路徑被監看。在 macOS 上,第一次建置會在有限的時間內等待 watcher 完成首次掃描,然後才回報就緒,這樣過早的儲存不會被漏掉。
 
+從 4.1.41 之後的版本開始，編譯器的重新啟動還會清理輸出：
+
+- 當 manifest 的修改移除了一個進入點時，重新啟動會把該進入點的檔案從 `dist/<browser>` 中移除。
+- 在 `pages/` 或 `scripts/` 下刪除或重新命名檔案，會讓編譯器自行重新啟動，新增檔案時本來就會這樣。重新啟動會移除已不存在的檔案的輸出。你不需要重新啟動指令。
+
 ## 用法
 
 <CodeGroup>
@@ -241,7 +246,7 @@ The background registered a content script 6.2s after it started, when the first
 - `toolchainVersion`、`extensionName` 與 `extensionVersion` 記錄是哪個 Extension.js 版本、為哪個擴充功能產出了這棵目錄樹——終端機捲動紀錄消失後,這個檔案仍是一份建置回執
 - `port` 是實際綁定的開發伺服器埠號,`host` 則是用戶端可以撥號的可連線主機(參見[綁定主機與可連線主機](#綁定主機與可連線主機))
 - `controlPort` / `instanceId` 定位 `extension logs` 與 act verb 使用的控制橋
-- `cdpPort`(Chromium)與 `rdpPort`(Gecko)公開瀏覽器的除錯埠號
+- `cdpPort`(Chromium)與 `rdpPort`(Gecko)公開瀏覽器的除錯埠號。從 4.1.41 之後的版本開始,同時啟動的工作階段各自取得自己的除錯埠號,所以請讀取這些欄位,不要假定是 9222
 - `profilePath`、`browserPid` 與 `extensionId` 由瀏覽器啟動器在啟動後寫入
 
 完整的 schema、錯誤狀態與兩階段就緒規則,請見 [ready.json 契約](/zh-Hant/docs/contracts/ready-json)。
@@ -305,6 +310,7 @@ npx extension@latest dev --no-open
 - 固定的執行檔可以執行但系統無法啟動它時,伺服器同樣保持運作。失敗訊框的 `status: "failed"`,`error.code: "E_READY_ERROR_STATUS"`,`readyCode` 為 `browser_launch_failed`。
 - `dev --wait` 成功時會印出一個 `status: "ready"` 訊框。它的 `value.results` 陣列會逐一瀏覽器帶出完整的就緒契約。
 - 失敗時會在程序以 `1` 結束前,印出一個帶有 `error.code`(例如 `E_READY_TIMEOUT`)的 `ok: false` 訊框。處於 `error` 狀態的契約會指明原因:固定的執行檔遭拒時是帶 `status: "usage"` 的 `E_BROWSER_BINARY_INVALID`,瀏覽器根本沒有啟動時是 `E_BROWSER_LAUNCH`,在擴充功能載入之前就結束時是 `E_BROWSER_EXITED`,編譯錯誤是 `E_COMPILE`。完整清單見 [ready.json 契約](/zh-Hant/docs/contracts/ready-json)。
+- 從 4.1.41 之後的版本開始，瀏覽器拒絕載入擴充功能時不會停止工作階段。串流裡會帶一個 `ok: false` 訊框，其中 `status: "load-refused"`、`error.code: "E_EXTENSION_LOAD_REFUSED"`。針對該工作階段的 `dev --wait` 會回答同樣的狀態與代碼，並以 `1` 結束。工作階段會在下一次儲存時重新嘗試載入。見 [Manifest 拒絕](/zh-Hant/docs/debugging/manifest-refusals#遭拒絕的載入會印出什麼)。
 
 ### 用 `--no-reload` 取得乾淨的開發包
 

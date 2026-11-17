@@ -84,6 +84,8 @@ On Firefox, an extension document whose policy forbids eval answers through the 
 
 From the release after 4.1.39, `--context page` also evaluates in a tab that shows one of your extension's own pages, on Chrome and Firefox. A browser refuses to inject a script into an extension page, so the CLI uses the browser's debugger port. It needs exactly one open tab on that URL. `--context content` on such a tab fails with a hint that names `--context page`.
 
+From the release after 4.1.41, `eval --context page --url <extension page>` finds the extension's own page even when the manifest has no `tabs` permission. The browser hides tab URLs without that permission. In the extension's own page, `eval --context page` also works with no `scripting` or `tabs` permission in the manifest, because the session evaluates there over the debugger connection. For a tab that is not an own page, when no tab matches and `tabs` is not granted, the answer says that tab URLs are hidden and offers `--tab <id>`.
+
 Pretty output prints the value itself: strings as-is, everything else as indented JSON. The envelope shape appears only under `--output json` (see [Result envelope](/docs/contracts/result-envelope)).
 
 The value crosses as JSON. From the release after 4.1.39, a circular reference inside the value arrives as `null`.
@@ -104,7 +106,8 @@ A session started without `--allow-eval` refuses the call, and the refusal names
 - From the release after 4.1.39, a session that has ended answers `E_SESSION_NOT_FOUND` too, and the message prints the command that starts it again. See [When the session has ended](/docs/debugging#when-the-session-has-ended).
 - Target surface not open, or a stale `--tab` id: `E_TARGET_NOT_FOUND`. Use [`inspect --list-tabs`](/docs/commands/inspect#the-discovery-loop) to find live ids.
 - The manifest declares no page for the context: `E_TARGET_NOT_FOUND`. From the release after 4.1.39, the message says `the manifest declares no <context> page`, and the hint names the manifest key to add.
-- From the release after 4.1.39, an MV3 `start` or `preview` build whose manifest has no `scripting` permission refuses `--context content` and `--context page`. The message tells you to add `"scripting"` to `permissions`, or to use a dev session, which adds it. `--context background` still works. A `--tab` id that does not exist answers `E_TARGET_NOT_FOUND` on such a build too.
+- From the release after 4.1.39, an MV3 `start` or `preview` build whose manifest has no `scripting` permission refuses `--context content` and `--context page`. The message tells you to add `"scripting"` to `permissions`, or to use a dev session, which adds it. `--context background` still works. A `--tab` id that does not exist answers `E_TARGET_NOT_FOUND` on such a build too. From the release after 4.1.41, `--context page` in the extension's own page is the exception and needs no `scripting` permission.
+- From the release after 4.1.41, a browser that refused to load the extension answers `E_EXTENSION_LOAD_REFUSED`, with the reason the browser gave. Under `dev`, fix it and save, and the session tries the load again on the next build. After `start` or `preview`, fix it and run the command again.
 - The call outlived `--timeout`: `E_TIMEOUT`.
 
 The exit code is `0` when the expression succeeds and `1` otherwise, so scripts can gate on it directly. Run [`doctor`](/docs/commands/doctor) when every verb fails and you want the broken leg named.

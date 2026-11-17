@@ -128,7 +128,7 @@ deno run -A npm:extension@latest create my-extension --template=content
 - **Content script：** Extension.js 注入 hot module replacement（HMR）／重新掛載流程，達成快速更新。
 - **擴充功能頁面：** 頁面 script 走頁面 HMR 行為。
 - **Background／service worker：** 視變更類型而定，script 更新可能觸發整個擴充功能的 hard reload。
-- **進入點清單變更：** 變更 manifest script 結構可能需要重新啟動開發伺服器。
+- **進入點清單變更：** 當 manifest 的修改新增、移除或重新命名了指令碼進入點時，正在執行的 `extension dev` 工作階段會自行重新啟動編譯器並重新載入擴充功能。你不需要重新啟動指令。從 4.1.41 之後的版本開始，指令碼移到另一個 manifest 鍵時工作階段也會重新啟動，例如把同一個檔案從 `background.scripts` 移到 `background.service_worker`。
 
 ## Script 位置與慣例
 
@@ -146,7 +146,7 @@ deno run -A npm:extension@latest create my-extension --template=content
 ## 動態 import 注意事項
 
 - Content script 的動態 import 有執行階段限制；Extension.js 會在可能時使用 loader 後備。
-- Service worker 的延遲載入有瀏覽器限制；對於 service worker 啟動時必須立即可用的程式碼，請優先使用 eager import。
+- 平台不允許在 service worker 裡使用 `import()` 或延後的 `importScripts`。到 4.1.41 為止，Chromium service worker 裡的延遲載入匯入會在執行階段失敗。從 4.1.41 之後的版本開始，建置會把它打包進 worker 檔案，這個模組仍然只在第一次被匯入時才執行。見[延遲載入](/zh-Hant/docs/implementation-guide/lazy-loading)。
 
 ## 最佳實務
 

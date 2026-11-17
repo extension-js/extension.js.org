@@ -149,8 +149,8 @@ deno run -A npm:extension@latest create my-extension --template=sidebar
 
 - Extension.js 會把 HTML 與被引用資產加入檔案相依，編輯後會觸發重新編譯。
 - 在注入 script 的流程中，凡是支援的 script 變更會走 hot module replacement（HMR）。
-- 如果 HTML 的 script／樣式進入點清單改變（新增／移除），Extension.js 可能需要重新啟動開發伺服器。
-- 變更 manifest 的 HTML 進入點也可能觸發「需要重新啟動」的診斷訊息。
+- 如果 HTML 的 script／樣式進入點清單改變（新增／移除），正在執行的 `extension dev` 工作階段會自行重新啟動編譯器。你不需要重新啟動指令。
+- manifest 的修改新增、移除或重新命名 HTML 進入點時，編譯器會以同樣的方式重新啟動。
 
 ## 路徑與環境變數
 
@@ -219,7 +219,7 @@ body {
 
 使用 `"options_ui": {"page": "...", "open_in_tab": false}` 時，Chromium 瀏覽器會在它的擴充功能頁面上以對話框顯示該頁面，並依頁面的第一次版面配置決定對話框大小。第一次渲染為空的頁面，例如在 `chrome.storage` 回應之前一直回傳 `null` 的元件，會以零高度完成版面配置，讓對話框一片空白。
 
-Extension.js 為 Chromium 目標防止了這種情況：它會在開發與正式建置中為該頁面加上 `html{min-height:32px}`，所以對話框永遠打得開。但仍請立刻以預設值渲染頁面，等儲存的值送到後再填入。這樣對話框一開始就是真實大小，而不是過一會兒才變大。
+Extension.js 為 Chromium 目標防止了這種情況：它會在開發與正式建置中為該頁面加上 `html{min-height:32px}`，所以對話框永遠打得開。從 4.1.41 之後的版本開始，這條規則以一個小樣式表 `options/dialog-floor.css` 的形式發布，並作為頁面 `<head>` 中的第一個連結。它是檔案而不是內嵌樣式，所以當你的 `content_security_policy` 設定了 `style-src 'self'` 時也能生效。但仍請立刻以預設值渲染頁面，等儲存的值送到後再填入。這樣對話框一開始就是真實大小，而不是過一會兒才變大。
 
 ### Side panel
 

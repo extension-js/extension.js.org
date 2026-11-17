@@ -19,20 +19,51 @@ keywords:
 
 Extension.js 在两个位置补上了这个缺口：
 
-- **启动之前**，它会读取每一个即将加载的扩展的构建产物 `manifest.json`，并对每一个能够确证的拒绝原因发出警告，点名具体字段和原因。
+- **启动之前**，它会读取每一个即将加载的扩展的构建产物 `manifest.json`，并找出每一个能够确证的拒绝原因，点名具体字段和原因。到 4.1.41 为止，它会在浏览器启动之前发出警告。从 4.1.41 之后的版本开始，它会按住这个预测，等浏览器给出答复，每一次拒绝只打印一个区块，其中带着浏览器自己的那句话。
 - **构建时**，它会修复一小组毫无歧义的致命形态，并为每一次修复打印一行修复说明。
+
+## 被拒绝的加载会打印什么
+
+从 4.1.41 之后的版本开始，Extension.js 会先按住自己的预测，等浏览器给出答复。浏览器拒绝扩展时，只打印一个区块，其中带着浏览器自己的那句话：
+
+```plaintext
+Chrome refuses to load this extension, so nothing in it runs.
+PATH /path/to/project/dist/chrome
+REASON Cannot install extension because it uses an unsupported manifest version.
+Fix what the browser names, then run the command again.
+```
+
+- `REASON` 是浏览器的原话，写成一行。
+- 当 manifest 能看出原因、而浏览器的原话没有说明时，后面会跟一行 `CAUSE`。见 [Firefox 的拒绝](#firefox-的拒绝)。
+- 只有在无法询问浏览器时，才会打印预测。
+- 如果浏览器加载了被预测会遭拒绝的形态，会有一条警告说明浏览器加载了它，并点名这个形态。
+
+接下来发生什么取决于命令：
+
+- **`start` 与 `preview`**：命令会停止浏览器，并以退出码 `1` 退出。
+- **`dev`**：会话继续运行，并在下一次保存时重新尝试加载。
+
+每一个界面都用代码 `E_EXTENSION_LOAD_REFUSED` 回答被拒绝的加载：
+
+- `start`、`preview`、`dev --wait`、`start --wait` 以及 act 命令（`eval`、`storage` 等）回答状态 `load-refused`，并以退出码 `1` 退出。
+- `dev --output json` 的流带有同样的状态和代码。
+- `doctor --output json` 保持状态 `unhealthy`，并带上这个代码。
+
+因拒绝而结束的已停止会话仍然会指出这次拒绝。`doctor` 和 act 命令会用这次拒绝和同样的代码回答。
 
 ## 启动前诊断
 
-这些检查针对构建后的扩展运行，就在浏览器启动之前。
+这些检查针对构建后的扩展运行，就在浏览器启动之前。从 4.1.41 之后的版本开始，每一条发现都会等待浏览器的答复。见[被拒绝的加载会打印什么](#被拒绝的加载会打印什么)。
 
 ### manifest 版本相关的拒绝
 
 | 形态                                             | Chromium 为什么拒绝                                                    |
 | ------------------------------------------------ | ---------------------------------------------------------------------- |
-| `manifest_version: 2`                            | Chrome 138 是最后一个支持 MV2 的版本。请改在 Firefox 上运行，或迁移到 MV3。 |
-| MV3 有 `background.scripts` 而没有 `service_worker` | 这是 Firefox 风格的 background。Chromium 需要 `background.service_worker`。 |
-| 其他任何值（缺失、`1`、大于 `3`）                | 作为不受支持的 manifest 版本被拒绝。                                   |
+| 缺少 `manifest_version` | Chromium 拒绝整个扩展。 |
+| 字符串（例如 `"3"`）、小数、`1` 或 `0` | Chromium 拒绝整个扩展。只有整数 2 或 3 才是 manifest 版本。 |
+| `manifest_version: 2` 且没有 `theme` 键 | Chromium 拒绝整个扩展。Chrome 138 是最后一个支持 MV2 的版本。请改在 Firefox 上运行，或迁移到 MV3。 |
+
+大于 3 的 `manifest_version` 不在这张表里，因为 Chromium 会加载它。见 [Chromium 会加载的形态](#chromium-会加载的形态)。
 
 各浏览器对 Manifest V2 的支持并不相同：
 
@@ -86,13 +117,29 @@ PATH /path/to/project/dist/chrome
 Read the reason above, fix the manifest, then run the command again.
 ```
 
+从 4.1.41 之后的版本开始，这条信息的第一行是 `Chrome refuses to load this extension, so nothing in it runs.` 如果浏览器给出了自己的那句话，这条信息会把它放在 `REASON` 一行，并以 `Fix what the browser names, then run the command again.` 结尾。
+
 `dev` 会话在构建警告之后会继续运行。浏览器报告的拒绝会以 `extension_load_refused` 记录在 `ready.json` 里，也会记录在 `extension logs` 里。终端不会再打印第二次。其他原因造成的拒绝仍然会打印。
+
+从 4.1.41 之后的版本开始，Manifest V2 的情况仍然沿用这条规则。它的结论是唯一不等待浏览器的预测。在 `dev` 和 `start` 下由构建警告说出，在 `preview` 下则由上面那一行在启动之前打印。其他每一个预测都会被按住。见[被拒绝的加载会打印什么](#被拒绝的加载会打印什么)。
 
 ### 无效的 match 模式
 
-只要有一个模式无效，Chrome 就会拒绝整个扩展。Extension.js 会检查 `host_permissions`、`optional_host_permissions`、`content_scripts`（`matches` 与 `exclude_matches`），以及 `web_accessible_resources` 中的 matches。
+无效的模式位于哪里，决定了浏览器怎么做：
+
+- **`content_scripts[].matches`、`content_scripts[].exclude_matches` 或 `web_accessible_resources[].matches`**：Chrome 拒绝整个扩展。
+- **`host_permissions` 或 `optional_host_permissions`**：Chrome 和 Firefox 会加载扩展并丢弃这个模式。这个模式不授予任何 host 访问权限，Chrome 不记录任何错误或警告，列表中的其他模式仍然生效。
 
 host 语法允许 `*`、`*.domain.tld` 或一个字面量 host。host 中任何其他位置的通配符都是无效的，例如 `https://foo.*.com/*`。端口、查询字符串和片段不会触发拒绝，而且端口本身也可以是通配符。
+
+从 4.1.41 之后的版本开始，Extension.js 会打印一条警告，点名每一个被丢弃的模式。它在 `build`、`dev` 和 `start` 期间打印，也在 `preview` 启动之前打印：
+
+```plaintext
+manifest.json lists host permission patterns the browser drops, so they grant no host access.
+PATTERN https://foo.*.com/* in host_permissions
+Chrome and Firefox load the extension, Chrome records no error or warning for it, and the other patterns in the list still apply.
+Write the host as *, *.domain.tld or a literal host.
+```
 
 ### 加载拦截项清单
 
@@ -109,7 +156,22 @@ host 语法允许 `*`、`*.domain.tld` 或一个字面量 host。host 中任何�
 - **语言包**：声明了 `default_locale`，但对应的 `_locales/<locale>/messages.json` 缺失或不是合法 JSON，会被拒绝。整串 `__MSG_key__` 引用在目录中没有定义时同样如此（查找不区分大小写，`@@predefined` 名称除外）。`_locales` 目录树里有内容、manifest 中却没有 `default_locale`，也会被拒绝。
 - **`storage.managed_schema`**：schema 路径在扩展目录内不存在时，整个扩展会被拒绝。
 
-每一条发现都会在启动之前作为一条警告打印出来，点名扩展路径和每一个拦截项，所以卡住的原因会提前讲清楚。
+每一条发现都会在启动之前作为一条警告打印出来，点名扩展路径和每一个拦截项，所以卡住的原因会提前讲清楚。从 4.1.41 之后的版本开始，只有在无法询问浏览器时才会打印这条发现。
+
+## Chromium 会加载的形态
+
+有两种 manifest 形态，你可能以为 Chromium 会拒绝，它却会加载。两者都在 Chrome 151 上实测过。
+
+- **Manifest V3 有 `background.scripts` 而没有 `background.service_worker`**：扩展会被加载，得到一个扩展 ID，并且不显示任何错误。这些脚本永远不会启动。Extension.js 会发出警告并照常启动。
+- **大于 3 的 `manifest_version`**：扩展会被加载，并作为 Manifest V3 运行，浏览器不给出任何警告。Firefox 会拒绝它。从 4.1.41 之后的版本开始，Extension.js 的构建在每一个目标上都拒绝不是整数 2 或 3 的 `manifest_version`。
+
+## Firefox 的拒绝
+
+这些结果是在 Firefox Nightly 160 上实测的。
+
+- **只有 `background.service_worker`**：Firefox 拒绝这个扩展。它给出的原因是 `background.service_worker is currently disabled. Add background.scripts.` 面向 Firefox 的 Extension.js 构建会替你写出 `background.scripts`。见[后台脚本](/zh-Hans/docs/implementation-guide/background)。
+- **`strict_min_version` 高于正在运行的版本**：以临时附加组件方式加载时，这不算拒绝。
+- **Firefox 不加载的 `manifest_version`**：Firefox 的原话不会点名版本。从 4.1.41 之后的版本开始，会有一行 `CAUSE` 指出 manifest 显示的问题。它写的是 `Firefox does not load a manifest_version above 3.` 或 `Firefox loads only the integer 2 or 3 as manifest_version.`
 
 ## 构建时的自动修复
 

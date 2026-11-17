@@ -84,6 +84,8 @@ extension eval "({title: document.title, url: location.href})" --context page
 
 從 4.1.39 之後的版本起，`--context page` 也能在顯示著你自己擴充功能頁面的分頁裡求值，Chrome 與 Firefox 上都可以。瀏覽器拒絕向擴充功能頁面注入腳本，所以 CLI 使用瀏覽器的偵錯埠。它要求恰好只有一個開啟的分頁位於該 URL。對這樣的分頁使用 `--context content` 會失敗，提示裡會寫出 `--context page`。
 
+從 4.1.41 之後的版本開始，即使 manifest 沒有 `tabs` 權限，`eval --context page --url <extension page>` 也能找到擴充功能自己的頁面。沒有這個權限時，瀏覽器會隱藏分頁的 URL。在擴充功能自己的頁面裡，即使 manifest 沒有 `scripting` 或 `tabs` 權限，`eval --context page` 也能執行，因為工作階段透過除錯器連線在那裡求值。對於不是擴充功能自己頁面的分頁，當沒有分頁相符且未授予 `tabs` 時，回答會說明分頁 URL 被隱藏，並建議使用 `--tab <id>`。
+
 pretty 輸出印出的是值本身：字串原樣輸出，其餘一律以縮排 JSON 輸出。信封結構只會在 `--output json` 之下出現（參見 [結果信封](/zh-Hant/docs/contracts/result-envelope)）。
 
 值以 JSON 的形式傳回。從 4.1.39 之後的版本起，值內部的循環參考會變成 `null`。
@@ -104,7 +106,8 @@ pretty 輸出印出的是值本身：字串原樣輸出，其餘一律以縮排 
 - 從 4.1.39 之後的版本起，已經結束的工作階段同樣回答 `E_SESSION_NOT_FOUND`，訊息會印出重新啟動它的指令。見 [session 已經結束時](/zh-Hant/docs/debugging#session-已經結束時)。
 - 目標介面未開啟，或 `--tab` id 已失效：`E_TARGET_NOT_FOUND`。請用 [`inspect --list-tabs`](/zh-Hant/docs/commands/inspect#the-discovery-loop) 找出仍然存活的 id。
 - manifest 沒有為該情境宣告頁面：`E_TARGET_NOT_FOUND`。從 4.1.39 之後的版本起，訊息會寫 `the manifest declares no <context> page`，提示會指出要加入的 manifest 鍵。
-- 從 4.1.39 之後的版本起，如果一個 MV3 的 `start` 或 `preview` 建置的 manifest 沒有 `scripting` 權限，`--context content` 與 `--context page` 會被拒絕。訊息會請你把 `"scripting"` 加進 `permissions`，或是改用 dev 工作階段，dev 工作階段會加上它。`--context background` 仍然可用。在這樣的建置上，不存在的 `--tab` id 同樣回答 `E_TARGET_NOT_FOUND`。
+- 從 4.1.39 之後的版本起，如果一個 MV3 的 `start` 或 `preview` 建置的 manifest 沒有 `scripting` 權限，`--context content` 與 `--context page` 會被拒絕。訊息會請你把 `"scripting"` 加進 `permissions`，或是改用 dev 工作階段，dev 工作階段會加上它。`--context background` 仍然可用。在這樣的建置上，不存在的 `--tab` id 同樣回答 `E_TARGET_NOT_FOUND`。從 4.1.41 之後的版本開始，擴充功能自己頁面裡的 `--context page` 是例外，不需要 `scripting` 權限。
+- 從 4.1.41 之後的版本開始，瀏覽器拒絕載入擴充功能時會回答 `E_EXTENSION_LOAD_REFUSED`，並附上瀏覽器給出的原因。在 `dev` 下，修正後儲存，工作階段會在下一次建置時重新嘗試載入。在 `start` 或 `preview` 之後，修正後重新執行該指令。
 - 呼叫超過了 `--timeout`：`E_TIMEOUT`。
 
 運算式成功時結束碼為 `0`，否則為 `1`，因此腳本可以直接據此做判斷。當每個動詞都失敗、而你想知道是哪一環斷掉時，請執行 [`doctor`](/zh-Hant/docs/commands/doctor)。

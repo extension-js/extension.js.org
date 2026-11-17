@@ -122,7 +122,7 @@ Example background script declaration in `manifest.json`:
 ## Development behavior
 
 - Extension.js tracks service worker/source changes and can trigger hard extension reload.
-- Manifest changes affecting background entries can trigger restart-required diagnostics.
+- When a manifest edit adds, removes, or renames a script entry, a running `extension dev` session restarts its compiler and reloads the extension. You do not restart the command. From the release after 4.1.41, the session also restarts when a script moves to another manifest key, such as the same file moved from `background.scripts` to `background.service_worker`.
 - Browser launch plugins apply target-specific hard reload strategies (Chromium/Firefox).
 - Extension.js treats structural entrypoint changes more strictly than regular module edits.
 
@@ -134,7 +134,7 @@ Firefox does not run MV3 `background.service_worker` (loading such an add-on fai
 
 The translation runs in the other direction too. In a Chromium MV3 build, a `background.scripts` array becomes `background.service_worker` pointing at the compiled bundle.
 
-Chromium MV3 rejects the whole extension whenever `background.scripts` is present, even next to a valid `service_worker`. Extension.js therefore always removes the `scripts` key from the emitted Chromium MV3 manifest. When the source declares both fields, the existing `service_worker` entry wins.
+Chromium MV3 never starts `background.scripts`. With no `service_worker` beside it, Chrome 151 loads the extension, shows no error, and runs no background. Extension.js therefore always removes the `scripts` key from the emitted Chromium MV3 manifest. When the source declares both fields, the existing `service_worker` entry wins.
 
 ## Safari: a background page, not a service worker
 
@@ -186,6 +186,7 @@ The exact output depends on which manifest field remains active after browser fi
 - `background.type: "module"` uses module worker semantics.
 - Classic service worker mode uses `importScripts`-based chunk loading behavior.
 - Avoid dynamic imports in background code that must load immediately on startup.
+- From the release after 4.1.41, in a service worker background, code loaded with `import()` is bundled into the worker file, because Chromium only lets a service worker fetch scripts while it installs. The module still runs only when first imported. Extension pages and Firefox background pages keep separate lazy chunks.
 
 ## Runtime-loaded files
 
@@ -207,6 +208,10 @@ Some files never appear as import statements but still must ship with the extens
 
   The build copies data and media files this way. It does not copy scripts, pages, or style sheets this way. A path that the code builds from parts at runtime names no file. For that path, the build prints a warning that names the folder. Put those files in `public/`.
 - **Style sheets of a page opened by path.** A page that your code opens by path, for example with `chrome.runtime.getURL("/ui/options/index.html")`, ships with its scripts and style sheets. From the release after 4.1.41, the fonts and images that those style sheets load with `url()` ship too.
+- **Style sheets injected by file.** From the release after 4.1.41, a style sheet named by `scripting.insertCSS({files})`, `tabs.insertCSS({file})`, or a `css` list of `scripting.registerContentScripts` ships with the fonts and images that it loads with `url()` and the sheets that it imports. On Chrome, a `url()` in an injected sheet is read against the visited page. Spell the target as `chrome-extension://__MSG_@@extension_id__/path`. The build lists the files that the sheet loads under `web_accessible_resources`: every file on Chromium and Safari targets, and only fonts on Firefox targets. Firefox Manifest V3 blocks an injected sheet's font without the entry and loads its images unlisted.
+- **`@import` in an injected style sheet.** From the release after 4.1.41, on Chromium targets, the build writes an `@import` into the sheet, under its media, supports, or layer condition. Chrome drops the rule in an injected sheet. This covers a sheet injected by file with `scripting.insertCSS` or `scripting.registerContentScripts`, and a sheet declared in `content_scripts`. An import of another origin stays as written, and the build warns with the file and line.
+- **Injected style sheets in `public/`.** From the release after 4.1.41, a sheet in `public/` ships byte for byte. If it is injected by file, the build warns once for an `@import` that Chrome drops. It warns once more for the first `url()` that Chrome reads against the visited page, and suggests the `chrome-extension://__MSG_@@extension_id__/…` spelling.
+- **Where a named file ships.** From the release after 4.1.41, a path handed straight to `fetch` ships beside the script that reads it, a path handed straight to `chrome.runtime.getURL` ships at the extension root, and a path kept in a table or a variable ships in both places. Chrome loads a `devtools.panels.create` page path and a `sidePanel.setOptions` path from the extension root. An icon that a dynamically imported module sets ships beside the worker or page that loads the module.
 
 A referenced file that does not exist in your project produces a build warning naming the missing path, instead of a silent runtime failure.
 

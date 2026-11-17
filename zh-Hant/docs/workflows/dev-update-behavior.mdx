@@ -22,7 +22,8 @@ keywords:
 | ----------------------------- | ------------------------------------ | ---------------------------------------- |
 | Hot module replacement（HMR） | 模組／樣式更新就地套用               | 迭代最快，不需完整重啟擴充功能           |
 | `Hard reload`                 | 目標瀏覽器重新載入擴充功能執行階段   | 擴充功能情境會重啟，但開發程序仍持續執行 |
-| `Restart required`            | 編譯時診斷要求你重啟 `extension dev` | 結構性 entrypoint／清單變更時需要        |
+| 編譯器重新啟動                | 工作階段自行重建編譯器並重新載入擴充功能 | 不需你操作即可套用 entrypoint 與清單的變更 |
+| `Restart required`            | 一則警告要求你重啟 `extension dev`   | 只有編輯 `extension.config.*` 時需要     |
 
 ## 常見範例
 
@@ -31,24 +32,23 @@ keywords:
 | 編輯 content script／元件程式碼               | HMR／重新掛載路徑（支援時）    |
 | 編輯 content scripts／頁面所使用的樣式 import | HMR 風格更新路徑（視情境而定） |
 | 編輯 `manifest.json` 值（非結構性）           | 強制重載流程                   |
-| 新增／移除 manifest entrypoint 引用           | 需要重啟                       |
-| 新增／移除 `pages/` 或 `scripts/` entrypoint  | 需要重啟                       |
+| 新增／移除 manifest entrypoint 引用           | 工作階段自行重新啟動           |
+| 變更 HTML entrypoint 中的腳本／樣式項目       | 工作階段自行重新啟動           |
+| 新增 `pages/` 或 `scripts/` entrypoint        | 工作階段自行重新啟動           |
+| 刪除或重新命名 `pages/` 或 `scripts/` entrypoint | 工作階段自行重新啟動（從 4.1.41 之後的版本開始） |
+| 編輯 `extension.config.*`                     | 需要重啟                       |
 | 編輯 `_locales/*/messages.json`               | 強制重載流程                   |
 
 ## 當你需要重啟時怎麼做
 
-當 Extension.js 回報 `Restart required` 時，請先停止再重新執行 `extension dev`。
+只有一種變更仍然需要你來重新啟動：編輯 `extension.config.*`。工作階段會繼續使用啟動時讀到的設定，並印出一則警告。請停止工作階段，重新執行 `extension dev`。
 
-典型觸發條件：
-
-- 新增或移除 manifest entrypoint 引用
-- 在 `pages/` 或 `scripts/` 中新增或移除作為擴充功能 entrypoint 的檔案
-- HTML entrypoint 中結構性的腳本／樣式 entry 變更
+對於 manifest 進入點的變更、HTML 進入點中指令碼或樣式項目的變更、`.env` 的變更，以及在 `pages/` 或 `scripts/` 下新增檔案，dev 工作階段都會自行重新啟動編譯器。從 4.1.41 之後的版本開始，在那裡刪除或重新命名檔案時也會這樣做。
 
 ## 實務指引
 
 - 在進行中的開發階段，優先編輯既有模組／資產，以取得最快回饋。
-- 把結構性 manifest 變更（entrypoint 清單編輯）批次進行，只重啟一次。
+- 把結構性 manifest 變更（entrypoint 清單編輯）批次進行，讓工作階段只重新啟動一次。
 - 把需要重啟的診斷視為權威指示；不重啟就繼續可能讓執行階段處於過期狀態。
 
 ## 下一步

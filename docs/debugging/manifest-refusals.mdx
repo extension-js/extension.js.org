@@ -19,20 +19,51 @@ Some manifest shapes make Chromium refuse to load the whole extension. The refus
 
 Extension.js closes that gap in two places:
 
-- **Before launch**, it reads the built `manifest.json` of every extension it is about to load and warns about each refusal it can prove, naming the field and the reason.
+- **Before launch**, it reads the built `manifest.json` of every extension it is about to load and finds each refusal it can prove, naming the field and the reason. Up to 4.1.41, it warns before the browser starts. From the release after 4.1.41, it holds that prediction until the browser answers, and one block prints per refusal, with the browser's sentence.
 - **At build time**, it repairs a small set of unambiguous fatal shapes and prints a fix line for each repair.
+
+## What a refused load prints
+
+From the release after 4.1.41, Extension.js holds its own prediction until the browser answers. When the browser refuses the extension, one block prints, with the browser's sentence:
+
+```plaintext
+Chrome refuses to load this extension, so nothing in it runs.
+PATH /path/to/project/dist/chrome
+REASON Cannot install extension because it uses an unsupported manifest version.
+Fix what the browser names, then run the command again.
+```
+
+- `REASON` holds the browser's own words, on one line.
+- A `CAUSE` line follows when the manifest shows why and the browser's words do not say it. See [Firefox refusals](#firefox-refusals).
+- The prediction prints only when the browser cannot be asked.
+- If the browser loads a shape that was predicted to be refused, one warning says that the browser loaded it and names the shape.
+
+What happens next depends on the command:
+
+- **`start` and `preview`**: the command stops the browser and exits with code `1`.
+- **`dev`**: the session stays up and tries the load again on the next save.
+
+Every surface answers a refused load with the code `E_EXTENSION_LOAD_REFUSED`:
+
+- `start`, `preview`, `dev --wait`, `start --wait`, and the act commands (`eval`, `storage`, and the others) answer status `load-refused` and exit with code `1`.
+- The `dev --output json` stream carries the same status and code.
+- `doctor --output json` keeps status `unhealthy` and carries the code.
+
+A stopped session that ended on a refusal still names it. `doctor` and the act commands answer with the refusal and the same code.
 
 ## Pre-launch diagnosis
 
-These checks run against the built extension, right before the browser spawns.
+These checks run against the built extension, right before the browser spawns. From the release after 4.1.41, a finding waits for the browser's answer. See [What a refused load prints](#what-a-refused-load-prints).
 
 ### Manifest version refusals
 
 | Shape                                                | Why Chromium refuses                                                              |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `manifest_version: 2`                                | Chrome 138 was the last version to support MV2. Run it on Firefox or migrate.    |
-| MV3 with `background.scripts` and no `service_worker` | A Firefox-style background. Chromium needs `background.service_worker`.          |
-| Any other value (missing, `1`, above `3`)            | Refused as an unsupported manifest version.                                       |
+| `manifest_version` is missing | Chromium refuses the whole extension. |
+| A string such as `"3"`, a fraction, `1`, or `0` | Chromium refuses the whole extension. Only the integer 2 or 3 is a manifest version. |
+| `manifest_version: 2` with no `theme` key | Chromium refuses the whole extension. Chrome 138 was the last version to support MV2. Run it on Firefox or migrate. |
+
+A `manifest_version` above 3 is not in this table, because Chromium loads it. See [Shapes that Chromium loads](#shapes-that-chromium-loads).
 
 Manifest V2 support differs by browser:
 
@@ -86,13 +117,29 @@ PATH /path/to/project/dist/chrome
 Read the reason above, fix the manifest, then run the command again.
 ```
 
+From the release after 4.1.41, the first line of that message reads `Chrome refuses to load this extension, so nothing in it runs.` When the browser gave its own sentence, the message carries it on a `REASON` line and ends with `Fix what the browser names, then run the command again.`
+
 A `dev` session stays up after the build warning. The refusal that the browser reports is recorded in `ready.json` as `extension_load_refused`, and in `extension logs`. The terminal does not print it a second time. A refusal for any other reason still prints.
+
+From the release after 4.1.41, the Manifest V2 case keeps this rule. Its verdict is the one prediction that does not wait for the browser. The build warning says it under `dev` and `start`, and the line above prints before the launch under `preview`. Every other prediction is held. See [What a refused load prints](#what-a-refused-load-prints).
 
 ### Invalid match patterns
 
-One invalid pattern makes Chrome refuse the whole extension. Extension.js checks `host_permissions`, `optional_host_permissions`, `content_scripts` (`matches` and `exclude_matches`), and `web_accessible_resources` matches.
+Where an invalid pattern sits decides what the browser does:
+
+- **`content_scripts[].matches`, `content_scripts[].exclude_matches`, or `web_accessible_resources[].matches`**: Chrome refuses the whole extension.
+- **`host_permissions` or `optional_host_permissions`**: Chrome and Firefox load the extension and drop the pattern. The pattern grants no host access, Chrome records no error or warning, and the other patterns in the list still apply.
 
 The host grammar allows `*`, `*.domain.tld`, or a literal host. Any other wildcard placement in the host is invalid, for example `https://foo.*.com/*`. Ports, query strings, and fragments do not trigger a refusal, and the port may itself be a wildcard.
+
+From the release after 4.1.41, Extension.js prints a warning that names each dropped pattern. It prints during `build`, `dev`, and `start`, and before `preview` launches:
+
+```plaintext
+manifest.json lists host permission patterns the browser drops, so they grant no host access.
+PATTERN https://foo.*.com/* in host_permissions
+Chrome and Firefox load the extension, Chrome records no error or warning for it, and the other patterns in the list still apply.
+Write the host as *, *.domain.tld or a literal host.
+```
 
 ### The load-blocker catalogue
 
@@ -109,7 +156,22 @@ Each of these was verified to refuse the whole extension on a live Chrome build:
 - **Locales**: a declared `default_locale` whose `_locales/<locale>/messages.json` is missing or not valid JSON refuses. So does a whole-string `__MSG_key__` reference that the catalog does not define (the lookup is case-insensitive, `@@predefined` names are exempt). A populated `_locales` tree with no `default_locale` in the manifest refuses too.
 - **`storage.managed_schema`**: a schema path that does not exist inside the extension directory refuses the whole extension.
 
-Each finding prints as a warn naming the extension path and every blocker, before the spawn, so the wedge is explained up front.
+Each finding prints as a warn naming the extension path and every blocker, before the spawn, so the wedge is explained up front. From the release after 4.1.41, the finding prints only when the browser cannot be asked.
+
+## Shapes that Chromium loads
+
+Chromium loads two manifest shapes that you may expect it to refuse. Both were measured on Chrome 151.
+
+- **Manifest V3 with `background.scripts` and no `background.service_worker`**: the extension loads, gets an extension ID, and shows no error. The scripts never start. Extension.js warns and launches.
+- **A `manifest_version` above 3**: the extension loads and runs as Manifest V3, with no warning from the browser. Firefox refuses it. From the release after 4.1.41, the Extension.js build refuses a `manifest_version` other than the integer 2 or 3 on every target.
+
+## Firefox refusals
+
+These results were measured on Firefox Nightly 160.
+
+- **`background.service_worker` alone**: Firefox refuses the extension. Its reason reads `background.service_worker is currently disabled. Add background.scripts.` An Extension.js build for Firefox writes `background.scripts` for you. See [Background scripts](/docs/implementation-guide/background).
+- **A `strict_min_version` above the running version**: this is not a refusal on a temporary add-on load.
+- **A `manifest_version` that Firefox does not load**: Firefox's own words do not name the version. From the release after 4.1.41, a `CAUSE` line names what the manifest shows. It reads `Firefox does not load a manifest_version above 3.` or `Firefox loads only the integer 2 or 3 as manifest_version.`
 
 ## Automatic repairs at build time
 

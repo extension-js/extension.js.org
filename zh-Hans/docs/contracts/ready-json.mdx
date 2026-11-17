@@ -84,8 +84,8 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `controlPort`        | number 或 null | 控制桥的 WebSocket 端口。                                                                                                                                          |
 | `controlPath`        | string         | 控制桥的 WebSocket 路径（`/extjs-control`）。                                                                                                                      |
 | `logsPath`           | string         | 指向 `logs.ndjson` 的相对路径。                                                                                                                                    |
-| `cdpPort`            | number         | Chromium 启动时：CDP 端口，在启动之后盖章。                                                                                                                        |
-| `rdpPort`            | number         | Gecko 启动时：RDP debugger-server 端口，在启动之后盖章。                                                                                                           |
+| `cdpPort`            | number         | Chromium 启动时：CDP 端口，在启动之后盖章。从 4.1.41 之后的版本开始，同时启动的会话各自拿到自己的调试端口，所以请读取这个字段，不要假定是 9222。在 `preview` 和 `start` 上，卡片打印时它已经在记录里。 |
+| `rdpPort`            | number         | Gecko 启动时：RDP debugger-server 端口，在启动之后盖章。从 4.1.41 之后的版本开始，同时启动的会话各自拿到自己的端口，所以请读取这个字段。 |
 | `webdriverPort`    | number   | Safari 的 `dev` 会话：启动器在应用旁持有的 safaridriver 会话端口。Safari 一次只允许一个自动化会话，请接到这个会话而不是自己再开一个。 |
 | `webdriverSessionId` | string | 与 `webdriverPort` 并列的会话 id。 |
 | `webdriverUnavailableReason` | string | 启动器为何没有持有 WebDriver 会话，例如 Safari 的"允许远程自动化"是关闭的，或者请求会话时另一个 Safari 正开着。 |
@@ -102,7 +102,7 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `binaryProvenance`   | string         | 这个二进制是怎么选出来的：`managed`（Extension.js 的缓存）、`pinned`（二进制 flag 或二进制变量）、`system`（已安装的浏览器）或 `snapshot`（缓存的 dev 频道构建）。 |
 | `binaryPinnedBy`     | string         | 从 4.1.39 之后的版本起：指明 `pinned` 二进制的那个 flag 或变量，例如 `--chromium-binary` 或 `FIREFOX_BINARY`。其他来源下不出现。 |
 | `browserPid`         | number         | 浏览器进程 id。这是拆掉浏览器时受支持的句柄。                                                                                                                      |
-| `extensionId`        | string         | 浏览器用来提供这份 dist 的 id。能拿到时由浏览器确认，否则是推导出来的。                                                                                            |
+| `extensionId`        | string         | 浏览器用来提供这份 dist 的 id。能拿到时由浏览器确认，否则是推导出来的。从 4.1.41 之后的版本开始，契约记录着加载被拒时没有这个字段，除非浏览器自己确认了这个 id。 |
 | `extensionBaseUrl`   | string         | Firefox 启动，从 4.1.39 之后的版本起：浏览器提供这个扩展所用的 `moz-extension://<uuid>/` 地址。Firefox 按配置文件选定这个 UUID，所以从附加组件 id 看不出它。 |
 | `devAdditions`       | array          | `dev` 会话，从 4.1.39 之后的版本起：会话有而生产构建没有的东西。见[开发附加项](#开发附加项)。 |
 | `extensionName`      | string         | 扩展的名字，作为构建溯源信息。                                                                                                                                     |
@@ -112,6 +112,9 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `browserExitSignal`  | string 或 null | 浏览器死于某个信号时，与 `browserExitedAt` 并列的信号，比如崩溃时的 `SIGTRAP`。崩溃不带退出码，所以这是说明它为什么退出的唯一线索。 |
 | `browserLaunchFailedAt` | ISO string | 根本没有任何浏览器进程起来时盖上。跨重新编译保留。 |
 | `browserLaunchFailedReason` | string | 与 `browserLaunchFailedAt` 并列的原因，写成一行纯文本，比如带着二进制路径的 spawn 错误。 |
+| `extensionLoadRefusedAt` | ISO string | 浏览器拒绝加载扩展时打上的时间戳。从 4.1.41 之后的版本开始，已停止的契约会保留它。 |
+| `extensionLoadRefusedReason` | string | 与 `extensionLoadRefusedAt` 并列的浏览器原因。从 4.1.41 之后的版本开始，已停止的契约会保留它。 |
+| `extensionLoadRefusedCause` | string | 从 4.1.41 之后的版本开始。当启动器从 manifest 得知浏览器为什么拒绝、而浏览器的原话没有说明时出现。已停止的契约会保留它，它会随拒绝一起被清除。 |
 | `runtime`            | `"attached"` 或 `"detached"` | service worker 连上并且可以被驱动后为 `attached`。从 4.1.20 起，最后一个已连接的扩展上下文断开后为 `detached`，重新连接后又回到 `attached`。 |
 | `executorAttachedAt` | ISO string     | service worker 第一次连上的时间。断开后会作为来源记录保留。 |
 | `executorDetachedAt` | ISO string     | 从 4.1.20 起，最后一个已连接的扩展上下文断开的时间。 |
@@ -170,12 +173,12 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 
 | `code`                   | 发生了什么                                                                                                                                    |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `extension_load_refused` | 会话在跑，但浏览器把扩展扔了出去。其他每一个界面看起来都正常，只有契约会告诉你。带 `extensionLoadRefusedAt` 与 `extensionLoadRefusedReason`。 |
+| `extension_load_refused` | 会话在跑，但浏览器把扩展扔了出去。其他每一个界面看起来都正常，只有契约会告诉你。从 4.1.41 之后的版本开始，act 命令（`eval`、`storage`、`reload`、`inspect`、`navigate`）会回答 `E_EXTENSION_LOAD_REFUSED` 并附上浏览器给出的原因，`doctor` 会在 `ready-contract` 一行指出它。带 `extensionLoadRefusedAt` 与 `extensionLoadRefusedReason`。从 4.1.41 之后的版本开始，启动器知道原因时还会带 `extensionLoadRefusedCause`。 |
 | `profile_locked`         | 另一个活着的会话占着这个配置文件，所以浏览器根本没有启动。带 `profileLockedAt` 和一个含 `host` 与 `pid` 的 `profileLockOwner`。               |
 | `browser_exited`         | 浏览器进程死了。`start` 和 `preview` 会翻成 `error`。`dev` 只有在浏览器先于扩展加载就退出时才翻成 `error`。过了那个点，`dev` 保持它的编译状态，只盖上 `browserExitedAt`。Firefox 在调试器应答之前就退出时，大约一秒内落到这里。 |
 | `browser_launch_failed`  | 没有任何浏览器进程起来：二进制不存在、无法执行，或者固定的路径不对。Firefox 在运行但调试器始终没有应答时也落到这里，Extension.js 会结束那个进程。`dev`、`start` 和 `preview` 都会翻成 `error`。带 `browserLaunchFailedAt` 与 `browserLaunchFailedReason`。因固定的 `--chromium-binary` 或 `--gecko-binary` 有问题而被拒绝的启动还会带 `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"`。Gecko 浏览器在系统 profile 模式下被拒绝的启动会带 `browserLaunchFailedCode: "E_FLAG_NOT_SUPPORTED_HERE"`。 |
 
-一次加载被拒会活过下一次成功编译。只有一次新的运行（`starting`）或者一次真正的执行器 attach 才能把它清掉。
+一次加载被拒会活过下一次成功编译。只有一次新的运行（`starting`）或者一次真正的执行器 attach 才能把它清掉。从 4.1.41 之后的版本开始，已停止的契约会保留 `extensionLoadRefusedAt`、`extensionLoadRefusedReason` 和原因。
 
 浏览器在扩展加载之前就退出的 `dev` 会话，会跨重新编译一直停在 `error`，因为重新编译不会把浏览器带回来。启动失败同样会活过重新编译，直到真的有一个浏览器启动，或者开始一次新的运行。
 
@@ -203,6 +206,8 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | 不在这张表里的代码        | `E_READY_ERROR_STATUS`     |
 
 带 `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"` 或 `"E_FLAG_NOT_SUPPORTED_HERE"` 的 `browser_launch_failed` 契约会让等待以该代码和 `status: "usage"` 失败，而不是 `E_BROWSER_LAUNCH`。
+
+从 4.1.41 之后的版本开始，对因拒绝而结束的运行使用 `--wait`，会立刻回答 `E_EXTENSION_LOAD_REFUSED`，不会等到 `E_READY_TIMEOUT`，除非 manifest 在拒绝之后发生了变化。
 
 ## 把会话文件连起来
 
@@ -234,7 +239,7 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
   "controlPath": "/extjs-control",
   "logsPath": "dist/extension-js/chromium/logs.ndjson",
   "cdpPort": 9222,
-  "profilePath": "/tmp/extension-js/profiles/brisk-amber-fox",
+  "profilePath": "/home/dev/my-extension/dist/extension-js/profiles/chromium-profile/brisk-amber-fox",
   "browserPid": 51302,
   "extensionId": "abcdefghijklmnopabcdefghijklmnop",
   "toolchainVersion": "4.0.22",

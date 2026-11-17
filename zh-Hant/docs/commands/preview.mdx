@@ -155,6 +155,8 @@ npx extension@latest preview --no-open
 - `error`:缺少必要輸出或啟動失敗
 - `runId` 與 `startedAt`:讓腳本/代理可關聯特定工作階段
 
+從 4.1.41 之後的版本開始,同時啟動的工作階段各自取得自己的除錯埠號。請從 `ready.json` 裡讀取 `cdpPort` 或 `rdpPort`,不要假定是 9222。卡片印出時,`cdpPort` 已經在記錄裡。
+
 從 4.1.39 之後的版本起,帶 `--allow-control` 或 `--allow-eval` 時,狀態會保持 `starting`,直到擴充功能的 background 連上,或者過去 10 秒。要知道 act 指令能否執行,請讀取 `executorAttachedAt`。見 [ready.json 契約](/zh-Hant/docs/contracts/ready-json#接受-act-指令的工作階段會按住-ready)。
 
 從 4.1.39 之後的版本起,這類工作階段給出的拒絕訊息會把 `extension preview` 寫成需要重新啟動的指令。沒有 background 腳本或 service worker 的建置無法被控制:工作階段在啟動時會給出警告,每一個 act 指令都會回答這個建置沒有 background。見 [start 或 preview session 上的拒絕](/zh-Hant/docs/debugging#start-或-preview-session-上的拒絕)。
@@ -173,6 +175,7 @@ npx extension@latest preview --no-open
 - `--chromium-binary` 或 `--gecko-binary` 固定的執行檔有問題時,會印出 `ok: false`,並帶 `status: "usage"` 與 `error.code: "E_BROWSER_BINARY_INVALID"`。這包括路徑不存在、檔案無法執行,以及執行檔在 10 秒內沒有回應版本探測。命令隨即結束,不會留下任何執行中的程序。
 - 遠端 URL 沒有提供可用的封存檔時,會印出 `ok: false` 與 `status: "failed"`。回傳的不是 ZIP 封存檔、封存檔已損毀或含有位於其資料夾之外的條目時代碼為 `E_REMOTE_ZIP_INVALID`,逾時為 `E_REMOTE_FETCH_TIMEOUT`,連線遭拒或 HTTP 錯誤為 `E_REMOTE_DOWNLOAD`。
 - 瀏覽器無法啟動時會印出 `ok: false` 與 `status: "failed"`。二進位檔可以執行但系統無法啟動它,或 Firefox 在除錯器回應之前就結束時代碼為 `E_BROWSER_LAUNCH`,Firefox 在執行但除錯器始終沒有回應時為 `E_BROWSER_CONNECT`。設定檔載入失敗時會以同樣的狀態印出 `E_CONFIG_LOAD`。
+- 從 4.1.41 之後的版本開始，瀏覽器拒絕載入擴充功能時會印出 `ok: false`，其中 `status: "load-refused"`、`error.code: "E_EXTENSION_LOAD_REFUSED"`。`preview` 會停止瀏覽器並以 `1` 結束。見 [Manifest 拒絕](/zh-Hant/docs/debugging/manifest-refusals#遭拒絕的載入會印出什麼)。
 - 其他失敗會印出 `ok: false` 與 `status: "failed"`,接著行程以 `1` 結束。
 
 ## 記錄旗標
@@ -289,6 +292,7 @@ deno run -A npm:extension@latest preview ./my-extension --no-browser
 - `preview` 只執行,從不編譯專案。
 - `preview` 優先使用既有的建置輸出(`dist/<browser>`),但可退回到其他未打包擴充功能根目錄。
 - `preview` 不會執行監看模式或 Hot Module Replacement (HMR)。
+- 從 4.1.41 之後的版本開始，如果瀏覽器拒絕這個擴充功能，`preview` 會停止瀏覽器並以結束代碼 `1` 結束。見 [Manifest 拒絕](/zh-Hant/docs/debugging/manifest-refusals#遭拒絕的載入會印出什麼)。
 - 腳本/代理請依賴 `ready.json`,避免解析終端機輸出。
 
 ## 最佳實務

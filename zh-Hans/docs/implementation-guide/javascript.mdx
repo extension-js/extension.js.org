@@ -128,7 +128,7 @@ deno run -A npm:extension@latest create my-extension --template=content
 - **Content script：** Extension.js 注入热模块替换（HMR）/重新挂载流程实现快速更新。
 - **扩展页面：** 页面脚本遵循页面 HMR 行为。
 - **Background/service worker：** 取决于变更类型，脚本更新可能触发扩展硬重载。
-- **入口列表变更：** 修改 manifest 中的脚本结构可能要求重启开发服务器。
+- **入口列表变更：** 当 manifest 的修改添加、移除或重命名了脚本入口时，正在运行的 `extension dev` 会话会自行重启编译器并重新加载扩展。你不需要重启命令。从 4.1.41 之后的版本开始，脚本移到另一个 manifest 键时会话也会重启，例如把同一个文件从 `background.scripts` 移到 `background.service_worker`。
 
 ## 脚本位置与约定
 
@@ -146,7 +146,7 @@ deno run -A npm:extension@latest create my-extension --template=content
 ## 动态 import 注意事项
 
 - Content script 的动态 import 有运行时限制；Extension.js 会在可能时使用 loader 回退。
-- Service worker 的懒加载受浏览器限制；对那些在 service worker 启动时就必须可用的代码，请优先使用静态导入。
+- 平台不允许在 service worker 里使用 `import()` 或延后的 `importScripts`。到 4.1.41 为止，Chromium service worker 里的懒加载导入会在运行时失败。从 4.1.41 之后的版本开始，构建会把它打包进 worker 文件，这个模块仍然只在第一次被导入时才运行。见[懒加载](/zh-Hans/docs/implementation-guide/lazy-loading)。
 
 ## 最佳实践
 

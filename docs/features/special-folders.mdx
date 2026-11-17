@@ -132,6 +132,8 @@ Use `pages/` for extra extension pages such as sandbox iframes, diagnostics page
 
 Extension.js treats each `.html` file in `pages/` as an entrypoint and compiles it like manifest-declared pages.
 
+From the release after 4.1.41, a page in `pages/` that a script names with `getURL`, such as `pages/welcome/index.html`, is served compiled at that path too. Its source files are not copied.
+
 For a sandboxed iframe example, see the [Chrome Sandbox Sample](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/sandbox/sandbox).
 
 ## `scripts/`: standalone script entrypoints
@@ -320,19 +322,15 @@ Accepted store links are `chromewebstore.google.com` (and the legacy `chrome.goo
 
 ## Development behavior (watch mode)
 
-In development watch mode, Extension.js monitors `pages/` and `scripts/` for file set changes:
+In development watch mode, Extension.js monitors `pages/` and `scripts/` for file set changes.
 
-- Adding supported files triggers a warning (you can keep working).
-- Removing a supported file triggers a compilation error. Restart the dev server to recover.
-
-This protects the running compilation graph from stale or broken entrypoints.
+Adding a file under `pages/` or `scripts/` restarts the compiler by itself. From the release after 4.1.41, deleting or renaming a file there does the same, and the restart removes the outputs of files that are gone. No manual restart is needed.
 
 ## Best practices
 
 - **Keep shared runtime assets in `public/`**: Use it for files that must keep exact names and paths in output.
 - **Use `pages/` and `scripts/` for true entrypoints**: Keep off-manifest execution paths explicit.
 - **Name test harness pages `.dev.`**: A `pages/player.dev.html` runs in `extension dev` and never reaches a store build.
-- **Restart dev server after entrypoint changes**: Especially after removing files under `pages/` or `scripts/`.
 - **Keep companion extensions isolated**: Treat `extensions/` as load-only dependencies for local workflows.
 - **Do not place `manifest.json` in `public/`**: Extension.js blocks `public/manifest.json` to protect the generated extension output.
 
