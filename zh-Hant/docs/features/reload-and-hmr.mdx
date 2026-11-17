@@ -20,7 +20,7 @@ keywords:
 
 - **HMR（hot module replacement）**：當模組更新是安全的時候
 - **分類重載**（full、service worker、content scripts，或僅通知的 page）：當執行階段資產有變更時
-- **需要重啟的錯誤／警告**：當 entry 結構有變更時
+- **編譯器自動重新啟動**：當 entry 結構有變更時
 
 ## 重新載入前置條件（devtools 設定對話框）
 
@@ -102,15 +102,20 @@ keywords:
 >
 > Chrome 會積極快取 `chrome-extension://` 資源。像 `content-0.js` 這種穩定檔名即使在完整擴充功能重載後仍可能提供舊的程式碼。Extension.js 會在開發時加上短雜湊（例如 `content-0.abcd1234.js`），每次重建都會產生新的 URL 來繞過快取。正式建置則使用乾淨的名稱。在 `extension.config.*` 的 `commands.dev` 底下設定 `hashContentScripts: false` 可以停用它，保留穩定的開發階段檔名。同名的頂層鍵會被忽略。
 
-### 3) 需要重啟（開發伺服器）
+### 3) 編譯器重新啟動（開發伺服器）
 
-當擴充功能的 entrypoint 引用變更（不僅是模組內容）時，Extension.js 會回報需要重啟的診斷訊息。這能防止你繼續使用過期的依賴圖。
+當擴充功能的 entrypoint 引用變更（不僅是模組內容）時，dev 工作階段會自行重新啟動編譯器並重新載入擴充功能。你不需要重新啟動指令。
 
-典型的需要重啟情境：
+工作階段會為這些變更重新啟動：
 
-- HTML entrypoint 的腳本／樣式引用變更
+- manifest 的修改新增、移除或重新命名了指令碼、頁面、圖示或 JSON 進入點
+- HTML entrypoint 的腳本或樣式引用變更
+- 在 `pages/` 或 `scripts/` 下新增了檔案
+- `.env` 檔案變更
 
-從 4.1.41 之後的版本開始，manifest 進入點的變更不需要你重新啟動。在 `pages/` 或 `scripts/` 下新增、刪除或重新命名檔案也不需要。工作階段會自行重新啟動編譯器。
+從 4.1.41 之後的版本開始，在 `pages/` 或 `scripts/` 下刪除或重新命名檔案時，以及指令碼移到另一個 manifest 鍵時，工作階段也會重新啟動。重新啟動會移除已不存在的進入點的輸出。
+
+只有一種變更仍然需要你來重新啟動：編輯 `extension.config.*`。工作階段會繼續使用啟動時讀到的設定，並印出一則警告。請停止工作階段，重新執行 `extension dev`。
 
 ## 行為矩陣
 
@@ -123,9 +128,11 @@ keywords:
 | 同時位於 background 與 content chunk 的來源檔               | `service-worker` + content 重新注入（扇出） |
 | 變更的產出靜態資產（圖示、web-accessible 資源）             | `full`                                      |
 | 僅屬於頁面的來源檔（popup、options、sidebar、devtools）     | `page`（僅通知，由 livereload 重新整理）    |
-| HTML 腳本／樣式引用更新 | 需要重啟 |
-| manifest 進入點清單更新 | 工作階段自行重新啟動（從 4.1.41 之後的版本開始） |
-| 監看時於 `pages/` 或 `scripts/` 新增、刪除或重新命名檔案 | 工作階段自行重新啟動（從 4.1.41 之後的版本開始） |
+| HTML 腳本／樣式引用更新 | 工作階段自行重新啟動 |
+| manifest 進入點清單更新 | 工作階段自行重新啟動 |
+| 監看時於 `pages/` 或 `scripts/` 新增檔案 | 工作階段自行重新啟動 |
+| 監看時於 `pages/` 或 `scripts/` 刪除或重新命名檔案 | 工作階段自行重新啟動（從 4.1.41 之後的版本開始） |
+| 編輯 `extension.config.*` | 需要重啟 |
 
 ## Safari
 
@@ -150,7 +157,7 @@ keywords:
 `pages/` 與 `scripts/` 採用與 manifest 宣告資產相同的重新載入策略。
 
 - 既有的模組更新可以使用熱更新路徑。
-- Entrypoint 集合變更（新增／刪除或引用圖變更）可能需要重啟。
+- Entrypoint 集合變更（新增／刪除或引用圖變更）會讓工作階段重新啟動編譯器。
 
 **範例：**
 
