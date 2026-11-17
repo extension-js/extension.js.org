@@ -27,9 +27,9 @@ Manifest V3 的 service worker 經常會冷啟動：瀏覽器會在閒置約 30 
 | Offscreen documents                           | 是                        |
 | Content scripts                               | 是，但需要多一個步驟      |
 
-service worker 上的限制最常讓人意外：在任何瀏覽器中，平台層面都不支援在 service worker 裡使用動態 `import()`。在 worker 最上層使用靜態 `import` 語句沒問題（Extension.js 會將它們打包），但你無法把一個 chunk 的載入延後到某個事件發生時才進行。
+service worker 上的限制最常讓人意外。平台不允許在 service worker 裡使用 `import()` 或延後的 `importScripts`，而且 Chromium 只允許 service worker 在安裝期間擷取指令碼。在 worker 最上層使用靜態 `import` 語句沒問題，因為 Extension.js 會將它們打包。
 
-從 4.1.41 之後的版本開始，在 service worker background 中，用 `import()` 載入的程式碼會被打包進 worker 檔案，因為 Chromium 只允許 service worker 在安裝期間擷取指令碼。這個模組仍然只在第一次被匯入時才執行。擴充功能頁面與 Firefox 的 background 頁面仍然保留獨立的延遲載入 chunk。
+到 4.1.41 為止，Chromium service worker 裡的延遲載入 `import()` 會在執行階段失敗。從 4.1.41 之後的版本開始，建置會把這些程式碼打包進 worker 檔案。這個模組仍然只在第一次被匯入時才執行。擴充功能頁面與 Firefox 的 background 頁面仍然保留獨立的延遲載入 chunk。
 
 ## 模式 1：依介面切分，而不是依 chunk 切分
 
