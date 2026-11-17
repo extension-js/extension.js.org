@@ -88,6 +88,36 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 
 一个脚手架只有一个包管理器。起步模板的 `packageManager` 固定值（或它自带的 `pnpm-workspace.yaml`）决定它，否则由调用 `create` 的包管理器决定。写入 `package.json` 的 `packageManager` 字段、`--install` 的安装过程以及打印出的后续步骤都指向同一个包管理器。
 
+### `create` 如何选择包管理器
+
+`create` 在模板写入磁盘之后读取一次包管理器。第一个给出答案的信号胜出：
+
+| 顺序 | 信号                                                                     | 包管理器             |
+| ---- | ------------------------------------------------------------------------ | -------------------- |
+| 1    | CLI 运行在 Deno 上                                                       | `deno`               |
+| 2    | 模板的 `package.json` 带有指向 npm、pnpm、Yarn 或 Bun 的 `packageManager` 字段 | 该固定值中的包管理器 |
+| 3    | 模板自带 `pnpm-workspace.yaml`                                           | `pnpm`               |
+| 4    | CLI 运行在 Bun 上                                                        | `bun`                |
+| 5    | `npm_config_user_agent` 变量，由启动 `create` 的包管理器设置             | 它指出的包管理器     |
+| 6    | `npm_execpath` 变量                                                      | 路径中的包管理器     |
+| 7    | 以上都没有                                                               | `npm`                |
+
+`create` 从不读取机器上安装了哪些包管理器，也不读取 `PATH` 上有什么。只有启动命令的包管理器才算数，所以在同时装有 Bun 的机器上，`pnpx extension@latest create` 得到的是 pnpm 项目。
+
+对于 `packageManager` 字段，当模板的固定值指向所选的包管理器时，`create` 会保留它。否则，当启动 `create` 的包管理器就是所选的包管理器时，它写入该包管理器的版本。两者都没有时，它用 `--version` 向所选的包管理器询问版本。得不到答案时，`create` 不写这个字段。在 Deno 上，`create` 不添加 `packageManager` 字段。
+
+`create` 打印的后续步骤使用同一个包管理器：
+
+| 包管理器 | 安装步骤       | 运行步骤        |
+| -------- | -------------- | --------------- |
+| `npm`    | `npm install`  | `npm run dev`   |
+| `pnpm`   | `pnpm install` | `pnpm dev`      |
+| `yarn`   | `yarn`         | `yarn dev`      |
+| `bun`    | `bun install`  | `bun dev`       |
+| `deno`   | `deno install` | `deno task dev` |
+
+使用 `--install` 时，`create` 自己运行安装，只打印运行步骤。`create` 写入的 `README.md` 在其命令中使用同一个包管理器。
+
 使用 `--install` 时，`create` 还会安装模板集成所需的构建包，例如 `svelte-loader` 或 `vue-loader`。它们装进 Extension.js 工具链的文件夹，而不是你的项目。从 4.1.41 之后的版本起，一次运行就为所有集成安装它们，所以两个集成共用的包只安装一次。不使用 TypeScript 的 Svelte 项目在这次运行中不再获得 `typescript`。设置 `EXTENSION_SKIP_INTERNAL_INSTALL=1` 可以跳过这一步。
 
 ## 模板语料的版本固定

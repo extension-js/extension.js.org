@@ -139,16 +139,20 @@ LLM 或其他任何付費服務的 API key 應該放在你的擴充功能所呼�
 
 ### `extension.config.*`（Node，在你的設定執行前）
 
-`extension.config.js` / `.mjs` / `.cjs` 會在 Node 中執行。Extension.js 在評估該檔案前，會依由弱到強的順序預先載入 **一小組** 檔案到 `process.env`，讓設定檔可以讀取：
+`extension.config.js` / `.mjs` / `.cjs` 會在 Node 中執行。Extension.js 在評估該檔案前，會預先載入 **一小組** 檔案到 `process.env`，讓設定檔可以讀取。從 4.1.41 之後的版本起，最後一個檔案跟隨所執行的指令。`dev` 讀取 development 檔案。`build`、`start` 與 `preview` 讀取 production 檔案。
 
-1. `.env.defaults`
-2. `.env`
-3. `.env.local`
-4. `.env.development`
+| 順序      | `dev`              | `build`、`start`、`preview` |
+| --------- | ------------------ | --------------------------- |
+| 1（最弱） | `.env.defaults`    | `.env.defaults`             |
+| 2         | `.env`             | `.env`                      |
+| 3         | `.env.local`       | `.env.local`                |
+| 4（最強） | `.env.development` | `.env.production`           |
 
 每個存在的檔案都會載入，後面的檔案會覆寫前面檔案的值。shell 或 CI 匯出的變數永遠優先於所有檔案。讀取 `import.meta.env` 的 `.mjs` 設定檔看到的勝出值與 `process.env` 相同。
 
-此預載步驟 **不會** 使用 `.env.chrome` 或 `.env.chrome.development` 等瀏覽器範圍的檔案。如果有需要，請透過 shell 或持續整合（CI）流水線中的 `process.env` 設定值。
+建置不再讀取 `.env.development`。只存在於該檔案中的鍵，在 `build`、`start` 與 `preview` 的設定裡是 `undefined`。4.1.41 及更早的版本會為每個指令預先載入 `.env.development`，所以建置的設定讀到的是開發環境的值。
+
+此預載步驟 **不會** 使用 `.env.chrome` 或 `.env.chrome.development` 等瀏覽器範圍的檔案。指令在知道瀏覽器之前就評估設定，因為設定本身可以指定瀏覽器。如果有需要，請透過 shell 或持續整合（CI）流水線中的 `process.env` 設定值。
 
 你也可以依賴 bundle 階段的 env（上述章節說明），把 `EXTENSION_PUBLIC_*` 的值注入到擴充功能程式碼裡。
 

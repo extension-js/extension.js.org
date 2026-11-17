@@ -88,6 +88,36 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 
 一個建立出來的專案只有一個套件管理器。起始範本的 `packageManager` 固定值(或它隨附的 `pnpm-workspace.yaml`)決定它,否則由呼叫 `create` 的套件管理器決定。寫入 `package.json` 的 `packageManager` 欄位、`--install` 的安裝過程與印出的後續步驟都指向同一個套件管理器。
 
+### `create` 如何選擇套件管理器
+
+`create` 在範本寫入磁碟之後讀取一次套件管理器。第一個給出答案的訊號勝出：
+
+| 順序 | 訊號                                                                     | 套件管理器           |
+| ---- | ------------------------------------------------------------------------ | -------------------- |
+| 1    | CLI 執行在 Deno 上                                                       | `deno`               |
+| 2    | 範本的 `package.json` 帶有指向 npm、pnpm、Yarn 或 Bun 的 `packageManager` 欄位 | 該固定值中的套件管理器 |
+| 3    | 範本隨附 `pnpm-workspace.yaml`                                           | `pnpm`               |
+| 4    | CLI 執行在 Bun 上                                                        | `bun`                |
+| 5    | `npm_config_user_agent` 變數，由啟動 `create` 的套件管理器設定           | 它指出的套件管理器   |
+| 6    | `npm_execpath` 變數                                                      | 路徑中的套件管理器   |
+| 7    | 以上皆無                                                                 | `npm`                |
+
+`create` 從不讀取機器上安裝了哪些套件管理器，也不讀取 `PATH` 上有什麼。只有啟動指令的套件管理器才算數，所以在同時裝有 Bun 的機器上，`pnpx extension@latest create` 得到的是 pnpm 專案。
+
+對於 `packageManager` 欄位，當範本的固定值指向所選的套件管理器時，`create` 會保留它。否則，當啟動 `create` 的套件管理器就是所選的套件管理器時，它寫入該套件管理器的版本。兩者都沒有時，它用 `--version` 向所選的套件管理器詢問版本。得不到答案時，`create` 不寫這個欄位。在 Deno 上，`create` 不加入 `packageManager` 欄位。
+
+`create` 印出的後續步驟使用同一個套件管理器：
+
+| 套件管理器 | 安裝步驟       | 執行步驟        |
+| ---------- | -------------- | --------------- |
+| `npm`      | `npm install`  | `npm run dev`   |
+| `pnpm`     | `pnpm install` | `pnpm dev`      |
+| `yarn`     | `yarn`         | `yarn dev`      |
+| `bun`      | `bun install`  | `bun dev`       |
+| `deno`     | `deno install` | `deno task dev` |
+
+使用 `--install` 時，`create` 自己執行安裝，只印出執行步驟。`create` 寫入的 `README.md` 在其指令中使用同一個套件管理器。
+
 使用 `--install` 時，`create` 還會安裝範本整合所需的建置套件，例如 `svelte-loader` 或 `vue-loader`。它們裝進 Extension.js 工具鏈的資料夾，而不是你的專案。從 4.1.41 之後的版本起，一次執行就為所有整合安裝它們，所以兩個整合共用的套件只安裝一次。不使用 TypeScript 的 Svelte 專案在這次執行中不再取得 `typescript`。設定 `EXTENSION_SKIP_INTERNAL_INSTALL=1` 可以跳過這一步。
 
 ## 範本語料的版本固定

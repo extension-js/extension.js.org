@@ -125,6 +125,39 @@ export default {
 
 `ignore` excuses single assets from every budget. List output paths the way the warning prints them, relative to the build folder. In a pattern, `*` matches inside one folder and `**` crosses folders.
 
+Budgets layer from weakest to strongest: top-level, then `browser.<vendor>`, then `commands.build`. From the release after 4.1.41, a layer that sets one category keeps the categories that another layer set. An `ignore` list in a stronger layer replaces the weaker list.
+
+### What the warning lists
+
+The warning names each file over budget, largest first, with its size, the budget that applied, and its role:
+
+```plaintext
+  sidebar/chunk-0.js
+    size:   2.00 MiB
+    budget: 1.00 MiB  (over by 100%)
+    role:   UI page, opened on demand
+```
+
+From the release after 4.1.41, the list stops at 20 files. A last line counts the rest, such as `and 5 more`.
+
+A `.wasm` file can fall under three budgets, so the advice names the one that applied: `perfBudgets.runtime`, `perfBudgets.wasm`, or `perfBudgets.public`. Raise that key when the size is intended, or list the file under `ignore`.
+
+### Invalid budget values
+
+From the release after 4.1.41, a production build refuses an invalid `perfBudgets` value with the code `E_CONFIG_LOAD`. Earlier releases dropped or misread such a value without a message.
+
+| Value in `extension.config.js`                                                              | What the build does                                                                                                                  |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `perfBudgets` is not an object, such as `5` or an array                                     | Stops: `perfBudgets in extension.config.js must be an object, found the number 5.`                                                   |
+| A category is a string, `NaN`, `Infinity`, `0`, a negative number, `null`, or an array      | Stops: `perfBudgets.public in extension.config.js must be a finite number of bytes above 0, found the string "10".`                  |
+| `ignore` is not an array, or holds a value that is not a string                             | Stops: `perfBudgets.ignore in extension.config.js must be an array of strings, found the string "assets/*.wasm".`                    |
+| A key that is not a category or `ignore`, such as `ignored`                                 | Warns one time and changes no budget: `perfBudgets in extension.config.js declares a key nothing reads: ignored.`                      |
+| `perfBudgets` under `commands.dev`                                                          | Warns one time in `dev`: `commands.dev.perfBudgets in extension.config.js has no effect: size budgets are checked on a production build only.` |
+
+Each refusal names the config file and shows a valid example. The unknown key warning lists the accepted keys: `content-script`, `service-worker`, `page`, `shared`, `public`, `runtime`, `wasm`, and `ignore`.
+
+A budget of `0` does not turn a category off. To stop budgeting a file, list it under `ignore`. A blank string in `ignore` is skipped.
+
 ## Operational checks
 
 - Run multi-browser build checks in CI.

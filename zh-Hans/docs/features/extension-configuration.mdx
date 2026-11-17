@@ -59,7 +59,8 @@ export default {
 
 `extension.config.*` 在 Node 中运行，应通过 `process.env.*` 读取值。
 
-- 在求值 `extension.config.*` 之前，Extension.js 会按从弱到强的顺序预加载 env 文件：`.env.defaults`、`.env`、`.env.local`、`.env.development`。每个存在的文件都会加载，而 shell 导出的变量始终优先。
+- 在求值 `extension.config.*` 之前，Extension.js 会按从弱到强的顺序预加载 env 文件：`.env.defaults`、`.env`、`.env.local`，以及当前运行模式的文件。每个存在的文件都会加载，而 shell 导出的变量始终优先。
+- 从 4.1.41 之后的版本起，模式文件对 `dev` 是 `.env.development`，对 `build`、`start` 和 `preview` 是 `.env.production`。更早的版本对每个命令都读取 `.env.development`。见[环境变量](/zh-Hans/docs/features/environment-variables)。
 - 它会先检查项目目录。
 - 在 monorepo 中，如果 Extension.js 在项目本地没找到任何 `.env*` 文件，会回退到最近的 workspace 根目录。workspace 根目录是包含 `pnpm-workspace.yaml` 的目录。
 - 在配置文件中，优先使用内置的 env 预加载，而不是导入 `dotenv`。
@@ -155,7 +156,7 @@ export default {
 - `extensions`、`transpilePackages` 与 `perfBudgets` 在每个命令上都按从弱到强分层：顶层，然后是 `browser.<vendor>`，然后是 `commands.<cmd>`，最后是 CLI flag。
 - `define` 在同样的层上逐键合并：顶层，然后是 `browser.<vendor>`，然后是 `dev`、`start` 和 `build` 上的 `commands.<cmd>`。
 - `folders` 从不逐键合并。`browser.<vendor>.folders` 替换顶层对象，`dev`、`start` 和 `build` 上的 `commands.<cmd>.folders` 则同时替换这两者。
-- `commands.build.browser`、`commands.start.browser` 与 `commands.preview.browser` 决定这些命令的目标浏览器。`--browser` flag 仍然优先。
+- `commands.build.browser`、`commands.start.browser` 与 `commands.preview.browser` 决定这些命令的目标浏览器。`--browser` flag 仍然优先。不是受支持浏览器的名称会让命令停止。从 4.1.41 之后的版本起，这一拒绝带有代码 `E_UNSUPPORTED_BROWSER`。
 - `start` 命令在内部会先运行 `build`，然后 `preview`。Extension.js 会应用 `commands.start` 中的设置，包括 `profile`、`browserFlags`、`startingUrl` 等浏览器启动选项。你也可以把构建相关的设置放进 `commands.build`。
 
 #### 命令通用能力
@@ -200,7 +201,7 @@ export default {
 | -------------------- | ---------------------------------------------------------------------- |
 | `noOpen`             | 启动开发服务器但不自动打开浏览器。                                     |
 | `hashContentScripts` | 设为 `false` 可关闭 dev 中 content script 文件名的内容哈希(默认开启)。 |
-| `perfBudgets`        | 为 dev 覆盖顶层按类别设置的资源预算。                                  |
+| `perfBudgets`        | 不起作用。预算只在生产构建时检查，`dev` 会打印一条警告说明这一点。 |
 
 #### 日志能力
 

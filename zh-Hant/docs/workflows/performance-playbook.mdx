@@ -103,7 +103,8 @@ keywords:
 | 頁面／UI（popup、options、sidebar、devtools、新分頁） | 1 MiB    | 按需開啟。                                   |
 | 共用 chunk                                            | 512 KiB  | 每個匯入它的頁面都會載入。                   |
 | Public（從 `public/` 複製的程式碼檔案）               | 1 MiB    | 依原樣發布，所以要在來源檔案上修。           |
-| Runtime（輸出根目錄的資源與每個 `.wasm` 檔案）        | 1 MiB    | 帶雜湊的 wasm 核心及其同層輔助檔案。         |
+| Runtime（輸出根目錄的程式碼檔案，以及 content script 或 service worker 會存取到的 `.wasm` 檔案） | 1 MiB | wasm 核心的同層輔助檔案，例如 `ffmpeg-core.js`，以及每次導航或冷啟動都會擷取的 wasm 二進位檔。 |
+| WebAssembly（只有頁面與 worker 會存取到的 `.wasm` 檔案） | 32 MiB | onnxruntime 或 ffmpeg 這類執行階段是一個無法拆分的檔案，只在對應功能執行時才擷取。 |
 
 在 [`extension.config.js`](/zh-Hant/docs/features/extension-configuration) 用 `perfBudgets` 覆寫任何類別（值為位元組）：
 
@@ -116,9 +117,46 @@ export default {
     shared: 512 * 1024,
     public: 2 * 1024 * 1024,
     runtime: 8 * 1024 * 1024,
+    wasm: 16 * 1024 * 1024,
+    ignore: ["assets/ort-wasm-simd-threaded.asyncify.wasm", "assets/models/**"],
   },
 };
 ```
+
+`ignore` 讓單一資源不受任何預算約束。依警告印出的方式列出輸出路徑，也就是相對於建置資料夾的路徑。在樣式中，`*` 匹配單一資料夾內的內容，`**` 可以跨資料夾。
+
+預算依由弱到強的順序分層：頂層，然後是 `browser.<vendor>`，然後是 `commands.build`。從 4.1.41 之後的版本起，只設定一個類別的層會保留其他層設定的類別。較強層中的 `ignore` 清單會取代較弱層的清單。
+
+### 警告列出的內容
+
+警告會列出每個超出預算的檔案，最大的排在最前，並給出它的大小、適用的預算與它的角色：
+
+```plaintext
+  sidebar/chunk-0.js
+    size:   2.00 MiB
+    budget: 1.00 MiB  (over by 100%)
+    role:   UI page, opened on demand
+```
+
+從 4.1.41 之後的版本起，清單最多列出 20 個檔案。最後一行給出其餘檔案的數量，例如 `and 5 more`。
+
+一個 `.wasm` 檔案可能落入三種預算，所以建議會指出實際適用的那一個：`perfBudgets.runtime`、`perfBudgets.wasm` 或 `perfBudgets.public`。如果這個大小是刻意的，請調高該鍵，或把檔案列入 `ignore`。
+
+### 不合法的預算值
+
+從 4.1.41 之後的版本起，正式建置會以代碼 `E_CONFIG_LOAD` 拒絕不合法的 `perfBudgets` 值。更早的版本會丟棄或誤讀這樣的值，且不給任何訊息。
+
+| `extension.config.js` 中的值 | 建置的行為 |
+| ---------------------------- | ---------- |
+| `perfBudgets` 不是物件，例如 `5` 或陣列 | 停止：`perfBudgets in extension.config.js must be an object, found the number 5.` |
+| 某個類別是字串、`NaN`、`Infinity`、`0`、負數、`null` 或陣列 | 停止：`perfBudgets.public in extension.config.js must be a finite number of bytes above 0, found the string "10".` |
+| `ignore` 不是陣列，或含有不是字串的值 | 停止：`perfBudgets.ignore in extension.config.js must be an array of strings, found the string "assets/*.wasm".` |
+| 既不是類別也不是 `ignore` 的鍵，例如 `ignored` | 警告一次，且不改變任何預算：`perfBudgets in extension.config.js declares a key nothing reads: ignored.` |
+| `commands.dev` 下的 `perfBudgets` | 在 `dev` 中警告一次：`commands.dev.perfBudgets in extension.config.js has no effect: size budgets are checked on a production build only.` |
+
+每則拒絕訊息都會指出設定檔，並給出一個合法的範例。未知鍵的警告會列出可接受的鍵：`content-script`、`service-worker`、`page`、`shared`、`public`、`runtime`、`wasm` 與 `ignore`。
+
+預算設為 `0` 並不會關閉某個類別。要讓某個檔案不受預算約束，請把它列入 `ignore`。`ignore` 中的空白字串會被略過。
 
 ## 操作檢查
 
