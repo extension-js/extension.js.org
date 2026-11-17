@@ -31,7 +31,9 @@ A `preview` with no build loads the source folder and still writes its contract 
 
 ## Two-phase readiness
 
-`status: "ready"` means compiled, nothing more. The browser may still be launching, and the service worker may not be connected yet.
+`status: "ready"` means compiled. The browser may still be launching, except under `dev` as described next, and the service worker may not be connected yet.
+
+From the release after 4.1.41, under `dev` with a browser to launch, `status` stays `starting` after the compile and turns `ready` once the launcher has stamped `browserPid`, `binary`, `profilePath` and the debugger port (`cdpPort` on Chromium, `rdpPort` on Firefox). `executorAttachedAt` can follow `ready` unless the session was started with `--allow-control`.
 
 The `ready` line on stdout is a stricter claim in a Chromium `dev` session: the launcher prints it only once the runtime inside the extension has connected (`executorAttachedAt`). When the browser is up and nothing connects within 15 s, the launcher prints what it is waiting on instead, stamps `browserUpNotAttachedAt` with a hint, and prints `ready` the moment the attach lands.
 
