@@ -170,6 +170,20 @@ Extension.js 在这两种上下文中都会应用 PostCSS，但打包方式不�
 - Extension.js 同时支持 Tailwind v3 和 v4，会根据检测到的版本选择相应插件。
 - 在 ECMAScript 模块（ESM）项目里，如果 PostCSS 配置使用了不兼容的 CommonJS（CJS）模式，Extension.js 可能会绕过你的配置，转而注入兼容性插件。
 
+## 配置或插件无法加载时
+
+从 4.1.41 之后的版本起，Extension.js 无法使用的 PostCSS 配置会被搁置，构建在没有它的情况下继续：
+
+- 配置文件抛出错误，或导入失败。
+- 配置导出的函数抛出错误。
+- `plugins` 既不是数组，也不是以插件名为键的对象。
+
+警告会给出该文件，并说明它的插件都不会运行。样式仍会编译，所以请修复或删除这个文件。你的 Node.js 版本无法加载的 TypeScript 配置，以及 YAML rc 文件，会原样交给 `postcss-loader`。
+
+配置中列出但无法解析的插件也会被跳过。警告为 `Couldn't resolve the PostCSS plugin <name>.`，该插件本应生成的样式不会出现在输出中。
+
+即使每条样式规则都读取同一份配置，这些警告在每次构建中也只打印一次。在 `dev` 期间，只有当问题消失后又出现时，警告才会再次打印。
+
 ## 最佳实践
 
 - 让插件链保持精简、显式（例如 `autoprefixer`、`postcss-preset-env`）。
