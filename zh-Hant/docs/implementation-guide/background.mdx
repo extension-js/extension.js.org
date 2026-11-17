@@ -207,8 +207,10 @@ chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true });
 
   建置以這種方式複製資料檔案和媒體檔案，不會以這種方式複製腳本、頁面或樣式表。程式碼在執行階段拼接出來的路徑不對應任何具體檔案。對這樣的路徑，建置會印出一則寫明該資料夾的警告。請把這些檔案放進 `public/`。
 - **依路徑開啟的頁面的樣式表。** 你的程式碼依路徑開啟的頁面（例如透過 `chrome.runtime.getURL("/ui/options/index.html")`），會連同它的腳本和樣式表一起發布。從 4.1.41 之後的版本起，這些樣式表透過 `url()` 載入的字型和圖片也會一起發布。
-- **依檔案注入的樣式表。** 從 4.1.41 之後的版本開始，由 `scripting.insertCSS({files})`、`tabs.insertCSS({file})` 或 `scripting.registerContentScripts` 的 `css` 清單指明的樣式表，會連同它透過 `url()` 載入的字型和圖片以及它匯入的樣式表一起發布。在 Chrome 上，注入的樣式表裡的 `url()` 是相對於被造訪的頁面解析的。請把目標寫成 `chrome-extension://__MSG_@@extension_id__/path`，並把它列在 `web_accessible_resources` 下。
-- **被指明的檔案發布在哪裡。** 從 4.1.41 之後的版本開始，直接傳給 `fetch` 的路徑會發布在讀取它的腳本旁邊，直接傳給 `chrome.runtime.getURL` 的路徑會發布在擴充功能根目錄，保存在表或變數裡的路徑會在兩個位置都發布。
+- **依檔案注入的樣式表。** 從 4.1.41 之後的版本開始，由 `scripting.insertCSS({files})`、`tabs.insertCSS({file})` 或 `scripting.registerContentScripts` 的 `css` 清單指明的樣式表，會連同它透過 `url()` 載入的字型和圖片以及它匯入的樣式表一起發布。在 Chrome 上，注入的樣式表裡的 `url()` 是相對於被造訪的頁面解析的。請把目標寫成 `chrome-extension://__MSG_@@extension_id__/path`。建置會把樣式表載入的檔案列在 `web_accessible_resources` 下：Chromium 與 Safari 目標列出每一個檔案，Firefox 目標只列出字型。Firefox 的 Manifest V3 在沒有這個項目時會擋下注入樣式表的字型，而不列出也會載入它的圖片。
+- **注入的樣式表裡的 `@import`。** 從 4.1.41 之後的版本開始，在 Chromium 目標上，建置會把 `@import` 的內容寫進樣式表，並放在它的 media、supports 或 layer 條件之下。Chrome 會丟棄注入樣式表裡的這條規則。這適用於透過 `scripting.insertCSS` 或 `scripting.registerContentScripts` 依檔案注入的樣式表，也適用於在 `content_scripts` 中宣告的樣式表。指向其他來源的 import 維持原樣，建置會給出帶檔案與行號的警告。
+- **`public/` 裡被注入的樣式表。** 從 4.1.41 之後的版本開始，`public/` 裡的樣式表會逐位元組原樣發布。如果它是依檔案注入的，建置會為 Chrome 丟棄的 `@import` 警告一次。它還會為第一個被 Chrome 相對於被造訪頁面解析的 `url()` 警告一次，並建議使用 `chrome-extension://__MSG_@@extension_id__/…` 的寫法。
+- **被指明的檔案發布在哪裡。** 從 4.1.41 之後的版本開始，直接傳給 `fetch` 的路徑會發布在讀取它的腳本旁邊，直接傳給 `chrome.runtime.getURL` 的路徑會發布在擴充功能根目錄，保存在表或變數裡的路徑會在兩個位置都發布。Chrome 從擴充功能根目錄載入 `devtools.panels.create` 的頁面路徑與 `sidePanel.setOptions` 的路徑。由動態匯入的模組設定的圖示，會發布在載入該模組的 worker 或頁面旁邊。
 
 被參照的檔案若不存在於你的專案中，建置會產生一則指明缺少路徑的警告，而不是在執行階段靜默失敗。
 
