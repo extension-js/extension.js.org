@@ -84,7 +84,7 @@ extension eval "({title: document.title, url: location.href})" --context page
 
 从 4.1.39 之后的版本起，`--context page` 也能在显示着你自己扩展页面的标签页里求值，Chrome 和 Firefox 上都可以。浏览器拒绝向扩展页面注入脚本，所以 CLI 使用浏览器的调试端口。它要求恰好只有一个打开的标签页位于该 URL。对这样的标签页使用 `--context content` 会失败，提示里会写出 `--context page`。
 
-从 4.1.41 之后的版本开始，即使 manifest 没有 `tabs` 权限，`eval --context page --url <extension page>` 也能找到扩展自己的页面。没有这个权限时，浏览器会隐藏标签页的 URL。当没有标签页匹配且未授予 `tabs` 时，回答会说明标签页 URL 被隐藏，并建议使用 `--tab <id>`。
+从 4.1.41 之后的版本开始，即使 manifest 没有 `tabs` 权限，`eval --context page --url <extension page>` 也能找到扩展自己的页面。没有这个权限时，浏览器会隐藏标签页的 URL。在扩展自己的页面里，即使 manifest 没有 `scripting` 或 `tabs` 权限，`eval --context page` 也能运行，因为会话通过调试器连接在那里求值。对于不是扩展自己页面的标签页，当没有标签页匹配且未授予 `tabs` 时，回答会说明标签页 URL 被隐藏，并建议使用 `--tab <id>`。
 
 pretty 输出打印的是值本身：字符串原样输出，其余一律按缩进 JSON 输出。信封结构只在 `--output json` 下出现（参见 [结果信封](/zh-Hans/docs/contracts/result-envelope)）。
 
@@ -106,7 +106,7 @@ pretty 输出打印的是值本身：字符串原样输出，其余一律按缩�
 - 从 4.1.39 之后的版本起，已经结束的会话同样回答 `E_SESSION_NOT_FOUND`，消息会打印重新启动它的命令。见 [会话已经结束时](/zh-Hans/docs/debugging#会话已经结束时)。
 - 目标界面未打开，或 `--tab` id 已失效：`E_TARGET_NOT_FOUND`。用 [`inspect --list-tabs`](/zh-Hans/docs/commands/inspect#the-discovery-loop) 找出仍然存活的 id。
 - manifest 没有为该上下文声明页面：`E_TARGET_NOT_FOUND`。从 4.1.39 之后的版本起，消息会写 `the manifest declares no <context> page`，提示会给出要添加的 manifest 键。
-- 从 4.1.39 之后的版本起，如果一个 MV3 的 `start` 或 `preview` 构建的 manifest 没有 `scripting` 权限，`--context content` 和 `--context page` 会被拒绝。消息会让你把 `"scripting"` 加进 `permissions`，或者改用 dev 会话，dev 会话会加上它。`--context background` 仍然可用。在这样的构建上，不存在的 `--tab` id 同样回答 `E_TARGET_NOT_FOUND`。
+- 从 4.1.39 之后的版本起，如果一个 MV3 的 `start` 或 `preview` 构建的 manifest 没有 `scripting` 权限，`--context content` 和 `--context page` 会被拒绝。消息会让你把 `"scripting"` 加进 `permissions`，或者改用 dev 会话，dev 会话会加上它。`--context background` 仍然可用。在这样的构建上，不存在的 `--tab` id 同样回答 `E_TARGET_NOT_FOUND`。从 4.1.41 之后的版本开始，扩展自己页面里的 `--context page` 是例外，不需要 `scripting` 权限。
 - 从 4.1.41 之后的版本开始，浏览器拒绝加载扩展时会回答 `E_EXTENSION_LOAD_REFUSED`，并附上浏览器给出的原因。在 `dev` 下，修复后保存，会话会在下一次构建时重新尝试加载。在 `start` 或 `preview` 之后，修复后重新运行该命令。
 - 调用超出了 `--timeout`：`E_TIMEOUT`。
 
