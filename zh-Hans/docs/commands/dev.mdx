@@ -372,6 +372,54 @@ pnpm install --filter {packages/my-extension}...
 This project is a pnpm workspace member, installing from the workspace root at /home/dev/monorepo.
 ```
 
+## 自动安装依赖
+
+当 `dev` 或 `build` 发现项目依赖缺失时，会在编译之前安装它们。从 4.1.41 之后的版本起，只有项目自己的包管理器会运行这次安装。Extension.js 按以下顺序选定它：
+
+1. 项目根目录的锁文件：`pnpm-lock.yaml`、`yarn.lock`、`bun.lockb`、`bun.lock`，然后是 `package-lock.json`。
+2. `package.json` 中的 `packageManager` 字段。
+3. `EXTENSION_JS_PACKAGE_MANAGER`，或 `EXTENSION_JS_PM_EXEC_PATH`、`npm_execpath` 中的包管理器路径。
+4. Deno 项目：有 `deno.lock`，或有 `deno.json`、`deno.jsonc` 且旁边没有 `package.json`。
+5. 运行命令的那个包管理器，读取自 `npm_config_user_agent` 的第一个词。
+6. npm。
+
+Extension.js 做这个选择时从不检查你的 `PATH` 上有哪些包管理器，所以同一个项目在每台机器上都选定同一个包管理器。选定的包管理器失败时，命令以 `E_DEPENDENCY_INSTALL` 停止。不会有别的包管理器代替它，因为那会生成一棵锁文件没有描述的依赖树。选定的包管理器没有安装时，消息会说明这一点，并告诉你如何安装它。
+
+### 新版本到达 registry 期间的重试
+
+一个新版本需要一两分钟才能到达整个 npm registry。从 4.1.41 之后的版本起，当失败是 registry 造成的时，安装会再运行一次：
+
+- registry 列出了某个版本，但还没有提供它的 tarball。
+- 依赖的依赖要求一个 registry 还没有列出的版本。
+- registry 返回 5xx 或 429 状态、重置连接、超时，或 DNS 查询失败。
+
+你自己的项目声明的版本范围不会重试，因为只有你能修复它。认证错误（401 和 403）、磁盘和权限错误，以及 peer 依赖冲突也不会重试。
+
+安装最多运行 4 次。两次尝试之间依次等待 5、10、20 秒，总共 35 秒。每次等待都会打印一条警告，说明原因和下一次尝试：
+
+```plaintext
+The registry lists some-package@1.2.3 but is not serving its tarball yet. Retrying the install in 5 seconds (attempt 2 of 4).
+```
+
+最后一次尝试也失败时，命令以 `E_DEPENDENCY_INSTALL` 停止：
+
+```plaintext
+Couldn't install the project dependencies with pnpm.
+The registry lists some-package@1.2.3 but is not serving its tarball yet.
+A new release takes a minute or two to reach the whole registry. Extension.js tried 4 times over 35 seconds.
+Run the command again in a minute. The pnpm error is printed above.
+```
+
+如果是 registry 本身没有响应，第三行改为以 "The registry is having trouble answering right now." 开头。
+
+### 从不重试的拒绝
+
+有两种失败会立即以 `E_DEPENDENCY_INSTALL` 停止安装。Extension.js 从不重试它们，也从不绕过它们。
+
+**版本太新。** pnpm 的 `minimumReleaseAge` 和 Deno 的最小依赖年龄会拒绝比限制更新的版本。消息会说明是哪条规则，如果包管理器打印了版本，也会给出该版本。要继续，可以等到版本足够旧，或固定到上一个版本。你也可以为这个包放宽规则：pnpm 把它加入 `minimumReleaseAgeExclude`，Deno 在 `deno.json` 中设置 `minimumDependencyAge`。
+
+**Corepack 无法下载包管理器。** 包管理器根本没有启动。消息会给出 Corepack 请求的 registry，如果有 HTTP 状态也会给出。如果 Extension.js 是因为 `npm_config_registry` 或项目的 `.npmrc` 指定了该 registry 才选用它，消息也会说明。请检查该 registry 是否提供这个包管理器、你能否访问它，或者把 `COREPACK_NPM_REGISTRY` 设为一个能提供它的 registry。
+
 ## 示例
 
 ### 运行一个本地扩展
