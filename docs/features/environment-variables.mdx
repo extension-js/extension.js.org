@@ -140,16 +140,20 @@ If no matching file exists next to the project, Extension.js repeats the same se
 
 ### `extension.config.*` (Node, before your configuration runs)
 
-`extension.config.js` / `.mjs` / `.cjs` runs in Node. Before Extension.js evaluates the file, it preloads a **small** set of files into `process.env` so the configuration can read them, weakest to strongest:
+`extension.config.js` / `.mjs` / `.cjs` runs in Node. Before Extension.js evaluates the file, it preloads a **small** set of files into `process.env` so the configuration can read them. From the release after 4.1.41, the last file follows the command that runs. `dev` reads the development file. `build`, `start`, and `preview` read the production file.
 
-1. `.env.defaults`
-2. `.env`
-3. `.env.local`
-4. `.env.development`
+| Order         | `dev`              | `build`, `start`, `preview` |
+| ------------- | ------------------ | --------------------------- |
+| 1 (weakest)   | `.env.defaults`    | `.env.defaults`             |
+| 2             | `.env`             | `.env`                      |
+| 3             | `.env.local`       | `.env.local`                |
+| 4 (strongest) | `.env.development` | `.env.production`           |
 
 Every file that exists loads, and a later file overrides the values of an earlier one. A variable your shell or CI exported always wins over every file. An `.mjs` config that reads `import.meta.env` sees the same winners as `process.env`.
 
-Extension.js does **not** use browser-scoped files such as `.env.chrome` or `.env.chrome.development` for this preload step. Instead, set values through plain `process.env` in your shell or continuous integration (CI) pipeline.
+A build no longer reads `.env.development`. A key that exists only in that file is `undefined` in the configuration of `build`, `start`, and `preview`. Releases up to 4.1.41 preloaded `.env.development` for every command, so a build configuration read development values.
+
+Extension.js does **not** use browser-scoped files such as `.env.chrome` or `.env.chrome.development` for this preload step. The commands evaluate the configuration before the browser is known, because the configuration itself can name the browser. Instead, set values through plain `process.env` in your shell or continuous integration (CI) pipeline.
 
 You can also rely on bundle-time env (described above) to inject `EXTENSION_PUBLIC_*` values into extension code.
 

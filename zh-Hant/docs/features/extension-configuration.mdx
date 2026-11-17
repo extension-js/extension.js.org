@@ -59,7 +59,8 @@ export default {
 
 `extension.config.*` 在 Node 中執行，應該從 `process.env.*` 讀取值。
 
-- Extension.js 在評估 `extension.config.*` 之前，會依由弱到強的順序預先載入 env 檔：`.env.defaults`、`.env`、`.env.local`、`.env.development`。每個存在的檔案都會載入，而 shell 匯出的變數永遠優先。
+- Extension.js 在評估 `extension.config.*` 之前，會依由弱到強的順序預先載入 env 檔：`.env.defaults`、`.env`、`.env.local`，以及目前執行模式的檔案。每個存在的檔案都會載入，而 shell 匯出的變數永遠優先。
+- 從 4.1.41 之後的版本起，模式檔案對 `dev` 是 `.env.development`，對 `build`、`start` 與 `preview` 是 `.env.production`。更早的版本對每個指令都讀取 `.env.development`。見[環境變數](/zh-Hant/docs/features/environment-variables)。
 - 它會先檢查專案資料夾。
 - 在 monorepo 中，若 Extension.js 找不到專案本地的 `.env*`，會 fallback 到最近的 workspace 根目錄，也就是包含 `pnpm-workspace.yaml` 的資料夾。
 - 比起在設定檔中匯入 `dotenv`，建議優先使用內建的 env 預載。
@@ -155,7 +156,7 @@ export default {
 - `extensions`、`transpilePackages` 與 `perfBudgets` 在每個指令上都依由弱到強分層：頂層，接著是 `browser.<vendor>`，接著是 `commands.<cmd>`，最後是 CLI 旗標。
 - `define` 在同樣的層上逐鍵合併：頂層，接著是 `browser.<vendor>`，接著是 `dev`、`start` 與 `build` 上的 `commands.<cmd>`。
 - `folders` 從不逐鍵合併。`browser.<vendor>.folders` 取代頂層物件，`dev`、`start` 與 `build` 上的 `commands.<cmd>.folders` 則同時取代這兩者。
-- `commands.build.browser`、`commands.start.browser` 與 `commands.preview.browser` 決定這些指令的目標瀏覽器。`--browser` 旗標仍然優先。
+- `commands.build.browser`、`commands.start.browser` 與 `commands.preview.browser` 決定這些指令的目標瀏覽器。`--browser` 旗標仍然優先。不是受支援瀏覽器的名稱會讓指令停止。從 4.1.41 之後的版本起，這項拒絕帶有代碼 `E_UNSUPPORTED_BROWSER`。
 - `start` 指令會在內部依序執行 `build` 與 `preview`。Extension.js 會套用 `commands.start` 中的設定，包括 `profile`、`browserFlags` 與 `startingUrl` 等瀏覽器啟動選項。你也可以把建置專屬的設定放在 `commands.build`。
 
 #### 指令共用能力
@@ -200,7 +201,7 @@ export default {
 | -------------------- | -------------------------------------------------------------------------- |
 | `noOpen`             | 啟動開發伺服器但不自動開啟瀏覽器。                                         |
 | `hashContentScripts` | 設為 `false` 可關閉 dev 中 content script 檔名的內容雜湊（預設為開啟）。   |
-| `perfBudgets`        | 為 dev 覆寫頂層依類別設定的資源預算。                                      |
+| `perfBudgets`        | 沒有作用。預算只在正式建置時檢查，`dev` 會印出一則警告說明這一點。 |
 
 #### 記錄能力
 
