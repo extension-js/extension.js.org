@@ -19,7 +19,7 @@ keywords:
 
 Extension.js 在两个位置补上了这个缺口：
 
-- **启动之前**，它会读取每一个即将加载的扩展的构建产物 `manifest.json`，并对每一个能够确证的拒绝原因发出警告，点名具体字段和原因。
+- **启动之前**，它会读取每一个即将加载的扩展的构建产物 `manifest.json`，并找出每一个能够确证的拒绝原因，点名具体字段和原因。到 4.1.41 为止，它会在浏览器启动之前发出警告。从 4.1.41 之后的版本开始，它会按住这个预测，等浏览器给出答复，每一次拒绝只打印一个区块，其中带着浏览器自己的那句话。
 - **构建时**，它会修复一小组毫无歧义的致命形态，并为每一次修复打印一行修复说明。
 
 ## 被拒绝的加载会打印什么
@@ -117,9 +117,11 @@ PATH /path/to/project/dist/chrome
 Read the reason above, fix the manifest, then run the command again.
 ```
 
-从 4.1.41 之后的版本开始，这条信息的第一行是 `Chrome refuses to load this extension, so nothing in it runs.`
+从 4.1.41 之后的版本开始，这条信息的第一行是 `Chrome refuses to load this extension, so nothing in it runs.` 如果浏览器给出了自己的那句话，这条信息会把它放在 `REASON` 一行，并以 `Fix what the browser names, then run the command again.` 结尾。
 
 `dev` 会话在构建警告之后会继续运行。浏览器报告的拒绝会以 `extension_load_refused` 记录在 `ready.json` 里，也会记录在 `extension logs` 里。终端不会再打印第二次。其他原因造成的拒绝仍然会打印。
+
+从 4.1.41 之后的版本开始，Manifest V2 的情况仍然沿用这条规则。它的结论是唯一不等待浏览器的预测。在 `dev` 和 `start` 下由构建警告说出，在 `preview` 下则由上面那一行在启动之前打印。其他每一个预测都会被按住。见[被拒绝的加载会打印什么](#被拒绝的加载会打印什么)。
 
 ### 无效的 match 模式
 

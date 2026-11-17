@@ -19,7 +19,7 @@ keywords:
 
 Extension.js 在兩個位置補上了這個落差：
 
-- **啟動之前**，它會讀取每一個即將載入的擴充功能的建置後 `manifest.json`，並針對每一個能夠證實的拒絕原因發出警告，指名欄位與原因。
+- **啟動之前**，它會讀取每一個即將載入的擴充功能的建置後 `manifest.json`，並找出每一個能夠證實的拒絕原因，指名欄位與原因。到 4.1.41 為止，它會在瀏覽器啟動之前發出警告。從 4.1.41 之後的版本開始，它會按住這個預測，等瀏覽器給出答覆，每一次拒絕只印出一個區塊，其中帶著瀏覽器自己的那句話。
 - **建置時**，它會修復一小組毫無歧義的致命形態，並為每一次修復印出一行修復說明。
 
 ## 遭拒絕的載入會印出什麼
@@ -117,9 +117,11 @@ PATH /path/to/project/dist/chrome
 Read the reason above, fix the manifest, then run the command again.
 ```
 
-從 4.1.41 之後的版本開始，這則訊息的第一行是 `Chrome refuses to load this extension, so nothing in it runs.`
+從 4.1.41 之後的版本開始，這則訊息的第一行是 `Chrome refuses to load this extension, so nothing in it runs.` 如果瀏覽器給出了自己的那句話，這則訊息會把它放在 `REASON` 一行，並以 `Fix what the browser names, then run the command again.` 結尾。
 
 `dev` session 在建置警告之後會繼續執行。瀏覽器回報的拒絕會以 `extension_load_refused` 記錄在 `ready.json` 裡，也會記錄在 `extension logs` 裡。終端機不會再印出第二次。其他原因造成的拒絕仍然會印出。
+
+從 4.1.41 之後的版本開始，Manifest V2 的情況仍然沿用這條規則。它的結論是唯一不等待瀏覽器的預測。在 `dev` 與 `start` 下由建置警告說出，在 `preview` 下則由上面那一行在啟動之前印出。其他每一個預測都會被按住。見[遭拒絕的載入會印出什麼](#遭拒絕的載入會印出什麼)。
 
 ### 無效的 match 樣式
 

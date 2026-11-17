@@ -19,7 +19,7 @@ Some manifest shapes make Chromium refuse to load the whole extension. The refus
 
 Extension.js closes that gap in two places:
 
-- **Before launch**, it reads the built `manifest.json` of every extension it is about to load and warns about each refusal it can prove, naming the field and the reason.
+- **Before launch**, it reads the built `manifest.json` of every extension it is about to load and finds each refusal it can prove, naming the field and the reason. Up to 4.1.41, it warns before the browser starts. From the release after 4.1.41, it holds that prediction until the browser answers, and one block prints per refusal, with the browser's sentence.
 - **At build time**, it repairs a small set of unambiguous fatal shapes and prints a fix line for each repair.
 
 ## What a refused load prints
@@ -117,9 +117,11 @@ PATH /path/to/project/dist/chrome
 Read the reason above, fix the manifest, then run the command again.
 ```
 
-From the release after 4.1.41, the first line of that message reads `Chrome refuses to load this extension, so nothing in it runs.`
+From the release after 4.1.41, the first line of that message reads `Chrome refuses to load this extension, so nothing in it runs.` When the browser gave its own sentence, the message carries it on a `REASON` line and ends with `Fix what the browser names, then run the command again.`
 
 A `dev` session stays up after the build warning. The refusal that the browser reports is recorded in `ready.json` as `extension_load_refused`, and in `extension logs`. The terminal does not print it a second time. A refusal for any other reason still prints.
+
+From the release after 4.1.41, the Manifest V2 case keeps this rule. Its verdict is the one prediction that does not wait for the browser. The build warning says it under `dev` and `start`, and the line above prints before the launch under `preview`. Every other prediction is held. See [What a refused load prints](#what-a-refused-load-prints).
 
 ### Invalid match patterns
 
