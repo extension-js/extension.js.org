@@ -25,7 +25,7 @@ keywords:
 | 狀態       | 意義                                                                                   |
 | ---------- | -------------------------------------------------------------------------------------- |
 | `starting` | 這次執行開始了。檔案會重設,`events.ndjson` 也會為本次執行清空。                        |
-| `ready`    | 最近一次編譯成功,輸出已經在磁碟上。                                                    |
+| `ready`    | 最近一次編譯成功,輸出已經在磁碟上。從 4.1.41 之後的版本開始,在需要啟動瀏覽器的 `dev` 下,啟動器也已經蓋上了它的欄位。見[兩階段就緒](#兩階段就緒)。 |
 | `error`    | 編譯失敗,瀏覽器根本沒有啟動或在擴充功能載入之前就結束了,或瀏覽器拒絕了、弄丟了這個擴充功能。 |
 | `stopped`  | 監看已關閉。會蓋上 `code: "shutdown"`,這樣一個死掉的工作階段永遠不會宣稱自己 `ready`。 |
 
@@ -33,7 +33,9 @@ keywords:
 
 `status: "ready"` 只代表編譯完成。瀏覽器可能還在啟動(下面說明的 `dev` 情形除外),service worker 也可能還沒連上。
 
-從 4.1.41 之後的版本開始,在需要啟動瀏覽器的 `dev` 下,編譯之後 `status` 仍保持 `starting`,等啟動器蓋上 `browserPid`、`binary`、`profilePath` 與除錯器連接埠(Chromium 上是 `cdpPort`,Firefox 上是 `rdpPort`)之後才變為 `ready`。`executorAttachedAt` 可以出現在 `ready` 之後,除非工作階段是帶 `--allow-control` 啟動的。
+從 4.1.41 之後的版本開始,在需要啟動瀏覽器的 `dev` 下,編譯之後 `status` 仍保持 `starting`,等啟動器蓋上 `browserPid`、`binary`、`profilePath` 與除錯器連接埠(Chromium 上是 `cdpPort`,Firefox 上是 `rdpPort`)之後才變為 `ready`。`executorAttachedAt` 可以出現在 `ready` 之後,除非工作階段是帶 `--allow-control` 或 `--allow-eval` 啟動的,這時 `ready` 會等它,最多 10 秒。
+
+在 Chromium 的 `dev` 工作階段裡,stdout 上的 `ready` 行是更嚴格的宣告:只有擴充功能內部的執行階段連上之後(`executorAttachedAt`),啟動器才會印出它。如果瀏覽器已經啟動,而 15 秒內沒有任何東西連上,啟動器會改為印出它在等什麼,蓋上 `browserUpNotAttachedAt` 與一則提示,並在 attach 到達的那一刻印出 `ready`。
 
 act 類工具(`eval`、`storage`、`reload`、`open`、`inspect`)需要第二個階段。要等到契約帶上 `runtime: "attached"` 與一個 `executorAttachedAt` 時間戳之後,再去驅動擴充功能。
 
