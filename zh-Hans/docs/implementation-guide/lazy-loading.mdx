@@ -22,12 +22,14 @@ Manifest V3 的 service worker 经常冷启动：浏览器会在大约 30 秒没
 
 | 场景                                             | 运行时支持动态 `import()` |
 | ------------------------------------------------ | ------------------------- |
-| Service worker（background）                     | 否，规范不允许            |
+| Service worker（background）                     | 运行时不能加载 chunk。从 4.1.41 之后的版本开始，构建会把代码打包进 worker 文件 |
 | 扩展页面（popup、options、新标签页、side panel） | 是                        |
 | Offscreen 文档                                   | 是                        |
 | Content scripts                                  | 是，但需要多一步处理      |
 
 最让人意外的就是 service worker 的限制：在平台层面，所有浏览器的 service worker 里都不支持动态 `import()`。worker 顶部的静态 `import` 语句是没问题的（Extension.js 会把它们打进 bundle），但你没法把某个 chunk 的加载推迟到事件触发时再做。
+
+从 4.1.41 之后的版本开始，在 service worker background 中，用 `import()` 加载的代码会被打包进 worker 文件，因为 Chromium 只允许 service worker 在安装期间获取脚本。这个模块仍然只在第一次被导入时才运行。扩展页面和 Firefox 的 background 页面仍然保留独立的懒加载 chunk。
 
 ## 模式 1：按界面拆分，而不是按 chunk 拆分
 

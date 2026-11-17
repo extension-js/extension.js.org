@@ -22,12 +22,14 @@ The platform rules, before any bundler enters the picture:
 
 | Context                                               | Dynamic `import()` at runtime |
 | ----------------------------------------------------- | ----------------------------- |
-| Service worker (background)                           | No, the spec disallows it     |
+| Service worker (background)                           | No chunk load at runtime. From the release after 4.1.41, the build bundles the code into the worker file |
 | Extension pages (popup, options, new tab, side panel) | Yes                           |
 | Offscreen documents                                   | Yes                           |
 | Content scripts                                       | Yes, with one extra step      |
 
 The service worker restriction is the one that surprises people: dynamic `import()` is unavailable inside service workers at the platform level, in any browser. Static `import` statements at the top of the worker are fine (Extension.js bundles them), but you cannot defer a chunk load until an event fires.
+
+From the release after 4.1.41, in a service worker background, code loaded with `import()` is bundled into the worker file, because Chromium only lets a service worker fetch scripts while it installs. The module still runs only when first imported. Extension pages and Firefox background pages keep separate lazy chunks.
 
 ## Pattern 1: split by surface, not by chunk
 
