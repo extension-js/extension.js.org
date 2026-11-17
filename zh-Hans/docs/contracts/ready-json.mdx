@@ -25,13 +25,17 @@ keywords:
 | 状态       | 含义                                                                                    |
 | ---------- | --------------------------------------------------------------------------------------- |
 | `starting` | 这次运行开始了。文件被重置，`events.ndjson` 也为本次运行清空。                          |
-| `ready`    | 最近一次编译成功，输出已经在磁盘上。                                                    |
+| `ready`    | 最近一次编译成功，输出已经在磁盘上。从 4.1.41 之后的版本开始，在需要启动浏览器的 `dev` 下，启动器也已经盖上了它的字段。见[两阶段就绪](#两阶段就绪)。 |
 | `error`    | 编译失败，浏览器根本没有启动或在扩展加载之前就退出了，或者浏览器拒绝了、丢掉了这个扩展。 |
 | `stopped`  | 监听已关闭。会盖上 `code: "shutdown"`，这样一个已经死掉的会话永远不会宣称自己 `ready`。 |
 
 ## 两阶段就绪
 
-`status: "ready"` 只意味着编译完成，仅此而已。浏览器可能还在启动，service worker 也可能还没有连上。
+`status: "ready"` 只意味着编译完成。浏览器可能还在启动（下面说明的 `dev` 情形除外），service worker 也可能还没有连上。
+
+从 4.1.41 之后的版本开始，在需要启动浏览器的 `dev` 下，编译之后 `status` 仍保持 `starting`，等启动器盖上 `browserPid`、`binary`、`profilePath` 和调试器端口（Chromium 上是 `cdpPort`，Firefox 上是 `rdpPort`）之后才变为 `ready`。`executorAttachedAt` 可以出现在 `ready` 之后，除非会话是带 `--allow-control` 或 `--allow-eval` 启动的，这时 `ready` 会等它，最多 10 秒。
+
+在 Chromium 的 `dev` 会话里，stdout 上的 `ready` 行是更严格的声明：只有扩展内部的运行时连上之后（`executorAttachedAt`），启动器才会打印它。如果浏览器已经启动，而 15 秒内没有任何东西连上，启动器会改为打印它在等什么，盖上 `browserUpNotAttachedAt` 和一条提示，并在 attach 到达的那一刻打印 `ready`。
 
 act 类工具（`eval`、`storage`、`reload`、`open`、`inspect`）需要第二个阶段。要等到契约里带上 `runtime: "attached"` 和一个 `executorAttachedAt` 时间戳之后，再去驱动扩展。
 
