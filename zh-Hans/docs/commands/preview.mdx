@@ -173,6 +173,7 @@ npx extension@latest preview --no-open
 - `--chromium-binary` 或 `--gecko-binary` 固定的二进制有问题时，会打印 `ok: false`，并带有 `status: "usage"` 与 `error.code: "E_BROWSER_BINARY_INVALID"`。这包括路径不存在、文件不可执行，以及二进制在 10 秒内没有应答版本探测。命令随即结束，不会留下任何运行中的进程。
 - 远程 URL 没有给出可用的归档时，会打印 `ok: false` 与 `status: "failed"`。返回的不是 ZIP 归档、归档已损坏或含有位于其文件夹之外的条目时代码为 `E_REMOTE_ZIP_INVALID`，超时为 `E_REMOTE_FETCH_TIMEOUT`，连接被拒绝或 HTTP 错误为 `E_REMOTE_DOWNLOAD`。
 - 浏览器无法启动时会打印 `ok: false` 与 `status: "failed"`。二进制文件可执行但系统无法启动它，或 Firefox 在调试器应答之前就退出时代码为 `E_BROWSER_LAUNCH`，Firefox 在运行但调试器始终没有应答时为 `E_BROWSER_CONNECT`。配置文件加载失败时以同样的状态打印 `E_CONFIG_LOAD`。
+- 从 4.1.41 之后的版本开始，浏览器拒绝加载扩展时会打印 `ok: false`，其中 `status: "load-refused"`、`error.code: "E_EXTENSION_LOAD_REFUSED"`。`preview` 会停止浏览器并以 `1` 退出。见 [Manifest 拒绝](/zh-Hans/docs/debugging/manifest-refusals#被拒绝的加载会打印什么)。
 - 其他失败会打印 `ok: false` 与 `status: "failed"`，随后进程以 `1` 退出。
 
 ## 日志 flag
@@ -289,6 +290,7 @@ deno run -A npm:extension@latest preview ./my-extension --no-browser
 - `preview` 是 run-only 的，永远不会编译项目。
 - `preview` 优先使用已有的构建输出（`dist/<browser>`），但也可以回落到另一个未打包扩展根目录。
 - `preview` 不会运行 watch 模式，也不提供热模块替换（HMR）。
+- 从 4.1.41 之后的版本开始，如果浏览器拒绝这个扩展，`preview` 会停止浏览器并以退出码 `1` 退出。见 [Manifest 拒绝](/zh-Hans/docs/debugging/manifest-refusals#被拒绝的加载会打印什么)。
 - 对于脚本 / agent，请依赖 `ready.json`，避免解析终端输出。
 
 ## 最佳实践

@@ -167,6 +167,7 @@ npx extension@latest start --no-open
 - 构建失败时会打印一个 `ok: false` 帧，其中 `status: "build-failed"`，随后进程以 `1` 退出。编译错误带 `error.code: "E_COMPILE"`。项目目录不存在带 `E_PROJECT_NOT_FOUND`，目录里没有 manifest 带 `E_MANIFEST_NOT_FOUND`，manifest 无法解析带 `E_MANIFEST_INVALID`。配置文件加载失败带 `E_CONFIG_LOAD`，远程 URL 没有给出可用的归档带 `E_REMOTE_ZIP_INVALID`、`E_REMOTE_FETCH_TIMEOUT` 或 `E_REMOTE_DOWNLOAD`。
 - `--chromium-binary` 或 `--gecko-binary` 固定的二进制有问题时会打印一个 `ok: false` 帧，其中 `status: "usage"`，`error.code: "E_BROWSER_BINARY_INVALID"`。这包括路径不存在、文件不可执行，以及二进制在 10 秒内没有应答版本探测。命令随即结束，不会留下任何运行中的进程。
 - 浏览器无法启动时会打印一个 `ok: false` 帧，其中 `status: "failed"`。二进制文件可执行但系统无法启动它，或 Firefox 在调试器应答之前就退出时为 `E_BROWSER_LAUNCH`，Firefox 在运行但调试器始终没有应答时为 `E_BROWSER_CONNECT`。
+- 从 4.1.41 之后的版本开始，浏览器拒绝加载扩展时会打印一个 `ok: false` 帧，其中 `status: "load-refused"`、`error.code: "E_EXTENSION_LOAD_REFUSED"`。`start` 会停止浏览器并以 `1` 退出。针对这次运行的 `start --wait` 会回答同样的状态和代码。见 [Manifest 拒绝](/zh-Hans/docs/debugging/manifest-refusals#被拒绝的加载会打印什么)。
 
 ## 日志 flag
 
@@ -271,6 +272,7 @@ deno run -A npm:extension@latest start --no-browser
 - `start` 不会运行 dev 服务器，也不提供热模块替换（HMR）或 watch 模式。
 - `start` 面向生产模式；本地迭代开发请用 `dev`。
 - 对于机器消费者，请解析 `dist/extension-js/<browser>/ready.json`，而不是终端文本。
+- 从 4.1.41 之后的版本开始，如果浏览器拒绝这个扩展，`start` 会停止浏览器并以退出码 `1` 退出。见 [Manifest 拒绝](/zh-Hans/docs/debugging/manifest-refusals#被拒绝的加载会打印什么)。
 
 ## 下一步
 

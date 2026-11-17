@@ -22,17 +22,48 @@ Extension.js 在兩個位置補上了這個落差：
 - **啟動之前**，它會讀取每一個即將載入的擴充功能的建置後 `manifest.json`，並針對每一個能夠證實的拒絕原因發出警告，指名欄位與原因。
 - **建置時**，它會修復一小組毫無歧義的致命形態，並為每一次修復印出一行修復說明。
 
+## 遭拒絕的載入會印出什麼
+
+從 4.1.41 之後的版本開始，Extension.js 會先按住自己的預測，等瀏覽器給出答覆。瀏覽器拒絕擴充功能時，只印出一個區塊，其中帶著瀏覽器自己的那句話：
+
+```plaintext
+Chrome refuses to load this extension, so nothing in it runs.
+PATH /path/to/project/dist/chrome
+REASON Cannot install extension because it uses an unsupported manifest version.
+Fix what the browser names, then run the command again.
+```
+
+- `REASON` 是瀏覽器的原話，寫成一行。
+- 當 manifest 看得出原因、而瀏覽器的原話沒有說明時，後面會跟一行 `CAUSE`。見 [Firefox 的拒絕](#firefox-的拒絕)。
+- 只有在無法詢問瀏覽器時，才會印出預測。
+- 如果瀏覽器載入了被預測會遭拒絕的形態，會有一則警告說明瀏覽器載入了它，並指名這個形態。
+
+接下來發生什麼取決於指令：
+
+- **`start` 與 `preview`**：指令會停止瀏覽器，並以結束代碼 `1` 結束。
+- **`dev`**：session 繼續執行，並在下一次儲存時重新嘗試載入。
+
+每一個介面都用代碼 `E_EXTENSION_LOAD_REFUSED` 回答遭拒絕的載入：
+
+- `start`、`preview`、`dev --wait`、`start --wait` 以及 act 指令（`eval`、`storage` 等）回答狀態 `load-refused`，並以結束代碼 `1` 結束。
+- `dev --output json` 的串流帶有同樣的狀態與代碼。
+- `doctor --output json` 維持狀態 `unhealthy`，並帶上這個代碼。
+
+因拒絕而結束的已停止 session 仍然會指出這次拒絕。`doctor` 與 act 指令會用這次拒絕和同樣的代碼回答。
+
 ## 啟動前診斷
 
-這些檢查針對建置後的擴充功能執行，就在瀏覽器啟動之前。
+這些檢查針對建置後的擴充功能執行，就在瀏覽器啟動之前。從 4.1.41 之後的版本開始，每一項發現都會等待瀏覽器的答覆。見[遭拒絕的載入會印出什麼](#遭拒絕的載入會印出什麼)。
 
 ### manifest 版本相關的拒絕
 
 | 形態                                              | Chromium 為什麼拒絕                                                     |
 | ------------------------------------------------- | ----------------------------------------------------------------------- |
-| `manifest_version: 2`                             | Chrome 138 是最後一個支援 MV2 的版本。請改在 Firefox 上執行，或遷移到 MV3。 |
-| MV3 有 `background.scripts` 卻沒有 `service_worker` | 這是 Firefox 風格的 background。Chromium 需要 `background.service_worker`。 |
-| 其他任何值（缺少、`1`、大於 `3`）                 | 會被視為不支援的 manifest 版本而遭拒絕。                                |
+| 缺少 `manifest_version` | Chromium 拒絕整個擴充功能。 |
+| 字串（例如 `"3"`）、小數、`1` 或 `0` | Chromium 拒絕整個擴充功能。只有整數 2 或 3 才是 manifest 版本。 |
+| `manifest_version: 2` 且沒有 `theme` 鍵 | Chromium 拒絕整個擴充功能。Chrome 138 是最後一個支援 MV2 的版本。請改在 Firefox 上執行，或遷移到 MV3。 |
+
+大於 3 的 `manifest_version` 不在這張表裡，因為 Chromium 會載入它。見 [Chromium 會載入的形態](#chromium-會載入的形態)。
 
 各瀏覽器對 Manifest V2 的支援並不相同：
 
@@ -86,13 +117,27 @@ PATH /path/to/project/dist/chrome
 Read the reason above, fix the manifest, then run the command again.
 ```
 
+從 4.1.41 之後的版本開始，這則訊息的第一行是 `Chrome refuses to load this extension, so nothing in it runs.`
+
 `dev` session 在建置警告之後會繼續執行。瀏覽器回報的拒絕會以 `extension_load_refused` 記錄在 `ready.json` 裡，也會記錄在 `extension logs` 裡。終端機不會再印出第二次。其他原因造成的拒絕仍然會印出。
 
 ### 無效的 match 樣式
 
-只要有一個樣式無效，Chrome 就會拒絕整個擴充功能。Extension.js 會檢查 `host_permissions`、`optional_host_permissions`、`content_scripts`（`matches` 與 `exclude_matches`），以及 `web_accessible_resources` 中的 matches。
+無效的樣式位於哪裡，決定了瀏覽器怎麼做：
+
+- **`content_scripts[].matches`、`content_scripts[].exclude_matches` 或 `web_accessible_resources[].matches`**：Chrome 拒絕整個擴充功能。
+- **`host_permissions` 或 `optional_host_permissions`**：Chrome 與 Firefox 會載入擴充功能並丟棄這個樣式。這個樣式不授予任何 host 存取權，Chrome 不記錄任何錯誤或警告，清單中的其他樣式仍然生效。
 
 host 文法允許 `*`、`*.domain.tld` 或字面的 host。host 中任何其他位置的萬用字元都是無效的，例如 `https://foo.*.com/*`。連接埠、查詢字串與片段不會觸發拒絕，而且連接埠本身也可以是萬用字元。
+
+從 4.1.41 之後的版本開始，Extension.js 會印出一則警告，指名每一個被丟棄的樣式。它在 `build`、`dev` 與 `start` 期間印出，也在 `preview` 啟動之前印出：
+
+```plaintext
+manifest.json lists host permission patterns the browser drops, so they grant no host access.
+PATTERN https://foo.*.com/* in host_permissions
+Chrome and Firefox load the extension, Chrome records no error or warning for it, and the other patterns in the list still apply.
+Write the host as *, *.domain.tld or a literal host.
+```
 
 ### 載入阻斷項清單
 
@@ -109,7 +154,22 @@ host 文法允許 `*`、`*.domain.tld` 或字面的 host。host 中任何其他�
 - **語系**：宣告了 `default_locale`，但對應的 `_locales/<locale>/messages.json` 缺少或不是合法 JSON，會遭拒絕。整串 `__MSG_key__` 參照在目錄中沒有定義時也一樣（查找不分大小寫，`@@predefined` 名稱除外）。`_locales` 目錄樹有內容、manifest 中卻沒有 `default_locale`，同樣會遭拒絕。
 - **`storage.managed_schema`**：schema 路徑在擴充功能目錄內不存在時，整個擴充功能會遭拒絕。
 
-每一項發現都會在啟動之前印成一則警告，指名擴充功能路徑與每一個阻斷項，所以卡住的原因會事先講清楚。
+每一項發現都會在啟動之前印成一則警告，指名擴充功能路徑與每一個阻斷項，所以卡住的原因會事先講清楚。從 4.1.41 之後的版本開始，只有在無法詢問瀏覽器時才會印出這項發現。
+
+## Chromium 會載入的形態
+
+有兩種 manifest 形態，你可能以為 Chromium 會拒絕，它卻會載入。兩者都在 Chrome 151 上實測過。
+
+- **Manifest V3 有 `background.scripts` 卻沒有 `background.service_worker`**：擴充功能會被載入，得到一個擴充功能 ID，而且不顯示任何錯誤。這些指令碼永遠不會啟動。Extension.js 會發出警告並照常啟動。
+- **大於 3 的 `manifest_version`**：擴充功能會被載入，並以 Manifest V3 執行，瀏覽器不給出任何警告。Firefox 會拒絕它。從 4.1.41 之後的版本開始，Extension.js 的建置在每一個目標上都拒絕不是整數 2 或 3 的 `manifest_version`。
+
+## Firefox 的拒絕
+
+這些結果是在 Firefox Nightly 160 上實測的。
+
+- **只有 `background.service_worker`**：Firefox 拒絕這個擴充功能。它給出的原因是 `background.service_worker is currently disabled. Add background.scripts.` 以 Firefox 為目標的 Extension.js 建置會替你寫出 `background.scripts`。見[背景指令碼](/zh-Hant/docs/implementation-guide/background)。
+- **`strict_min_version` 高於正在執行的版本**：以暫時附加元件方式載入時，這不算拒絕。
+- **Firefox 不載入的 `manifest_version`**：Firefox 的原話不會指名版本。從 4.1.41 之後的版本開始，會有一行 `CAUSE` 指出 manifest 顯示的問題。它寫的是 `Firefox does not load a manifest_version above 3.` 或 `Firefox loads only the integer 2 or 3 as manifest_version.`
 
 ## 建置時的自動修復
 

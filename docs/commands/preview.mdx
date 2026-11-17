@@ -175,6 +175,7 @@ After the session ends, an act verb says so and prints the `extension preview` c
 - A bad `--chromium-binary` or `--gecko-binary` pin prints `ok: false` with `status: "usage"` and `error.code: "E_BROWSER_BINARY_INVALID"`. That covers a path that does not exist, a file that is not executable, and a binary that does not answer its version probe within 10 seconds. The command ends and leaves nothing running.
 - A remote URL that gives no usable archive prints `ok: false` with `status: "failed"`. The code is `E_REMOTE_ZIP_INVALID` for a reply that is not a ZIP archive, a damaged one, or one with an entry outside its folder, `E_REMOTE_FETCH_TIMEOUT` for a timeout, `E_REMOTE_ACCESS_DENIED` for a 401 or 403, and `E_REMOTE_DOWNLOAD` for a refused connection or any other HTTP error.
 - A browser that cannot start prints `ok: false` with `status: "failed"`. The code is `E_BROWSER_LAUNCH` when the binary is executable but the system cannot start it or Firefox exits before its debugger answers, and `E_BROWSER_CONNECT` when Firefox runs but its debugger never answers. A config file that fails to load prints the same status with `E_CONFIG_LOAD`.
+- From the release after 4.1.41, a browser that refuses to load the extension prints `ok: false` with `status: "load-refused"` and `error.code: "E_EXTENSION_LOAD_REFUSED"`. `preview` stops the browser and exits `1`. See [Manifest refusals](/docs/debugging/manifest-refusals#what-a-refused-load-prints).
 - Other failures print `ok: false` with `status: "failed"` before the process exits `1`.
 
 ## Logging flags
@@ -291,6 +292,7 @@ deno run -A npm:extension@latest preview ./my-extension --no-browser
 - `preview` is run-only and never compiles the project.
 - `preview` prefers existing build output (`dist/<browser>`) but can fall back to another unpacked extension root.
 - `preview` does not run watch mode or hot module replacement (HMR).
+- From the release after 4.1.41, if the browser refuses the extension, `preview` stops the browser and exits with code `1`. See [Manifest refusals](/docs/debugging/manifest-refusals#what-a-refused-load-prints).
 - For scripts/agents, rely on `ready.json` and avoid parsing terminal output.
 
 ## Best practices

@@ -85,7 +85,7 @@ extension doctor [project-path] [options]
 multiple ended sessions found (chrome, firefox), diagnosing chrome
 ```
 
-對於已停止的工作階段,`ready-contract` 檢查接著會失敗,它的修復建議會寫出重新啟動該工作階段的指令。
+對於已停止的工作階段,`ready-contract` 檢查接著會失敗,它的修復建議會寫出重新啟動該工作階段的指令。從 4.1.41 之後的版本開始，如果該工作階段因載入被拒而結束，這項檢查會指出這次拒絕，`doctor` 會回答 `E_EXTENSION_LOAD_REFUSED`。
 
 <Frame>
   <iframe
@@ -120,6 +120,7 @@ multiple ended sessions found (chrome, firefox), diagnosing chrome
 
 - 當連接埠檔案尚未存在時,`port-agreement` 通過。這個專案與瀏覽器的第一個工作階段沒有任何可牴觸的對象。
 - 在一次全新編譯後的 10 秒內,`executor` 回報 **warn** 而不是失敗。service worker 可能仍在附加中。請等到 `ready.json` 出現 `runtime: "attached"` 再動作。
+- 從 4.1.41 之後的版本開始，如果建置裡沒有瀏覽器會執行的 background，`executor` 會立刻失敗。這一列帶的是 `eval` 印出的同一句話。見 [start 或 preview session 上的拒絕](/zh-Hant/docs/debugging#start-或-preview-session-上的拒絕)。
 - 當契約沒有寫入 `cdpPort`,也沒有記錄結束時,`browser` 回報 **skip**。沒有結束的證據並不代表瀏覽器還活著。
 
 pretty 輸出每個檢查印出一行,並附上第一個失敗檢查的修復建議。每個狀態都有一個字形:`✓` pass、`✗` fail、`!` warn、`–` skip。全部通過時結束碼為 `0`,任一檢查失敗時為 `1`,CI 與指令稿可以直接據此把關。
@@ -187,6 +188,8 @@ extension preview --browser=chrome --allow-control
 
 健康的執行會回答 `ok: true`,並帶有 `status: "healthy"` 與 `error: null`。
 
+從 4.1.41 之後的版本開始，發現載入被拒的執行會維持 `status: "unhealthy"`，並帶上 `error.code: "E_EXTENSION_LOAD_REFUSED"`。見 [Manifest 拒絕](/zh-Hant/docs/debugging/manifest-refusals#遭拒絕的載入會印出什麼)。
+
 每個檢查的 `status` 為 `pass`、`fail`、`warn` 或 `skip`。有已知修復方式的失敗會帶 `remediation`。信封的 `error.code` 由第一個失敗的檢查對應而來:
 
 | 第一個失敗的檢查                                 | `error.code`            |
@@ -194,6 +197,7 @@ extension preview --browser=chrome --allow-control
 | `engine`                                         | `E_COMMAND_UNSUPPORTED_FOR_TARGET` |
 | `peer-rspack`                                    | `E_DEPENDENCY_INSTALL`  |
 | `ready-contract`、`server-process`               | `E_SESSION_NOT_FOUND`   |
+| `ready-contract`（契約記錄著載入被拒時） | `E_EXTENSION_LOAD_REFUSED` |
 | `port-agreement`、`control-channel`、`executor`  | `E_CONTROL_UNAVAILABLE` |
 | `eval-token`                                     | `E_TOKEN_MISSING`       |
 | `browser`                                        | `E_BROWSER_LAUNCH`      |
