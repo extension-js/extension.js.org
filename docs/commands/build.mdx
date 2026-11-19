@@ -343,6 +343,7 @@ From the release after 4.1.39, the size in that line counts the files that ship.
 
 Builds that succeed with warnings print the warning details above those lines,
 and the compile line reads `compiled with warnings` instead of `compiled in`.
+From the release after 4.1.41, a build that fails in a plugin's `done` hook prints no `compiled in` line.
 
 From the release after 4.1.39, a warning or an error from a file that several entries import prints once and counts once.
 
@@ -356,9 +357,17 @@ machine contract.
 
 `--output json` prints one schema-1 envelope on stdout and routes the human build lines to stderr. Stdout stays parseable as a single JSON document.
 
-- A successful run prints a `status: "built"` frame. Its `value` carries the built browsers, the resolved mode, and one summary per browser. Each summary records the output path, asset totals, warning text, and the Safari app identity when relevant. Each warning string opens with `E_CODE: ` when a code resolves, for example `E_CSS_DEAD_REF: ...`, the same convention `logs` and `uninstall` use.
+- A successful run prints a `status: "built"` frame. Its `value` carries the built browsers, the resolved mode, and one summary per browser. Each summary records the output path, asset totals, warning text, and the Safari app identity when relevant. Each warning string opens with `W_CODE: ` when a code resolves, for example `W_CSS_DEAD_REF: ...`, the same convention `logs` and `uninstall` use.
 - A failed build prints one `ok: false` frame with `status: "build-failed"` before the process exits `1`. A compile error carries `error.code: "E_COMPILE"`, and `error.details` lists each diagnostic behind it with its own code, file, and position, errors first, capped at 20 with `truncated: true` when cut. See [Compile diagnostics](/docs/contracts/result-envelope). A missing project folder carries `E_PROJECT_NOT_FOUND`, a folder with no manifest carries `E_MANIFEST_NOT_FOUND`, and a manifest that does not parse carries `E_MANIFEST_INVALID`. A config file that fails to load carries `E_CONFIG_LOAD`.
 - When the path argument is a remote URL, the download progress lines go to stderr as well. A reply that is not a ZIP archive, a damaged one, or one with an entry outside its folder carries `E_REMOTE_ZIP_INVALID`, a timeout carries `E_REMOTE_FETCH_TIMEOUT`, a 401 or 403 carries `E_REMOTE_ACCESS_DENIED`, and a refused connection or any other HTTP error carries `E_REMOTE_DOWNLOAD`. An archive with an entry outside its folder is refused before anything is written, and its message names that entry.
+
+From the release after 4.1.41:
+
+- Warning strings open with a `W_*` code. Earlier releases used the `E_*` name.
+- A plugin that throws while the compiler is made, such as in its `apply`, carries `E_COMPILE_FATAL`.
+- An error thrown with an empty message names the file, line, and column it came from.
+- A refusal while the build is still finding the project and its browser prints nothing on stderr.
+- Every later failure also prints its human lines on stderr.
 
 Every build also writes `dist/extension-js/<browser>/build-summary.json`. Scripts that shell out to `extension build` can read structured warnings there. Guard against stale files by checking the file's modification time.
 
@@ -382,10 +391,14 @@ A finding in a chunk that bundles a dependency is attributed, because the file n
 When addons-linter is not installed, the build prints one info line per project and skips the check:
 
 ```plaintext
-Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter or pass --no-addon-lint to silence this.
+Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter, or turn the lint off with --no-addon-lint or commands.build.addonLint: false in extension.config.js.
 ```
 
 The install command is phrased for the package manager that your project uses.
+
+From the release after 4.1.41, an installed linter that cannot load gets its own line. It names the copy and the reason, and advises a reinstall instead of `npx addons-linter`, which would run the same broken copy.
+
+When findings fall in bundled packages, the check writes `amo-reviewer-note.md` next to the browser folder, such as `dist/amo-reviewer-note.md`. Paste its bundled libraries section into the submission. From the release after 4.1.41, a build whose lint did not finish moves the last note to `amo-reviewer-note.stale.md`. A build that found no linter does the same, and the line says so.
 
 Turn the check off with `--no-addon-lint`, or with `commands.build.addonLint: false` in `extension.config.js`. Non-production modes skip it, because a dev artifact carries dev-only grants that the linter would flag for nothing. `extension start` skips it too, since `start` previews a build rather than shipping one.
 

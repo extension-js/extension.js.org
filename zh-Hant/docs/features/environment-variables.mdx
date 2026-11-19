@@ -105,22 +105,22 @@ deno run -A npm:extension@latest create my-extension --template=content-env
 
 ### 擴充功能 bundle（編譯時）
 
-建置擴充功能時，編譯器會從你的擴充功能套件資料夾，依下列順序挑選 **一個** 第一個符合的 env 檔：
+建置擴充功能時，編譯器會讀取你的擴充功能套件資料夾中符合瀏覽器與模式的 env 檔。從 4.1.41 之後的版本起，它會讀取每一個符合的檔案，較強的檔案逐鍵覆寫較弱的檔案。較早的版本只讀取最強的那一個符合檔案。由強到弱：
 
 1. `.env.[browser].[mode]`（例如 `.env.chrome.development`）
 2. `.env.[browser]`
 3. 上述兩項的引擎家族變體（見下方說明）
-4. `.env.[mode]`
-5. `.env.local`
-6. `.env`
+4. `.env.[mode].local`（從 4.1.41 之後的版本起）
+5. `.env.[mode]`
+6. `.env.local`
+7. `.env`
 
 瀏覽器範圍的檔案依 **引擎家族** 解析，與[瀏覽器專屬 manifest 欄位](/zh-Hant/docs/features/browser-specific-fields)一致。在精確的瀏覽器名稱之後，Chromium 家族目標（`chromium`、`chrome`、`edge`、`chromium-based`、各 Chromium 分支以及 Safari 建置）還會依序嘗試 `.env.chromium`、`.env.chrome`、`.env.edge` 與 `.env.chromium-based`（各自的 `.[mode]` 變體優先）。Gecko 家族目標還會嘗試 `.env.firefox` 與 `.env.gecko-based`。因此一份 `.env.chromium` 檔即可涵蓋 `chrome`、`edge` 或 `brave` 建置，而精確的瀏覽器檔案永遠優先於家族檔案。
 
-當 `.env.defaults` 存在時，Extension.js **一定會先合併** 它，再合併所選檔案的變數。最後，**系統的** `process.env` 對重疊鍵擁有最高優先權。
+當 `.env.defaults` 存在時，Extension.js **一定會先合併** 它，再合併各符合檔案的變數。最後，**系統的** `process.env` 對重疊鍵擁有最高優先權。
 
 <Note>
-  選擇的是上述清單中的 **單一** env 檔（再加上 `.env.defaults`），
-  不會逐檔串聯合併。`.env.example` 僅作為文件範例，永遠不會被當成值來源載入。
+  `.env.example` 僅作為文件範例，永遠不會被當成值來源載入。
 </Note>
 
 如果專案旁存在 env 檔，但沒有任何一個符合目前的瀏覽器與模式，建置會印出警告，列出找到的檔案與查找過的候選檔名。這樣瀏覽器後綴的拼字錯誤會立刻暴露，而不是在沒有值注入的情況下悄悄完成建置。以另一個模式或瀏覽器命名的檔案，比如正式建置中的 `.env.development`，會被原樣留下且不印出警告。只有當沒有其他來源（比如 `extension.config.js`）定義這些值時，警告才會說它們是 undefined。
@@ -133,7 +133,7 @@ LLM 或其他任何付費服務的 API key 應該放在你的擴充功能所呼�
 
 當某個帶值的 `EXTENSION_PUBLIC_*` 變數的名字看起來像機密時，正式建置會發出警告。名字包含 `SECRET`、`TOKEN`、`PASSWORD` 或 `PRIVATE` 時看起來像機密。`KEY` 緊接在 `API`、`ACCESS`、`AUTH` 或 `SECRET` 之後時也是。包含 `PUBLISHABLE` 的名字會被略過。如果這個值本來就設計為公開，例如 Firebase 的 web API key，這則警告就不適用於它。這則警告需要 4.1.39 或更新的版本。
 
-如果專案旁邊找不到符合的檔案，Extension.js 會從 **最近的 workspace 根目錄** 重複相同的搜尋；該根目錄是最近一個包含 `pnpm-workspace.yaml` 的祖先資料夾。Monorepo 中的擴充功能可以共用根層的 env 檔，用於 **bundle** 注入。
+如果專案旁邊找不到符合的檔案，Extension.js 會從 **最近的 workspace 根目錄** 重複相同的搜尋。該根目錄是最近一個包含 `pnpm-workspace.yaml` 的祖先資料夾。Monorepo 中的擴充功能可以共用根層的 env 檔，用於 **bundle** 注入。唯一的 env 檔是 `.env.defaults` 的套件也會取用根目錄的檔案。根目錄的 `.env.defaults` 先載入，套件自己的 `.env.defaults` 逐鍵勝出。
 
 **Monorepo 限制：** workspace fallback 只有在祖先目錄存在 `pnpm-workspace.yaml` 標記時才會執行。如果你使用純 npm 或 Yarn workspaces，只靠 `package.json` 的 `"workspaces"` 欄位，這套自動往上找的機制就不適用。這種情況下，請把 env 檔放在擴充功能套件旁邊，或在儲存庫根目錄加上 `pnpm-workspace.yaml`。
 
@@ -141,24 +141,28 @@ LLM 或其他任何付費服務的 API key 應該放在你的擴充功能所呼�
 
 `extension.config.js` / `.mjs` / `.cjs` 會在 Node 中執行。Extension.js 在評估該檔案前，會預先載入 **一小組** 檔案到 `process.env`，讓設定檔可以讀取。從 4.1.41 之後的版本起，最後一個檔案跟隨所執行的指令。`dev` 讀取 development 檔案。`build`、`start` 與 `preview` 讀取 production 檔案。
 
-| 順序      | `dev`              | `build`、`start`、`preview` |
-| --------- | ------------------ | --------------------------- |
-| 1（最弱） | `.env.defaults`    | `.env.defaults`             |
-| 2         | `.env`             | `.env`                      |
-| 3         | `.env.local`       | `.env.local`                |
-| 4（最強） | `.env.development` | `.env.production`           |
+| 順序      | `dev`                    | `build`、`start`、`preview`       |
+| --------- | ------------------------ | --------------------------------- |
+| 1（最弱） | `.env.defaults`          | `.env.defaults`                   |
+| 2         | `.env`                   | `.env`                            |
+| 3         | `.env.local`             | `.env.local`                      |
+| 4         | `.env.development`       | `.env.production`                 |
+| 5         | `.env.development.local` | `.env.production.local`           |
+| 6（最強） | 無                       | 瀏覽器的檔案，依 bundle 讀取的順序 |
 
-每個存在的檔案都會載入，後面的檔案會覆寫前面檔案的值。shell 或 CI 匯出的變數永遠優先於所有檔案。讀取 `import.meta.env` 的 `.mjs` 設定檔看到的勝出值與 `process.env` 相同。
+每個存在的檔案都會載入，後面的檔案會覆寫前面檔案的值。shell 或 CI 匯出的變數永遠優先於所有檔案。讀取 `import.meta.env` 的 `.mjs` 設定檔看到的勝出值與 `process.env` 相同。`build --mode development` 讀取 development 檔案。
 
 建置不再讀取 `.env.development`。只存在於該檔案中的鍵，在 `build`、`start` 與 `preview` 的設定裡是 `undefined`。4.1.41 及更早的版本會為每個指令預先載入 `.env.development`，所以建置的設定讀到的是開發環境的值。
 
-此預載步驟 **不會** 使用 `.env.chrome` 或 `.env.chrome.development` 等瀏覽器範圍的檔案。指令在知道瀏覽器之前就評估設定，因為設定本身可以指定瀏覽器。如果有需要，請透過 shell 或持續整合（CI）流水線中的 `process.env` 設定值。
+從 4.1.41 之後的版本起，`build`、`start` 與 `preview` 也會預先載入瀏覽器的檔案，例如 `.env.chrome` 與 `.env.chrome.production`。設定因此看到與 bundle 相同的值。`dev` 在知道瀏覽器之前就載入設定，所以不讀取任何瀏覽器檔案。請在 shell 或持續整合（CI）流水線中設定 `dev` 的瀏覽器值。
+
+從 4.1.41 之後的版本起，`extension.config.js` 每個指令只執行一次。當設定本身指定瀏覽器時，它可能會執行第二次。只有在瀏覽器的檔案改變了它讀取的某個變數時才會這樣。
 
 你也可以依賴 bundle 階段的 env（上述章節說明），把 `EXTENSION_PUBLIC_*` 的值注入到擴充功能程式碼裡。
 
 **Workspace fallback：** 如果擴充功能套件資料夾中都沒有這些檔案，相同的預載會從最近一個包含 `pnpm-workspace.yaml` 的資料夾執行（限制與上方相同）。
 
-之所以分成兩條路徑，是因為設定檔載入時還不知道目前瀏覽器，但 bundler 已經知道當前的瀏覽器與模式。
+從 4.1.41 之後的版本起，唯一的 env 檔是 `.env.defaults` 的套件也以同樣方式退回。根目錄的 `.env.defaults` 先載入，套件自己的 `.env.defaults` 逐鍵勝出。
 
 <Frame>
   <iframe
@@ -186,6 +190,8 @@ Extension.js 會在編譯時注入內建變數，讓你的擴充功能程式碼�
 | `NODE_ENV`                 | 與編譯器模式對齊的 Node 環境（`development` / `production`）。 |
 
 以上所有內建變數，皆可透過 `process.env.*` 與 `import.meta.env.*` 取得。
+
+從 4.1.41 之後的版本起，若某個 `.env` 檔把 `EXTENSION_PUBLIC_BROWSER`、`EXTENSION_BROWSER`、`EXTENSION_PUBLIC_MODE` 或 `EXTENSION_MODE` 設成其他值，建置會印出點名該檔案的 `W_ENV_NAME_RESERVED` 警告。建置目標勝出，因此檔案中的值被忽略。
 
 ## 環境變數總覽
 
@@ -384,7 +390,7 @@ EXTENSION_PUBLIC_SITE=http://localhost:4322
 EXTENSION_PUBLIC_SITE=https://example.com
 ```
 
-`extension dev` 讀取 `.env.development`，比對 `http://localhost:4322/*`。`extension build` 讀取 `.env`，只發佈 `https://example.com/*`。如果正式建置仍在 `content_scripts`、`host_permissions`、`externally_connectable` 或 `web_accessible_resources` 中寫著 `localhost`、`127.0.0.1`、`[::1]` 或 `0.0.0.0`，建置會印出錯誤碼為 `E_PROD_LOOPBACK_ORIGIN` 的警告，並原樣發佈該模式，因為讓正式建置連到本機伺服器也可能是刻意的。
+`extension dev` 讀取 `.env.development`，比對 `http://localhost:4322/*`。`extension build` 讀取 `.env`，只發佈 `https://example.com/*`。如果正式建置仍在 `content_scripts`、`host_permissions`、`externally_connectable` 或 `web_accessible_resources` 中寫著 `localhost`、`127.0.0.1`、`[::1]` 或 `0.0.0.0`，建置會印出代碼為 `W_PROD_LOOPBACK_ORIGIN` 的警告，並原樣發佈該模式，因為讓正式建置連到本機伺服器也可能是刻意的。
 
 ### 2. 在語系檔中
 

@@ -49,7 +49,11 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 | `compile-failed` | false | 一次編譯帶著錯誤結束，無論是第一次或之後。                                  |
 | `ready`          | true  | 只有一次，本次工作階段的 `ready.json` 已寫入磁碟時。                        |
 | `browser-exited` | false | 瀏覽器在工作階段中途結束，見下文。                                          |
-| `failed`         | false | 工作階段層級的失敗，例如伺服器始終沒能綁定，或 `ready.json` 回報 `error`。 |
+| `restart-failed` | false | 從 4.1.41 之後的版本起。某次重新啟動無法建置下一個 bundle，因此先前的建置繼續提供服務，`value.serving` 為 `true`。`error.code` 是該失敗自己的錯誤碼，或 `E_DEV_SERVER_START`。再次儲存變更的檔案即可重試。 |
+| `load-refused`   | false | 瀏覽器拒絕了擴充功能。工作階段繼續進行，並在下一次編譯時再次提供它。 |
+| `ready-failed`   | false | 從 4.1.41 之後的版本起。工作階段仍在進行時 `ready.json` 回報 `error`，例如啟動失敗。下一次編譯會再試一次。 |
+| `failed`         | false | 結束這次執行的工作階段層級失敗，例如伺服器始終沒能綁定，或重新啟動的下一個伺服器無法啟動。 |
+| `stopped`        | 視情況 | 最後一個影格。工作階段以結束代碼 `0` 自行結束時為 `ok: true`。被 `SIGINT` 這類訊號停止時為 `ok: false`，帶 `E_INTERRUPTED` 與 `value.signal`。 |
 
 每個影格的 `value` 都帶有工作階段身分：`command`、`browser`、`distPath`、`pid`、`port`，以及已知時的 `readyPath`、`eventsPath`、`runId`、`instanceId` 與 `toolchainVersion`。
 
@@ -74,13 +78,13 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 
 `ready` 影格在送出之前會先讀取 `ready.json`。編譯可能成功，而瀏覽器卻拒絕了這個擴充功能，發生這種情況時契約會停留在 `error`。
 
-這種情況下，串流改為發出一個錯誤碼為 `E_READY_ERROR_STATUS` 的 `failed` 影格，並由 `value.readyCode` 指出契約自身的錯誤碼。
+這種情況下，工作階段仍在進行時串流會發出 `ready-failed` 影格，執行結束時則發出 `failed` 影格。它的錯誤碼是 `E_READY_ERROR_STATUS`，並由 `value.readyCode` 指出契約自身的錯誤碼。
 
 瀏覽器根本沒有啟動，或在擴充功能載入之前就結束時，送達的也是同一個影格。這時 `value.readyCode` 是 `browser_launch_failed` 或 `browser_exited`。Firefox 的除錯器始終沒有回應時，視為啟動失敗。
 
 `--chromium-binary` 或 `--gecko-binary` 固定的執行檔有問題時，`readyCode` 同樣是 `browser_launch_failed`，但其影格帶 `status: "usage"` 與 `error.code: "E_BROWSER_BINARY_INVALID"`，這也是每個命令對這種固定路徑給出的代碼。
 
-Chromium 的 `dev` 工作階段在瀏覽器起來之後 CDP 連線失敗時,仍然會送出 `ready`,因為瀏覽器在執行。該影格會把故障放在 `warnings` 裡,形式為 `E_CDP_...: message`,與契約蓋上的 `cdpFaultCode` 和 `cdpFaultMessage` 是同一對值,見 [ready.json](/zh-Hant/docs/contracts/ready-json)。在故障修復前,reload 與 HMR 無法接上。
+Chromium 的 `dev` 工作階段在瀏覽器起來之後 CDP 連線失敗時,仍然會送出 `ready`,因為瀏覽器在執行。該影格會把故障放在 `warnings` 裡,形式為 `W_CDP_...: message`,與契約蓋上的 `cdpFaultCode` 和 `cdpFaultMessage` 是同一對值,見 [ready.json](/zh-Hant/docs/contracts/ready-json)。在故障修復前,reload 與 HMR 無法接上。
 
 ## 瀏覽器結束
 
@@ -92,6 +96,12 @@ Chromium 的 `dev` 工作階段在瀏覽器起來之後 CDP 連線失敗時,仍�
 - `E_BROWSER_LAUNCH`：其餘所有非預期的結束。
 
 當契約中有這些欄位時，影格的 `value` 會帶有 `exitCode` 與 `browserExitedAt`。
+
+## 重新啟動與關閉
+
+從 4.1.41 之後的版本起，下一個 bundle 無法建置的重新啟動會送出一個 `restart-failed` 影格，舊的伺服器繼續提供服務。如果舊伺服器停止後下一個伺服器無法啟動，串流會送出 `failed`，處理程序以 `1` 結束。
+
+關閉有 10 秒可以完成，之後處理程序以 `1` 結束。在第一次 `Ctrl+C` 超過一秒之後再按一次，也會立即強制以 `1` 結束。被強制的關閉絕不會回報成功。
 
 ## 後續步驟
 

@@ -94,7 +94,7 @@ keywords:
 
 ## 性能预算
 
-当某个 bundle 超出其分类的体积预算时，生产构建(`build`) 会输出**警告**。预算仅为警告(它们绝不会让构建失败)，并在生产模式下默认启用。
+当某个 bundle 超出其分类的体积预算时，生产构建(`build`) 会输出**警告**。预算在生产模式下默认启用，默认情况下超出预算只会警告。
 
 | 分类                                                     | 默认预算 | 原因                                             |
 | -------------------------------------------------------- | -------- | ------------------------------------------------ |
@@ -122,6 +122,8 @@ export default {
   },
 };
 ```
+
+要在超出预算时让构建失败，请在 `perfBudgets` 中设置 `onExceed: 'error'`。需要 4.1.41 之后的版本。此时超出预算是错误码为 `E_PERF_BUDGET` 的错误，构建以 `1` 退出。没有该设置，或设置 `onExceed: 'warn'` 时，超出预算会以 `W_PERF_BUDGET` 警告。`onExceed` 的其他任何值都会以 `E_CONFIG_LOAD` 停止构建。
 
 `ignore` 让单个资源不受任何预算约束。按警告打印的方式列出输出路径，即相对于构建目录的路径。在模式中，`*` 匹配单个目录内的内容，`**` 可以跨目录。
 
@@ -154,7 +156,7 @@ export default {
 | 既不是分类也不是 `ignore` 的键，例如 `ignored` | 警告一次，且不改变任何预算：`perfBudgets in extension.config.js declares a key nothing reads: ignored.` |
 | `commands.dev` 下的 `perfBudgets` | 在 `dev` 中警告一次：`commands.dev.perfBudgets in extension.config.js has no effect: size budgets are checked on a production build only.` |
 
-每条拒绝信息都会指出配置文件，并给出一个合法的示例。未知键的警告会列出可接受的键：`content-script`、`service-worker`、`page`、`shared`、`public`、`runtime`、`wasm` 和 `ignore`。
+每条拒绝信息都会指出配置文件，并给出一个合法的示例。未知键的警告会列出可接受的键：`content-script`、`service-worker`、`page`、`shared`、`public`、`runtime`、`wasm`、`ignore` 和 `onExceed`。
 
 预算设为 `0` 并不会关闭某个分类。要让某个文件不受预算约束，请把它列入 `ignore`。`ignore` 中的空白字符串会被跳过。
 

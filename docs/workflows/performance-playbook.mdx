@@ -94,7 +94,7 @@ For a script, `extension build --output json` returns `total_bytes`, `largest_as
 
 ## Performance budgets
 
-Production builds (`build`) emit a **warning** when a bundle exceeds its per-category size budget. Budgets are warn-only (they never fail the build) and are enabled in production mode by default.
+Production builds (`build`) emit a **warning** when a bundle exceeds its per-category size budget. Budgets are enabled in production mode by default, and by default an overrun only warns.
 
 | Category                                                | Default budget | Why                                                        |
 | ------------------------------------------------------- | -------------- | ---------------------------------------------------------- |
@@ -122,6 +122,8 @@ export default {
   },
 };
 ```
+
+To fail the build on an overrun, set `onExceed: 'error'` in `perfBudgets`. Needs a release after 4.1.41. The overrun is then an error with the code `E_PERF_BUDGET`, and the build exits `1`. Without it, or with `onExceed: 'warn'`, the overrun warns with `W_PERF_BUDGET`. Any other `onExceed` value stops the build with `E_CONFIG_LOAD`.
 
 `ignore` excuses single assets from every budget. List output paths the way the warning prints them, relative to the build folder. In a pattern, `*` matches inside one folder and `**` crosses folders.
 
@@ -154,7 +156,7 @@ From the release after 4.1.41, a production build refuses an invalid `perfBudget
 | A key that is not a category or `ignore`, such as `ignored`                                 | Warns one time and changes no budget: `perfBudgets in extension.config.js declares a key nothing reads: ignored.`                      |
 | `perfBudgets` under `commands.dev`                                                          | Warns one time in `dev`: `commands.dev.perfBudgets in extension.config.js has no effect: size budgets are checked on a production build only.` |
 
-Each refusal names the config file and shows a valid example. The unknown key warning lists the accepted keys: `content-script`, `service-worker`, `page`, `shared`, `public`, `runtime`, `wasm`, and `ignore`.
+Each refusal names the config file and shows a valid example. The unknown key warning lists the accepted keys: `content-script`, `service-worker`, `page`, `shared`, `public`, `runtime`, `wasm`, `ignore`, and `onExceed`.
 
 A budget of `0` does not turn a category off. To stop budgeting a file, list it under `ignore`. A blank string in `ignore` is skipped.
 

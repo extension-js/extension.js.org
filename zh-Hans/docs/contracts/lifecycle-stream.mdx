@@ -49,7 +49,11 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 | `compile-failed` | false | 一次编译带着错误结束，无论是第一次还是之后。                              |
 | `ready`          | true  | 只有一次，本次会话的 `ready.json` 已落盘时。                              |
 | `browser-exited` | false | 浏览器在会话中途退出，见下文。                                            |
-| `failed`         | false | 会话级别的失败，例如服务器始终没能绑定，或者 `ready.json` 报告 `error`。 |
+| `restart-failed` | false | 从 4.1.41 之后的版本起。重启无法构建下一个 bundle，所以之前的构建继续提供服务，`value.serving` 为 `true`。`error.code` 是该失败自身的错误码，或者 `E_DEV_SERVER_START`。再次保存改动的文件即可重试。 |
+| `load-refused`   | false | 浏览器拒绝了扩展。会话继续运行，并在下一次编译时再次提供扩展。 |
+| `ready-failed`   | false | 从 4.1.41 之后的版本起。会话继续运行时 `ready.json` 报告 `error`，例如启动失败。下一次编译会再次尝试。 |
+| `failed`         | false | 结束本次运行的会话级别失败，例如服务器始终没能绑定，或者重启时下一个服务器无法启动。 |
+| `stopped`        | 视情况 | 最后一帧。会话自行以退出码 `0` 结束时为 `ok: true`。被 `SIGINT` 等信号停止时为 `ok: false`，带 `E_INTERRUPTED` 和 `value.signal`。 |
 
 每个帧的 `value` 都携带会话身份：`command`、`browser`、`distPath`、`pid`、`port`，以及已知时的 `readyPath`、`eventsPath`、`runId`、`instanceId` 和 `toolchainVersion`。
 
@@ -74,13 +78,13 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 
 `ready` 帧在触发之前会读取 `ready.json`。编译可能成功，而浏览器却拒绝了这个扩展，发生这种情况时契约会保持在 `error`。
 
-这种情况下，流改为发出一个错误码为 `E_READY_ERROR_STATUS` 的 `failed` 帧，并由 `value.readyCode` 指出契约自身的错误码。
+这种情况下，会话继续运行时流会发出一个 `ready-failed` 帧，运行结束时则发出一个 `failed` 帧。它的错误码是 `E_READY_ERROR_STATUS`，并由 `value.readyCode` 指出契约自身的错误码。
 
 浏览器根本没有启动，或者在扩展加载之前就退出时，到达的也是同一个帧。这时 `value.readyCode` 是 `browser_launch_failed` 或 `browser_exited`。Firefox 的调试器始终没有应答时，按启动失败处理。
 
 `--chromium-binary` 或 `--gecko-binary` 固定的二进制有问题时，`readyCode` 同样是 `browser_launch_failed`，但其帧带 `status: "usage"` 与 `error.code: "E_BROWSER_BINARY_INVALID"`，这也是每个命令对这种固定路径给出的代码。
 
-Chromium 的 `dev` 会话在浏览器起来之后 CDP 连线失败时，仍然会发送 `ready`，因为浏览器在运行。该帧会把故障放在 `warnings` 里，形式为 `E_CDP_...: message`，与契约盖上的 `cdpFaultCode` 和 `cdpFaultMessage` 是同一对值，见 [ready.json](/zh-Hans/docs/contracts/ready-json)。在故障修复前，reload 和 HMR 无法接上。
+Chromium 的 `dev` 会话在浏览器起来之后 CDP 连线失败时，仍然会发送 `ready`，因为浏览器在运行。该帧会把故障放在 `warnings` 里，形式为 `W_CDP_...: message`，与契约盖上的 `cdpFaultCode` 和 `cdpFaultMessage` 是同一对值，见 [ready.json](/zh-Hans/docs/contracts/ready-json)。在故障修复前，reload 和 HMR 无法接上。
 
 ## 浏览器退出
 
@@ -92,6 +96,12 @@ Chromium 的 `dev` 会话在浏览器起来之后 CDP 连线失败时，仍然�
 - `E_BROWSER_LAUNCH`：其余所有意外退出。
 
 当契约中有这些字段时，帧的 `value` 会携带 `exitCode` 和 `browserExitedAt`。
+
+## 重启与关闭
+
+从 4.1.41 之后的版本起，下一个 bundle 无法构建的重启会发送一个 `restart-failed` 帧，旧服务器继续提供服务。如果旧服务器停止后下一个服务器无法启动，流会发送 `failed`，进程以 `1` 退出。
+
+关闭有 10 秒时间完成，之后进程以 `1` 退出。在第一次 `Ctrl+C` 一秒多之后再按一次，也会立即强制以 `1` 退出。被强制的关闭永远不会报告成功。
 
 ## 下一步
 

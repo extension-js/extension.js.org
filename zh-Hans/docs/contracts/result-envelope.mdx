@@ -104,7 +104,7 @@ keywords:
 
 | 字段       | 类型                     | 含义                                                                             |
 | ---------- | ------------------------ | -------------------------------------------------------------------------------- |
-| `code`     | string                   | 可选。该诊断对应的表内错误码，例如 `E_MODULE_NOT_FOUND`。没有对应时不出现。 |
+| `code`     | string                   | 可选。该诊断对应的表内错误码，例如 `E_MODULE_NOT_FOUND`。从 4.1.41 之后的版本起，警告带 `W_*` 错误码。没有对应时不出现。 |
 | `message`  | string                   | 编译器文本，已去掉 ANSI 控制符。属于自由文案，永远不要用它做匹配。                  |
 | `file`     | string                   | 可选。源文件，相对于项目根目录。                                                 |
 | `line`     | integer                  | 可选。编译器报告时，该文件中的行号。                                             |
@@ -114,7 +114,7 @@ keywords:
 
 列表上限为 20 条。当上限把它截断时，该帧会设置 `truncated: true`。
 
-可能出现在 `details` 里的错误码是[错误码表](/zh-Hans/docs/contracts/error-codes)中的诊断行：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED`、`E_REMOTE_RESOURCE_BLOCKED`、`E_PERF_BUDGET` 和 `E_ENV_NO_MATCH`。
+可能出现在 `details` 里的错误码是[错误码表](/zh-Hans/docs/contracts/error-codes)中的诊断行：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED` 和 `E_PERF_BUDGET`。警告条目带的是[警告码表](/zh-Hans/docs/contracts/error-codes#警告码)中的错误码。
 
 下面是 `golden.build.compile.json`，其中两条 message 缩短为各自的第一行：
 
@@ -151,14 +151,17 @@ keywords:
 }
 ```
 
-成功的构建会把警告保留在顶层的 `warnings` 数组里。当能解析出错误码时，那里的每个字符串都以 `E_CODE: ` 开头，例如 `E_CSS_DEAD_REF: ...`，与 `logs` 和 `uninstall` 已有的约定相同。
+成功的构建会把警告保留在顶层的 `warnings` 数组里。当能解析出错误码时，那里的每个字符串都以 `W_CODE: ` 开头，例如 `W_CSS_DEAD_REF: ...`，与 `logs` 和 `uninstall` 已有的约定相同。4.1.41 及更早的版本中，这些字符串以 `E_*` 名称开头。
 
 ## 人类可读文案去哪了
 
 `EXTENSION_OUTPUT` 环境变量是机器模式的开关。当它是 `json` 或 `ndjson` 时，帧独占 stdout，人类可读文案让路：
 
 - 信息性输出和警告会静默，或者在流式场景需要时改走 stderr。
-- 错误文案永远不会被抑制。它总是写到 stderr，这样启动失败依然可见，而 stdout 保持可解析。
+- 错误文案永远不会被抑制。它写到 stderr，这样启动失败依然可见，而 stdout 保持可解析。
+- 从 4.1.41 之后的版本起，`build` 或 `dev` 仍在查找项目时的拒绝不会在 stderr 上打印任何内容。
+- 对 `build` 来说，这也包括查找浏览器。此时 stdout 上的帧就是全部答案。
+- 之后的每个失败，例如配置文件加载失败，还会在 stderr 上打印给人看的行。
 
 把 stdout 接给你的解析器，把 stderr 留给人看。两者永不混流。
 

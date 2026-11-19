@@ -104,7 +104,7 @@ A failed `build` frame and the dev stream's `compile-failed` frame carry `error.
 
 | Field      | Type                     | Meaning                                                                          |
 | ---------- | ------------------------ | -------------------------------------------------------------------------------- |
-| `code`     | string                   | Optional. The table code the diagnostic resolves to, for example `E_MODULE_NOT_FOUND`. Absent when none does. |
+| `code`     | string                   | Optional. The table code the diagnostic resolves to, for example `E_MODULE_NOT_FOUND`. A warning carries a `W_*` code from the release after 4.1.41. Absent when none does. |
 | `message`  | string                   | The compiler text, ANSI-stripped. Free copy, never match on it.                  |
 | `file`     | string                   | Optional. The source file, relative to the project root.                         |
 | `line`     | integer                  | Optional. The line in that file when the compiler reports one.                   |
@@ -114,7 +114,7 @@ A failed `build` frame and the dev stream's `compile-failed` frame carry `error.
 
 The list is capped at 20 entries. When the cap cuts it, the frame sets `truncated: true`.
 
-The codes that can appear in `details` are the diagnostic rows of the [error code table](/docs/contracts/error-codes): `E_MODULE_NOT_FOUND`, `E_CONTENT_SCRIPT_SYNTAX`, `E_CSS_PARSE`, `E_ENTRY_NOT_FOUND`, `E_ASSET_MISSING`, `E_SCRIPT_DEP_MISSING`, `E_RESERVED_FOLDER`, `E_CSS_PREPROCESSOR_MISSING`, `E_CSS_DEAD_REF`, `E_LOCALES_LAYOUT`, `E_WAR_INVALID`, `E_BACKGROUND_REQUIRED`, `E_REMOTE_RESOURCE_BLOCKED`, `E_PERF_BUDGET`, and `E_ENV_NO_MATCH`.
+The error codes that can appear in `details` are the diagnostic rows of the [error code table](/docs/contracts/error-codes): `E_MODULE_NOT_FOUND`, `E_CONTENT_SCRIPT_SYNTAX`, `E_CSS_PARSE`, `E_ENTRY_NOT_FOUND`, `E_ASSET_MISSING`, `E_SCRIPT_DEP_MISSING`, `E_RESERVED_FOLDER`, `E_CSS_PREPROCESSOR_MISSING`, `E_CSS_DEAD_REF`, `E_LOCALES_LAYOUT`, `E_WAR_INVALID`, `E_BACKGROUND_REQUIRED`, and `E_PERF_BUDGET`. A warning entry carries a code from the [warning code table](/docs/contracts/error-codes#warning-codes).
 
 This is `golden.build.compile.json` with its two messages shortened to their first line:
 
@@ -151,14 +151,17 @@ This is `golden.build.compile.json` with its two messages shortened to their fir
 }
 ```
 
-A successful build keeps its warnings in the top-level `warnings` array. Each string there opens with `E_CODE: ` when a code resolves, for example `E_CSS_DEAD_REF: ...`, the same convention `logs` and `uninstall` already use.
+A successful build keeps its warnings in the top-level `warnings` array. Each string there opens with `W_CODE: ` when a code resolves, for example `W_CSS_DEAD_REF: ...`, the same convention `logs` and `uninstall` already use. Releases up to 4.1.41 opened these strings with the `E_*` name.
 
 ## Where human copy goes
 
 The `EXTENSION_OUTPUT` environment variable is the machine-mode switch. When it is `json` or `ndjson`, frames own stdout and human copy moves aside:
 
 - Informational lines and warnings go quiet, or move to stderr where a stream needs them.
-- Error copy is never suppressed. It always writes to stderr, so a launch failure stays visible while stdout stays parseable.
+- Error copy is never suppressed. It writes to stderr, so a launch failure stays visible while stdout stays parseable.
+- From the release after 4.1.41, a refusal while `build` or `dev` is still finding the project prints nothing on stderr.
+- For `build`, that also covers finding the browser. The frame on stdout is then the whole answer.
+- Every later failure, such as a config file that fails to load, also prints its human lines on stderr.
 
 Pipe stdout to your parser and keep stderr for humans. The two never mix.
 

@@ -105,23 +105,22 @@ Repository: [extension-js/templates/content-env](https://github.com/extension-js
 
 ### Extension bundles (compile time)
 
-When building your extension, the compiler chooses **one** env file from your extension package folder by the first match in this order:
+When building your extension, the compiler reads the env files in your extension package folder that match the browser and mode. From the release after 4.1.41, it reads every matching file, and a stronger file overrides a weaker one key by key. Earlier releases read only the strongest match. Strongest first:
 
 1. `.env.[browser].[mode]` (for example, `.env.chrome.development`)
 2. `.env.[browser]`
 3. Engine-family variants of the two above (see the note below)
-4. `.env.[mode]`
-5. `.env.local`
-6. `.env`
+4. `.env.[mode].local` (from the release after 4.1.41)
+5. `.env.[mode]`
+6. `.env.local`
+7. `.env`
 
 Browser-scoped files resolve **per engine family**, matching [browser-specific manifest fields](/docs/features/browser-specific-fields). After the exact browser name, Chromium-family targets (`chromium`, `chrome`, `edge`, `chromium-based`, the Chromium forks, and Safari builds) also try `.env.chromium`, `.env.chrome`, `.env.edge`, and `.env.chromium-based` (each with their `.[mode]` variants first). Gecko-family targets also try `.env.firefox` and `.env.gecko-based`. A single `.env.chromium` file therefore covers a `chrome`, `edge`, or `brave` build, and an exact browser file always wins over family files.
 
-Extension.js **always merges** `.env.defaults` first when present, then the selected file's variables. Finally, **system** `process.env` takes highest precedence for overlapping keys.
+Extension.js **always merges** `.env.defaults` first when present, then the matching files' variables. Finally, **system** `process.env` takes highest precedence for overlapping keys.
 
 <Note>
-  Selection is a **single** env file from the list above (plus `.env.defaults`),
-  not a full cascade through every file. `.env.example` is documentation only
-  and is never loaded as a value source.
+  `.env.example` is documentation only and is never loaded as a value source.
 </Note>
 
 If env files exist next to your project but none match the current browser and mode, the build prints a warning naming the files it found and the candidates it looked for, so a misspelled browser suffix fails loudly instead of silently shipping without values. A file named for another mode or browser, such as `.env.development` in a production build, is left alone without a warning, and the warning calls the values undefined only when nothing else, such as `extension.config.js`, defined them.
@@ -134,7 +133,7 @@ An API key for an LLM or any other paid service belongs on a server that your ex
 
 A production build warns when an `EXTENSION_PUBLIC_*` variable with a value has a name that looks secret. A name looks secret when it contains `SECRET`, `TOKEN`, `PASSWORD`, or `PRIVATE`. It also looks secret when `KEY` comes right after `API`, `ACCESS`, `AUTH`, or `SECRET`. A name that contains `PUBLISHABLE` is skipped. If the value is public by design, such as a Firebase web API key, the warning does not apply to it. This warning needs 4.1.39 or later.
 
-If no matching file exists next to the project, Extension.js repeats the same search from the **nearest workspace root**. That root is the closest ancestor folder containing `pnpm-workspace.yaml`. Extensions inside monorepos can share root-level env files for **bundle** injection.
+If no matching file exists next to the project, Extension.js repeats the same search from the **nearest workspace root**. That root is the closest ancestor folder containing `pnpm-workspace.yaml`. Extensions inside monorepos can share root-level env files for **bundle** injection. A package whose only env file is `.env.defaults` also takes the root's files. The root `.env.defaults` loads first, and the package's own `.env.defaults` wins key by key.
 
 **Monorepo constraint:** Workspace fallback only runs when a `pnpm-workspace.yaml` marker exists on an ancestor. If you use pure npm or Yarn workspaces that rely only on `package.json` `"workspaces"`, this automatic root lookup does not apply. In that case, keep env files beside the extension package, or add a `pnpm-workspace.yaml` at the repository root.
 
@@ -142,24 +141,28 @@ If no matching file exists next to the project, Extension.js repeats the same se
 
 `extension.config.js` / `.mjs` / `.cjs` runs in Node. Before Extension.js evaluates the file, it preloads a **small** set of files into `process.env` so the configuration can read them. From the release after 4.1.41, the last file follows the command that runs. `dev` reads the development file. `build`, `start`, and `preview` read the production file.
 
-| Order         | `dev`              | `build`, `start`, `preview` |
-| ------------- | ------------------ | --------------------------- |
-| 1 (weakest)   | `.env.defaults`    | `.env.defaults`             |
-| 2             | `.env`             | `.env`                      |
-| 3             | `.env.local`       | `.env.local`                |
-| 4 (strongest) | `.env.development` | `.env.production`           |
+| Order         | `dev`                    | `build`, `start`, `preview`                   |
+| ------------- | ------------------------ | --------------------------------------------- |
+| 1 (weakest)   | `.env.defaults`          | `.env.defaults`                               |
+| 2             | `.env`                   | `.env`                                        |
+| 3             | `.env.local`             | `.env.local`                                  |
+| 4             | `.env.development`       | `.env.production`                             |
+| 5             | `.env.development.local` | `.env.production.local`                       |
+| 6 (strongest) | none                     | The browser's files, as the bundle reads them |
 
-Every file that exists loads, and a later file overrides the values of an earlier one. A variable your shell or CI exported always wins over every file. An `.mjs` config that reads `import.meta.env` sees the same winners as `process.env`.
+Every file that exists loads, and a later file overrides the values of an earlier one. A variable your shell or CI exported always wins over every file. An `.mjs` config that reads `import.meta.env` sees the same winners as `process.env`. `build --mode development` reads the development files.
 
 A build no longer reads `.env.development`. A key that exists only in that file is `undefined` in the configuration of `build`, `start`, and `preview`. Releases up to 4.1.41 preloaded `.env.development` for every command, so a build configuration read development values.
 
-Extension.js does **not** use browser-scoped files such as `.env.chrome` or `.env.chrome.development` for this preload step. The commands evaluate the configuration before the browser is known, because the configuration itself can name the browser. Instead, set values through plain `process.env` in your shell or continuous integration (CI) pipeline.
+From the release after 4.1.41, `build`, `start`, and `preview` also preload the browser's files, such as `.env.chrome` and `.env.chrome.production`. The configuration then sees the same values as the bundle. `dev` loads the configuration before it knows the browser, so it reads no browser file. Set browser values for `dev` in your shell or continuous integration (CI) pipeline.
+
+From the release after 4.1.41, `extension.config.js` runs once per command. When the configuration names the browser itself, it can run a second time. That happens only if the browser's files change a variable it read.
 
 You can also rely on bundle-time env (described above) to inject `EXTENSION_PUBLIC_*` values into extension code.
 
 **Workspace fallback:** If none of those files exist in the extension package folder, the same preload runs from the nearest folder containing `pnpm-workspace.yaml` (same constraint as above).
 
-This split exists because configuration loading is browser-agnostic at file-read time, while the bundler knows the active browser and mode.
+From the release after 4.1.41, a package whose only env file is `.env.defaults` falls back the same way. The root `.env.defaults` loads first, and the package's own `.env.defaults` wins key by key.
 
 <Frame>
   <iframe
@@ -187,6 +190,8 @@ Extension.js injects built-in variables at compile time, so browser and mode are
 | `NODE_ENV`                 | Node environment aligned to compiler mode (`development` / `production`).                 |
 
 All built-ins above are available through both `process.env.*` and `import.meta.env.*`.
+
+From the release after 4.1.41, a `.env` file that sets `EXTENSION_PUBLIC_BROWSER`, `EXTENSION_BROWSER`, `EXTENSION_PUBLIC_MODE`, or `EXTENSION_MODE` to another value prints a `W_ENV_NAME_RESERVED` warning that names the file. The build target wins, so the file value is ignored.
 
 ## Environment variable inventory
 
@@ -385,7 +390,7 @@ EXTENSION_PUBLIC_SITE=http://localhost:4322
 EXTENSION_PUBLIC_SITE=https://example.com
 ```
 
-`extension dev` reads `.env.development` and matches `http://localhost:4322/*`. `extension build` reads `.env` and ships only `https://example.com/*`. A production build that still names `localhost`, `127.0.0.1`, `[::1]`, or `0.0.0.0` in `content_scripts`, `host_permissions`, `externally_connectable`, or `web_accessible_resources` prints a warning with the code `E_PROD_LOOPBACK_ORIGIN` and ships the pattern as written, since a production build pointed at a local server can be on purpose.
+`extension dev` reads `.env.development` and matches `http://localhost:4322/*`. `extension build` reads `.env` and ships only `https://example.com/*`. A production build that still names `localhost`, `127.0.0.1`, `[::1]`, or `0.0.0.0` in `content_scripts`, `host_permissions`, `externally_connectable`, or `web_accessible_resources` prints a warning with the code `W_PROD_LOOPBACK_ORIGIN` and ships the pattern as written, since a production build pointed at a local server can be on purpose.
 
 ### 2. In locale files
 

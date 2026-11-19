@@ -341,6 +341,7 @@ deno run -A npm:extension@latest build ./my-extension --zip --zip-source
 
 带警告成功的构建会在这两行之上打印警告详情，
 并且编译那一行会显示 `compiled with warnings` 而不是 `compiled in`。
+从 4.1.41 之后的版本起，在插件的 `done` 钩子中失败的构建不会打印 `compiled in` 那一行。
 
 从 4.1.39 之后的版本起，如果一个文件被多个入口导入，它产生的警告或错误只打印一次，也只计数一次。
 
@@ -353,9 +354,17 @@ deno run -A npm:extension@latest build ./my-extension --zip --zip-source
 
 `--output json` 会在 stdout 上打印一个 schema-1 信封，并把给人看的构建日志转到 stderr。stdout 始终可以作为一份 JSON 文档解析。
 
-- 成功的运行会打印一个 `status: "built"` 帧。它的 `value` 携带构建出的浏览器、解析出的模式，以及每个浏览器一份汇总。每份汇总记录输出路径、资源总量、警告文本，以及相关时的 Safari 应用标识。当能解析出错误码时，每个警告字符串都以 `E_CODE: ` 开头，例如 `E_CSS_DEAD_REF: ...`，与 `logs` 和 `uninstall` 的约定相同。
+- 成功的运行会打印一个 `status: "built"` 帧。它的 `value` 携带构建出的浏览器、解析出的模式，以及每个浏览器一份汇总。每份汇总记录输出路径、资源总量、警告文本，以及相关时的 Safari 应用标识。当能解析出错误码时，每个警告字符串都以 `W_CODE: ` 开头，例如 `W_CSS_DEAD_REF: ...`，与 `logs` 和 `uninstall` 的约定相同。
 - 失败的构建会在进程以 `1` 退出前打印一个 `ok: false` 帧，其 `status: "build-failed"`。编译错误带 `error.code: "E_COMPILE"`，并且 `error.details` 会列出失败背后的每条诊断，各自带有错误码、文件和位置，错误排在前面，上限 20 条，截断时设置 `truncated: true`。见[编译诊断](/zh-Hans/docs/contracts/result-envelope)。项目目录不存在带 `E_PROJECT_NOT_FOUND`，目录里没有 manifest 带 `E_MANIFEST_NOT_FOUND`，manifest 无法解析带 `E_MANIFEST_INVALID`。配置文件加载失败带 `E_CONFIG_LOAD`。
 - 路径参数是远程 URL 时，下载进度行同样写到 stderr。返回的不是 ZIP 归档、归档已损坏或含有位于其文件夹之外的条目带 `E_REMOTE_ZIP_INVALID`，超时带 `E_REMOTE_FETCH_TIMEOUT`，连接被拒绝或 HTTP 错误带 `E_REMOTE_DOWNLOAD`。含有位于其文件夹之外的条目的归档会在写入任何内容之前被拒绝，消息会点名该条目。
+
+从 4.1.41 之后的版本起：
+
+- 警告字符串以 `W_*` 错误码开头。更早的版本使用 `E_*` 名称。
+- 在创建编译器时抛错的插件（例如在它的 `apply` 中）带 `E_COMPILE_FATAL`。
+- 以空消息抛出的错误会指出抛出它的文件、行和列。
+- 构建仍在查找项目及其浏览器时的拒绝，不会在 stderr 上打印任何内容。
+- 之后的每个失败还会在 stderr 上打印给人看的行。
 
 每次构建还会写出 `dist/extension-js/<browser>/build-summary.json`。通过 shell 调用 `extension build` 的脚本可以从那里读取结构化的警告。请检查文件的修改时间，避免读到过期文件。
 
@@ -379,10 +388,14 @@ AMO <error|warning> <CODE>: <message> (<file>:<line>)
 当没有安装 addons-linter 时，构建会为每个项目打印一行 info 并跳过检查：
 
 ```plaintext
-Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter or pass --no-addon-lint to silence this.
+Skipped the addons.mozilla.org lint: addons-linter is not installed. Install it with: npm install -D addons-linter, or turn the lint off with --no-addon-lint or commands.build.addonLint: false in extension.config.js.
 ```
 
 安装命令会按你项目使用的包管理器来措辞。
+
+从 4.1.41 之后的版本起，已安装但无法加载的 linter 会单独打印一行。这一行指出那份副本和原因，并建议重新安装，而不是运行 `npx addons-linter`，因为那会运行同一份坏掉的副本。
+
+当发现的问题落在打包进来的包里时，检查会在浏览器文件夹旁边写出 `amo-reviewer-note.md`，例如 `dist/amo-reviewer-note.md`。把其中打包库的部分粘贴到提交中。从 4.1.41 之后的版本起，lint 没有跑完的构建会把上一份说明移到 `amo-reviewer-note.stale.md`。找不到 linter 的构建也会这样做，并在那一行里说明。
 
 用 `--no-addon-lint`，或在 `extension.config.js` 中设置 `commands.build.addonLint: false`，即可关闭检查。非生产模式会跳过它，因为开发产物带有仅供开发的授权，linter 会白白地标记它们。`extension start` 也会跳过它，因为 `start` 是预览构建，而不是发布构建。
 
