@@ -348,6 +348,21 @@ export default {
 
 到这时 Rspack 已经消费了其余所有键。这包括 `entry`、`plugins`、`context`、`mode`、`target`、`devtool`、`externals`、`experiments` 和 `performance` 这类键，`minimize` 与 `minimizer` 之外的所有 `optimization` 键，以及这些 `output` 键：`path`、`module`、`library`、`enabledLibraryTypes`、`chunkFormat`、`chunkLoading`、`enabledChunkLoadingTypes`、`wasmLoading`、`enabledWasmLoadingTypes`、`workerChunkLoading`、`workerWasmLoading`、`workerPublicPath`、`pathinfo`、`sourceMapFilename`、`devtoolModuleFilenameTemplate`、`devtoolFallbackModuleFilenameTemplate`、`devtoolNamespace`、`bundlerInfo`。对其中任何一个的修改，包括深入到值内部的修改，Extension.js 都会撤销，并打印一条按路径列出每个键的警告。请在 `config` 里设置它们。
 
+#### Loader 顺序
+
+Rspack 按从最后一条规则到第一条规则的顺序运行匹配规则的 loader。Extension.js 把它自己的脚本规则放在你的规则前面，所以一个脚本按以下顺序经过各个 loader：
+
+1. 你的 loader。它们读取你所写的文件，包括 TypeScript 和 JSX。
+2. 项目使用的框架编译器，例如 Solid 或 Svelte 编译器。
+3. SWC，它为目标浏览器编译 TypeScript 和 JSX。
+4. content script wrapper，仅用于 content script。
+
+带有 `enforce: "pre"` 的 loader 同样最先运行。带有 `enforce: "post"` 的 loader 在它们全部之后运行，读取的是编译后的输出。
+
+`config` 中的规则只能添加 loader，不能移除 loader。SWC 仍会在你的 loader 之后编译你的脚本。要修改 Extension.js 挂上的规则，请在 `configResolved` 中编辑 `config.module.rules`。
+
+从 4.1.41 之后的版本起，content script wrapper 最后运行。更早的版本在你的 loader 之前运行它，所以 loader 读到的是包装后的文本，除非它设置了 `enforce: "pre"`。
+
 #### 钩子上下文
 
 两个钩子都会收到第二个参数，用来说明本次运行。它带有 `browser`（目标浏览器，与 `--browser` 的写法一致）、`mode`（`development`、`production` 或 `none`）和 `command`（`dev`、`build`、`start` 或 `preview`）。用它为某一个浏览器修改打包器，而不必读取 `process.argv`。下面的例子让 Firefox 的商店构建保持可读，方便审核：

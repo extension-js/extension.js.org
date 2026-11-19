@@ -261,6 +261,8 @@ deno run -A npm:extension@latest build --browser chrome --polyfill
 
 polyfill 模块会先从你的项目里解析，然后才回落到 Extension.js 内置的依赖。包管理器可能会把 `webextension-polyfill` 提升到你的项目根目录，而你自己安装的那份会优先于内置的那份。如果完全解析不到任何一份，构建会打印一条警告并在没有 polyfill 的情况下继续，而不是失败。
 
+从 4.1.41 之后的版本起，polyfill 不会进入没有扩展 API 的代码。这包括 `MAIN` world 的 content script 和沙盒页面，也包括你的代码用 `chrome.scripting` 注册或注入到 `MAIN` world 的脚本。在这些文件中，`browser` 是页面自己的全局变量。更早的版本也会把 polyfill 打包进去，而它在那里一加载就会抛出错误。
+
 如果某个脚本在 polyfill 关闭时读取 `browser.*`，而 manifest 仍然允许更旧的 Chromium 安装这个扩展，构建会打印一条警告：
 
 ```plaintext
