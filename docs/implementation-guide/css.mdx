@@ -253,6 +253,16 @@ Once the face is on `document.fonts`, the shadow tree can use it by name in an
 ordinary `font-family` rule. The working version lives in
 [content-custom-font](https://github.com/extension-js/templates/tree/main/examples/content-custom-font).
 
+## Import a stylesheet as a URL
+
+From the release after 4.1.41, a `?url` import outside a content script gives you the URL of the compiled sheet:
+
+```ts
+import href from "./panel.css?url";
+```
+
+The build compiles the sheet and ships it as a file of its own under `assets/`. A relative `url()` or `@import` in that sheet cannot follow it there, and one warning lists those addresses. Move those files into `public/` and name them from the root, or import the stylesheet without `?url`.
+
 ## Output behavior by context
 
 | Context            | Output behavior                                                               |
@@ -263,6 +273,10 @@ ordinary `font-family` rule. The working version lives in
 Extension.js splits contexts automatically based on which entrypoint imports the CSS.
 
 From the release after 4.1.41, a content script stylesheet ships with the rules of every project `.css` file it imports. The import's media, supports, or layer condition is kept. A content script sheet loads from a `data:` URL, where the browser fetches no relative import. Package and remote imports stay as written. A sheet outside the project or a private file is not brought in, and the build warns with the file. An `@import` that still sits in the sheet after every tool ran warns that its rules will not load.
+
+From the release after 4.1.41, Extension.js compiles every stylesheet with its own rules, and those win over your config. A `type` that your config sets for `.css`, `.scss`, `.sass`, or `.less` files is not applied. One warning says so. Remove `type` from the rule. Import the stylesheet with `?url` for its file URL, or with `?raw` for its text.
+
+When a production build minifies a sheet, Extension.js compares the result with the sheet before minification. A sheet that lost a rule ships as authored, with a warning that names what was dropped. From the release after 4.1.41, this check runs only when the build minifies, so `dev` skips it.
 
 ## Development behavior
 

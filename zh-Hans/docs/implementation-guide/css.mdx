@@ -241,6 +241,16 @@ export default function initial() {
 
 字体一旦进入 `document.fonts`，shadow 树就可以在普通的 `font-family` 规则里按名称使用它。可运行的版本见 [content-custom-font](https://github.com/extension-js/templates/tree/main/examples/content-custom-font)。
 
+## 以 URL 导入样式表
+
+从 4.1.41 之后的版本起，在 content script 之外，`?url` 导入会给出编译后样式表的 URL：
+
+```ts
+import href from "./panel.css?url";
+```
+
+构建会编译该样式表，并把它作为单独的文件放在 `assets/` 下。该样式表中相对的 `url()` 或 `@import` 无法跟随它到新位置，一条警告会列出这些地址。把那些文件移到 `public/` 中并从根路径引用，或者不带 `?url` 导入该样式表。
+
 ## 按上下文的输出行为
 
 | 上下文          | 输出行为                                                                       |
@@ -251,6 +261,10 @@ export default function initial() {
 Extension.js 会根据哪个入口导入了 CSS 自动拆分上下文。
 
 从 4.1.41 之后的版本起，content script 样式表会带上它导入的每个项目 `.css` 文件中的规则。导入时的 media、supports 或 layer 条件会被保留。content script 样式表从 `data:` URL 加载，浏览器在那里不会获取任何相对导入。包导入和远程导入保持原样。项目之外的样式表或私有文件不会被引入，构建会针对该文件发出警告。所有工具运行完之后仍留在样式表中的 `@import` 会发出警告，说明它的规则不会加载。
+
+从 4.1.41 之后的版本起，Extension.js 用自己的规则编译每个样式表，这些规则优先于你的配置。你的配置为 `.css`、`.scss`、`.sass` 或 `.less` 文件设置的 `type` 不会生效。一条警告会说明这一点。请从该规则中移除 `type`。要得到文件 URL，用 `?url` 导入样式表。要得到文本，用 `?raw` 导入。
+
+生产构建压缩样式表时，Extension.js 会把结果与压缩前的样式表进行比较。丢失了规则的样式表按原样发布，并附带一条警告，指出被丢掉的内容。从 4.1.41 之后的版本起，只有构建进行压缩时才运行这项检查，所以 `dev` 会跳过它。
 
 ## 开发期行为
 

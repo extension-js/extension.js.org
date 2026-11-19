@@ -47,15 +47,18 @@ While the stream is on, human copy that shares stdout moves to stderr. Error cop
 | `compiled`       | true  | The first successful compile. Carries `assets` and `durationMs`.            |
 | `recompiled`     | true  | Every later successful compile.                                             |
 | `compile-failed` | false | A compile finished with errors, first or later.                             |
-| `ready`          | true  | Once, when `ready.json` is on disk for this session.                        |
+| `ready`          | true  | When `ready.json` is on disk for this session. It arrives again when a later compile clears a `ready-failed` or `load-refused`. From the release after 4.1.41, it also arrives after a successful `dev` restart, with `value.restarted: true`. |
 | `browser-exited` | false | The browser died mid-session, see below.                                    |
 | `restart-failed` | false | From the release after 4.1.41. A restart could not build the next bundle, so the previous build keeps serving and `value.serving` is `true`. `error.code` is the failure's own code, or `E_DEV_SERVER_START`. Save the changed file again to retry. |
 | `load-refused`   | false | The browser refused the extension. The session goes on and offers it again on the next compile. |
 | `ready-failed`   | false | From the release after 4.1.41. `ready.json` reports `error` while the session goes on, for example a failed launch. The next compile tries again. |
-| `failed`         | false | A session-level failure that ends the run, for example the server never bound, or the next server of a restart could not start. |
+| `failed`         | false | A session-level failure that ends the run, for example the server never bound, the next server of a restart could not start, or a stop passed its shutdown bound. |
+| `usage`          | false | The last frame when the browser launch refused a value that you set, such as a bad `--chromium-binary` pin. |
 | `stopped`        | varies | The last frame. `ok: true` when the session ended by itself with exit code `0`. `ok: false` with `E_INTERRUPTED` and `value.signal` when a signal such as `SIGINT` stopped it. |
 
 Every frame's `value` carries the session identity: `command`, `browser`, `distPath`, `pid`, `port`, plus `readyPath`, `eventsPath`, `runId`, `instanceId`, and `toolchainVersion` when known.
+
+`failed`, `usage`, and `stopped` are terminal. A terminal frame means that the process is ending, and the stream writes nothing after it, so stop reading at the first one. Every other `ok: false` frame leaves the session running. When the CLI knows the remedy for the code, a `failed` or `usage` frame carries it as `hint`.
 
 A run refused before the session begins sends one `failed` frame and no `starting` frame. A missing manifest, a config file that fails to load, and a remote URL with no usable archive all end that way.
 
@@ -78,9 +81,11 @@ The frame also carries `error.details`, one entry per diagnostic with its own co
 
 The `ready` frame reads `ready.json` before it fires. A compile can succeed while the browser refuses the extension, and the contract stays in `error` when that happens.
 
-In that case the stream emits a `ready-failed` frame while the session goes on, or a `failed` frame when the run ends. Its code is `E_READY_ERROR_STATUS`, and `value.readyCode` names the contract's own error code.
+While the session goes on, the stream then emits a `ready-failed` frame, or `load-refused` when the browser refused the extension. Neither one ends the session, and a later compile that clears the error writes `ready` again. A contract error becomes a `failed` frame only when the process exits while `ready.json` still reports it.
 
-The same frame arrives when the browser never started or exited before the extension loaded. `value.readyCode` is then `browser_launch_failed` or `browser_exited`. A Firefox whose debugger never answers counts as a launch failure.
+`error.code` is the code that the launcher stamped, or else the code for the contract's state. For example, `browser_launch_failed` gives `E_BROWSER_LAUNCH`, and a refused load gives `E_EXTENSION_LOAD_REFUSED`. `E_READY_ERROR_STATUS` is left for a state with no code of its own. `value.readyCode` names the contract's own error id.
+
+A browser that never started sends this frame with `value.readyCode` set to `browser_launch_failed`. A Firefox whose debugger never answers counts as a launch failure. A browser that exited sends a `browser-exited` frame instead, see below.
 
 A bad `--chromium-binary` or `--gecko-binary` pin also reports `readyCode: "browser_launch_failed"`, but its frame has `status: "usage"` and `error.code: "E_BROWSER_BINARY_INVALID"`, the code every command gives that pin.
 
@@ -97,11 +102,19 @@ The frame's code depends on the evidence in the contract:
 
 The frame's `value` carries `exitCode`, `exitSignal`, and `browserExitedAt` when the contract has them. A crash has no exit code, only a signal such as `SIGTRAP`.
 
+From the release after 4.1.41, the `hint` of a `browser-exited` or `ready-failed` frame starts with the remedy that the CLI knows for the code. Then it says that the session keeps running. For `E_PROFILE_LOCKED`, the remedy is to close the browser that has the profile open, or to pass `--profile <path>`.
+
 ## Restarts and shutdown
 
 From the release after 4.1.41, a restart whose next bundle cannot be built sends one `restart-failed` frame, and the old server keeps serving. If the next server cannot start after the old one stopped, the stream sends `failed` and the process exits `1`.
 
+From the release after 4.1.41, a successful `dev` restart writes `ready` again once the first compile of the new server is green. That frame's `value` carries `restarted: true`. Until then, the stream writes the compile frames as usual.
+
 A shutdown has 10 seconds to finish, then the process exits `1`. A second `Ctrl+C` more than one second after the first one also forces exit `1` at once. A forced shutdown never reports success.
+
+From the release after 4.1.41, a stop that passes this bound ends the stream on `failed` with `E_SHUTDOWN_TIMEOUT` when no terminal frame came before it. A stop from an auto-exit deadline is one example. The frame's `value` carries `exitCode` and `shutdownTimeoutMs`. A stop from a signal keeps its `stopped` frame.
+
+A session that exits with a code other than `0` also ends on a terminal frame. With an error in `ready.json`, the frame carries that error's code. Otherwise it is `failed` with `E_INTERNAL` and `value.exitCode`.
 
 ## Next steps
 
