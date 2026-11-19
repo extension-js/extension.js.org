@@ -94,7 +94,7 @@ keywords:
 
 ## 效能預算
 
-正式建置（`build`）在 bundle 超出該類別大小預算時會發出 **警告**。預算僅警告（絕不會讓建置失敗），並在 production 模式預設啟用。
+正式建置（`build`）在 bundle 超出該類別大小預算時會發出 **警告**。預算在 production 模式預設啟用，預設情況下超出預算只會發出警告。
 
 | 類別                                                  | 預設預算 | 為何                                         |
 | ----------------------------------------------------- | -------- | -------------------------------------------- |
@@ -122,6 +122,8 @@ export default {
   },
 };
 ```
+
+要在超出預算時讓建置失敗，請在 `perfBudgets` 中設定 `onExceed: 'error'`。這需要 4.1.41 之後的版本。超出預算這時會成為代碼為 `E_PERF_BUDGET` 的錯誤，建置以 `1` 結束。沒有這個設定，或設為 `onExceed: 'warn'` 時，超出預算會以 `W_PERF_BUDGET` 警告。其他任何 `onExceed` 值都會讓建置以 `E_CONFIG_LOAD` 停止。
 
 `ignore` 讓單一資源不受任何預算約束。依警告印出的方式列出輸出路徑，也就是相對於建置資料夾的路徑。在樣式中，`*` 匹配單一資料夾內的內容，`**` 可以跨資料夾。
 
@@ -154,7 +156,7 @@ export default {
 | 既不是類別也不是 `ignore` 的鍵，例如 `ignored` | 警告一次，且不改變任何預算：`perfBudgets in extension.config.js declares a key nothing reads: ignored.` |
 | `commands.dev` 下的 `perfBudgets` | 在 `dev` 中警告一次：`commands.dev.perfBudgets in extension.config.js has no effect: size budgets are checked on a production build only.` |
 
-每則拒絕訊息都會指出設定檔，並給出一個合法的範例。未知鍵的警告會列出可接受的鍵：`content-script`、`service-worker`、`page`、`shared`、`public`、`runtime`、`wasm` 與 `ignore`。
+每則拒絕訊息都會指出設定檔，並給出一個合法的範例。未知鍵的警告會列出可接受的鍵：`content-script`、`service-worker`、`page`、`shared`、`public`、`runtime`、`wasm`、`ignore` 與 `onExceed`。
 
 預算設為 `0` 並不會關閉某個類別。要讓某個檔案不受預算約束，請把它列入 `ignore`。`ignore` 中的空白字串會被略過。
 

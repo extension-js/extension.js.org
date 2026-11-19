@@ -49,7 +49,11 @@ While the stream is on, human copy that shares stdout moves to stderr. Error cop
 | `compile-failed` | false | A compile finished with errors, first or later.                             |
 | `ready`          | true  | Once, when `ready.json` is on disk for this session.                        |
 | `browser-exited` | false | The browser died mid-session, see below.                                    |
-| `failed`         | false | A session-level failure, for example the server never bound, or `ready.json` reports `error`. |
+| `restart-failed` | false | From the release after 4.1.41. A restart could not build the next bundle, so the previous build keeps serving and `value.serving` is `true`. `error.code` is the failure's own code, or `E_DEV_SERVER_START`. Save the changed file again to retry. |
+| `load-refused`   | false | The browser refused the extension. The session goes on and offers it again on the next compile. |
+| `ready-failed`   | false | From the release after 4.1.41. `ready.json` reports `error` while the session goes on, for example a failed launch. The next compile tries again. |
+| `failed`         | false | A session-level failure that ends the run, for example the server never bound, or the next server of a restart could not start. |
+| `stopped`        | varies | The last frame. `ok: true` when the session ended by itself with exit code `0`. `ok: false` with `E_INTERRUPTED` and `value.signal` when a signal such as `SIGINT` stopped it. |
 
 Every frame's `value` carries the session identity: `command`, `browser`, `distPath`, `pid`, `port`, plus `readyPath`, `eventsPath`, `runId`, `instanceId`, and `toolchainVersion` when known.
 
@@ -74,13 +78,13 @@ The frame also carries `error.details`, one entry per diagnostic with its own co
 
 The `ready` frame reads `ready.json` before it fires. A compile can succeed while the browser refuses the extension, and the contract stays in `error` when that happens.
 
-In that case the stream emits a `failed` frame with code `E_READY_ERROR_STATUS` instead, and `value.readyCode` names the contract's own error code.
+In that case the stream emits a `ready-failed` frame while the session goes on, or a `failed` frame when the run ends. Its code is `E_READY_ERROR_STATUS`, and `value.readyCode` names the contract's own error code.
 
 The same frame arrives when the browser never started or exited before the extension loaded. `value.readyCode` is then `browser_launch_failed` or `browser_exited`. A Firefox whose debugger never answers counts as a launch failure.
 
 A bad `--chromium-binary` or `--gecko-binary` pin also reports `readyCode: "browser_launch_failed"`, but its frame has `status: "usage"` and `error.code: "E_BROWSER_BINARY_INVALID"`, the code every command gives that pin.
 
-A Chromium `dev` session whose CDP wire failed after the browser came up still sends `ready`, because the browser is up. That frame carries the fault on `warnings` as `E_CDP_...: message`, the same pair the contract stamps as `cdpFaultCode` and `cdpFaultMessage`, see [ready.json](/docs/contracts/ready-json). Reload and HMR cannot attach until the fault is fixed.
+A Chromium `dev` session whose CDP wire failed after the browser came up still sends `ready`, because the browser is up. That frame carries the fault on `warnings` as `W_CDP_...: message`, the same pair the contract stamps as `cdpFaultCode` and `cdpFaultMessage`, see [ready.json](/docs/contracts/ready-json). Reload and HMR cannot attach until the fault is fixed.
 
 ## Browser exits
 
@@ -92,6 +96,12 @@ The frame's code depends on the evidence in the contract:
 - `E_BROWSER_LAUNCH` for every other unexpected exit.
 
 The frame's `value` carries `exitCode`, `exitSignal`, and `browserExitedAt` when the contract has them. A crash has no exit code, only a signal such as `SIGTRAP`.
+
+## Restarts and shutdown
+
+From the release after 4.1.41, a restart whose next bundle cannot be built sends one `restart-failed` frame, and the old server keeps serving. If the next server cannot start after the old one stopped, the stream sends `failed` and the process exits `1`.
+
+A shutdown has 10 seconds to finish, then the process exits `1`. A second `Ctrl+C` more than one second after the first one also forces exit `1` at once. A forced shutdown never reports success.
 
 ## Next steps
 

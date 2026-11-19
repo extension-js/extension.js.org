@@ -1,6 +1,6 @@
 ---
 title: "Extension.js CLI error codes (E_* reference)"
-description: "The durable E_* error-code table for the Extension.js schema-1 envelope, grouped by area, with the folded and legacy name mappings from codes.json."
+description: "The durable E_* error codes and W_* warning codes of the Extension.js schema-1 envelope, grouped by area, with the folded and legacy name mappings from codes.json."
 keywords:
   [
     "extension.js",
@@ -16,7 +16,9 @@ keywords:
 
 Branch on a stable code, never on message text.
 
-Every failure envelope carries one `E_*` code from a single table. Codes may be added, never renamed or removed. The message beside a code is free copy and may change in any release.
+Every failure envelope carries one `E_*` code from a single table. Codes may be added, never renamed or removed, apart from the one move to `W_*` below. The message beside a code is free copy and may change in any release.
+
+From the release after 4.1.41, a warning carries a `W_*` code: the run carried on past it. Errors and refusals keep their `E_*` code. See [Warning codes](#warning-codes).
 
 The table ships as `extension-develop/contract/codes.json`, see [Result envelope](/docs/contracts/result-envelope).
 
@@ -43,14 +45,12 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | ---- | ------- |
 | `E_PROJECT_NOT_FOUND` | The resolved project folder does not exist. |
 | `E_CONFIG_LOAD` | `extension.config.js` threw while loading, or exported something other than an object. `dev`, `build`, `start`, and `preview` all answer with it. A production build also answers with it for an invalid [`perfBudgets`](/docs/workflows/performance-playbook#invalid-budget-values) value. |
-| `E_MANAGED_DEP_CONFLICT` | The project declares a package that the toolchain manages. |
 | `E_DEPENDENCY_INSTALL` | Installing project dependencies failed. |
-| `E_TYPES_EMIT` | Writing `extension-env.d.ts` failed. |
-| `E_TSCONFIG_MISSING` | TypeScript sources exist with no `tsconfig.json` beside `package.json`. |
 | `E_OPTIONAL_DEP_UNRESOLVED` | An optional dependency contract could not be resolved. |
-| `E_OPTIONAL_DEP_LOAD` | An optional dependency resolved but failed to load. |
+| `E_OPTIONAL_DEP_LOAD` | An optional dependency resolved but failed to load. From the release after 4.1.41, a copy in your project that throws on load stops the run. The message names its path and the cause. No other install stands in for it. |
 | `E_OPTIONAL_DEP_UNKNOWN` | Unknown optional-dependency contract id. |
-| `E_COMPANION_EXTENSION_PATH` | A companion extension path escapes `extensions/` or yielded nothing unpacked. |
+| `E_COMPANION_EXTENSION_PATH` | The only manifest at the resolved root belongs to a companion under `extensions/`. A companion entry that the browser opens without warns with `W_COMPANION_EXTENSION_PATH`. |
+| `E_PROJECT_LAYOUT` | A file in `public/` would overwrite a file the build emits, or an `include` entry in `extension.config.js` names a missing file or an output path outside the extension. |
 | `E_MANIFEST_IN_PUBLIC` | `manifest.json` was placed under `public/`. |
 | `E_RUNTIME_NOT_FOUND` | The extension-develop runtime is missing or uncompiled. |
 
@@ -67,7 +67,7 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | ---- | ------- |
 | `E_FIRST_COMPILE` | The first compile of a session failed, so nothing was loaded. |
 | `E_COMPILE` | A compile finished with errors. |
-| `E_COMPILE_FATAL` | The compiler itself failed or returned unusable stats. |
+| `E_COMPILE_FATAL` | The compiler itself failed or returned unusable stats. From the release after 4.1.41, it also covers a plugin that throws while the compiler is made, such as in its `apply`. |
 | `E_MODULE_NOT_FOUND` | A module specifier could not be resolved. |
 | `E_ENTRY_NOT_FOUND` | A manifest, HTML, or JSON entry points at a file that is missing or not bundled. |
 | `E_ASSET_MISSING` | An icon, static asset, or JSON dependency is missing or not bundled. |
@@ -76,20 +76,19 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_CSS_PARSE` | A stylesheet failed to parse. |
 | `E_CSS_PREPROCESSOR_MISSING` | A CSS preprocessor is requested but not resolvable. |
 | `E_CSS_DEAD_REF` | A CSS `url()` or `@import` names a file that is missing or not bundled. |
-| `E_INTEGRATION_INSTALL` | A framework integration failed to install. |
-| `E_POLYFILL_NOT_FOUND` | webextension-polyfill requested but absent. |
 | `E_LOCALES_LAYOUT` | `_locales` layout or `messages.json` is invalid. |
 | `E_WAR_INVALID` | `web_accessible_resources` shape or match pattern rejected. |
-| `E_MATCH_PATTERN_INVALID` | The browser rejected a content-script match pattern. |
 | `E_BACKGROUND_REQUIRED` | The reload runtime needs a background chunk that is absent. |
 | `E_CONTENT_SCRIPT_SYNTAX` | A content script failed to parse. |
-| `E_NO_ENTRYPOINTS` | The compilation produced zero entrypoints. |
-| `E_REMOTE_RESOURCE_BLOCKED` | A remote script or stylesheet is blocked by extension CSP. |
-| `E_PERF_BUDGET` | An asset exceeds its size budget. |
+| `E_PERF_BUDGET` | An asset exceeds its size budget, and `perfBudgets.onExceed` is `'error'`, so the build fails. Without that setting the overrun warns with `W_PERF_BUDGET`. See [Performance budgets](/docs/workflows/performance-playbook#performance-budgets). |
+| `E_THEME_INVALID` | A theme color or tint is not a number array a Chromium browser loads, and the build cannot translate it exactly. |
+| `E_DEV_SESSION_DIST_SHARED` | A build would write the output folder that a running dev session serves, so it was refused. Pass `--out-dir` to build beside it. |
+| `E_OUTPUT_NOT_WRITABLE` | The build could not write `manifest.json` into the output folder. |
+| `E_JSON_INVALID` | A JSON file the manifest names does not parse, or its `declarativeNetRequest` ruleset or managed storage schema has a shape the browser rejects. |
+| `E_ASSET_IMPORT_SHAPE` | An asset imported with `import * as` is read as the file's value, which is the default export. |
 | `E_ZIP_SKIPPED` | Packaging was skipped for a stated reason. |
-| `E_ENV_NO_MATCH` | No `.env` file matched the mode. |
 
-`E_COMPILE` and `E_FIRST_COMPILE` are the top-level codes of a failed compile. Fifteen rows above travel inside that frame's `error.details`, one per diagnostic: `E_MODULE_NOT_FOUND`, `E_CONTENT_SCRIPT_SYNTAX`, `E_CSS_PARSE`, `E_ENTRY_NOT_FOUND`, `E_ASSET_MISSING`, `E_SCRIPT_DEP_MISSING`, `E_RESERVED_FOLDER`, `E_CSS_PREPROCESSOR_MISSING`, `E_CSS_DEAD_REF`, `E_LOCALES_LAYOUT`, `E_WAR_INVALID`, `E_BACKGROUND_REQUIRED`, `E_REMOTE_RESOURCE_BLOCKED`, `E_PERF_BUDGET`, and `E_ENV_NO_MATCH`. The same codes open a successful build's `warnings` strings as an `E_CODE: ` prefix. See [Compile diagnostics](/docs/contracts/result-envelope).
+`E_COMPILE` and `E_FIRST_COMPILE` are the top-level codes of a failed compile. Thirteen rows above travel inside that frame's `error.details`, one per error: `E_MODULE_NOT_FOUND`, `E_CONTENT_SCRIPT_SYNTAX`, `E_CSS_PARSE`, `E_ENTRY_NOT_FOUND`, `E_ASSET_MISSING`, `E_SCRIPT_DEP_MISSING`, `E_RESERVED_FOLDER`, `E_CSS_PREPROCESSOR_MISSING`, `E_CSS_DEAD_REF`, `E_LOCALES_LAYOUT`, `E_WAR_INVALID`, `E_BACKGROUND_REQUIRED`, and `E_PERF_BUDGET`. A warning in `details` has `severity: "warning"` and a `W_*` code. A successful build's `warnings` strings open with the same `W_CODE: ` prefix. See [Compile diagnostics](/docs/contracts/result-envelope).
 
 ## Remote projects and network
 
@@ -114,13 +113,15 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_BROWSER_EXITED` | The launched browser exited while the server kept running. |
 | `E_BROWSER_START_TIMEOUT` | The browser never signalled startup. |
 | `E_PROFILE_LOCKED` | The profile directory is held by another browser process. |
-| `E_LAUNCH_SKIPPED_COMPILE_ERRORS` | Launch was withheld because the compile failed. |
 | `E_INSTANCE_AMBIGUOUS` | More than one live instance matches the requested id. |
-| `E_WSL_INTEROP` | WSL interop could not resolve a Windows browser. |
 | `E_BROWSER_DOWNLOAD` | Downloading or installing a browser failed. |
 | `E_BROWSER_INSTALL_PRIVILEGE` | The install needs an interactive privileged session. |
 | `E_BROWSER_UNINSTALL` | Removing an installed browser failed. |
-| `E_UNINSTALL_NOOP` | Nothing to remove. |
+| `E_BROWSER_INSTALL_TIMEOUT` | The browser installer was still running at the install timeout and was stopped. |
+| `E_BROWSER_INSTALL_BUSY` | Another install of the same browser was still running after the whole wait, so this one never started. |
+| `E_BROWSER_CACHE_NOT_WRITABLE` | The browser cache root is a file, cannot be created, or cannot be written to. |
+| `E_BROWSER_FOLDER_FOREIGN` | The browser folder in the cache holds files the installers never write, so the install left it untouched. |
+| `E_BROWSER_INSTALLER_NOT_FOUND` | The package runner that installs the browser is not on this machine. |
 
 ## Browser runtime
 
@@ -141,13 +142,16 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_EXTENSION_ID_UNKNOWN` | The extension id could not be determined over CDP. |
 | `E_RDP_PROTOCOL` | A malformed or unexpected RDP exchange. |
 
+From the release after 4.1.41, a CDP fault after launch that leaves the session ready carries the warning name instead: `W_CDP_NOT_CONNECTED`, `W_CDP_TIMEOUT`, `W_CDP_OP_FAILED`, `W_BROWSER_CONNECTION_CLOSED`, or `W_EXTENSION_ID_UNKNOWN`. That covers `ready.json` `cdpFaultCode` too.
+
 ## Dev server
 
 | Code | Meaning |
 | ---- | ------- |
 | `E_DEV_SERVER_START` | The dev server failed to start. |
-| `E_PORT_IN_USE` | The requested port was taken and auto-reassigned. |
 | `E_PORT_UNAVAILABLE` | No free port could be bound near the requested one. |
+| `E_SESSION_EXISTS` | A live dev session already owns this project and browser, so the new session was refused. |
+| `E_RESTART_REQUIRED` | A file the running dev session depends on was removed or changed in a way it cannot apply, so the session must be restarted. |
 
 ## Ready contract
 
@@ -181,7 +185,6 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | Code | Meaning |
 | ---- | ------- |
 | `E_LOGS_NOT_FOUND` | No logs stream for this project and browser. |
-| `E_LOGS_STREAM_GAP` | The follow stream dropped events. |
 
 ## Create
 
@@ -197,6 +200,8 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | ---- | ---- | ------- |
 | `E_PREVIEW_NO_DIST` | preview | No unpacked extension at the resolved output path. |
 | `E_SAFARI_TOOLCHAIN` | safari | The Safari toolchain is unavailable or an invocation failed. |
+| `E_SAFARI_UI` | safari | A read or action on Safari's own settings or toolbar failed. |
+| `E_ACCESSIBILITY_DENIED` | safari | macOS has not granted the host app Accessibility, so Safari's own UI cannot be read or driven. |
 | `E_PUBLISH_REJECTED` | publish | The platform rejected the upload. |
 | `E_AUTH_REQUIRED` | publish | The operation needs an auth token that is not present. |
 | `E_TELEMETRY_WRITE` | telemetry | The telemetry consent file could not be written. |
@@ -204,11 +209,64 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_INTERRUPTED` | internal | The operation was interrupted before it finished. |
 | `E_INTERNAL` | internal | An unexpected fault reached the top-level sink. |
 
+## Warning codes
+
+From the release after 4.1.41, every coded warning carries a `W_*` code. It shows on an `error.details` entry with `severity: "warning"`, at the start of each `warnings` string, and in `ready.json` `cdpFaultCode`. A class that can fail and warn has one code under each prefix with the same stem, such as `E_PERF_BUDGET` and `W_PERF_BUDGET`.
+
+Releases up to 4.1.41 reported many of these warnings under the `E_*` name with the same stem, such as `E_CSS_DEAD_REF`. A script that matches a warning by code reads `W_` in place of `E_`. No alias exists.
+
+| Code | Meaning |
+| ---- | ------- |
+| `W_MANAGED_DEP_CONFLICT` | The project declares a package the toolchain manages. |
+| `W_TYPES_EMIT` | Writing `extension-env.d.ts` failed. |
+| `W_MODULE_NOT_FOUND` | A module specifier could not be resolved, and the build carried on without it. |
+| `W_ENTRY_NOT_FOUND` | A manifest, HTML, or JSON entry points at a file that is missing or not bundled. |
+| `W_ASSET_MISSING` | An icon, static asset, or JSON dependency is missing or not bundled. |
+| `W_SCRIPT_DEP_MISSING` | A file a script loads at runtime is missing from the build, is named by its source spelling, or could not be compiled. |
+| `W_CSS_PARSE` | A stylesheet failed to parse. |
+| `W_CSS_PREPROCESSOR_MISSING` | A CSS preprocessor is requested but not resolvable. |
+| `W_CSS_DEAD_REF` | A CSS `url()` or `@import` names a file that is missing or not bundled. |
+| `W_POLYFILL_NOT_FOUND` | `webextension-polyfill` requested but absent. |
+| `W_LOCALES_LAYOUT` | `_locales` layout or `messages.json` is invalid. |
+| `W_PROD_LOOPBACK_ORIGIN` | A production manifest names a loopback origin (`localhost`, `127.0.0.0/8`, `[::1]`, or `0.0.0.0`), which store reviewers read as unexplained host access. |
+| `W_NO_ENTRYPOINTS` | The compilation produced zero entrypoints. |
+| `W_REMOTE_RESOURCE_BLOCKED` | A remote script or stylesheet is blocked by extension CSP. |
+| `W_PERF_BUDGET` | An asset exceeds its size budget. |
+| `W_ENV_NO_MATCH` | No `.env` file matched the mode. |
+| `W_LAUNCH_SKIPPED_COMPILE_ERRORS` | Launch was withheld because the compile failed. |
+| `W_UNINSTALL_NOOP` | Nothing to remove. |
+| `W_PORT_IN_USE` | The requested port was taken and auto-reassigned. |
+| `W_LOGS_STREAM_GAP` | The follow stream dropped events. |
+| `W_MANIFEST_INVALID` | A manifest field had a shape the browser refuses to load, and the build repaired or dropped it. |
+| `W_WAR_INVALID` | A `web_accessible_resources` pattern leaves the extension root, so it exposes no file. |
+| `W_RESERVED_FOLDER` | A file in `scripts/` is only imported by another file, and every file in that folder is built as an entry of its own. |
+| `W_INTERNAL` | A build step met output it did not expect and carried on. The toolchain needs an update. |
+| `W_RESTART_REQUIRED` | A file the running dev session reads only at startup changed, so the change applies after a restart. |
+| `W_JSON_INVALID` | A `declarativeNetRequest` ruleset parses but has a rule that may not behave as written, or one that Chrome refuses and Firefox loads. |
+| `W_PROJECT_LAYOUT` | A `public/` folder is misplaced or shadowed by another one, or an `exclude` entry in `extension.config.js` names a file that is not there. |
+| `W_MANIFEST_COMPAT` | The manifest uses a version, key, or host permission pattern that the target browser ignores or is phasing out. |
+| `W_STORE_READINESS` | The manifest builds and loads, but a store would reject or flag it as written. |
+| `W_PERMISSION_MISMATCH` | The code uses an API or reaches a host that the manifest permissions do not cover the way the code needs. |
+| `W_API_UNSUPPORTED` | The code calls an extension API, or a form of one, that the target browser does not have. |
+| `W_WAR_EXPOSURE` | A file a script names is not reachable through `web_accessible_resources`, or the build exposed it more widely than the manifest lists. |
+| `W_CSS_NOT_APPLIED` | A stylesheet import or `url()` is kept in the output but the browser will not apply it where it sits. |
+| `W_ENV_SECRET_PUBLIC` | An `EXTENSION_PUBLIC_` variable has a name that looks like a secret, and its value is written into the built code. |
+| `W_BUILD_CONSTANT_UNDEFINED` | A script reads a build constant that nothing defines, so it throws when it loads. |
+| `W_SCRIPT_WORLD_UNKNOWN` | A script is registered at runtime with a world the build cannot read, so it is treated as an isolated world script. |
+| `W_ENV_NAME_RESERVED` | A `.env` file sets a name the build reserves for the browser or mode it compiles for, so the file value is ignored. |
+| `W_COMPANION_EXTENSION_PATH` | A companion extension entry leads outside the project, is not an unpacked extension folder, or names a folder that does not exist, so the browser opens without it. |
+| `W_CDP_NOT_CONNECTED` | A `dev`, `start`, or `preview` session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach. |
+| `W_CDP_TIMEOUT` | A CDP command or load timed out after launch, and the `dev`, `start`, or `preview` session stayed ready. Reload and HMR cannot attach. |
+| `W_CDP_OP_FAILED` | An extension operation over CDP failed after launch, and the `dev`, `start`, or `preview` session stayed ready. Reload and HMR cannot attach. A fault of any class other than the four with a warning name of their own is reported under this code too. |
+| `W_BROWSER_CONNECTION_CLOSED` | The debug socket closed after launch, and the `dev`, `start`, or `preview` session stayed ready. Reload and HMR cannot attach. |
+| `W_EXTENSION_ID_UNKNOWN` | The extension id could not be determined over CDP after launch, and the `dev`, `start`, or `preview` session stayed ready. Reload and HMR cannot attach. |
+
 ## Folded and legacy names
 
 `codes.json` carries two extra mappings beside the table:
 
 - `folded` maps finer inventory names onto a shipped family code. For example `E_ARG_REQUIRED` folds onto `E_ARGS`, and `E_BROWSER_NOT_INSTALLED` folds onto `E_BROWSER_NOT_FOUND`.
+- Eleven `E_*` names that only ever marked a warning fold onto their `W_*` name, such as `E_PORT_IN_USE`. Nothing reports them now.
 - `legacy` maps the three pre-envelope conventions onto the table. Snake_case `ready.json` codes (`profile_locked` to `E_PROFILE_LOCKED`), PascalCase error names (`TargetNotFound` to `E_TARGET_NOT_FOUND`), and kebab-case doctor check ids (`eval-token` to `E_TOKEN_MISSING`).
 
 If your consumer meets a name outside the table, resolve it through these mappings before branching.

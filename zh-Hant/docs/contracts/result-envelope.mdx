@@ -104,7 +104,7 @@ keywords:
 
 | 欄位       | 型別                     | 意義                                                                             |
 | ---------- | ------------------------ | -------------------------------------------------------------------------------- |
-| `code`     | string                   | 選用。該診斷對應的表內錯誤碼，例如 `E_MODULE_NOT_FOUND`。沒有對應時不出現。 |
+| `code`     | string                   | 選用。該診斷對應的表內錯誤碼，例如 `E_MODULE_NOT_FOUND`。從 4.1.41 之後的版本起，警告帶的是 `W_*` 代碼。沒有對應時不出現。 |
 | `message`  | string                   | 編譯器文字，已去除 ANSI 控制碼。屬於自由文案，永遠不要用它做比對。                  |
 | `file`     | string                   | 選用。來源檔案，相對於專案根目錄。                                               |
 | `line`     | integer                  | 選用。編譯器回報時，該檔案中的行號。                                             |
@@ -114,7 +114,7 @@ keywords:
 
 清單上限為 20 條。當上限把它截斷時，該影格會設定 `truncated: true`。
 
-可能出現在 `details` 裡的錯誤碼是[錯誤碼表](/zh-Hant/docs/contracts/error-codes)中的診斷列：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED`、`E_REMOTE_RESOURCE_BLOCKED`、`E_PERF_BUDGET` 和 `E_ENV_NO_MATCH`。
+可能出現在 `details` 裡的錯誤碼是[錯誤碼表](/zh-Hant/docs/contracts/error-codes)中的診斷列：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED` 和 `E_PERF_BUDGET`。警告條目帶的是[警告碼表](/zh-Hant/docs/contracts/error-codes#警告碼)中的代碼。
 
 下面是 `golden.build.compile.json`，其中兩條 message 縮短為各自的第一行：
 
@@ -151,14 +151,17 @@ keywords:
 }
 ```
 
-成功的建置會把警告保留在頂層的 `warnings` 陣列裡。當能解析出錯誤碼時，那裡的每個字串都以 `E_CODE: ` 開頭，例如 `E_CSS_DEAD_REF: ...`，與 `logs` 和 `uninstall` 既有的慣例相同。
+成功的建置會把警告保留在頂層的 `warnings` 陣列裡。當能解析出代碼時，那裡的每個字串都以 `W_CODE: ` 開頭，例如 `W_CSS_DEAD_REF: ...`，與 `logs` 和 `uninstall` 既有的慣例相同。4.1.41 及更早的版本以 `E_*` 名稱作為這些字串的開頭。
 
 ## 給人看的文案去哪了
 
 `EXTENSION_OUTPUT` 環境變數是機器模式的開關。當它是 `json` 或 `ndjson` 時，影格獨佔 stdout，給人看的文案讓路：
 
 - 資訊性輸出與警告會安靜下來，或在串流需要時改走 stderr。
-- 錯誤文案永遠不會被抑制。它一律寫到 stderr，所以啟動失敗仍然看得見，而 stdout 保持可解析。
+- 錯誤文案永遠不會被抑制。它寫到 stderr，所以啟動失敗仍然看得見，而 stdout 保持可解析。
+- 從 4.1.41 之後的版本起，`build` 或 `dev` 還在尋找專案時的拒絕不會在 stderr 上印出任何內容。
+- 對 `build` 來說，這也涵蓋尋找瀏覽器的階段。這時 stdout 上的影格就是完整的答案。
+- 之後的每個失敗，例如設定檔載入失敗，也會在 stderr 上印出給人看的文字。
 
 把 stdout 接給你的解析器，把 stderr 留給人。兩者永不混在一起。
 

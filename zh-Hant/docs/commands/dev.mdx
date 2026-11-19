@@ -58,6 +58,8 @@ watcher 跟隨建置圖:manifest 與它點名的一切、每個進入點與其 i
 
 從 4.1.41 之後的版本起，建置有錯誤時，儲存仍會重新建置頁面。這包括頁面本身以及它引用的每個檔案。修正錯誤的那次儲存會更新頁面。`dev` 也會為新的語系資料夾、`messages.json` 旁的新檔案以及新的 `_locales` 資料夾重新建置。
 
+從 4.1.41 之後的版本起，指向不存在檔案的 CSS `url()` 或 `require()` 會被監看，因此建立該檔案就會重新建置工作階段。在 macOS 上，加入 `public/` 的檔案在整個工作階段中都會發布。較早的版本在掃描進行中又觸發重新掃描之後，可能不再發布新的 `public/` 檔案。
+
 從 4.1.41 之後的版本開始，編譯器的重新啟動還會清理輸出：
 
 - 當 manifest 的修改移除了一個進入點時，重新啟動會把該進入點的檔案從 `dist/<browser>` 中移除。
@@ -313,6 +315,11 @@ npx extension@latest dev --no-open
 - `dev --wait` 成功時會印出一個 `status: "ready"` 訊框。它的 `value.results` 陣列會逐一瀏覽器帶出完整的就緒契約。
 - 失敗時會在程序以 `1` 結束前,印出一個帶有 `error.code`(例如 `E_READY_TIMEOUT`)的 `ok: false` 訊框。處於 `error` 狀態的契約會指明原因:固定的執行檔遭拒時是帶 `status: "usage"` 的 `E_BROWSER_BINARY_INVALID`,瀏覽器根本沒有啟動時是 `E_BROWSER_LAUNCH`,在擴充功能載入之前就結束時是 `E_BROWSER_EXITED`,編譯錯誤是 `E_COMPILE`。完整清單見 [ready.json 契約](/zh-Hant/docs/contracts/ready-json)。
 - 從 4.1.41 之後的版本開始，瀏覽器拒絕載入擴充功能時不會停止工作階段。串流裡會帶一個 `ok: false` 訊框，其中 `status: "load-refused"`、`error.code: "E_EXTENSION_LOAD_REFUSED"`。針對該工作階段的 `dev --wait` 會回答同樣的狀態與代碼，並以 `1` 結束。工作階段會在下一次儲存時重新嘗試載入。見 [Manifest 拒絕](/zh-Hant/docs/debugging/manifest-refusals#遭拒絕的載入會印出什麼)。
+- 從 4.1.41 之後的版本起，`dev` 還在尋找專案時的拒絕不會在 stderr 上印出任何內容。
+- 之後的失敗，例如拋出例外的設定檔，也會在 stderr 上印出給人看的文字。
+- 從 4.1.41 之後的版本起，無法建置的重新啟動會送出 `restart-failed` 訊框。
+- 先前的建置繼續提供服務。見[重新啟動與關閉](/zh-Hant/docs/contracts/lifecycle-stream#重新啟動與關閉)。
+- 每個工作階段的最後一個訊框是 `stopped` 或 `failed`。
 
 ### 用 `--no-reload` 取得乾淨的開發包
 

@@ -61,6 +61,9 @@ export default {
 
 - 在求值 `extension.config.*` 之前，Extension.js 会按从弱到强的顺序预加载 env 文件：`.env.defaults`、`.env`、`.env.local`，以及当前运行模式的文件。每个存在的文件都会加载，而 shell 导出的变量始终优先。
 - 从 4.1.41 之后的版本起，模式文件对 `dev` 是 `.env.development`，对 `build`、`start` 和 `preview` 是 `.env.production`。更早的版本对每个命令都读取 `.env.development`。见[环境变量](/zh-Hans/docs/features/environment-variables)。
+- 从 4.1.41 之后的版本起，`.env.<mode>.local` 在模式文件之后加载。
+- `build`、`start` 和 `preview` 还会加载浏览器的文件，比如 `.env.chrome`。
+- 这样配置看到的就是产物得到的值。它每个命令只运行一次。
 - 它会先检查项目目录。
 - 在 monorepo 中，如果 Extension.js 在项目本地没找到任何 `.env*` 文件，会回退到最近的 workspace 根目录。workspace 根目录是包含 `pnpm-workspace.yaml` 的目录。
 - 在配置文件中，优先使用内置的 env 预加载，而不是导入 `dotenv`。
@@ -322,6 +325,8 @@ export default {
   },
 };
 ```
+
+从 4.1.41 之后的版本起，如果 `config` 函数返回的不是配置本身，比如 `undefined` 或一个 promise，运行会以 `E_CONFIG_LOAD` 停止。请以 `return config` 结束该函数。
 
 `config` 也可以是一个对象，Extension.js 会把它合并到生成的配置之上。
 

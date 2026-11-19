@@ -105,23 +105,22 @@ deno run -A npm:extension@latest create my-extension --template=content-env
 
 ### 扩展产物(编译时)
 
-构建扩展时，编译器会按以下顺序在扩展包目录中**选择一份**与之匹配的 env 文件：
+构建扩展时，编译器会读取扩展包目录中与浏览器和模式匹配的 env 文件。从 4.1.41 之后的版本起，它会读取每一个匹配的文件，较强的文件按键覆盖较弱的文件。更早的版本只读取最强的那一个匹配。从最强开始：
 
 1. `.env.[browser].[mode]`(例如 `.env.chrome.development`)
 2. `.env.[browser]`
 3. 上述两项的引擎家族变体(见下方说明)
-4. `.env.[mode]`
-5. `.env.local`
-6. `.env`
+4. `.env.[mode].local`(从 4.1.41 之后的版本起)
+5. `.env.[mode]`
+6. `.env.local`
+7. `.env`
 
 浏览器作用域的文件按**引擎家族**解析，与[浏览器专属 manifest 字段](/zh-Hans/docs/features/browser-specific-fields)一致。在精确的浏览器名称之后，Chromium 家族目标(`chromium`、`chrome`、`edge`、`chromium-based`、各 Chromium 分支以及 Safari 构建)还会依次尝试 `.env.chromium`、`.env.chrome`、`.env.edge` 与 `.env.chromium-based`(各自的 `.[mode]` 变体优先)。Gecko 家族目标还会尝试 `.env.firefox` 与 `.env.gecko-based`。因此一份 `.env.chromium` 文件即可覆盖 `chrome`、`edge` 或 `brave` 构建，而精确的浏览器文件总是优先于家族文件。
 
-如果存在 `.env.defaults`，Extension.js **总是先合并**它，然后再合并所选文件的变量。最终，**系统** `process.env` 对重叠的键拥有最高优先级。
+如果存在 `.env.defaults`，Extension.js **总是先合并**它，然后再合并匹配文件的变量。最终，**系统** `process.env` 对重叠的键拥有最高优先级。
 
 <Note>
-  选择的是上述列表中的**单个** env 文件(加上
-  `.env.defaults`)，而不是对所有文件做完整级联。`.env.example`
-  仅作为文档示例，永远不会作为值来源被加载。
+  `.env.example` 仅作为文档示例，永远不会作为值来源被加载。
 </Note>
 
 如果项目旁存在 env 文件，但没有一个与当前浏览器和模式匹配，构建会打印警告，列出找到的文件与查找过的候选文件名。这样浏览器后缀的拼写错误会立刻暴露，而不是在没有值注入的情况下悄悄完成构建。以另一个模式或浏览器命名的文件，比如生产构建中的 `.env.development`，会被原样留下且不打印警告。只有当没有其他来源（比如 `extension.config.js`）定义这些值时，警告才会说它们是 undefined。
@@ -134,7 +133,7 @@ LLM 或其他任何付费服务的 API key 应当放在你的扩展所调用的�
 
 当某个带值的 `EXTENSION_PUBLIC_*` 变量的名字看起来像密钥时，生产构建会发出警告。名字包含 `SECRET`、`TOKEN`、`PASSWORD` 或 `PRIVATE` 时看起来像密钥。`KEY` 紧跟在 `API`、`ACCESS`、`AUTH` 或 `SECRET` 之后时也是。包含 `PUBLISHABLE` 的名字会被跳过。如果这个值本来就设计为公开的，比如 Firebase 的 web API key，这条警告对它并不适用。这条警告需要 4.1.39 或更高版本。
 
-如果项目旁找不到匹配文件，Extension.js 会从**最近的 workspace 根目录**重复同样的搜索。所谓 workspace 根目录，是离当前位置最近、包含 `pnpm-workspace.yaml` 的祖先目录。位于 monorepo 中的扩展可以共享根级 env 文件来注入**产物**。
+如果项目旁找不到匹配文件，Extension.js 会从**最近的 workspace 根目录**重复同样的搜索。所谓 workspace 根目录，是离当前位置最近、包含 `pnpm-workspace.yaml` 的祖先目录。位于 monorepo 中的扩展可以共享根级 env 文件来注入**产物**。只有 `.env.defaults` 这一个 env 文件的包，也会取用根目录的文件。根目录的 `.env.defaults` 先加载，包自己的 `.env.defaults` 按键胜出。
 
 **Monorepo 约束：** 仅当祖先目录中存在 `pnpm-workspace.yaml` 这个标记文件时，workspace 回退才会执行。如果你使用的是仅依赖 `package.json` `"workspaces"` 字段的纯 npm 或 Yarn workspaces，则不会触发自动根目录查找。这种情况下，请把 env 文件放在扩展包旁边，或在仓库根目录加上 `pnpm-workspace.yaml`。
 
@@ -142,24 +141,28 @@ LLM 或其他任何付费服务的 API key 应当放在你的扩展所调用的�
 
 `extension.config.js` / `.mjs` / `.cjs` 在 Node 中运行。在 Extension.js 求值该文件之前，会预先把**一小组**文件加载进 `process.env`，以便配置可以读取它们。从 4.1.41 之后的版本起，最后一个文件跟随所运行的命令。`dev` 读取 development 文件。`build`、`start` 和 `preview` 读取 production 文件。
 
-| 顺序      | `dev`              | `build`、`start`、`preview` |
-| --------- | ------------------ | --------------------------- |
-| 1（最弱） | `.env.defaults`    | `.env.defaults`             |
-| 2         | `.env`             | `.env`                      |
-| 3         | `.env.local`       | `.env.local`                |
-| 4（最强） | `.env.development` | `.env.production`           |
+| 顺序      | `dev`                    | `build`、`start`、`preview`          |
+| --------- | ------------------------ | ------------------------------------ |
+| 1（最弱） | `.env.defaults`          | `.env.defaults`                      |
+| 2         | `.env`                   | `.env`                               |
+| 3         | `.env.local`             | `.env.local`                         |
+| 4         | `.env.development`       | `.env.production`                    |
+| 5         | `.env.development.local` | `.env.production.local`              |
+| 6（最强） | 无                       | 浏览器的文件，顺序与产物读取时相同 |
 
-每个存在的文件都会加载，后面的文件会覆盖前面文件的值。shell 或 CI 导出的变量始终优先于所有文件。读取 `import.meta.env` 的 `.mjs` 配置看到的胜出值与 `process.env` 相同。
+每个存在的文件都会加载，后面的文件会覆盖前面文件的值。shell 或 CI 导出的变量始终优先于所有文件。读取 `import.meta.env` 的 `.mjs` 配置看到的胜出值与 `process.env` 相同。`build --mode development` 读取 development 文件。
 
 构建不再读取 `.env.development`。只存在于该文件中的键，在 `build`、`start` 和 `preview` 的配置里是 `undefined`。4.1.41 及更早的版本会为每个命令预加载 `.env.development`，所以构建的配置读到的是开发环境的值。
 
-这一预加载步骤**不会**使用浏览器作用域的文件，比如 `.env.chrome` 或 `.env.chrome.development`。命令在知道浏览器之前就求值配置，因为配置本身可以指定浏览器。需要时，请通过 shell 或持续集成 (CI) 流水线中的普通 `process.env` 设置。
+从 4.1.41 之后的版本起，`build`、`start` 和 `preview` 还会预加载浏览器的文件，比如 `.env.chrome` 与 `.env.chrome.production`。这样配置看到的值与产物相同。`dev` 在知道浏览器之前就加载配置，所以不读取任何浏览器文件。请在 shell 或持续集成 (CI) 流水线中为 `dev` 设置浏览器相关的值。
+
+从 4.1.41 之后的版本起，`extension.config.js` 每个命令只运行一次。当配置自己指定浏览器时，它可能再运行一次。只有当浏览器的文件改变了它读取过的某个变量时才会这样。
 
 你也可以依赖编译期的产物 env(上文已说明) 将 `EXTENSION_PUBLIC_*` 注入扩展代码。
 
 **Workspace 回退：** 如果扩展包目录中找不到上述任何文件，则会在最近的、包含 `pnpm-workspace.yaml` 的目录中执行同样的预加载(约束与上文一致)。
 
-之所以分成两条路径，是因为读取配置文件时与浏览器无关，而打包器知道当前的浏览器与模式。
+从 4.1.41 之后的版本起，只有 `.env.defaults` 这一个 env 文件的包也会以同样方式回退。根目录的 `.env.defaults` 先加载，包自己的 `.env.defaults` 按键胜出。
 
 <Frame>
   <iframe
@@ -187,6 +190,8 @@ Extension.js 在编译时注入内置变量，因此你总能在扩展代码里�
 | `NODE_ENV`                 | 与编译器模式对齐的 Node 环境(`development` / `production`)。 |
 
 上述所有内置变量同时可通过 `process.env.*` 与 `import.meta.env.*` 读取。
+
+从 4.1.41 之后的版本起，如果某个 `.env` 文件把 `EXTENSION_PUBLIC_BROWSER`、`EXTENSION_BROWSER`、`EXTENSION_PUBLIC_MODE` 或 `EXTENSION_MODE` 设成了另一个值，构建会打印一条指出该文件的 `W_ENV_NAME_RESERVED` 警告。构建目标胜出，所以该文件中的值会被忽略。
 
 ## 环境变量清单
 
@@ -385,7 +390,7 @@ EXTENSION_PUBLIC_SITE=http://localhost:4322
 EXTENSION_PUBLIC_SITE=https://example.com
 ```
 
-`extension dev` 读取 `.env.development`，匹配 `http://localhost:4322/*`。`extension build` 读取 `.env`，只发布 `https://example.com/*`。如果生产构建仍在 `content_scripts`、`host_permissions`、`externally_connectable` 或 `web_accessible_resources` 中写着 `localhost`、`127.0.0.1`、`[::1]` 或 `0.0.0.0`，构建会打印错误码为 `E_PROD_LOOPBACK_ORIGIN` 的警告，并原样发布该模式，因为让生产构建连接本地服务器也可能是有意为之。
+`extension dev` 读取 `.env.development`，匹配 `http://localhost:4322/*`。`extension build` 读取 `.env`，只发布 `https://example.com/*`。如果生产构建仍在 `content_scripts`、`host_permissions`、`externally_connectable` 或 `web_accessible_resources` 中写着 `localhost`、`127.0.0.1`、`[::1]` 或 `0.0.0.0`，构建会打印错误码为 `W_PROD_LOOPBACK_ORIGIN` 的警告，并原样发布该模式，因为让生产构建连接本地服务器也可能是有意为之。
 
 ### 2. 在 locale 文件中
 

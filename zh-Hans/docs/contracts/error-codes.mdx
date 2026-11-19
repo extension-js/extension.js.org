@@ -1,6 +1,6 @@
 ---
 title: "错误码"
-description: "Extension.js schema-1 信封所使用的、长期稳定的 E_* 错误码表，按领域分组，并附上 codes.json 中的折叠名与历史名映射。"
+description: "Extension.js schema-1 信封所使用的、长期稳定的 E_* 错误码与 W_* 警告码，按领域分组，并附上 codes.json 中的折叠名与历史名映射。"
 keywords:
   [
     "extension.js",
@@ -16,7 +16,9 @@ keywords:
 
 请基于稳定的错误码来做分支判断，绝不要基于消息文本。
 
-每一个失败信封都会带上同一张表中的某个 `E_*` 错误码。错误码只会新增，绝不会被重命名或移除。错误码旁边的消息属于自由文案，任何一个版本都可能改动。
+每一个失败信封都会带上同一张表中的某个 `E_*` 错误码。错误码只会新增，绝不会被重命名或移除，下文那一次移到 `W_*` 的改动除外。错误码旁边的消息属于自由文案，任何一个版本都可能改动。
+
+从 4.1.41 之后的版本起，警告带的是 `W_*` 错误码：运行越过了它继续进行。错误和拒绝保留它们的 `E_*` 错误码。见[警告码](#警告码)。
 
 这张表随 `extension-develop/contract/codes.json` 一起发布，参见 [结果信封](/zh-Hans/docs/contracts/result-envelope)。
 
@@ -43,14 +45,12 @@ keywords:
 | ---- | ------- |
 | `E_PROJECT_NOT_FOUND` | 解析出的项目目录不存在。 |
 | `E_CONFIG_LOAD` | `extension.config.js` 在加载时抛出了异常，或导出的不是一个对象。`dev`、`build`、`start` 和 `preview` 都以此代码作答。生产构建遇到不合法的 [`perfBudgets`](/zh-Hans/docs/workflows/performance-playbook) 值时也以此代码作答。 |
-| `E_MANAGED_DEP_CONFLICT` | 项目声明了一个由工具链管理的包。 |
 | `E_DEPENDENCY_INSTALL` | 安装项目依赖失败。 |
-| `E_TYPES_EMIT` | 写出 `extension-env.d.ts` 失败。 |
-| `E_TSCONFIG_MISSING` | 存在 TypeScript 源码，但 `package.json` 旁边没有 `tsconfig.json`。 |
 | `E_OPTIONAL_DEP_UNRESOLVED` | 某个可选依赖契约无法解析。 |
-| `E_OPTIONAL_DEP_LOAD` | 某个可选依赖已解析，但加载失败。 |
+| `E_OPTIONAL_DEP_LOAD` | 某个可选依赖已解析，但加载失败。从 4.1.41 之后的版本起，项目中的副本在加载时抛错会停止运行。消息会给出它的路径和原因。不会改用其他安装来顶替它。 |
 | `E_OPTIONAL_DEP_UNKNOWN` | 未知的可选依赖契约 id。 |
-| `E_COMPANION_EXTENSION_PATH` | 某个协同扩展路径逃逸出了 `extensions/`，或者没有产出任何未打包内容。 |
+| `E_COMPANION_EXTENSION_PATH` | 解析出的根目录下唯一的 manifest 属于 `extensions/` 下的某个协同扩展。浏览器不带它打开的协同扩展条目会以 `W_COMPANION_EXTENSION_PATH` 警告。 |
+| `E_PROJECT_LAYOUT` | `public/` 中的某个文件会覆盖构建输出的文件，或者 `extension.config.js` 中的某个 `include` 条目指向不存在的文件或扩展之外的输出路径。 |
 | `E_MANIFEST_IN_PUBLIC` | `manifest.json` 被放到了 `public/` 下面。 |
 | `E_RUNTIME_NOT_FOUND` | extension-develop 运行时缺失或未编译。 |
 
@@ -67,7 +67,7 @@ keywords:
 | ---- | ------- |
 | `E_FIRST_COMPILE` | 会话的第一次编译失败，因此什么都没有被加载。 |
 | `E_COMPILE` | 编译结束时带有错误。 |
-| `E_COMPILE_FATAL` | 编译器本身失败，或返回了无法使用的统计数据。 |
+| `E_COMPILE_FATAL` | 编译器本身失败，或返回了无法使用的统计数据。从 4.1.41 之后的版本起，它也涵盖在创建编译器时抛错的插件，例如在它的 `apply` 中。 |
 | `E_MODULE_NOT_FOUND` | 某个模块标识符无法解析。 |
 | `E_ENTRY_NOT_FOUND` | 某个 manifest、HTML 或 JSON 入口指向了一个不存在或未被打包的文件。 |
 | `E_ASSET_MISSING` | 某个图标、静态资源或 JSON 依赖不存在或未被打包。 |
@@ -76,20 +76,19 @@ keywords:
 | `E_CSS_PARSE` | 某个样式表解析失败。 |
 | `E_CSS_PREPROCESSOR_MISSING` | 请求了某个 CSS 预处理器，但无法解析到它。 |
 | `E_CSS_DEAD_REF` | CSS 中的某个 `url()` 或 `@import` 指向了不存在或未被打包的文件。 |
-| `E_INTEGRATION_INSTALL` | 某个框架集成安装失败。 |
-| `E_POLYFILL_NOT_FOUND` | 请求了 webextension-polyfill，但它并不存在。 |
 | `E_LOCALES_LAYOUT` | `_locales` 的目录结构或 `messages.json` 不合法。 |
 | `E_WAR_INVALID` | `web_accessible_resources` 的结构或匹配模式被拒绝。 |
-| `E_MATCH_PATTERN_INVALID` | 浏览器拒绝了某个 content script 的匹配模式。 |
 | `E_BACKGROUND_REQUIRED` | 重载运行时需要一个 background chunk，但它并不存在。 |
 | `E_CONTENT_SCRIPT_SYNTAX` | 某个 content script 解析失败。 |
-| `E_NO_ENTRYPOINTS` | 这次编译产出了零个入口点。 |
-| `E_REMOTE_RESOURCE_BLOCKED` | 某个远程脚本或样式表被扩展 CSP 阻止。 |
-| `E_PERF_BUDGET` | 某个资源超出了它的体积预算。 |
+| `E_PERF_BUDGET` | 某个资源超出了它的体积预算，并且 `perfBudgets.onExceed` 为 `'error'`，所以构建失败。没有该设置时，超出预算会以 `W_PERF_BUDGET` 警告。见[性能预算](/zh-Hans/docs/workflows/performance-playbook)。 |
+| `E_THEME_INVALID` | 某个主题颜色或色调不是 Chromium 浏览器能加载的数字数组，构建也无法精确转换它。 |
+| `E_DEV_SESSION_DIST_SHARED` | 构建会写入正在运行的开发会话所服务的输出目录，因此被拒绝。传入 `--out-dir` 在它旁边构建。 |
+| `E_OUTPUT_NOT_WRITABLE` | 构建无法把 `manifest.json` 写入输出目录。 |
+| `E_JSON_INVALID` | manifest 指向的某个 JSON 文件无法解析，或者它的 `declarativeNetRequest` 规则集或托管存储 schema 的结构被浏览器拒绝。 |
+| `E_ASSET_IMPORT_SHAPE` | 用 `import * as` 导入的资源会被读作文件的值，也就是默认导出。 |
 | `E_ZIP_SKIPPED` | 打包因某个已说明的原因被跳过。 |
-| `E_ENV_NO_MATCH` | 没有任何 `.env` 文件与当前模式匹配。 |
 
-`E_COMPILE` 和 `E_FIRST_COMPILE` 是编译失败时的顶层错误码。上表中有十五行会出现在该帧的 `error.details` 里，每条诊断一个：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED`、`E_REMOTE_RESOURCE_BLOCKED`、`E_PERF_BUDGET` 和 `E_ENV_NO_MATCH`。同样这些错误码也会以 `E_CODE: ` 前缀出现在成功构建的 `warnings` 字符串开头。见[编译诊断](/zh-Hans/docs/contracts/result-envelope)。
+`E_COMPILE` 和 `E_FIRST_COMPILE` 是编译失败时的顶层错误码。上表中有十三行会出现在该帧的 `error.details` 里，每个错误一个：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED` 和 `E_PERF_BUDGET`。`details` 中的警告带 `severity: "warning"` 和一个 `W_*` 错误码。成功构建的 `warnings` 字符串以同样的 `W_CODE: ` 前缀开头。见[编译诊断](/zh-Hans/docs/contracts/result-envelope)。
 
 ## 远程项目与网络
 
@@ -113,13 +112,15 @@ keywords:
 | `E_BROWSER_EXITED` | 已启动的浏览器退出了，而服务器仍在运行。 |
 | `E_BROWSER_START_TIMEOUT` | 浏览器始终没有发出启动信号。 |
 | `E_PROFILE_LOCKED` | 该配置文件目录被另一个浏览器进程占用。 |
-| `E_LAUNCH_SKIPPED_COMPILE_ERRORS` | 因为编译失败，所以没有启动浏览器。 |
 | `E_INSTANCE_AMBIGUOUS` | 有多个存活实例与请求的 id 匹配。 |
-| `E_WSL_INTEROP` | WSL 互操作无法解析到 Windows 上的浏览器。 |
 | `E_BROWSER_DOWNLOAD` | 下载或安装浏览器失败。 |
 | `E_BROWSER_INSTALL_PRIVILEGE` | 该安装需要一个交互式的特权会话。 |
 | `E_BROWSER_UNINSTALL` | 移除已安装的浏览器失败。 |
-| `E_UNINSTALL_NOOP` | 没有可以移除的东西。 |
+| `E_BROWSER_INSTALL_TIMEOUT` | 到安装超时时浏览器安装程序仍在运行，因此被停止。 |
+| `E_BROWSER_INSTALL_BUSY` | 整个等待期结束后，同一浏览器的另一次安装仍在运行，所以这一次从未开始。 |
+| `E_BROWSER_CACHE_NOT_WRITABLE` | 浏览器缓存根目录是一个文件、无法创建或无法写入。 |
+| `E_BROWSER_FOLDER_FOREIGN` | 缓存中的浏览器目录里有安装程序从不写入的文件，所以安装没有动它。 |
+| `E_BROWSER_INSTALLER_NOT_FOUND` | 这台机器上没有用来安装浏览器的包运行器。 |
 
 ## 浏览器运行时
 
@@ -140,13 +141,16 @@ keywords:
 | `E_EXTENSION_ID_UNKNOWN` | 无法通过 CDP 确定扩展 id。 |
 | `E_RDP_PROTOCOL` | 出现了格式错误或非预期的 RDP 交互。 |
 
+从 4.1.41 之后的版本起，启动之后发生、但会话仍保持就绪的 CDP 故障改带警告名：`W_CDP_NOT_CONNECTED`、`W_CDP_TIMEOUT`、`W_CDP_OP_FAILED`、`W_BROWSER_CONNECTION_CLOSED` 或 `W_EXTENSION_ID_UNKNOWN`。`ready.json` 的 `cdpFaultCode` 也是如此。
+
 ## 开发服务器
 
 | 错误码 | 含义 |
 | ---- | ------- |
 | `E_DEV_SERVER_START` | 开发服务器启动失败。 |
-| `E_PORT_IN_USE` | 请求的端口已被占用，已自动改用其他端口。 |
 | `E_PORT_UNAVAILABLE` | 在请求端口附近找不到可绑定的空闲端口。 |
+| `E_SESSION_EXISTS` | 已有一个存活的开发会话占有该项目与浏览器，所以新会话被拒绝。 |
+| `E_RESTART_REQUIRED` | 正在运行的开发会话所依赖的某个文件被移除，或以它无法应用的方式被修改，所以必须重启会话。 |
 
 ## 就绪契约
 
@@ -180,7 +184,6 @@ keywords:
 | 错误码 | 含义 |
 | ---- | ------- |
 | `E_LOGS_NOT_FOUND` | 该项目与浏览器没有日志流。 |
-| `E_LOGS_STREAM_GAP` | follow 流丢失了部分事件。 |
 
 ## 创建
 
@@ -196,6 +199,8 @@ keywords:
 | ---- | ---- | ------- |
 | `E_PREVIEW_NO_DIST` | preview | 解析出的输出路径下没有未打包的扩展。 |
 | `E_SAFARI_TOOLCHAIN` | safari | Safari 工具链不可用，或某次调用失败。 |
+| `E_SAFARI_UI` | safari | 对 Safari 自身设置或工具栏的某次读取或操作失败。 |
+| `E_ACCESSIBILITY_DENIED` | safari | macOS 没有授予宿主应用辅助功能权限，所以无法读取或驱动 Safari 自身的界面。 |
 | `E_PUBLISH_REJECTED` | publish | 平台拒绝了这次上传。 |
 | `E_AUTH_REQUIRED` | publish | 该操作需要一个认证令牌，但它并不存在。 |
 | `E_TELEMETRY_WRITE` | telemetry | 无法写入遥测同意文件。 |
@@ -203,11 +208,64 @@ keywords:
 | `E_INTERRUPTED` | internal | 该操作在完成之前被中断。 |
 | `E_INTERNAL` | internal | 一个非预期的故障冒泡到了顶层错误汇聚点。 |
 
+## 警告码
+
+从 4.1.41 之后的版本起，每个带错误码的警告都带一个 `W_*` 错误码。它出现在 `severity: "warning"` 的 `error.details` 条目上、每个 `warnings` 字符串的开头，以及 `ready.json` 的 `cdpFaultCode` 中。既能失败又能警告的类别，在两个前缀下各有一个词干相同的错误码，例如 `E_PERF_BUDGET` 和 `W_PERF_BUDGET`。
+
+4.1.41 及更早的版本中，其中许多警告以词干相同的 `E_*` 名称报告，例如 `E_CSS_DEAD_REF`。按错误码匹配警告的脚本要把 `E_` 换成 `W_`。不存在别名。
+
+| 错误码 | 含义 |
+| ---- | ------- |
+| `W_MANAGED_DEP_CONFLICT` | 项目声明了一个由工具链管理的包。 |
+| `W_TYPES_EMIT` | 写出 `extension-env.d.ts` 失败。 |
+| `W_MODULE_NOT_FOUND` | 某个模块标识符无法解析，构建在没有它的情况下继续进行。 |
+| `W_ENTRY_NOT_FOUND` | 某个 manifest、HTML 或 JSON 入口指向了一个不存在或未被打包的文件。 |
+| `W_ASSET_MISSING` | 某个图标、静态资源或 JSON 依赖不存在或未被打包。 |
+| `W_SCRIPT_DEP_MISSING` | 某个脚本在运行时加载的文件不在构建中、按源码中的写法被引用，或无法被编译。 |
+| `W_CSS_PARSE` | 某个样式表解析失败。 |
+| `W_CSS_PREPROCESSOR_MISSING` | 请求了某个 CSS 预处理器，但无法解析到它。 |
+| `W_CSS_DEAD_REF` | CSS 中的某个 `url()` 或 `@import` 指向了不存在或未被打包的文件。 |
+| `W_POLYFILL_NOT_FOUND` | 请求了 `webextension-polyfill`，但它并不存在。 |
+| `W_LOCALES_LAYOUT` | `_locales` 的目录结构或 `messages.json` 不合法。 |
+| `W_PROD_LOOPBACK_ORIGIN` | 生产 manifest 写有回环源（`localhost`、`127.0.0.0/8`、`[::1]` 或 `0.0.0.0`），商店审核会把它读作无法解释的主机访问。 |
+| `W_NO_ENTRYPOINTS` | 这次编译产出了零个入口点。 |
+| `W_REMOTE_RESOURCE_BLOCKED` | 某个远程脚本或样式表被扩展 CSP 阻止。 |
+| `W_PERF_BUDGET` | 某个资源超出了它的体积预算。 |
+| `W_ENV_NO_MATCH` | 没有任何 `.env` 文件与当前模式匹配。 |
+| `W_LAUNCH_SKIPPED_COMPILE_ERRORS` | 因为编译失败，所以没有启动浏览器。 |
+| `W_UNINSTALL_NOOP` | 没有可以移除的东西。 |
+| `W_PORT_IN_USE` | 请求的端口已被占用，已自动改用其他端口。 |
+| `W_LOGS_STREAM_GAP` | follow 流丢失了部分事件。 |
+| `W_MANIFEST_INVALID` | 某个 manifest 字段的结构会被浏览器拒绝加载，构建修复或丢弃了它。 |
+| `W_WAR_INVALID` | 某个 `web_accessible_resources` 模式跑出了扩展根目录，所以它不暴露任何文件。 |
+| `W_RESERVED_FOLDER` | `scripts/` 中的某个文件只被另一个文件导入，而该目录中的每个文件都会作为独立入口构建。 |
+| `W_INTERNAL` | 某个构建步骤遇到了非预期的输出并继续进行。工具链需要更新。 |
+| `W_RESTART_REQUIRED` | 正在运行的开发会话只在启动时读取的某个文件发生了变化，所以改动在重启之后才生效。 |
+| `W_JSON_INVALID` | 某个 `declarativeNetRequest` 规则集可以解析，但其中有规则可能不会按写法生效，或者 Chrome 拒绝而 Firefox 会加载。 |
+| `W_PROJECT_LAYOUT` | 某个 `public/` 目录放错了位置或被另一个遮蔽，或者 `extension.config.js` 中的某个 `exclude` 条目指向不存在的文件。 |
+| `W_MANIFEST_COMPAT` | manifest 使用了目标浏览器会忽略或正在淘汰的版本、键或主机权限模式。 |
+| `W_STORE_READINESS` | manifest 可以构建和加载，但商店会按其写法拒绝或标记它。 |
+| `W_PERMISSION_MISMATCH` | 代码使用了某个 API 或访问了某个主机，而 manifest 权限没有按代码需要的方式覆盖它。 |
+| `W_API_UNSUPPORTED` | 代码调用了目标浏览器没有的扩展 API，或某个 API 的某种形式。 |
+| `W_WAR_EXPOSURE` | 脚本点名的某个文件无法通过 `web_accessible_resources` 访问，或者构建暴露它的范围比 manifest 列出的更广。 |
+| `W_CSS_NOT_APPLIED` | 某个样式表导入或 `url()` 保留在输出中，但浏览器不会在它所在的位置应用它。 |
+| `W_ENV_SECRET_PUBLIC` | 某个 `EXTENSION_PUBLIC_` 变量的名字看起来像密钥，而它的值被写进了构建出的代码。 |
+| `W_BUILD_CONSTANT_UNDEFINED` | 某个脚本读取了没有任何东西定义的构建常量，所以它在加载时会抛错。 |
+| `W_SCRIPT_WORLD_UNKNOWN` | 某个脚本在运行时以构建无法读出的 world 注册，所以它被当作隔离 world 脚本处理。 |
+| `W_ENV_NAME_RESERVED` | 某个 `.env` 文件设置了构建为其所编译的浏览器或模式保留的名字，所以该文件中的值被忽略。 |
+| `W_COMPANION_EXTENSION_PATH` | 某个协同扩展条目指向项目之外、不是未打包的扩展目录，或指向不存在的目录，所以浏览器打开时不带它。 |
+| `W_CDP_NOT_CONNECTED` | `dev`、`start` 或 `preview` 会话在没有存活 CDP 传输的情况下启动并保持就绪。reload 和 HMR 无法接上。 |
+| `W_CDP_TIMEOUT` | 启动之后某个 CDP 命令或加载超时，`dev`、`start` 或 `preview` 会话保持就绪。reload 和 HMR 无法接上。 |
+| `W_CDP_OP_FAILED` | 启动之后通过 CDP 执行的某个扩展操作失败，`dev`、`start` 或 `preview` 会话保持就绪。reload 和 HMR 无法接上。除了有自己警告名的那四类，其他任何类别的故障也以此错误码报告。 |
+| `W_BROWSER_CONNECTION_CLOSED` | 启动之后调试套接字关闭，`dev`、`start` 或 `preview` 会话保持就绪。reload 和 HMR 无法接上。 |
+| `W_EXTENSION_ID_UNKNOWN` | 启动之后无法通过 CDP 确定扩展 id，`dev`、`start` 或 `preview` 会话保持就绪。reload 和 HMR 无法接上。 |
+
 ## 折叠名与历史名
 
 `codes.json` 在这张表之外还带了两份额外的映射：
 
 - `folded` 把更细粒度的清单名映射到已发布的家族错误码上。例如 `E_ARG_REQUIRED` 会折叠到 `E_ARGS`，`E_BROWSER_NOT_INSTALLED` 会折叠到 `E_BROWSER_NOT_FOUND`。
+- 十一个只用于标记警告的 `E_*` 名称会折叠到它们的 `W_*` 名称上，例如 `E_PORT_IN_USE`。现在没有任何东西报告它们。
 - `legacy` 把信封出现之前的三种命名约定映射到这张表上：`ready.json` 中的 snake_case 错误码（`profile_locked` 对应 `E_PROFILE_LOCKED`）、PascalCase 的错误名（`TargetNotFound` 对应 `E_TARGET_NOT_FOUND`），以及 kebab-case 的 doctor 检查项 id（`eval-token` 对应 `E_TOKEN_MISSING`）。
 
 如果你的消费方遇到了表中没有的名称，请先通过这些映射把它解析出来，然后再做分支判断。
