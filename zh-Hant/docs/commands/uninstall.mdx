@@ -102,6 +102,17 @@ extension uninstall [browser-name] [options]
 - `--where` 會印出 `status: "located"` 幀,解析後的路徑放在 `value.paths`。
 - 移除失敗會印出 `ok: false` 與 `error.code: "E_BROWSER_UNINSTALL"`,接著行程以 `1` 結束。
 
+從 4.1.41 之後的版本起，`value` 包含 `browsers`、`all`，以及一個 `results` 陣列，每個目標一項。每一項有 `browser`、`removed`、`path`（檢查過的受管資料夾）與 `outcome`：
+
+| `outcome` | 含義 |
+| --------- | ---- |
+| `removed` | 受管瀏覽器已移除。 |
+| `absent`  | 快取中沒有這個目標的受管瀏覽器。沒有瀏覽器的資料夾會被靜默清除。 |
+| `system`  | 僅限 Edge。沒有找到受管的 Edge，位於 `systemPath` 的系統 Edge 保持原樣。 |
+| `failed`  | 資料夾仍然存在。`reason` 說明原因。 |
+
+`uninstall` 會先嘗試每個目標，然後才失敗。失敗的執行仍會印出 `value.results`，所以腳本可以看到哪些目標已被移除。沒有移除任何目標時，狀態為 `noop`，幀中帶有一則 `W_UNINSTALL_NOOP` 警告。
+
 ## 範例
 
 ### 移除受管理的 Chrome for Testing

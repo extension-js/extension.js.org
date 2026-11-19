@@ -106,6 +106,17 @@ extension uninstall [browser-name] [options]
 - `--where` prints a `status: "located"` frame with the resolved paths in `value.paths`.
 - A failed removal prints `ok: false` with `error.code: "E_BROWSER_UNINSTALL"` before the process exits `1`.
 
+From the release after 4.1.41, `value` carries `browsers`, `all`, and a `results` array with one entry for each target. Each entry has `browser`, `removed`, `path` (the managed folder that was checked), and `outcome`:
+
+| `outcome` | Meaning                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------- |
+| `removed` | The managed browser was removed.                                                                     |
+| `absent`  | The cache held no managed browser for this target. A folder without a browser is cleared quietly.    |
+| `system`  | Edge only. No managed Edge was found, and the system Edge at `systemPath` stays as it is.            |
+| `failed`  | The folder is still there. `reason` says why.                                                        |
+
+`uninstall` tries every target before it fails. A failed run still prints `value.results`, so a script can see which targets were removed. When no target was removed, the status is `noop` and the frame carries a `W_UNINSTALL_NOOP` warning.
+
 ## Examples
 
 ### Remove managed Chrome for Testing
