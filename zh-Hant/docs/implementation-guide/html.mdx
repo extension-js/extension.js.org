@@ -141,6 +141,8 @@ deno run -A npm:extension@latest create my-extension --template=sidebar
 
 從 HTML 引用的靜態資產會以相對於原始碼的路徑輸出，因此執行期的參考（例如你同時也會在 JavaScript 中讀取的 `<img>` `src`）在建置後的擴充功能中，會和瀏覽器從原始碼提供它們時以相同方式解析。
 
+另一個頁面用 `<iframe>` 載入的頁面會作為獨立檔案輸出到 `assets/` 下。它的指令碼、樣式表與圖片會以副本形式輸出，它的參考會指向這些副本。`dev` 會監看它們，所以儲存後框架內容會更新。建置不會打包這類頁面的指令碼，所以請用一般的瀏覽器 JavaScript 撰寫它們。只透過 `<a href>` 連結到達的頁面不會被複製。請把這類頁面放到 `pages/` 下。
+
 ### 同一頁面上的多個傳統 script
 
 當一個頁面列出多個 `<script>` 標籤，而且都沒有使用 `type="module"` 時，這些 script 在瀏覽器中共用同一個 sloppy 模式的全域範圍：某個檔案的 `var` 宣告與隱含全域變數，下一個檔案看得到。Extension.js 會把全部都是傳統 script 的清單依標籤順序串接進同一個共用範圍來保留這個行為，讓跨 script 的全域變數在建置後仍然有效。只要頁面中有至少一個 `type="module"` 的 script，就維持標準的逐一 script 打包。
@@ -151,6 +153,14 @@ deno run -A npm:extension@latest create my-extension --template=sidebar
 - 在注入 script 的流程中，凡是支援的 script 變更會走 hot module replacement（HMR）。
 - 如果 HTML 的 script／樣式進入點清單改變（新增／移除），正在執行的 `extension dev` 工作階段會自行重新啟動編譯器。你不需要重新啟動指令。
 - manifest 的修改新增、移除或重新命名 HTML 進入點時，編譯器會以同樣的方式重新啟動。
+- 從 4.1.41 之後的版本起，沒有對應檔案的頁面指令碼或樣式表會發出警告。
+- 頁面接著會在不含該檔案的情況下輸出。
+- 這個警告會在啟動時、正式建置中以及你刪除檔案之後出現。
+- 設定 `EXTENSION_STRICT_REFS=true` 可以把缺少的頁面檔案變成錯誤。
+- 缺少的 popup、options、devtools 或 background 頁面會讓建置失敗。瀏覽器會拒絕這樣的擴充功能。
+- 缺少的 sandbox 或側邊面板頁面會發出警告。
+- `pages/` 下缺少的頁面會警告一次，並列出檔名。
+- 只由指令碼開啟的缺少頁面（例如 devtools 面板）也會以同樣方式警告。
 
 ## 路徑與環境變數
 

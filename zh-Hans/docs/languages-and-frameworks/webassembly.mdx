@@ -90,6 +90,8 @@ const bytes = await response.arrayBuffer()
 
 这个 URL 在扩展的每个上下文中都能解析，包括页面和 service worker。它与构建为图片、字体和样式表提供的 `?url` 约定完全一致。
 
+从 4.1.41 之后的版本起，当构建输出的 `.wasm` 文件不被 manifest 策略允许在浏览器中运行时，构建会发出警告。警告会给出文件、策略字段和一个可用的值。当你的代码从其他来源获取 `.wasm` 文件时（例如传给 `locateFile` 的 CDN 地址），构建也会警告。商店会把这种二进制文件视为远程代码，而且它在离线时会失败。这两个警告都不会让构建失败。在 `dev` 中，每个警告每个会话只打印一次。
+
 只有在加载器接受任意协议时才把 URL 直接交给它。有些运行时只接受 `http:` 和 `https:`，遇到 `chrome-extension:` URL 就会抛错，`@imagemagick/magick-wasm` 就是其中之一：它的 `initializeImageMagick` 会以 "Only http/https protocol is supported" 失败。对于这类库，按上面的方式自行 fetch 构建产物并把字节交给它：`initializeImageMagick(new Uint8Array(bytes))`。
 
 ## 用法

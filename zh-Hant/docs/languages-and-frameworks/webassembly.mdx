@@ -90,6 +90,8 @@ const bytes = await response.arrayBuffer()
 
 這個 URL 在擴充功能的每個 context 中都能解析，包括頁面與 service worker。它與建置為圖片、字型和樣式表提供的 `?url` 約定完全一致。
 
+從 4.1.41 之後的版本起，當建置輸出的 `.wasm` 檔案不被 manifest 政策允許在瀏覽器中執行時，建置會發出警告。警告會列出檔案、政策欄位與一個可用的值。當你的程式碼從其他來源取得 `.wasm` 檔案時（例如傳給 `locateFile` 的 CDN 位址），建置也會警告。商店會把這種二進位檔視為遠端程式碼，而且它在離線時會失敗。這兩個警告都不會讓建置失敗。在 `dev` 中，每個警告每個工作階段只印出一次。
+
 只有在載入器接受任意協定時才把 URL 直接交給它。有些執行環境只接受 `http:` 與 `https:`，遇到 `chrome-extension:` URL 就會拋出錯誤，`@imagemagick/magick-wasm` 就是其中之一：它的 `initializeImageMagick` 會以 "Only http/https protocol is supported" 失敗。對於這類函式庫，依照上面的方式自行 fetch 建置產物並把位元組交給它：`initializeImageMagick(new Uint8Array(bytes))`。
 
 ## 使用方式

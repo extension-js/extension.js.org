@@ -141,6 +141,8 @@ For each HTML entrypoint, Extension.js:
 
 Static assets referenced from HTML are emitted at their source-relative paths, so runtime references (such as an `<img>` `src` you also read from JavaScript) resolve in the built extension the same way the browser serves them from source.
 
+A page that another page loads in an `<iframe>` ships as its own file under `assets/`. Its scripts, stylesheets, and images ship as copies, and its references point at those copies. `dev` watches them, so a save updates the frame. The build does not bundle the scripts of such a page, so write them as plain browser JavaScript. A page that only an `<a href>` link reaches is not copied. Put that page under `pages/` instead.
+
 ### Multiple classic scripts on one page
 
 When a page lists several `<script>` tags and none of them use `type="module"`, the scripts share one sloppy-mode global scope in the browser: `var` declarations and implicit globals from one file are visible to the next. Extension.js preserves this by concatenating all-classic script lists into one shared scope, in tag order, so cross-script globals survive the build. Pages with at least one `type="module"` script keep standard per-script bundling.
@@ -151,6 +153,14 @@ When a page lists several `<script>` tags and none of them use `type="module"`, 
 - Script changes use hot module replacement (HMR) where supported in the injected script flow.
 - If the HTML script/style entry list changes (add/remove entries), a running `extension dev` session restarts its compiler by itself. You do not restart the command.
 - A manifest edit that adds, removes, or renames an HTML entrypoint restarts the compiler the same way.
+- From the release after 4.1.41, a page script or stylesheet with no file warns.
+- The page then ships without that file.
+- That warning shows at startup, in a production build, and after you delete the file.
+- Set `EXTENSION_STRICT_REFS=true` to make a missing page file an error.
+- A missing popup, options, devtools, or background page fails the build. The browser refuses such an extension.
+- A missing sandbox or side panel page warns.
+- A missing page under `pages/` warns once and names the file.
+- A missing page that only a script opens, such as a devtools panel, warns the same way.
 
 ## Paths and environment variables
 
