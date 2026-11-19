@@ -47,15 +47,18 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 | `compiled`       | true  | 第一次成功編譯。帶有 `assets` 與 `durationMs`。                             |
 | `recompiled`     | true  | 之後每一次成功編譯。                                                        |
 | `compile-failed` | false | 一次編譯帶著錯誤結束，無論是第一次或之後。                                  |
-| `ready`          | true  | 只有一次，本次工作階段的 `ready.json` 已寫入磁碟時。                        |
+| `ready`          | true  | 本次工作階段的 `ready.json` 已寫入磁碟時。之後的編譯清除了 `ready-failed` 或 `load-refused` 時會再次送出。從 4.1.41 之後的版本起，`dev` 重新啟動成功後也會再次送出，並帶 `value.restarted: true`。 |
 | `browser-exited` | false | 瀏覽器在工作階段中途結束，見下文。                                          |
 | `restart-failed` | false | 從 4.1.41 之後的版本起。某次重新啟動無法建置下一個 bundle，因此先前的建置繼續提供服務，`value.serving` 為 `true`。`error.code` 是該失敗自己的錯誤碼，或 `E_DEV_SERVER_START`。再次儲存變更的檔案即可重試。 |
 | `load-refused`   | false | 瀏覽器拒絕了擴充功能。工作階段繼續進行，並在下一次編譯時再次提供它。 |
 | `ready-failed`   | false | 從 4.1.41 之後的版本起。工作階段仍在進行時 `ready.json` 回報 `error`，例如啟動失敗。下一次編譯會再試一次。 |
-| `failed`         | false | 結束這次執行的工作階段層級失敗，例如伺服器始終沒能綁定，或重新啟動的下一個伺服器無法啟動。 |
+| `failed`         | false | 結束這次執行的工作階段層級失敗，例如伺服器始終沒能綁定、重新啟動的下一個伺服器無法啟動，或停止超過了關閉時限。 |
+| `usage`          | false | 瀏覽器啟動拒絕了你設定的值時的最後一個影格，例如有問題的 `--chromium-binary` 固定路徑。 |
 | `stopped`        | 視情況 | 最後一個影格。工作階段以結束代碼 `0` 自行結束時為 `ok: true`。被 `SIGINT` 這類訊號停止時為 `ok: false`，帶 `E_INTERRUPTED` 與 `value.signal`。 |
 
 每個影格的 `value` 都帶有工作階段身分：`command`、`browser`、`distPath`、`pid`、`port`，以及已知時的 `readyPath`、`eventsPath`、`runId`、`instanceId` 與 `toolchainVersion`。
+
+`failed`、`usage` 與 `stopped` 是終止狀態。終止影格表示處理程序正在結束，串流在它之後不再寫入任何內容，因此讀到第一個終止影格就停止。其他每個 `ok: false` 影格都讓工作階段繼續進行。當 CLI 知道該錯誤碼的解決方法時，`failed` 或 `usage` 影格會把它放在 `hint` 中。
 
 在工作階段開始之前就被拒絕的執行只會送出一個 `failed` 影格，不會有 `starting` 影格。缺少 manifest、設定檔載入失敗，以及遠端 URL 沒有可用的封存檔，都會以這種方式結束。
 
@@ -78,9 +81,11 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 
 `ready` 影格在送出之前會先讀取 `ready.json`。編譯可能成功，而瀏覽器卻拒絕了這個擴充功能，發生這種情況時契約會停留在 `error`。
 
-這種情況下，工作階段仍在進行時串流會發出 `ready-failed` 影格，執行結束時則發出 `failed` 影格。它的錯誤碼是 `E_READY_ERROR_STATUS`，並由 `value.readyCode` 指出契約自身的錯誤碼。
+工作階段仍在進行時，串流接著會發出 `ready-failed` 影格。瀏覽器拒絕了擴充功能時，發出的是 `load-refused`。兩者都不會結束工作階段，之後清除該錯誤的編譯會再次寫出 `ready`。只有當處理程序結束時 `ready.json` 仍回報該錯誤，契約錯誤才會變成 `failed` 影格。
 
-瀏覽器根本沒有啟動，或在擴充功能載入之前就結束時，送達的也是同一個影格。這時 `value.readyCode` 是 `browser_launch_failed` 或 `browser_exited`。Firefox 的除錯器始終沒有回應時，視為啟動失敗。
+`error.code` 是啟動器蓋上的錯誤碼，否則就是契約狀態對應的錯誤碼。例如 `browser_launch_failed` 對應 `E_BROWSER_LAUNCH`，被拒絕的載入對應 `E_EXTENSION_LOAD_REFUSED`。`E_READY_ERROR_STATUS` 只留給沒有自身錯誤碼的狀態。`value.readyCode` 指出契約自身的錯誤 id。
+
+瀏覽器根本沒有啟動時，會送出這個影格，`value.readyCode` 為 `browser_launch_failed`。Firefox 的除錯器始終沒有回應時，視為啟動失敗。瀏覽器結束時送出的則是 `browser-exited` 影格，見下文。
 
 `--chromium-binary` 或 `--gecko-binary` 固定的執行檔有問題時，`readyCode` 同樣是 `browser_launch_failed`，但其影格帶 `status: "usage"` 與 `error.code: "E_BROWSER_BINARY_INVALID"`，這也是每個命令對這種固定路徑給出的代碼。
 
@@ -95,13 +100,21 @@ Chromium 的 `dev` 工作階段在瀏覽器起來之後 CDP 連線失敗時,仍�
 - `E_PROFILE_LOCKED`：契約顯示設定檔被鎖定。瀏覽器根本沒有啟動，另一個工作階段正佔用該設定檔。
 - `E_BROWSER_LAUNCH`：其餘所有非預期的結束。
 
-當契約中有這些欄位時，影格的 `value` 會帶有 `exitCode` 與 `browserExitedAt`。
+當契約中有這些欄位時，影格的 `value` 會帶有 `exitCode`、`exitSignal` 與 `browserExitedAt`。當機沒有結束代碼，只有 `SIGTRAP` 這類訊號。
+
+從 4.1.41 之後的版本起，`browser-exited` 或 `ready-failed` 影格的 `hint` 以 CLI 對該錯誤碼已知的解決方法開頭，接著說明工作階段繼續進行。對於 `E_PROFILE_LOCKED`，解決方法是關閉開著該設定檔的瀏覽器，或傳入 `--profile <path>`。
 
 ## 重新啟動與關閉
 
 從 4.1.41 之後的版本起，下一個 bundle 無法建置的重新啟動會送出一個 `restart-failed` 影格，舊的伺服器繼續提供服務。如果舊伺服器停止後下一個伺服器無法啟動，串流會送出 `failed`，處理程序以 `1` 結束。
 
+從 4.1.41 之後的版本起，`dev` 重新啟動成功後，新伺服器的第一次編譯通過時會再次寫出 `ready`。該影格的 `value` 帶有 `restarted: true`。在那之前，串流照常寫出編譯影格。
+
 關閉有 10 秒可以完成，之後處理程序以 `1` 結束。在第一次 `Ctrl+C` 超過一秒之後再按一次，也會立即強制以 `1` 結束。被強制的關閉絕不會回報成功。
+
+從 4.1.41 之後的版本起，如果之前沒有寫出終止影格，超過這個時限的停止會以帶 `E_SHUTDOWN_TIMEOUT` 的 `failed` 結束串流。自動結束期限觸發的停止就是一個例子。該影格的 `value` 帶有 `exitCode` 與 `shutdownTimeoutMs`。由訊號觸發的停止保留它的 `stopped` 影格。
+
+以 `0` 以外的結束代碼結束的工作階段同樣以終止影格結束。`ready.json` 中有錯誤時，該影格帶有那個錯誤的錯誤碼。否則就是帶 `E_INTERNAL` 與 `value.exitCode` 的 `failed`。
 
 ## 後續步驟
 

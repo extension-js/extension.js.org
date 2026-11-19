@@ -241,6 +241,16 @@ export default function initial() {
 
 字型一旦進入 `document.fonts`，shadow 樹就可以在一般的 `font-family` 規則裡以名稱使用它。可運行的版本見 [content-custom-font](https://github.com/extension-js/templates/tree/main/examples/content-custom-font)。
 
+## 以 URL 匯入樣式表
+
+從 4.1.41 之後的版本起，在 content script 之外，`?url` 匯入會給出編譯後樣式表的 URL：
+
+```ts
+import href from "./panel.css?url";
+```
+
+建置會編譯該樣式表，並把它當成獨立的檔案放在 `assets/` 下。該樣式表中相對的 `url()` 或 `@import` 無法跟著它到新位置，一則警告會列出這些位址。把那些檔案移到 `public/` 中並從根路徑引用，或不帶 `?url` 匯入該樣式表。
+
 ## 依情境的輸出行為
 
 | 情境           | 輸出行為                                                                           |
@@ -251,6 +261,10 @@ export default function initial() {
 Extension.js 會依照哪一個進入點 import 該 CSS 自動拆分情境。
 
 從 4.1.41 之後的版本起，content script 樣式表會連同它匯入的每個專案 `.css` 檔案的規則一起發布。匯入的 media、supports 或 layer 條件會被保留。content script 樣式表從 `data:` URL 載入，瀏覽器在那裡不會擷取任何相對匯入。套件與遠端的匯入保持原樣。專案之外的樣式表或私有檔案不會被帶進來，建置會點名該檔案發出警告。在所有工具執行完之後仍留在樣式表中的 `@import`，會警告它的規則不會載入。
+
+從 4.1.41 之後的版本起，Extension.js 以自己的規則編譯每個樣式表，這些規則優先於你的設定。你的設定為 `.css`、`.scss`、`.sass` 或 `.less` 檔案設定的 `type` 不會套用。一則警告會說明這一點。請從該規則中移除 `type`。要取得檔案 URL，以 `?url` 匯入樣式表。要取得文字，以 `?raw` 匯入。
+
+正式建置壓縮樣式表時，Extension.js 會把結果與壓縮前的樣式表比較。遺失了規則的樣式表會照原樣發布，並附上一則警告，指出被丟掉的內容。從 4.1.41 之後的版本起，只有建置進行壓縮時才執行這項檢查，因此 `dev` 會略過它。
 
 ## 開發行為
 
