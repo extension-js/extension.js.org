@@ -50,13 +50,16 @@ describe("hand-off to the extension.dev platform", () => {
     expect(read("docs/commands/publish.mdx")).toContain(SHARE_DOCS_URL);
   });
 
-  // This assertion used to pin the opposite text, which the CLI has never
-  // printed. A test that quotes terminal prose can only be trusted when it is
-  // checked against a real run, so it now asserts the lines 4.1.3 emits.
+  // Terminal prose is pinned to what the CLI prints: the build line and the
+  // toolchain line. The share line left the CLI in 4.1.40.
   it("quotes the exact lines a successful build prints", () => {
     const buildDoc = read("docs/commands/build.mdx");
     expect(buildDoc).toContain("⏵⏵⏵ Extension built for production in dist/");
-    expect(buildDoc).toContain("⏵⏵⏵ Send this build to someone for review:");
+    expect(buildDoc).toContain("⏵⏵⏵ Built with Node v");
+    expect(buildDoc).not.toContain(
+      "⏵⏵⏵ Send this build to someone for review:",
+    );
+
     expect(buildDoc).not.toContain("Build succeeded with no warnings.");
     expect(buildDoc).not.toContain("Your extension is ready for deployment.");
   });

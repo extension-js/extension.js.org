@@ -34,7 +34,7 @@ keywords:
 | `E_UNKNOWN_COMMAND` | 沒有子指令符合這個名稱。 |
 | `E_NODE_VERSION` | 執行中的 Node 版本低於支援的最低版本。 |
 | `E_COMMAND_UNSUPPORTED_FOR_TARGET` | 該指令不支援所要求的瀏覽器目標。 |
-| `E_UNSUPPORTED_BROWSER` | 所要求的廠商不在支援的瀏覽器清單內。`extension.config.js` 中的 `commands.<cmd>.browser` 值也以同樣的方式檢查。 |
+| `E_UNSUPPORTED_BROWSER` | 所要求的廠商不在支援的瀏覽器清單內。`extension.config.js` 中的 `commands.<cmd>.browser` 值也以同樣的方式檢查。從 4.2.0 起，空的 `--browser` 值或逗號清單中的空項目也以此代碼回應。 |
 | `E_BROWSER_NOT_INSTALLABLE` | 該瀏覽器隨作業系統提供，CLI 無法安裝它。 |
 | `E_PARENT_GONE` | `--parent-pid` 指定的宿主處理程序已死亡，開發伺服器因而自行結束。 |
 | `E_REMOTE_URL_UNSUPPORTED` | 該操作不接受遠端 URL。 |
@@ -44,7 +44,7 @@ keywords:
 | 錯誤碼 | 意義 |
 | ---- | ------- |
 | `E_PROJECT_NOT_FOUND` | 解析出的專案資料夾不存在。 |
-| `E_CONFIG_LOAD` | `extension.config.js` 在載入時拋出例外，或匯出的不是物件。`dev`、`build`、`start` 與 `preview` 都以此代碼回應。正式建置遇到不合法的 [`perfBudgets`](/zh-Hant/docs/workflows/performance-playbook) 值時也以此代碼回應，從 4.2.0 起 `dev` 也是如此。 |
+| `E_CONFIG_LOAD` | `extension.config.js` 在載入時拋出例外，或匯出的不是物件。`dev`、`build`、`start` 與 `preview` 都以此代碼回應。正式建置遇到不合法的 [`perfBudgets`](/zh-Hant/docs/workflows/performance-playbook) 值時也以此代碼回應，從 4.2.0 起 `dev` 也是如此。從 4.2.0 之後的版本起，載入時拋出例外的 `vue.loader` 或 `svelte.loader` 選項檔也會讓建置以此代碼停止。 |
 | `E_DEPENDENCY_INSTALL` | 安裝專案相依套件失敗。 |
 | `E_OPTIONAL_DEP_UNRESOLVED` | 某個選用相依契約無法解析。 |
 | `E_OPTIONAL_DEP_LOAD` | 某個選用相依已解析，但載入失敗。從 4.1.41 之後的版本起，專案中的副本在載入時拋出例外會讓執行停止。訊息會點名它的路徑與原因。不會改用其他安裝來代替。 |
@@ -115,7 +115,7 @@ keywords:
 | `E_BROWSER_START_TIMEOUT` | 瀏覽器始終沒有送出啟動訊號。 |
 | `E_PROFILE_LOCKED` | 該設定檔目錄被另一個瀏覽器處理程序占用。 |
 | `E_INSTANCE_AMBIGUOUS` | 有多個存活的實例符合所要求的 id。 |
-| `E_BROWSER_DOWNLOAD` | 下載或安裝瀏覽器失敗。從 4.1.41 之後的版本起，缺少套件執行器時改為回傳 `E_BROWSER_INSTALLER_NOT_FOUND`。 |
+| `E_BROWSER_DOWNLOAD` | 下載或安裝瀏覽器失敗。從 4.1.41 之後的版本起，缺少套件執行器時改為回傳 `E_BROWSER_INSTALLER_NOT_FOUND`。從 4.2.0 之後的版本起，它也涵蓋存在但無法啟動的套件執行器，而類型未知的安裝故障改為回傳 `E_INTERNAL`。 |
 | `E_BROWSER_INSTALL_PRIVILEGE` | 這次安裝需要一個互動式的特權工作階段。 |
 | `E_BROWSER_UNINSTALL` | 移除已安裝的瀏覽器失敗。 |
 | `E_BROWSER_INSTALL_TIMEOUT` | 到了安裝逾時時間，瀏覽器安裝程式仍在執行，因此被停止。 |
@@ -245,13 +245,13 @@ keywords:
 | `W_INTERNAL` | 某個建置步驟遇到非預期的輸出並繼續進行。工具鏈需要更新。 |
 | `W_RESTART_REQUIRED` | 執行中的開發工作階段只在啟動時讀取的某個檔案變更了，因此變更會在重新啟動後生效。 |
 | `W_JSON_INVALID` | 某個 `declarativeNetRequest` 規則集可以解析，但含有可能不會照寫法運作的規則，或含有 Chrome 拒絕而 Firefox 會載入的規則。 |
-| `W_PROJECT_LAYOUT` | 某個 `public/` 資料夾放錯位置或被另一個遮蔽，或 `extension.config.js` 中的某個 `exclude` 條目指向不存在的檔案。從 4.2.0 之後的版本起，它也涵蓋大小寫不對的 `public/` 資料夾，以及被入口遮蔽的 `public/` 檔案。 |
+| `W_PROJECT_LAYOUT` | 某個 `public/` 資料夾放錯位置或被另一個遮蔽，或 `extension.config.js` 中的某個 `exclude` 條目指向不存在的檔案。從 4.2.0 之後的版本起，它也涵蓋大小寫不對的 `public/` 資料夾，以及被入口遮蔽的 `public/` 檔案。它還涵蓋任何建置都不讀取的 `Pages/` 或 `Scripts/` 資料夾，以及 `pages/` 或 `scripts/` 中建置為同一個入口名稱的兩個檔案。 |
 | `W_MANIFEST_COMPAT` | manifest 使用了目標瀏覽器會忽略或正在淘汰的版本、鍵或主機權限樣式。 |
 | `W_STORE_READINESS` | manifest 可以建置並載入，但商店會照現在的寫法拒絕或標記它。 |
 | `W_PERMISSION_MISMATCH` | 程式碼使用的 API 或連線的主機，沒有被 manifest 權限以程式碼需要的方式涵蓋。 |
 | `W_API_UNSUPPORTED` | 程式碼呼叫了目標瀏覽器沒有的擴充功能 API，或某種 API 形式。 |
 | `W_WAR_EXPOSURE` | 某個指令稿點名的檔案無法透過 `web_accessible_resources` 存取，或建置公開它的範圍比 manifest 列出的更廣。 |
-| `W_CSS_NOT_APPLIED` | 某個樣式表匯入或 `url()` 保留在輸出中，但瀏覽器不會在它所在的位置套用它。 |
+| `W_CSS_NOT_APPLIED` | 某個樣式表匯入或 `url()` 保留在輸出中，但瀏覽器不會在它所在的位置套用它。從 4.2.0 之後的版本起，它也標記沒有執行的 PostCSS 或樣式表設定步驟，例如無法載入的 PostCSS 設定。4.2.0 及之前的版本給這些警告的是 `W_RESTART_REQUIRED`。 |
 | `W_ENV_SECRET_PUBLIC` | 某個 `EXTENSION_PUBLIC_` 變數的名稱看起來像機密，而它的值會被寫入建置後的程式碼。 |
 | `W_BUILD_CONSTANT_UNDEFINED` | 某個指令稿讀取了沒有任何東西定義的建置常數，因此它在載入時會拋出例外。 |
 | `W_SCRIPT_WORLD_UNKNOWN` | 某個指令稿在執行階段以建置無法讀出的 world 註冊，因此被當成隔離 world 的指令稿。 |

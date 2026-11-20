@@ -34,7 +34,7 @@ keywords:
 | `E_UNKNOWN_COMMAND` | 没有与该名称匹配的子命令。 |
 | `E_NODE_VERSION` | 正在运行的 Node 版本低于支持的最低版本。 |
 | `E_COMMAND_UNSUPPORTED_FOR_TARGET` | 该命令不支持所请求的浏览器目标。 |
-| `E_UNSUPPORTED_BROWSER` | 所请求的浏览器厂商不在支持列表内。`extension.config.js` 中的 `commands.<cmd>.browser` 值也按同样的方式检查。 |
+| `E_UNSUPPORTED_BROWSER` | 所请求的浏览器厂商不在支持列表内。`extension.config.js` 中的 `commands.<cmd>.browser` 值也按同样的方式检查。从 4.2.0 起，空的 `--browser` 值或逗号列表中的空项也以此代码作答。 |
 | `E_BROWSER_NOT_INSTALLABLE` | 该浏览器随操作系统一起提供，CLI 无法安装它。 |
 | `E_PARENT_GONE` | `--parent-pid` 指定的宿主进程已死亡，开发服务器随之自行终止。 |
 | `E_REMOTE_URL_UNSUPPORTED` | 该操作不接受远程 URL。 |
@@ -44,7 +44,7 @@ keywords:
 | 错误码 | 含义 |
 | ---- | ------- |
 | `E_PROJECT_NOT_FOUND` | 解析出的项目目录不存在。 |
-| `E_CONFIG_LOAD` | `extension.config.js` 在加载时抛出了异常，或导出的不是一个对象。`dev`、`build`、`start` 和 `preview` 都以此代码作答。生产构建遇到不合法的 [`perfBudgets`](/zh-Hans/docs/workflows/performance-playbook) 值时也以此代码作答，从 4.2.0 起 `dev` 也是如此。 |
+| `E_CONFIG_LOAD` | `extension.config.js` 在加载时抛出了异常，或导出的不是一个对象。`dev`、`build`、`start` 和 `preview` 都以此代码作答。生产构建遇到不合法的 [`perfBudgets`](/zh-Hans/docs/workflows/performance-playbook) 值时也以此代码作答，从 4.2.0 起 `dev` 也是如此。从 4.2.0 之后的版本起，加载时抛出异常的 `vue.loader` 或 `svelte.loader` 选项文件也会让构建以此代码停止。 |
 | `E_DEPENDENCY_INSTALL` | 安装项目依赖失败。 |
 | `E_OPTIONAL_DEP_UNRESOLVED` | 某个可选依赖契约无法解析。 |
 | `E_OPTIONAL_DEP_LOAD` | 某个可选依赖已解析，但加载失败。从 4.1.41 之后的版本起，项目中的副本在加载时抛错会停止运行。消息会给出它的路径和原因。不会改用其他安装来顶替它。 |
@@ -115,7 +115,7 @@ keywords:
 | `E_BROWSER_START_TIMEOUT` | 浏览器始终没有发出启动信号。 |
 | `E_PROFILE_LOCKED` | 该配置文件目录被另一个浏览器进程占用。 |
 | `E_INSTANCE_AMBIGUOUS` | 有多个存活实例与请求的 id 匹配。 |
-| `E_BROWSER_DOWNLOAD` | 下载或安装浏览器失败。从 4.1.41 之后的版本起，缺少包运行器时改为返回 `E_BROWSER_INSTALLER_NOT_FOUND`。 |
+| `E_BROWSER_DOWNLOAD` | 下载或安装浏览器失败。从 4.1.41 之后的版本起，缺少包运行器时改为返回 `E_BROWSER_INSTALLER_NOT_FOUND`。从 4.2.0 之后的版本起，它也涵盖存在但无法启动的包运行器，而类型未知的安装故障改为返回 `E_INTERNAL`。 |
 | `E_BROWSER_INSTALL_PRIVILEGE` | 该安装需要一个交互式的特权会话。 |
 | `E_BROWSER_UNINSTALL` | 移除已安装的浏览器失败。 |
 | `E_BROWSER_INSTALL_TIMEOUT` | 到安装超时时浏览器安装程序仍在运行，因此被停止。 |
@@ -245,13 +245,13 @@ keywords:
 | `W_INTERNAL` | 某个构建步骤遇到了非预期的输出并继续进行。工具链需要更新。 |
 | `W_RESTART_REQUIRED` | 正在运行的开发会话只在启动时读取的某个文件发生了变化，所以改动在重启之后才生效。 |
 | `W_JSON_INVALID` | 某个 `declarativeNetRequest` 规则集可以解析，但其中有规则可能不会按写法生效，或者 Chrome 拒绝而 Firefox 会加载。 |
-| `W_PROJECT_LAYOUT` | 某个 `public/` 目录放错了位置或被另一个遮蔽，或者 `extension.config.js` 中的某个 `exclude` 条目指向不存在的文件。从 4.2.0 之后的版本起，它也涵盖大小写不对的 `public/` 目录，以及被入口遮蔽的 `public/` 文件。 |
+| `W_PROJECT_LAYOUT` | 某个 `public/` 目录放错了位置或被另一个遮蔽，或者 `extension.config.js` 中的某个 `exclude` 条目指向不存在的文件。从 4.2.0 之后的版本起，它也涵盖大小写不对的 `public/` 目录，以及被入口遮蔽的 `public/` 文件。它还涵盖任何构建都不读取的 `Pages/` 或 `Scripts/` 文件夹，以及 `pages/` 或 `scripts/` 中构建为同一个入口名的两个文件。 |
 | `W_MANIFEST_COMPAT` | manifest 使用了目标浏览器会忽略或正在淘汰的版本、键或主机权限模式。 |
 | `W_STORE_READINESS` | manifest 可以构建和加载，但商店会按其写法拒绝或标记它。 |
 | `W_PERMISSION_MISMATCH` | 代码使用了某个 API 或访问了某个主机，而 manifest 权限没有按代码需要的方式覆盖它。 |
 | `W_API_UNSUPPORTED` | 代码调用了目标浏览器没有的扩展 API，或某个 API 的某种形式。 |
 | `W_WAR_EXPOSURE` | 脚本点名的某个文件无法通过 `web_accessible_resources` 访问，或者构建暴露它的范围比 manifest 列出的更广。 |
-| `W_CSS_NOT_APPLIED` | 某个样式表导入或 `url()` 保留在输出中，但浏览器不会在它所在的位置应用它。 |
+| `W_CSS_NOT_APPLIED` | 某个样式表导入或 `url()` 保留在输出中，但浏览器不会在它所在的位置应用它。从 4.2.0 之后的版本起，它也标记没有运行的 PostCSS 或样式表设置步骤，比如无法加载的 PostCSS 配置。4.2.0 及之前的版本给这些警告的是 `W_RESTART_REQUIRED`。 |
 | `W_ENV_SECRET_PUBLIC` | 某个 `EXTENSION_PUBLIC_` 变量的名字看起来像密钥，而它的值被写进了构建出的代码。 |
 | `W_BUILD_CONSTANT_UNDEFINED` | 某个脚本读取了没有任何东西定义的构建常量，所以它在加载时会抛错。 |
 | `W_SCRIPT_WORLD_UNKNOWN` | 某个脚本在运行时以构建无法读出的 world 注册，所以它被当作隔离 world 脚本处理。 |

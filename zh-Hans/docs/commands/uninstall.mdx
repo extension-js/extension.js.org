@@ -94,6 +94,8 @@ extension uninstall [browser-name] [options]
 
 `--all` 移除的是与 `install --browser all` 创建的相同的受管理集合：`chrome`、`chromium`、`edge` 与 `firefox`。
 
+从 4.2.0 之后的版本起，`--all` 与浏览器名称一起使用，比如 `extension uninstall chrome --all`，会以 `E_ARGS` 和状态 `usage` 被拒绝，什么都不会移除。传入名称来移除这些浏览器，或者只传 `--all` 来移除每个浏览器。
+
 ## 用 `--output json` 输出机器可读结果
 
 `--output json` 会在 stdout 上打印一个 schema-1 信封：
@@ -111,7 +113,16 @@ extension uninstall [browser-name] [options]
 | `system`  | 仅限 Edge。没有找到托管的 Edge，位于 `systemPath` 的系统 Edge 保持原样。 |
 | `failed`  | 文件夹仍然存在。`reason` 说明原因。 |
 
-`uninstall` 会先尝试每个目标，然后才失败。失败的运行仍会打印 `value.results`，所以脚本可以看到哪些目标已被移除。没有移除任何目标时，状态为 `noop`，帧中带有一条 `W_UNINSTALL_NOOP` 警告。
+从 4.2.0 之后的版本起，`failed` 项还带有 `kind`，脚本无需读取 `reason` 即可分支：
+
+| `kind`       | 含义                                                                       |
+| ------------ | -------------------------------------------------------------------------- |
+| `removal`    | 尝试过移除但失败了，比如浏览器仍在从那个文件夹运行。                       |
+| `permission` | 你的用户无权移除文件夹中的某个文件。`reason` 会点名拒绝的那个文件夹。      |
+| `foreign`    | 文件夹中有不是 Extension.js 放进去的文件，所以它保持原样。                 |
+| `installing` | 该浏览器的安装正在运行，所以文件夹保持原样。已知时 `reason` 会点名它的 PID。 |
+
+`uninstall` 会先尝试每个目标，然后才失败。任何目标失败时，运行都以 `1` 退出，即使其他目标已被移除。失败的运行仍会打印 `value.results`，所以脚本可以看到哪些目标已被移除。没有移除任何目标时，状态为 `noop`，帧中带有一条 `W_UNINSTALL_NOOP` 警告。
 
 ## 示例
 

@@ -129,6 +129,12 @@ Catalog downloads are pinned to one immutable commit of the templates repository
 - `EXTENSION_CREATE_TEMPLATE_REF` points at another ref. Set it to `main` to restore floating behavior.
 - `EXTENSION_CREATE_TEMPLATE_URL` points at another archive URL entirely. When it is set and that archive cannot be used, `create` fails and never falls back to the bundled template.
 
+From the release after 4.2.0, `create` keeps the catalog archive of a pinned commit in a per-user cache. A second `create` from the same pin reads the archive from disk instead of downloading it again. The cache is used only when the ref is a full 40-character commit SHA, as the default pin is. A branch, a tag, or `EXTENSION_CREATE_TEMPLATE_URL` always downloads. The cache keeps the 3 newest archives, and a damaged copy is deleted and downloaded again. Set `EXTENSION_CREATE_CACHE_DIR` to move the cache. By default it lives at:
+
+- macOS: `~/Library/Caches/extension.js/templates`
+- Linux: `~/.cache/extension.js/templates` or `$XDG_CACHE_HOME/extension.js/templates`
+- Windows: `%LOCALAPPDATA%\extension.js\templates`
+
 Each scaffold writes a `.extension-create.json` provenance file into the project. It records the create version, the template, and the source, plus the resolved ref when the template came from the catalog archive, so template drift stays auditable. The bundled `javascript` starter records `"source": "bundled"` and no ref.
 
 Every template also carries a `.mcp.json` file that MCP clients read. When the folder already has a `.mcp.json`, `create` keeps it as it is. From the release after 4.1.39, a `create` that fails partway in an existing folder puts your `.gitignore` and `.mcp.json` back as they were.
@@ -138,7 +144,7 @@ Every template also carries a `.mcp.json` file that MCP clients read. When the f
 `--output json` prints one schema-1 envelope on stdout and routes scaffold progress lines to stderr:
 
 - A successful run prints a `status: "created"` frame. Its `value` carries `projectPath`, `projectName`, `template`, and `depsInstalled`.
-- Failures print `ok: false` with an `error.code`: `E_TEMPLATE_NOT_FOUND` for an unknown catalog name, `E_NETWORK` for a failed download (a refused connection, an HTTP error, or a timeout), `E_DESTINATION_NOT_EMPTY` or `E_DESTINATION_NOT_WRITABLE` for destination problems.
+- Failures print `ok: false` with an `error.code`: `E_TEMPLATE_NOT_FOUND` for an unknown catalog name, `E_NETWORK` for a failed download (a refused connection, an HTTP error, or a timeout), `E_DESTINATION_NOT_EMPTY` or `E_DESTINATION_NOT_WRITABLE` for destination problems, `E_DEPENDENCY_INSTALL` for a failed dependency install, and `E_INTERNAL` for a fault of no known kind.
 - A template URL that answers with something other than a ZIP archive, or with a damaged one, fails with `E_REMOTE_ZIP_INVALID` and leaves nothing on disk.
 - An archive with an entry outside its folder fails with `E_REMOTE_ZIP_INVALID` too, from a template URL or from `EXTENSION_CREATE_TEMPLATE_URL`. `create` checks every entry before it writes one, so the message says the archive was refused, names the entry, and gives no advice to try again.
 - `EXTENSION_CREATE_TIMEOUT_MS` bounds the whole template fetch, retry included. A fetch that runs out of time fails with `E_NETWORK` and the reason `No answer within N seconds`.

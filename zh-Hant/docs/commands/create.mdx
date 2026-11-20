@@ -129,6 +129,12 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 - `EXTENSION_CREATE_TEMPLATE_REF` 指向另一個 ref。設為 `main` 可恢復浮動行為。
 - `EXTENSION_CREATE_TEMPLATE_URL` 指向另一個完全不同的壓縮檔 URL。設定了它而該封存檔無法使用時,`create` 會直接失敗,永遠不會退回內建範本。
 
+從 4.2.0 之後的版本起，`create` 會把固定提交的範本目錄壓縮檔保存在每個使用者的快取中。之後從同一個固定版本執行的 `create` 會從磁碟讀取壓縮檔，不再重新下載。只有當 ref 是完整的 40 字元提交 SHA 時才使用快取，預設的固定版本就是如此。分支、標籤或 `EXTENSION_CREATE_TEMPLATE_URL` 一律會下載。快取保留最新的 3 個壓縮檔，損壞的副本會被刪除並重新下載。設定 `EXTENSION_CREATE_CACHE_DIR` 可以移動快取。預設位置：
+
+- macOS：`~/Library/Caches/extension.js/templates`
+- Linux：`~/.cache/extension.js/templates` 或 `$XDG_CACHE_HOME/extension.js/templates`
+- Windows：`%LOCALAPPDATA%\extension.js\templates`
+
 每次建立都會在專案中寫入一個 `.extension-create.json` 來源紀錄檔。它記下 create 的版本、範本與來源,當範本來自範本目錄壓縮檔時還會記下解析出的 ref,讓範本漂移隨時可稽核。內建的 `javascript` 起始範本記錄的是 `"source": "bundled"`,而且沒有 ref。
 
 每個範本還帶有一個供 MCP 用戶端讀取的 `.mcp.json` 檔案。如果資料夾裡已經有 `.mcp.json`,`create` 會原樣保留它。從 4.1.39 之後的版本起，如果 `create` 在一個既有的資料夾裡中途失敗，它會把你的 `.gitignore` 與 `.mcp.json` 恢復原狀。
@@ -138,7 +144,7 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 `--output json` 會在 stdout 印出一個 schema-1 信封,並把建立過程的進度訊息送到 stderr:
 
 - 成功的執行會印出 `status: "created"` 訊框。它的 `value` 帶有 `projectPath`、`projectName`、`template` 與 `depsInstalled`。
-- 失敗會印出 `ok: false` 以及一個 `error.code`:未知的範本名稱對應 `E_TEMPLATE_NOT_FOUND`,下載失敗(連線遭拒、HTTP 錯誤或逾時)對應 `E_NETWORK`,目標資料夾的問題對應 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`。
+- 失敗會印出 `ok: false` 以及一個 `error.code`:未知的範本名稱對應 `E_TEMPLATE_NOT_FOUND`,下載失敗(連線遭拒、HTTP 錯誤或逾時)對應 `E_NETWORK`,目標資料夾的問題對應 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`,相依套件安裝失敗對應 `E_DEPENDENCY_INSTALL`,類型未知的故障對應 `E_INTERNAL`。
 - 範本 URL 回傳的不是 ZIP 封存檔,或回傳的封存檔已損毀時,會以 `E_REMOTE_ZIP_INVALID` 失敗,而且不會在磁碟上留下任何內容。
 - 封存檔含有位於其資料夾之外的條目時,同樣以 `E_REMOTE_ZIP_INVALID` 失敗,無論它來自範本 URL 還是 `EXTENSION_CREATE_TEMPLATE_URL`。`create` 會在寫入任何條目之前檢查每一個條目,所以訊息會說明該封存檔遭拒、點名該條目,也不會建議重試。
 - `EXTENSION_CREATE_TIMEOUT_MS` 限制整個範本擷取的時間,包括重試。逾時的擷取以 `E_NETWORK` 失敗,原因為 `No answer within N seconds`。

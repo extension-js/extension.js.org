@@ -72,7 +72,8 @@ Fields that are always present:
 | `port`             | number or null   | The port that the dev server actually bound.                             |
 | `pid`              | number           | The dev server process id. Check liveness before trusting the contract.  |
 | `pidStartedAt`     | ISO string       | From 4.1.40, when the process behind `pid` started. A reused pid has another start time, so compare both. |
-| `ts`               | ISO string       | When this document was last written.                                     |
+| `pidStartId`       | string           | From the release after 4.2.0, Linux only: the boot id and the kernel start tick of `pid`, joined by a colon. A clock step, as in a resumed VM or WSL2, moves `pidStartedAt` but never this value. When you can read it for the live pid, compare it for equality instead of the dates. |
+| `ts`               | ISO string       | When this document was last written. From the release after 4.2.0, when `status` was last written: a fact stamped beside the status does not move it. |
 | `compiledAt`       | string or null   | When the latest successful compile finished.                             |
 | `errors`           | string[]         | ANSI-stripped compile errors, capped at 10 entries.                      |
 | `toolchainVersion` | string           | The Extension.js version that produced this tree.                        |
@@ -201,6 +202,8 @@ A load refusal outlives the next successful compile. Only a new run (`starting`)
 
 A `dev` session whose browser exited before the extension loaded stays in `error` across recompiles, because a recompile does not bring the browser back. A launch failure outlives recompiles too, until a browser does start or a new run begins.
 
+From the release after 4.2.0, every field that the launcher stamps is kept across recompiles of the same run. A browser verdict (`browser_exited`, `browser_launch_failed`, `profile_locked`, or `extension_load_refused`) keeps `status: "error"`, its `code`, and its `message` after a compile that succeeds. Only `compile_error` and `compile_failed` clear on the next good compile.
+
 ## Waiting with --wait
 
 `extension dev --wait` and `extension start --wait` poll the contract every 250 ms and exit when it reports `ready`. Pair them with `--output json` for a machine result.
@@ -235,7 +238,7 @@ From the release after 4.1.41, a `--wait` on a run that ended on a refusal answe
 
 The same directory holds `events.ndjson` (compile timeline) and `logs.ndjson` (extension console output). Every row in both carries the `runId` from `ready.json`.
 
-`events.ndjson` is truncated at every run start, so it only ever describes the current run. Event types are `compile_start`, `compile_success`, `compile_error`, `browser_exited`, `browser_launch_failed`, and `shutdown`. A `browser_exited` row mirrors the launcher's exit stamp, with `exitCode`, `exitSignal`, and `browserExitedAt`, so the timeline says when and how the browser went. After it, every act verb answers `E_CONTROL_UNAVAILABLE` naming the exit and the restart, since no service worker reconnects until a new `dev` session relaunches the browser. A `browser_launch_failed` row mirrors the launch failure stamp, with `browserLaunchFailedAt` and `reason`.
+`events.ndjson` is truncated at every run start, so it only ever describes the current run. Event types are `compile_start`, `compile_success`, `compile_error`, `browser_exited`, `browser_launch_failed`, and `shutdown`. From the release after 4.2.0, a `restart_failed` row records a `dev` restart that could not be made, such as a config or entry change whose next compiler or server failed. It carries the error `code`, the `reason`, and `serving`: `true` when the build from before the restart still serves the session and retries on the next change, `false` when no server is left and the session ends. A `browser_exited` row mirrors the launcher's exit stamp, with `exitCode`, `exitSignal`, and `browserExitedAt`, so the timeline says when and how the browser went. After it, every act verb answers `E_CONTROL_UNAVAILABLE` naming the exit and the restart, since no service worker reconnects until a new `dev` session relaunches the browser. A `browser_launch_failed` row mirrors the launch failure stamp, with `browserLaunchFailedAt` and `reason`.
 
 ## Example
 
