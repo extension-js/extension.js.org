@@ -81,31 +81,23 @@ export default {
 };
 ```
 
-## 仅在必要时用 Babel 替换 SWC 处理 JS/TS
+## 你的 Babel 配置在 SWC 之前运行
 
-仅当你确实需要让 Babel 直接处理 JS/TS 入口文件时，才使用这种模式：
+从 4.2.0 之后的版本起，项目文件夹里的 Babel 配置无需你添加任何规则就会运行。Extension.js 会查找 `babel.config.*`、`.babelrc`、`.babelrc.*` 或 `package.json` 里的 `babel` 键，并让 Babel 先处理每一个项目脚本，但从不处理 `node_modules`。随后 SWC 编译 Babel 的输出，所以 TypeScript、JSX、浏览器目标和 React Refresh 仍由 SWC 负责。你的配置不需要 TypeScript 或 JSX 预设，因为 Extension.js 会给 Babel 读取这些文件所需的语法插件。Extension.js 为此自带 `babel-loader` 和 `@babel/core`。没有 Babel 配置的项目永远不会为脚本加载 Babel。
 
-```js
-export default {
-  config: (config) => {
-    config.module.rules = [
-      {
-        test: /\.[jt]sx?$/,
-        exclude: /node_modules/,
-        use: [{ loader: "babel-loader" }],
-      },
-      ...config.module.rules.filter(
-        (rule) => !String(rule?.test || "").includes("[jt]sx"),
-      ),
-    ];
-    return config;
-  },
-};
+```json babel.config.json
+{
+  "plugins": ["babel-plugin-macros"]
+}
 ```
+
+所以前面配置步骤里的 `babel.config.json` 也会作用于项目里的每一个脚本。4.2.0 及之前的版本只通过你添加的规则运行 Babel。
+
+Babel 无法替换 SWC。`config` 里的规则只能添加 loader，不能移除 loader，所以 SWC 仍会在 Babel 之后编译你的脚本。见 [Loader 顺序](/zh-Hans/docs/features/extension-configuration#loader-顺序)。
 
 ## 最佳实践
 
-- 在替换默认 JS/TS 管线之前，优先采用有针对性的 Babel 用法。
+- Babel 配置只放 SWC 缺少的插件，因为它会作用于每一个项目脚本。
 - 让 Babel 规则保持显式，以便 loader 顺序可预期。
 - 仅在迁移或插件兼容性确有需要时才复用 Babel。
 
