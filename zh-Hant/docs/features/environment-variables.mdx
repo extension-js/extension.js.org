@@ -126,7 +126,7 @@ deno run -A npm:extension@latest create my-extension --template=content-env
 從 4.2.0 起，env 檔案是一個資料夾或無法讀取時，建置會以 `E_ENV_FILE_UNREADABLE` 停止。訊息會指名這個檔案。
 如果專案旁存在 env 檔，但沒有任何一個符合目前的瀏覽器與模式，建置會印出警告，列出找到的檔案與查找過的候選檔名。這樣瀏覽器後綴的拼字錯誤會立刻暴露，而不是在沒有值注入的情況下悄悄完成建置。以另一個模式或瀏覽器命名的檔案，比如正式建置中的 `.env.development`，會被原樣留下且不印出警告。只有當沒有其他來源（比如 `extension.config.js`）定義這些值時，警告才會說它們是 undefined。
 
-從 4.2.0 之後的版本開始，檔名以頁面、樣式表、腳本或圖片副檔名結尾的檔案，比如 `.env.css` 或 `.env.side.html`，不算 env 檔，`.envrc` 也不算。這些檔案是以 `.env` 開頭的資源，所以警告不再指名它們，也不會只因為它們而印出。以瀏覽器或模式結尾的檔名，比如 `.env.chrome` 或 `.env.production`，一律算作 env 檔。
+從 4.2.0 之後的版本開始，檔名以建置會發布或編譯的檔案副檔名結尾的檔案，比如 `.env.css` 或 `.env.side.html`，不算 env 檔，`.envrc` 也不算。這些副檔名不分大小寫，包括頁面（`html`、`htm`）、樣式表（`css`、`scss`、`sass`、`less`、`styl`）、腳本與元件（`js`、`mjs`、`cjs`、`jsx`、`ts`、`mts`、`cts`、`tsx`、`vue`、`svelte`）、資料與文字（`json`、`json5`、`jsonc`、`xml`、`yml`、`yaml`、`toml`、`md`、`txt`）、圖片（`png`、`jpg`、`jpeg`、`gif`、`svg`、`webp`、`avif`、`ico`、`bmp`）、字型（`woff`、`woff2`、`ttf`、`otf`、`eot`）、影音（`mp3`、`mp4`、`webm`、`ogg`、`wav`），以及 `map`、`wasm`、`pdf` 和 `zip`。這些檔案是以 `.env` 開頭的資源，所以警告不再指名它們，也不會只因為它們而印出。以瀏覽器或模式結尾的檔名，比如 `.env.chrome` 或 `.env.production`，一律算作 env 檔。
 
 ### 機密永遠不要使用 `EXTENSION_PUBLIC_` 前綴
 
@@ -420,6 +420,8 @@ EXTENSION_PUBLIC_SITE=https://example.com
 
 當 Extension.js 輸出資產時，會把 `$EXTENSION_PUBLIC_SITE_URL` 等佔位符替換為解析後的值。
 
+從 4.2.0 之後的版本開始，`_locales/<locale>/messages.json` 中緊接著第二個 `$` 的記號，比如 `$EXTENSION_MODE$`，是瀏覽器自己的訊息佔位符，所以建置會保持原樣。
+
 ### 3. 在 HTML 檔中
 
 你也可以在靜態 HTML 檔中使用佔位符（例如放在 `pages/` 下）：
@@ -442,6 +444,8 @@ EXTENSION_PUBLIC_SITE=https://example.com
 編譯時，Extension.js 會替換輸出 HTML 中的 `$EXTENSION_PUBLIC_API_URL`。
 
 從 4.2.0 之後的版本開始，建置會在它從專案中原樣複製的每個 `.json` 和 `.html` 檔案中填入同樣的佔位符。這包括 `web_accessible_resources` 中列出的檔案、背景透過 `chrome.runtime.getURL()` 開啟的檔案，以及透過根絕對連結（比如 `/options.html`）存取的頁面。每個值的跳脫方式與編譯後的頁面相同。沒有佔位符的複製檔案保留原樣的位元組。4.2.0 及之前的版本發布這些副本時，佔位符保持原樣。
+
+從 4.2.0 之後的版本開始，沒有佔位符的輸出 `.json` 或 `.html` 檔案以原樣的位元組發布，不論其編碼。含有佔位符但不是 UTF-8 的檔案也以原樣發布，並帶有 `W_ENV_ASSET_NOT_UTF8` 警告。
 
 ### 4. 在 JSX 元件中
 

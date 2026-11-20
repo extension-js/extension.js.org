@@ -71,7 +71,7 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `manifestPath`     | string         | 源 manifest 的绝对路径。                                                     |
 | `port`             | number 或 null | dev 服务器实际绑定的端口。                                                   |
 | `pid`              | number         | dev 服务器进程 id。在信任这份契约之前，先确认它还活着。                      |
-| `pidStartedAt`     | ISO string     | 从 4.2.0 起，`pid` 背后的进程启动的时间。被复用的 pid 有另一个启动时间，所以两者都要比对。 |
+| `pidStartedAt`     | ISO string     | 从 4.1.40 起，`pid` 背后的进程启动的时间。被复用的 pid 有另一个启动时间，所以两者都要比对。 |
 | `ts`               | ISO string     | 这份文档最后一次被写入的时间。                                               |
 | `compiledAt`       | string 或 null | 最近一次成功编译完成的时间。                                                 |
 | `errors`           | string[]       | 去掉 ANSI 转义的编译错误，最多 10 条。                                       |
@@ -92,7 +92,7 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `logsPath`           | string         | 指向 `logs.ndjson` 的相对路径。                                                                                                                                    |
 | `cdpPort`            | number         | Chromium 启动时：CDP 端口，在启动之后盖章。从 4.1.41 之后的版本开始，同时启动的会话各自拿到自己的调试端口，所以请读取这个字段，不要假定是 9222。在 `preview` 和 `start` 上，卡片打印时它已经在记录里。 |
 | `rdpPort`            | number         | Gecko 启动时：RDP debugger-server 端口，在启动之后盖章。从 4.1.41 之后的版本开始，同时启动的会话各自拿到自己的端口，所以请读取这个字段。 |
-| `rdpPortError`       | string         | Gecko 启动时，从 4.2.0 起：Firefox 为何没有打开远程调试端口。此时没有 `rdpPort`。 |
+| `rdpPortError`       | string         | Gecko 启动时，从 4.1.39 起：Firefox 为何没有打开远程调试端口。此时没有 `rdpPort`。 |
 | `webdriverPort`    | number   | Safari 的 `dev` 会话：启动器在应用旁持有的 safaridriver 会话端口。Safari 一次只允许一个自动化会话，请接到这个会话而不是自己再开一个。 |
 | `webdriverSessionId` | string | 与 `webdriverPort` 并列的会话 id。 |
 | `webdriverUnavailableReason` | string | 启动器为何没有持有 WebDriver 会话，例如 Safari 的"允许远程自动化"是关闭的，或者请求会话时另一个 Safari 正开着。 |
@@ -109,11 +109,11 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `binaryProvenance`   | string         | 这个二进制是怎么选出来的：`managed`（Extension.js 的缓存）、`pinned`（二进制 flag 或二进制变量）、`system`（已安装的浏览器）或 `snapshot`（缓存的 dev 频道构建）。 |
 | `binaryPinnedBy`     | string         | 从 4.1.39 之后的版本起：指明 `pinned` 二进制的那个 flag 或变量，例如 `--chromium-binary` 或 `FIREFOX_BINARY`。其他来源下不出现。 |
 | `browserPid`         | number         | 浏览器进程 id。这是拆掉浏览器时受支持的句柄。                                                                                                                      |
-| `browserStartedAt`   | ISO string     | 从 4.2.0 起，`browserPid` 背后的进程启动的时间，用来识别被复用的 pid。进程表无法给出时间时没有这个字段。 |
-| `launcherPid`        | number         | 从 4.2.0 起，启动器所派生的进程。浏览器把会话交给另一个进程时它仍会保留。`browserPid` 指向存活的那个。 |
-| `launcherStartedAt`  | ISO string     | 从 4.2.0 起，`launcherPid` 背后的进程启动的时间。 |
+| `browserStartedAt`   | ISO string     | 从 4.1.40 起，`browserPid` 背后的进程启动的时间，用来识别被复用的 pid。进程表无法给出时间时没有这个字段。 |
+| `launcherPid`        | number         | 从 4.1.22 起，启动器所派生的进程。浏览器把会话交给另一个进程时它仍会保留。`browserPid` 指向存活的那个。 |
+| `launcherStartedAt`  | ISO string     | 从 4.1.40 起，`launcherPid` 背后的进程启动的时间。 |
 | `extensionId`        | string         | 浏览器用来提供这份 dist 的 id。能拿到时由浏览器确认，否则是推导出来的。从 4.1.41 之后的版本开始，契约记录着加载被拒时没有这个字段，除非浏览器自己确认了这个 id。 |
-| `extensionIdSource`  | string         | 从 4.2.0 起，`extensionId` 的来源：`browser`、`derived` 或 `packager`。 |
+| `extensionIdSource`  | string         | 从 4.1.35 起，`extensionId` 的来源：`browser`、`derived` 或 `packager`。 |
 | `extensionBaseUrl`   | string         | Firefox 启动，从 4.1.39 之后的版本起：浏览器提供这个扩展所用的 `moz-extension://<uuid>/` 地址。Firefox 按配置文件选定这个 UUID，所以从附加组件 id 看不出它。 |
 | `devAdditions`       | array          | `dev` 会话，从 4.1.39 之后的版本起：会话有而生产构建没有的东西。见[开发附加项](#开发附加项)。 |
 | `extensionName`      | string         | 扩展的名字，作为构建溯源信息。                                                                                                                                     |
@@ -131,7 +131,7 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `executorDetachedAt` | ISO string     | 从 4.1.20 起，最后一个已连接的扩展上下文断开的时间。 |
 | `awaitingExecutorSince` | ISO string | `dev` 会话，从 4.1.39 之后的版本起：会话开始为 background 按住 `ready` 的时间。background 连上或过去 10 秒之后移除。 |
 | `managedExtensions`  | array          | 除了你的扩展之外、引擎还加载的每一个扩展，形式是 `{path, id?}` 记录。做统计时按 id 把它们减掉。                                                                    |
-| `reloadedAt`         | ISO string     | `dev` 会话，从 4.2.0 起：编译之后最近一次重新加载生效的时间。`reloadedAt` 晚于某次编译的 `compiledAt` 时，那次编译的重新加载就已生效。不触发重新加载的编译不会改动这个戳。 |
+| `reloadedAt`         | ISO string     | `dev` 会话，从 4.1.34 起：编译之后最近一次重新加载生效的时间。`reloadedAt` 晚于某次编译的 `compiledAt` 时，那次编译的重新加载就已生效。不触发重新加载的编译不会改动这个戳。 |
 | `reloadKind`         | string         | 那次重新加载的类型：`full`、`background`、`content`、`page` 或 `safari-resync`。 |
 | `reloadLabel`        | string         | 那次重新加载的简短标签，有的话才会出现。 |
 | `endedAsFailedAt`    | ISO string     | 从 4.2.0 起，会话以失败结束时盖上。从那以后状态读作 `error`。 |

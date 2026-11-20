@@ -80,7 +80,7 @@ keywords:
 | `E_CSS_DEAD_REF` | CSS 中的某个 `url()` 或 `@import` 指向了不存在或未被打包的文件。 |
 | `E_LOCALES_LAYOUT` | `_locales` 的目录结构或 `messages.json` 不合法。 |
 | `E_WAR_INVALID` | `web_accessible_resources` 的结构或匹配模式被拒绝。 |
-| `E_BACKGROUND_REQUIRED` | 重载运行时需要一个 background chunk，但它并不存在。 |
+| `E_BACKGROUND_REQUIRED` | 从 4.2.0 之后的版本起保留，不再产生。缺失的 background 脚本在 `dev` 和生产构建中都报告 `E_ENTRY_NOT_FOUND`。4.2.0 及之前，background chunk 缺失时由重载运行时抛出。 |
 | `E_CONTENT_SCRIPT_SYNTAX` | 某个 content script 解析失败。 |
 | `E_PERF_BUDGET` | 某个资源超出了它的体积预算，并且 `perfBudgets.onExceed` 为 `'error'`，所以构建失败。没有该设置时，超出预算会以 `W_PERF_BUDGET` 警告。见[性能预算](/zh-Hans/docs/workflows/performance-playbook)。 |
 | `E_THEME_INVALID` | 某个主题颜色或色调不是 Chromium 浏览器能加载的数字数组，构建也无法精确转换它。 |
@@ -90,7 +90,7 @@ keywords:
 | `E_ASSET_IMPORT_SHAPE` | 用 `import * as` 导入的资源会被读作文件的值，也就是默认导出。 |
 | `E_ZIP_SKIPPED` | 打包因某个已说明的原因被跳过。 |
 
-`E_COMPILE` 和 `E_FIRST_COMPILE` 是编译失败时的顶层错误码。上表中有十三行会出现在该帧的 `error.details` 里，每个错误一个：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED` 和 `E_PERF_BUDGET`。`details` 中的警告带 `severity: "warning"` 和一个 `W_*` 错误码。成功构建的 `warnings` 字符串以同样的 `W_CODE: ` 前缀开头。见[编译诊断](/zh-Hans/docs/contracts/result-envelope)。
+`E_COMPILE` 和 `E_FIRST_COMPILE` 是编译失败时的顶层错误码。上表中有十二行会出现在该帧的 `error.details` 里，每个错误一个：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID` 和 `E_PERF_BUDGET`。4.2.0 及之前，`E_BACKGROUND_REQUIRED` 也可能出现在这里。`details` 中的警告带 `severity: "warning"` 和一个 `W_*` 错误码。成功构建的 `warnings` 字符串以同样的 `W_CODE: ` 前缀开头。见[编译诊断](/zh-Hans/docs/contracts/result-envelope)。
 
 ## 远程项目与网络
 
@@ -245,7 +245,7 @@ keywords:
 | `W_INTERNAL` | 某个构建步骤遇到了非预期的输出并继续进行。工具链需要更新。 |
 | `W_RESTART_REQUIRED` | 正在运行的开发会话只在启动时读取的某个文件发生了变化，所以改动在重启之后才生效。 |
 | `W_JSON_INVALID` | 某个 `declarativeNetRequest` 规则集可以解析，但其中有规则可能不会按写法生效，或者 Chrome 拒绝而 Firefox 会加载。 |
-| `W_PROJECT_LAYOUT` | 某个 `public/` 目录放错了位置、大小写不对或被另一个遮蔽，某个 `public/` 文件被入口遮蔽，或者 `extension.config.js` 中的某个 `exclude` 条目指向不存在的文件。 |
+| `W_PROJECT_LAYOUT` | 某个 `public/` 目录放错了位置或被另一个遮蔽，或者 `extension.config.js` 中的某个 `exclude` 条目指向不存在的文件。从 4.2.0 之后的版本起，它也涵盖大小写不对的 `public/` 目录，以及被入口遮蔽的 `public/` 文件。 |
 | `W_MANIFEST_COMPAT` | manifest 使用了目标浏览器会忽略或正在淘汰的版本、键或主机权限模式。 |
 | `W_STORE_READINESS` | manifest 可以构建和加载，但商店会按其写法拒绝或标记它。 |
 | `W_PERMISSION_MISMATCH` | 代码使用了某个 API 或访问了某个主机，而 manifest 权限没有按代码需要的方式覆盖它。 |
@@ -257,6 +257,7 @@ keywords:
 | `W_SCRIPT_WORLD_UNKNOWN` | 某个脚本在运行时以构建无法读出的 world 注册，所以它被当作隔离 world 脚本处理。 |
 | `W_ENV_DEFINE_WRITTEN` | 项目代码写入了构建会替换为其值的 env 名字，所以这个名字的点号读取保留构建时的值。 |
 | `W_ENV_NAME_RESERVED` | 某个 `.env` 文件设置了构建为其所编译的浏览器或模式保留的名字，所以该文件中的值被忽略。 |
+| `W_ENV_ASSET_NOT_UTF8` | 某个输出的 `.json` 或 `.html` 文件含有 `$EXTENSION_` 占位符，但不是 UTF-8 文本，所以它按原样的字节发布，占位符保持原样。从 4.2.0 之后的版本起。 |
 | `W_COMPANION_EXTENSION_PATH` | 某个协同扩展条目指向项目之外、不是未打包的扩展目录，或指向不存在的目录，所以浏览器打开时不带它。 |
 | `W_CDP_NOT_CONNECTED` | `dev`、`start` 或 `preview` 会话在没有存活 CDP 传输的情况下启动并保持就绪。reload 和 HMR 无法接上。 |
 | `W_CDP_TIMEOUT` | 启动之后某个 CDP 命令或加载超时，`dev`、`start` 或 `preview` 会话保持就绪。reload 和 HMR 无法接上。 |
