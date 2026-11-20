@@ -80,7 +80,7 @@ keywords:
 | `E_CSS_DEAD_REF` | CSS 中的某個 `url()` 或 `@import` 指向不存在或未被打包的檔案。 |
 | `E_LOCALES_LAYOUT` | `_locales` 的結構或 `messages.json` 不合法。 |
 | `E_WAR_INVALID` | `web_accessible_resources` 的結構或比對樣式遭到拒絕。 |
-| `E_BACKGROUND_REQUIRED` | 重新載入執行階段需要一個 background chunk，但它並不存在。 |
+| `E_BACKGROUND_REQUIRED` | 從 4.2.0 之後的版本起保留，不再產生。缺少的 background 腳本在 `dev` 與正式建置中都回報 `E_ENTRY_NOT_FOUND`。4.2.0 及之前，background chunk 缺少時由重新載入執行階段拋出。 |
 | `E_CONTENT_SCRIPT_SYNTAX` | 某個 content script 解析失敗。 |
 | `E_PERF_BUDGET` | 某個資源超出了它的大小預算，且 `perfBudgets.onExceed` 為 `'error'`，因此建置失敗。沒有這個設定時，超出預算只會以 `W_PERF_BUDGET` 警告。見[效能預算](/zh-Hant/docs/workflows/performance-playbook)。 |
 | `E_THEME_INVALID` | 某個主題顏色或色調不是 Chromium 瀏覽器能載入的數字陣列，而建置無法精確轉換它。 |
@@ -90,7 +90,7 @@ keywords:
 | `E_ASSET_IMPORT_SHAPE` | 以 `import * as` 匯入的資源會被讀成檔案的值，也就是預設匯出。 |
 | `E_ZIP_SKIPPED` | 打包因某個已說明的原因被略過。 |
 
-`E_COMPILE` 和 `E_FIRST_COMPILE` 是編譯失敗時的頂層錯誤碼。上表中有十三列會出現在該影格的 `error.details` 裡，每個錯誤一個：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID`、`E_BACKGROUND_REQUIRED` 和 `E_PERF_BUDGET`。`details` 中的警告帶有 `severity: "warning"` 與一個 `W_*` 代碼。成功建置的 `warnings` 字串開頭也是同樣的 `W_CODE: ` 前綴。見[編譯診斷](/zh-Hant/docs/contracts/result-envelope)。
+`E_COMPILE` 和 `E_FIRST_COMPILE` 是編譯失敗時的頂層錯誤碼。上表中有十二列會出現在該影格的 `error.details` 裡，每個錯誤一個：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID` 和 `E_PERF_BUDGET`。4.2.0 及之前，`E_BACKGROUND_REQUIRED` 也可能出現在這裡。`details` 中的警告帶有 `severity: "warning"` 與一個 `W_*` 代碼。成功建置的 `warnings` 字串開頭也是同樣的 `W_CODE: ` 前綴。見[編譯診斷](/zh-Hant/docs/contracts/result-envelope)。
 
 ## 遠端專案與網路
 
@@ -245,7 +245,7 @@ keywords:
 | `W_INTERNAL` | 某個建置步驟遇到非預期的輸出並繼續進行。工具鏈需要更新。 |
 | `W_RESTART_REQUIRED` | 執行中的開發工作階段只在啟動時讀取的某個檔案變更了，因此變更會在重新啟動後生效。 |
 | `W_JSON_INVALID` | 某個 `declarativeNetRequest` 規則集可以解析，但含有可能不會照寫法運作的規則，或含有 Chrome 拒絕而 Firefox 會載入的規則。 |
-| `W_PROJECT_LAYOUT` | 某個 `public/` 資料夾放錯位置、大小寫不對或被另一個遮蔽，某個 `public/` 檔案被入口遮蔽，或 `extension.config.js` 中的某個 `exclude` 條目指向不存在的檔案。 |
+| `W_PROJECT_LAYOUT` | 某個 `public/` 資料夾放錯位置或被另一個遮蔽，或 `extension.config.js` 中的某個 `exclude` 條目指向不存在的檔案。從 4.2.0 之後的版本起，它也涵蓋大小寫不對的 `public/` 資料夾，以及被入口遮蔽的 `public/` 檔案。 |
 | `W_MANIFEST_COMPAT` | manifest 使用了目標瀏覽器會忽略或正在淘汰的版本、鍵或主機權限樣式。 |
 | `W_STORE_READINESS` | manifest 可以建置並載入，但商店會照現在的寫法拒絕或標記它。 |
 | `W_PERMISSION_MISMATCH` | 程式碼使用的 API 或連線的主機，沒有被 manifest 權限以程式碼需要的方式涵蓋。 |
@@ -257,6 +257,7 @@ keywords:
 | `W_SCRIPT_WORLD_UNKNOWN` | 某個指令稿在執行階段以建置無法讀出的 world 註冊，因此被當成隔離 world 的指令稿。 |
 | `W_ENV_DEFINE_WRITTEN` | 專案程式碼寫入了建置會取代為其值的 env 名稱，所以這個名稱的點號讀取保留建置時的值。 |
 | `W_ENV_NAME_RESERVED` | 某個 `.env` 檔案設定了建置為它所編譯的瀏覽器或模式保留的名稱，因此檔案中的值被忽略。 |
+| `W_ENV_ASSET_NOT_UTF8` | 某個輸出的 `.json` 或 `.html` 檔案含有 `$EXTENSION_` 佔位符，但不是 UTF-8 文字，所以它以原樣的位元組發布，佔位符保持原樣。從 4.2.0 之後的版本起。 |
 | `W_COMPANION_EXTENSION_PATH` | 某個搭配擴充功能條目通往專案之外、不是未封裝的擴充功能資料夾，或指向不存在的資料夾，因此瀏覽器在沒有它的情況下開啟。 |
 | `W_CDP_NOT_CONNECTED` | 某個 `dev`、`start` 或 `preview` 工作階段在沒有存活 CDP 傳輸的情況下啟動，並保持就緒。重新載入與 HMR 無法連上。 |
 | `W_CDP_TIMEOUT` | 啟動後某個 CDP 指令或載入逾時，而 `dev`、`start` 或 `preview` 工作階段保持就緒。重新載入與 HMR 無法連上。 |

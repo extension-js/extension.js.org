@@ -80,7 +80,7 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_CSS_DEAD_REF` | A CSS `url()` or `@import` names a file that is missing or not bundled. |
 | `E_LOCALES_LAYOUT` | `_locales` layout or `messages.json` is invalid. |
 | `E_WAR_INVALID` | `web_accessible_resources` shape or match pattern rejected. |
-| `E_BACKGROUND_REQUIRED` | The reload runtime needs a background chunk that is absent. |
+| `E_BACKGROUND_REQUIRED` | Reserved from the release after 4.2.0 and no longer emitted. A missing background script reports `E_ENTRY_NOT_FOUND` in `dev` and in production builds. Up to 4.2.0, the reload runtime raised it when a background chunk was absent. |
 | `E_CONTENT_SCRIPT_SYNTAX` | A content script failed to parse. |
 | `E_PERF_BUDGET` | An asset exceeds its size budget, and `perfBudgets.onExceed` is `'error'`, so the build fails. Without that setting the overrun warns with `W_PERF_BUDGET`. See [Performance budgets](/docs/workflows/performance-playbook#performance-budgets). |
 | `E_THEME_INVALID` | A theme color or tint is not a number array a Chromium browser loads, and the build cannot translate it exactly. |
@@ -90,7 +90,7 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_ASSET_IMPORT_SHAPE` | An asset imported with `import * as` is read as the file's value, which is the default export. |
 | `E_ZIP_SKIPPED` | Packaging was skipped for a stated reason. |
 
-`E_COMPILE` and `E_FIRST_COMPILE` are the top-level codes of a failed compile. Thirteen rows above travel inside that frame's `error.details`, one per error: `E_MODULE_NOT_FOUND`, `E_CONTENT_SCRIPT_SYNTAX`, `E_CSS_PARSE`, `E_ENTRY_NOT_FOUND`, `E_ASSET_MISSING`, `E_SCRIPT_DEP_MISSING`, `E_RESERVED_FOLDER`, `E_CSS_PREPROCESSOR_MISSING`, `E_CSS_DEAD_REF`, `E_LOCALES_LAYOUT`, `E_WAR_INVALID`, `E_BACKGROUND_REQUIRED`, and `E_PERF_BUDGET`. A warning in `details` has `severity: "warning"` and a `W_*` code. A successful build's `warnings` strings open with the same `W_CODE: ` prefix. See [Compile diagnostics](/docs/contracts/result-envelope).
+`E_COMPILE` and `E_FIRST_COMPILE` are the top-level codes of a failed compile. Twelve rows above travel inside that frame's `error.details`, one per error: `E_MODULE_NOT_FOUND`, `E_CONTENT_SCRIPT_SYNTAX`, `E_CSS_PARSE`, `E_ENTRY_NOT_FOUND`, `E_ASSET_MISSING`, `E_SCRIPT_DEP_MISSING`, `E_RESERVED_FOLDER`, `E_CSS_PREPROCESSOR_MISSING`, `E_CSS_DEAD_REF`, `E_LOCALES_LAYOUT`, `E_WAR_INVALID`, and `E_PERF_BUDGET`. Up to 4.2.0, `E_BACKGROUND_REQUIRED` could appear there too. A warning in `details` has `severity: "warning"` and a `W_*` code. A successful build's `warnings` strings open with the same `W_CODE: ` prefix. See [Compile diagnostics](/docs/contracts/result-envelope).
 
 ## Remote projects and network
 
@@ -246,7 +246,7 @@ Releases up to 4.1.41 reported many of these warnings under the `E_*` name with 
 | `W_INTERNAL` | A build step met output it did not expect and carried on. The toolchain needs an update. |
 | `W_RESTART_REQUIRED` | A file the running dev session reads only at startup changed, so the change applies after a restart. |
 | `W_JSON_INVALID` | A `declarativeNetRequest` ruleset parses but has a rule that may not behave as written, or one that Chrome refuses and Firefox loads. |
-| `W_PROJECT_LAYOUT` | A `public/` folder is misplaced, named in another letter case, or shadowed by another one, a `public/` file is shadowed by an entry, or an `exclude` entry in `extension.config.js` names a file that is not there. |
+| `W_PROJECT_LAYOUT` | A `public/` folder is misplaced or shadowed by another one, or an `exclude` entry in `extension.config.js` names a file that is not there. From the release after 4.2.0, it also covers a `public/` folder named in another letter case and a `public/` file shadowed by an entry. |
 | `W_MANIFEST_COMPAT` | The manifest uses a version, key, or host permission pattern that the target browser ignores or is phasing out. |
 | `W_STORE_READINESS` | The manifest builds and loads, but a store would reject or flag it as written. |
 | `W_PERMISSION_MISMATCH` | The code uses an API or reaches a host that the manifest permissions do not cover the way the code needs. |
@@ -258,6 +258,7 @@ Releases up to 4.1.41 reported many of these warnings under the `E_*` name with 
 | `W_SCRIPT_WORLD_UNKNOWN` | A script is registered at runtime with a world the build cannot read, so it is treated as an isolated world script. |
 | `W_ENV_DEFINE_WRITTEN` | Project code writes to an env name that the build replaces with its value, so dotted reads of that name keep the build value. |
 | `W_ENV_NAME_RESERVED` | A `.env` file sets a name the build reserves for the browser or mode it compiles for, so the file value is ignored. |
+| `W_ENV_ASSET_NOT_UTF8` | An emitted `.json` or `.html` file holds a `$EXTENSION_` placeholder but is not UTF-8 text, so it ships byte for byte and the placeholder is left as written. From the release after 4.2.0. |
 | `W_COMPANION_EXTENSION_PATH` | A companion extension entry leads outside the project, is not an unpacked extension folder, or names a folder that does not exist, so the browser opens without it. |
 | `W_CDP_NOT_CONNECTED` | A `dev`, `start`, or `preview` session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach. |
 | `W_CDP_TIMEOUT` | A CDP command or load timed out after launch, and the `dev`, `start`, or `preview` session stayed ready. Reload and HMR cannot attach. |
