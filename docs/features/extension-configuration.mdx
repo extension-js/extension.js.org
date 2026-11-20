@@ -376,6 +376,21 @@ The hook can change `module`, `resolve`, `resolveLoader`, `node`, `optimization.
 
 Rspack has already consumed every other key by then. That covers keys such as `entry`, `plugins`, `context`, `mode`, `target`, `devtool`, `externals`, `experiments`, and `performance`, every `optimization` key other than `minimize` and `minimizer`, and these `output` keys: `path`, `module`, `library`, `enabledLibraryTypes`, `chunkFormat`, `chunkLoading`, `enabledChunkLoadingTypes`, `wasmLoading`, `enabledWasmLoadingTypes`, `workerChunkLoading`, `workerWasmLoading`, `workerPublicPath`, `pathinfo`, `sourceMapFilename`, `devtoolModuleFilenameTemplate`, `devtoolFallbackModuleFilenameTemplate`, `devtoolNamespace`, and `bundlerInfo`. Extension.js undoes a change to any of them, including one made deep inside a value, and prints one warning that names each key by its path. Set those in `config`.
 
+#### Loader order
+
+Rspack runs the loaders of the matching rules from the last rule to the first. Extension.js puts its own script rules in front of yours, so a script passes through the loaders in this order:
+
+1. Your loaders. They read the file as you wrote it, TypeScript and JSX included.
+2. A framework compiler, such as the Solid or Svelte compiler, when the project uses one.
+3. SWC, which compiles TypeScript and JSX for the target browser.
+4. The content script wrapper, for content scripts only.
+
+A loader with `enforce: "pre"` also runs first. A loader with `enforce: "post"` runs after all of them and reads the compiled output.
+
+A rule in `config` adds a loader and cannot take one away. SWC still compiles your scripts after your loader. To change a rule that Extension.js attaches, edit `config.module.rules` in `configResolved`.
+
+From the release after 4.1.41, the content script wrapper runs last. Earlier releases ran it before your loaders, so a loader read the wrapped text unless it set `enforce: "pre"`.
+
 #### The hook context
 
 Both hooks receive a second argument that names the run. It carries `browser` (the target, as `--browser` names it), `mode` (`development`, `production`, or `none`), and `command` (`dev`, `build`, `start`, or `preview`). Use it to change the bundler for one browser, without reading `process.argv`. This example keeps the Firefox store build readable for review:
