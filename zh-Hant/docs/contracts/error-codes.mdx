@@ -26,7 +26,7 @@ keywords:
 
 | 錯誤碼 | 意義 |
 | ---- | ------- |
-| `E_ARGS` | 缺少必要引數，或呼叫方式格式錯誤。 |
+| `E_ARGS` | 缺少必要引數，或呼叫方式格式錯誤。從 4.2.0 之後的版本起，不帶指令的 `extension --output json` 會以一個 `usage` 影格回應它。 |
 | `E_INVALID_OPTION` | 某個旗標或引數的值不在允許的集合內。 |
 | `E_FLAG_VALUE_INVALID` | 某個旗標的值未通過驗證。 |
 | `E_FLAG_NOT_SUPPORTED_HERE` | 該旗標存在，但不適用於這個指令或這個目標。 |
@@ -83,6 +83,7 @@ keywords:
 | `E_WAR_INVALID` | `web_accessible_resources` 的結構或比對樣式遭到拒絕。 |
 | `E_BACKGROUND_REQUIRED` | 從 4.2.0 之後的版本起保留，不再產生。缺少的 background 腳本在 `dev` 與正式建置中都回報 `E_ENTRY_NOT_FOUND`。4.2.0 及之前，background chunk 缺少時由重新載入執行階段拋出。 |
 | `E_CONTENT_SCRIPT_SYNTAX` | 某個 content script 解析失敗。 |
+| `E_INLINE_SCRIPT_SYNTAX` | 從 4.2.0 之後的版本起。HTML 檔案中的內嵌指令稿在未加引號的佔位符被填入 env 值之後不再能剖析。 |
 | `E_PERF_BUDGET` | 某個資源超出了它的大小預算，且 `perfBudgets.onExceed` 為 `'error'`，因此建置失敗。沒有這個設定時，超出預算只會以 `W_PERF_BUDGET` 警告。見[效能預算](/zh-Hant/docs/workflows/performance-playbook)。 |
 | `E_THEME_INVALID` | 某個主題顏色或色調不是 Chromium 瀏覽器能載入的數字陣列，而建置無法精確轉換它。 |
 | `E_DEV_SESSION_DIST_SHARED` | 某次建置會寫入一個正在執行的開發工作階段所服務的輸出資料夾，因此遭到拒絕。傳入 `--out-dir` 以在旁邊建置。 |
@@ -91,7 +92,7 @@ keywords:
 | `E_ASSET_IMPORT_SHAPE` | 以 `import * as` 匯入的資源會被讀成檔案的值，也就是預設匯出。 |
 | `E_ZIP_SKIPPED` | 打包因某個已說明的原因被略過。 |
 
-`E_COMPILE` 和 `E_FIRST_COMPILE` 是編譯失敗時的頂層錯誤碼。上表中有十二列會出現在該影格的 `error.details` 裡，每個錯誤一個：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID` 和 `E_PERF_BUDGET`。4.2.0 及之前，`E_BACKGROUND_REQUIRED` 也可能出現在這裡。`details` 中的警告帶有 `severity: "warning"` 與一個 `W_*` 代碼。成功建置的 `warnings` 字串開頭也是同樣的 `W_CODE: ` 前綴。見[編譯診斷](/zh-Hant/docs/contracts/result-envelope)。
+`E_COMPILE` 和 `E_FIRST_COMPILE` 是編譯失敗時的頂層錯誤碼。上表中有十三列會出現在該影格的 `error.details` 裡，每個錯誤一個：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_INLINE_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID` 和 `E_PERF_BUDGET`。4.2.0 及之前，`E_BACKGROUND_REQUIRED` 也可能出現在這裡。`details` 中的警告帶有 `severity: "warning"` 與一個 `W_*` 代碼。成功建置的 `warnings` 字串開頭也是同樣的 `W_CODE: ` 前綴。見[編譯診斷](/zh-Hant/docs/contracts/result-envelope)。
 
 ## 遠端專案與網路
 
@@ -241,7 +242,7 @@ keywords:
 | `W_PORT_IN_USE` | 所要求的埠號已被占用，已自動改用其他埠號。 |
 | `W_LOGS_STREAM_GAP` | follow 串流掉了部分事件。 |
 | `W_MANIFEST_INVALID` | 某個 manifest 欄位的形狀是瀏覽器拒絕載入的，建置已修正或捨棄它。 |
-| `W_WAR_INVALID` | 某個 `web_accessible_resources` 樣式離開了擴充功能根目錄，因此不會公開任何檔案。 |
+| `W_WAR_INVALID` | 某個 `web_accessible_resources` 樣式離開了擴充功能根目錄，因此不會公開任何檔案。從 4.2.0 之後的版本起，它也標記以 `url()` 指向建置不會交付之檔案的已列出樣式表。 |
 | `W_RESERVED_FOLDER` | `scripts/` 中的某個檔案只被另一個檔案匯入，而該資料夾中的每個檔案都會各自建置成一個進入點。 |
 | `W_INTERNAL` | 某個建置步驟遇到非預期的輸出並繼續進行。工具鏈需要更新。 |
 | `W_RESTART_REQUIRED` | 執行中的開發工作階段只在啟動時讀取的某個檔案變更了，因此變更會在重新啟動後生效。 |

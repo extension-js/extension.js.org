@@ -144,6 +144,8 @@ npx extension@latest start --no-open
 
 `--no-browser` 還有設定寫法 `commands.start.noBrowser: true`,以及環境變數寫法 `EXTENSION_CLI_NO_BROWSER=1`。`dev`、`start` 與 `preview` 都接受這兩個旗標。
 
+從 4.2.0 之後的版本起，`start --no-browser` 的卡片會在 Browser 列標上 `(no-browser mode)`，與 `dev` 和 `preview` 一致。
+
 ### `--no-browser` 與就緒同步
 
 `--no-browser` 只會關閉瀏覽器啟動。在正式版建置完成前,它不會阻擋外部 runner。
@@ -164,6 +166,7 @@ npx extension@latest start --no-open
 `--output json` 會在 stdout 印出 schema-1 信封,每行一個 JSON 物件:
 
 - 一般的 `start` 執行會在建置完成、瀏覽器啟動之後印出一個 `status: "started"` 影格。它帶有專案路徑、瀏覽器清單、`pid` 與 `port: null`,因為只執行不建置的工作階段不會綁定任何埠號。失敗的執行只會印出它的失敗影格,前面永遠不會有 `started` 影格。
+- 從 4.2.0 之後的版本起，`SIGINT` 或 `SIGTERM` 會以一個帶 `E_INTERRUPTED`、`value.signal` 與 `value.browsers` 的 `stopped` 影格結束串流，執行以 `0` 結束。建置仍在進行時到達的訊號會以同樣的影格結束它，執行以 `130` 或 `143` 結束。請見 [生命週期串流](/zh-Hant/docs/contracts/lifecycle-stream)。
 - `start --wait` 執行成功時會印出一個 `status: "ready"` 影格。它的 `value.results` 陣列會按瀏覽器帶出完整的就緒契約。
 - `start --wait` 讀到處於 `error` 狀態的契約時,會印出一個指明原因的 `ok: false` 影格,例如瀏覽器根本沒有啟動時的 `E_BROWSER_LAUNCH`,或瀏覽器結束時的 `E_BROWSER_EXITED`。完整清單見 [ready.json 契約](/zh-Hant/docs/contracts/ready-json)。
 - 建置失敗時會印出一個 `ok: false` 影格,其中 `status: "build-failed"`,接著程序以 `1` 結束。編譯錯誤帶 `error.code: "E_COMPILE"`。專案資料夾不存在帶 `E_PROJECT_NOT_FOUND`,資料夾裡沒有 manifest 帶 `E_MANIFEST_NOT_FOUND`,manifest 無法解析帶 `E_MANIFEST_INVALID`。設定檔載入失敗帶 `E_CONFIG_LOAD`,遠端 URL 沒有提供可用的封存檔帶 `E_REMOTE_ZIP_INVALID`、`E_REMOTE_FETCH_TIMEOUT` 或 `E_REMOTE_DOWNLOAD`。

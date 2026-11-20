@@ -18,6 +18,8 @@ keywords:
 
 在 `--output json` 之下，每個會結束的指令都會在 stdout 上剛好回一個 schema-1 信封。長時間執行的指令則以 [生命週期影格](/zh-Hant/docs/contracts/lifecycle-stream) 的形式串流出同樣的結構。
 
+從 4.2.0 之後的版本起，每次 JSON 執行都剛好以一個終止影格結束。不帶指令的 `extension --output json` 會回一個帶 `E_ARGS` 的 `usage` 影格，並以 `1` 結束。在指令回應之前被 `SIGINT` 或 `SIGTERM` 停止的執行，會以一個帶 `E_INTERRUPTED` 與 `value.signal` 的 `stopped` 影格結束，並以 `130` 或 `143` 結束。
+
 ## 信封結構
 
 | 欄位        | 型別           | 意義                                                                 |
@@ -38,7 +40,7 @@ keywords:
 | --------- | ------ | -------------------------------------------------------------------------------- |
 | `code`    | string | 來自 [錯誤碼表](/zh-Hant/docs/contracts/error-codes) 的穩定 `E_*` 識別碼。請比對這個欄位。 |
 | `message` | string | 自由文案，隨時可能被改寫。純文字，不含符號前綴與色彩代碼。永遠不要拿它來比對。 |
-| `name`    | string | 選用。原始錯誤類別的名稱。                                                       |
+| `name`    | string | 選用。原始錯誤類別的名稱。從 4.2.0 之後的版本起，各指令遵循同一規則：指令自己發出的拒絕不帶 `name`，引數剖析器的拒絕寫 `CliError`，執行中擲出的失敗寫它的錯誤類別名稱。 |
 | `engine`  | string | 選用。發生失敗的瀏覽器引擎。                                                     |
 | `hint`    | string | 選用。修復建議文案。                                                             |
 | `refs`    | object | 選用。message 中提到的可操作部分：`flag`、`command`、`path`、`version`。          |

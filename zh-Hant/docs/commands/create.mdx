@@ -144,6 +144,8 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 `--output json` 會在 stdout 印出一個 schema-1 信封,並把建立過程的進度訊息送到 stderr:
 
 - 成功的執行會印出 `status: "created"` 訊框。它的 `value` 帶有 `projectPath`、`projectName`、`template` 與 `depsInstalled`。
+- 從 4.2.0 之後的版本起，`value` 也帶有 `packageName`，也就是寫入 `package.json` 的名稱。
+- 從 4.2.0 之後的版本起，資料夾保留你輸入的名稱，任何語言都可以。`package.json` 在 npm 接受時使用這個名稱，在不遺失任何字母或數字時使用清理後的副本（小寫、空格變成連字號、去掉標點），否則使用 `my-extension`，名稱不同時執行會說明。只有 `node_modules` 與 `favicon.ico` 會作為資料夾名稱被拒絕，帶 `E_ARGS`，且發生在建立任何內容之前。
 - 失敗會印出 `ok: false` 以及一個 `error.code`:未知的範本名稱對應 `E_TEMPLATE_NOT_FOUND`,下載失敗(連線遭拒、HTTP 錯誤或逾時)對應 `E_NETWORK`,目標資料夾的問題對應 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`,相依套件安裝失敗對應 `E_DEPENDENCY_INSTALL`,類型未知的故障對應 `E_INTERNAL`。
 - 範本 URL 回傳的不是 ZIP 封存檔,或回傳的封存檔已損毀時,會以 `E_REMOTE_ZIP_INVALID` 失敗,而且不會在磁碟上留下任何內容。
 - 封存檔含有位於其資料夾之外的條目時,同樣以 `E_REMOTE_ZIP_INVALID` 失敗,無論它來自範本 URL 還是 `EXTENSION_CREATE_TEMPLATE_URL`。`create` 會在寫入任何條目之前檢查每一個條目,所以訊息會說明該封存檔遭拒、點名該條目,也不會建議重試。
