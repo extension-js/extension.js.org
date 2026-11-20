@@ -144,6 +144,8 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 `--output json` 会在 stdout 上打印一个 schema-1 信封，并把生成过程的进度行送到 stderr：
 
 - 成功的运行会打印一个 `status: "created"` 帧。它的 `value` 里带有 `projectPath`、`projectName`、`template` 和 `depsInstalled`。
+- 从 4.2.0 之后的版本起，`value` 还带有 `packageName`，即写入 `package.json` 的名称。
+- 从 4.2.0 之后的版本起，文件夹保留你输入的名称，任何语言都可以。`package.json` 在 npm 接受时使用这个名称，在不丢失任何字母或数字时使用清理后的副本（小写、空格变为短横线、去掉标点），否则使用 `my-extension`，名称不同时运行会说明。只有 `node_modules` 和 `favicon.ico` 会作为文件夹名被拒绝，带 `E_ARGS`，且发生在创建任何内容之前。
 - 失败会打印 `ok: false` 以及一个 `error.code`：未知的模板名对应 `E_TEMPLATE_NOT_FOUND`，下载失败（连接被拒绝、HTTP 错误或超时）对应 `E_NETWORK`，目标目录的问题对应 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`，依赖安装失败对应 `E_DEPENDENCY_INSTALL`，类型未知的故障对应 `E_INTERNAL`。
 - 模板 URL 返回的不是 ZIP 归档，或返回的归档已损坏时，会以 `E_REMOTE_ZIP_INVALID` 失败，并且不会在磁盘上留下任何内容。
 - 归档含有位于其文件夹之外的条目时，同样以 `E_REMOTE_ZIP_INVALID` 失败，无论它来自模板 URL 还是 `EXTENSION_CREATE_TEMPLATE_URL`。`create` 会在写入任何条目之前检查每一个条目，所以消息会说明该归档被拒绝、点名该条目，也不会建议重试。

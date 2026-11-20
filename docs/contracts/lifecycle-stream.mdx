@@ -114,6 +114,10 @@ A shutdown has 10 seconds to finish, then the process exits `1`. A second `Ctrl+
 
 From the release after 4.1.41, a stop that passes this bound ends the stream on `failed` with `E_SHUTDOWN_TIMEOUT` when no terminal frame came before it. A stop from an auto-exit deadline is one example. The frame's `value` carries `exitCode` and `shutdownTimeoutMs`. A stop from a signal keeps its `stopped` frame.
 
+From the release after 4.2.0, `preview` and `start` end their stream the same way. On `SIGINT` or `SIGTERM`, the last frame is `stopped` with `E_INTERRUPTED`, `value.signal`, and `value.browsers`, the browsers that the run was for. The run then exits `0`.
+
+From the release after 4.2.0, a signal that lands before the command has written any frame still ends the stream with one `stopped` frame that carries `E_INTERRUPTED` and `value.signal`. The run exits `130` for `SIGINT` and `143` for `SIGTERM`.
+
 A session that exits with a code other than `0` also ends on a terminal frame. With an error in `ready.json`, the frame carries that error's code. Otherwise it is `failed` with `E_INTERNAL` and `value.exitCode`.
 
 ## Next steps

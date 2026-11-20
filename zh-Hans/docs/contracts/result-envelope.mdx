@@ -18,6 +18,8 @@ keywords:
 
 在 `--output json` 下，每个会终止的命令都会在 stdout 上恰好回一个 schema-1 信封。长时间运行的命令则以 [生命周期帧](/zh-Hans/docs/contracts/lifecycle-stream) 的形式流式输出同样的结构。
 
+从 4.2.0 之后的版本起，每次 JSON 运行都恰好以一个终止帧结束。不带命令的 `extension --output json` 会回一个带 `E_ARGS` 的 `usage` 帧，并以 `1` 退出。在命令作答之前被 `SIGINT` 或 `SIGTERM` 停止的运行，会以一个带 `E_INTERRUPTED` 和 `value.signal` 的 `stopped` 帧结束，并以 `130` 或 `143` 退出。
+
 ## 信封结构
 
 | 字段        | 类型           | 含义                                                                     |
@@ -38,7 +40,7 @@ keywords:
 | --------- | ------ | ------------------------------------------------------------------------------------ |
 | `code`    | string | 来自 [错误码表](/zh-Hans/docs/contracts/error-codes) 的稳定 `E_*` 标识符。请匹配这个字段。   |
 | `message` | string | 自由文案，随时可能被改写。纯文本，不含符号前缀和颜色代码。永远不要匹配它。 |
-| `name`    | string | 可选。原始错误类的名称。                                                             |
+| `name`    | string | 可选。原始错误类的名称。从 4.2.0 之后的版本起，各命令遵循同一规则：命令自己发出的拒绝不带 `name`，参数解析器的拒绝写 `CliError`，运行中抛出的失败写它的错误类名。 |
 | `engine`  | string | 可选。发生失败的浏览器引擎。                                                         |
 | `hint`    | string | 可选。修复建议文案。                                                                 |
 | `refs`    | object | 可选。message 中提到的那些可操作部分：`flag`、`command`、`path`、`version`。         |

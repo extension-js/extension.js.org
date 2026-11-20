@@ -176,6 +176,8 @@ After the session ends, an act verb says so and prints the `extension preview` c
 `--output json` prints one schema-1 envelope on stdout:
 
 - A successful run prints a `status: "ready"` frame. Its `value` carries the list of previewed browsers, plus `projectPath` when you passed a path argument.
+- From the release after 4.2.0, the `ready` frame also carries `noBrowser`. `browsers` names the browsers that the run was for, and `noBrowser: true` says that none was launched, as in the `dev` and `start` frames.
+- From the release after 4.2.0, `SIGINT` or `SIGTERM` ends the stream with one `stopped` frame that carries `E_INTERRUPTED`, `value.signal`, and `value.browsers`, and the run exits `0`. See [Lifecycle stream](/docs/contracts/lifecycle-stream).
 - A project path that does not exist prints `ok: false` with `status: "usage"` and `error.code: "E_PROJECT_NOT_FOUND"`. A folder with no manifest prints the same status with `E_MANIFEST_NOT_FOUND`. Neither frame carries a hint.
 - When the project exists but the output path holds no unpacked extension, the frame is `ok: false` with `status: "not-found"` and `error.code: "E_PREVIEW_NO_DIST"`. Its hint says to run `extension build` first.
 - A bad `--chromium-binary` or `--gecko-binary` pin prints `ok: false` with `status: "usage"` and `error.code: "E_BROWSER_BINARY_INVALID"`. That covers a path that does not exist, a file that is not executable, and a binary that does not answer its version probe within 10 seconds. The command ends and leaves nothing running.

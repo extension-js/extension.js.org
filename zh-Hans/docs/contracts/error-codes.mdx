@@ -26,7 +26,7 @@ keywords:
 
 | 错误码 | 含义 |
 | ---- | ------- |
-| `E_ARGS` | 缺少必填参数，或调用方式不合法。 |
+| `E_ARGS` | 缺少必填参数，或调用方式不合法。从 4.2.0 之后的版本起，不带命令的 `extension --output json` 会以一个 `usage` 帧回答它。 |
 | `E_INVALID_OPTION` | 某个 flag 或参数的取值不在允许集合内。 |
 | `E_FLAG_VALUE_INVALID` | 某个 flag 的取值未通过校验。 |
 | `E_FLAG_NOT_SUPPORTED_HERE` | 该 flag 存在，但不适用于这个命令或这个目标。 |
@@ -83,6 +83,7 @@ keywords:
 | `E_WAR_INVALID` | `web_accessible_resources` 的结构或匹配模式被拒绝。 |
 | `E_BACKGROUND_REQUIRED` | 从 4.2.0 之后的版本起保留，不再产生。缺失的 background 脚本在 `dev` 和生产构建中都报告 `E_ENTRY_NOT_FOUND`。4.2.0 及之前，background chunk 缺失时由重载运行时抛出。 |
 | `E_CONTENT_SCRIPT_SYNTAX` | 某个 content script 解析失败。 |
+| `E_INLINE_SCRIPT_SYNTAX` | 从 4.2.0 之后的版本起。HTML 文件中的内联脚本在未加引号的占位符被填入 env 值之后不再能解析。 |
 | `E_PERF_BUDGET` | 某个资源超出了它的体积预算，并且 `perfBudgets.onExceed` 为 `'error'`，所以构建失败。没有该设置时，超出预算会以 `W_PERF_BUDGET` 警告。见[性能预算](/zh-Hans/docs/workflows/performance-playbook)。 |
 | `E_THEME_INVALID` | 某个主题颜色或色调不是 Chromium 浏览器能加载的数字数组，构建也无法精确转换它。 |
 | `E_DEV_SESSION_DIST_SHARED` | 构建会写入正在运行的开发会话所服务的输出目录，因此被拒绝。传入 `--out-dir` 在它旁边构建。 |
@@ -91,7 +92,7 @@ keywords:
 | `E_ASSET_IMPORT_SHAPE` | 用 `import * as` 导入的资源会被读作文件的值，也就是默认导出。 |
 | `E_ZIP_SKIPPED` | 打包因某个已说明的原因被跳过。 |
 
-`E_COMPILE` 和 `E_FIRST_COMPILE` 是编译失败时的顶层错误码。上表中有十二行会出现在该帧的 `error.details` 里，每个错误一个：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID` 和 `E_PERF_BUDGET`。4.2.0 及之前，`E_BACKGROUND_REQUIRED` 也可能出现在这里。`details` 中的警告带 `severity: "warning"` 和一个 `W_*` 错误码。成功构建的 `warnings` 字符串以同样的 `W_CODE: ` 前缀开头。见[编译诊断](/zh-Hans/docs/contracts/result-envelope)。
+`E_COMPILE` 和 `E_FIRST_COMPILE` 是编译失败时的顶层错误码。上表中有十三行会出现在该帧的 `error.details` 里，每个错误一个：`E_MODULE_NOT_FOUND`、`E_CONTENT_SCRIPT_SYNTAX`、`E_INLINE_SCRIPT_SYNTAX`、`E_CSS_PARSE`、`E_ENTRY_NOT_FOUND`、`E_ASSET_MISSING`、`E_SCRIPT_DEP_MISSING`、`E_RESERVED_FOLDER`、`E_CSS_PREPROCESSOR_MISSING`、`E_CSS_DEAD_REF`、`E_LOCALES_LAYOUT`、`E_WAR_INVALID` 和 `E_PERF_BUDGET`。4.2.0 及之前，`E_BACKGROUND_REQUIRED` 也可能出现在这里。`details` 中的警告带 `severity: "warning"` 和一个 `W_*` 错误码。成功构建的 `warnings` 字符串以同样的 `W_CODE: ` 前缀开头。见[编译诊断](/zh-Hans/docs/contracts/result-envelope)。
 
 ## 远程项目与网络
 
@@ -241,7 +242,7 @@ keywords:
 | `W_PORT_IN_USE` | 请求的端口已被占用，已自动改用其他端口。 |
 | `W_LOGS_STREAM_GAP` | follow 流丢失了部分事件。 |
 | `W_MANIFEST_INVALID` | 某个 manifest 字段的结构会被浏览器拒绝加载，构建修复或丢弃了它。 |
-| `W_WAR_INVALID` | 某个 `web_accessible_resources` 模式跑出了扩展根目录，所以它不暴露任何文件。 |
+| `W_WAR_INVALID` | 某个 `web_accessible_resources` 模式跑出了扩展根目录，所以它不暴露任何文件。从 4.2.0 之后的版本起，它也标记用 `url()` 指向构建不会交付的文件的已列出样式表。 |
 | `W_RESERVED_FOLDER` | `scripts/` 中的某个文件只被另一个文件导入，而该目录中的每个文件都会作为独立入口构建。 |
 | `W_INTERNAL` | 某个构建步骤遇到了非预期的输出并继续进行。工具链需要更新。 |
 | `W_RESTART_REQUIRED` | 正在运行的开发会话只在启动时读取的某个文件发生了变化，所以改动在重启之后才生效。 |

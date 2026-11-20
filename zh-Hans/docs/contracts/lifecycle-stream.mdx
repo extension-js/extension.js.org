@@ -114,6 +114,10 @@ Chromium 的 `dev` 会话在浏览器起来之后 CDP 连线失败时，仍然�
 
 从 4.1.41 之后的版本起，如果之前没有写出终止帧，超过这个时限的停止会以带 `E_SHUTDOWN_TIMEOUT` 的 `failed` 结束流。自动退出期限触发的停止就是一个例子。该帧的 `value` 携带 `exitCode` 和 `shutdownTimeoutMs`。由信号触发的停止保留它的 `stopped` 帧。
 
+从 4.2.0 之后的版本起，`preview` 和 `start` 也以同样的方式结束流。收到 `SIGINT` 或 `SIGTERM` 时，最后一帧是带 `E_INTERRUPTED`、`value.signal` 和 `value.browsers`（本次运行面向的浏览器）的 `stopped`，随后运行以 `0` 退出。
+
+从 4.2.0 之后的版本起，在命令写出任何帧之前到达的信号，仍会以一个带 `E_INTERRUPTED` 和 `value.signal` 的 `stopped` 帧结束流。`SIGINT` 时运行以 `130` 退出，`SIGTERM` 时以 `143` 退出。
+
 以 `0` 以外的退出码结束的会话同样以终止帧结束。`ready.json` 中有错误时，该帧携带那个错误的错误码。否则就是带 `E_INTERNAL` 和 `value.exitCode` 的 `failed`。
 
 ## 下一步

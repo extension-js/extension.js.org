@@ -238,8 +238,7 @@ Extension.js 在编译时把这些名称替换为它们的值。替换覆盖你�
 | `EXTENSION_AUTHOR_MODE`           | `EXTENSION_DEBUG` 的旧别名；显式设置的 `EXTENSION_DEBUG` 值优先                                       | 已被取代，请改用 `EXTENSION_DEBUG`                                |
 | `EXTENSION_OUTPUT`                | 强制机器输出（`json` 或 `ndjson`）；人类可读的 stdout 会静音，其他任何值都表示 pretty                 | 对被包装的调用而言，与 `--output` 效果相同                        |
 | `EXTENSION_CLI_NO_BROWSER`        | 在 CLI 中禁用浏览器启动(设为 `1`)                                                                     | 等价于 `--no-browser` 标志                                        |
-| `EXTENSION_DEV_INSTANCE_ID`       | 固定 dev 会话的 instance id，而不是每次生成一个                                                       | 让接入某次运行的 harness 拥有稳定的会话标识                       |
-| `EXTENSION_CONTROL_PORT`          | 由 dev 服务器设置，用于在同一进程中把控制通道端口交给编译器                                           | 内部协调值，读取即可，不要自己设置                                |
+| `EXTENSION_INSTANCE_ID`           | 固定 dev 会话的 instance id，而不是每次生成一个。`EXTENSION_DEV_INSTANCE_ID` 和 `EXTJS_INSTANCE_ID` 是可接受的别名。从 4.2.0 之后的版本起，dev 服务器不再在自己的进程中设置这个变量、`EXTENSION_CONTROL_PORT` 或 `EXTENSION_DEV_SERVER_*` 变量 | 让接入某次运行的 harness 拥有稳定的会话标识 |
 | `EXTENSION_WATCH_POLL`            | 把文件监听切换为轮询（设为 `true`）                                                                   | 网络磁盘与容器中 inotify 事件送不到的场景                         |
 | `EXTENSION_WATCH_POLL_INTERVAL`   | 开启轮询时的轮询间隔（毫秒，默认 `1000`）                                                             | 在重建延迟与 CPU 开销之间做取舍                                   |
 | `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` | 启动时清扫临时托管 profile 的年龄阈值（小时，默认 `12`）                                          | 在 CI 中更快地保留或回收临时 profile                              |
@@ -448,6 +447,8 @@ Extension.js 在输出资产时，会把 `$EXTENSION_PUBLIC_SITE_URL` 这样的�
 从 4.2.0 之后的版本开始，构建会在它从项目中原样复制的每个 `.json` 和 `.html` 文件中填入同样的占位符。这包括 `web_accessible_resources` 中列出的文件、后台通过 `chrome.runtime.getURL()` 打开的文件，以及通过根绝对链接（比如 `/options.html`）访问的页面。每个值的转义方式与编译后的页面相同。没有占位符的复制文件保留原样的字节。4.2.0 及之前的版本发布这些副本时，占位符保持原样。
 
 从 4.2.0 之后的版本开始，没有占位符的输出 `.json` 或 `.html` 文件按原样的字节发布，不论其编码。含有占位符但不是 UTF-8 的文件也按原样发布，并带有 `W_ENV_ASSET_NOT_UTF8` 警告。
+
+从 4.2.0 之后的版本起，内联 `<script>` 中没有放在引号里的占位符会按原样取值，所以这个值本身必须是 JavaScript。填入值之后脚本不再能解析时，构建会以 `E_INLINE_SCRIPT_SYNTAX` 失败，消息会给出文件和占位符。给占位符加上引号，比如 `"$EXTENSION_PUBLIC_API_URL"`，就能得到字符串。
 
 ### 4. 在 JSX 组件中
 

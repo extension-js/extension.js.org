@@ -238,8 +238,7 @@ Extension.js 在編譯時把這些名稱替換為它們的值。替換涵蓋你�
 | `EXTENSION_AUTHOR_MODE`           | `EXTENSION_DEBUG` 的舊別名；明確設定的 `EXTENSION_DEBUG` 值優先                                       | 已被取代，請改用 `EXTENSION_DEBUG`                                |
 | `EXTENSION_OUTPUT`                | 強制機器輸出（`json` 或 `ndjson`）；人類可讀的 stdout 會安靜下來，其他任何值都代表 pretty             | 對被包裝的呼叫來說，與 `--output` 效果相同                        |
 | `EXTENSION_CLI_NO_BROWSER`        | 從 CLI 停用瀏覽器啟動（設為 `1`）                                                                     | 等同於 `--no-browser` 旗標                                        |
-| `EXTENSION_DEV_INSTANCE_ID`       | 固定開發工作階段的 instance id，而不是每次產生一個                                                    | 讓接上某次執行的 harness 擁有穩定的工作階段識別                   |
-| `EXTENSION_CONTROL_PORT`          | 由開發伺服器設定，用來在同一程序中把控制通道埠號交給編譯器                                            | 內部協調值，讀取即可，不要自行設定                                |
+| `EXTENSION_INSTANCE_ID`           | 固定開發工作階段的 instance id，而不是每次產生一個。`EXTENSION_DEV_INSTANCE_ID` 與 `EXTJS_INSTANCE_ID` 是可接受的別名。從 4.2.0 之後的版本起，開發伺服器不再在自己的程序中設定這個變數、`EXTENSION_CONTROL_PORT` 或 `EXTENSION_DEV_SERVER_*` 變數 | 讓接上某次執行的 harness 擁有穩定的工作階段識別 |
 | `EXTENSION_WATCH_POLL`            | 把檔案監看切換成輪詢（設為 `true`）                                                                   | 網路磁碟與容器中 inotify 事件送不到的情況                         |
 | `EXTENSION_WATCH_POLL_INTERVAL`   | 開啟輪詢時的輪詢間隔（毫秒，預設 `1000`）                                                             | 在重建延遲與 CPU 成本之間取捨                                     |
 | `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS` | 啟動時清掃暫時受管理設定檔的年齡門檻（小時，預設 `12`）                                           | 在 CI 中更快保留或回收暫時設定檔                                  |
@@ -448,6 +447,8 @@ EXTENSION_PUBLIC_SITE=https://example.com
 從 4.2.0 之後的版本開始，建置會在它從專案中原樣複製的每個 `.json` 和 `.html` 檔案中填入同樣的佔位符。這包括 `web_accessible_resources` 中列出的檔案、背景透過 `chrome.runtime.getURL()` 開啟的檔案，以及透過根絕對連結（比如 `/options.html`）存取的頁面。每個值的跳脫方式與編譯後的頁面相同。沒有佔位符的複製檔案保留原樣的位元組。4.2.0 及之前的版本發布這些副本時，佔位符保持原樣。
 
 從 4.2.0 之後的版本開始，沒有佔位符的輸出 `.json` 或 `.html` 檔案以原樣的位元組發布，不論其編碼。含有佔位符但不是 UTF-8 的檔案也以原樣發布，並帶有 `W_ENV_ASSET_NOT_UTF8` 警告。
+
+從 4.2.0 之後的版本起，內嵌 `<script>` 中沒有放在引號裡的佔位符會照原樣取值，所以這個值本身必須是 JavaScript。填入值之後指令稿不再能剖析時，建置會以 `E_INLINE_SCRIPT_SYNTAX` 失敗，訊息會列出檔案與佔位符。替佔位符加上引號，例如 `"$EXTENSION_PUBLIC_API_URL"`，就能得到字串。
 
 ### 4. 在 JSX 元件中
 
