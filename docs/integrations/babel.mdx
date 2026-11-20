@@ -81,31 +81,23 @@ export default {
 };
 ```
 
-## Replace SWC for JS/TS only if required
+## Your Babel config runs before SWC
 
-Use this pattern only when you need Babel to process JS/TS entry files directly:
+From the release after 4.2.0, a Babel config in the project folder runs without any rule from you. Extension.js finds `babel.config.*`, `.babelrc`, `.babelrc.*`, or a `babel` key in `package.json`, and runs Babel first on every project script, never on `node_modules`. SWC then compiles what Babel returns, so TypeScript, JSX, browser targets, and React Refresh stay SWC's work. Your config needs no TypeScript or JSX preset, because Extension.js gives Babel the syntax plugins it needs to read those files. Extension.js ships `babel-loader` and `@babel/core` for this. A project without a Babel config never loads Babel for its scripts.
 
-```js
-export default {
-  config: (config) => {
-    config.module.rules = [
-      {
-        test: /\.[jt]sx?$/,
-        exclude: /node_modules/,
-        use: [{ loader: "babel-loader" }],
-      },
-      ...config.module.rules.filter(
-        (rule) => !String(rule?.test || "").includes("[jt]sx"),
-      ),
-    ];
-    return config;
-  },
-};
+```json babel.config.json
+{
+  "plugins": ["babel-plugin-macros"]
+}
 ```
+
+So the `babel.config.json` from the setup above also runs on every script in the project. Releases up to 4.2.0 ran Babel only through a rule that you added.
+
+Babel cannot replace SWC. A rule in `config` adds a loader and cannot take one away, so SWC still compiles your scripts after Babel. See [Loader order](/docs/features/extension-configuration#loader-order).
 
 ## Best practices
 
-- Prefer targeted Babel usage before replacing the default JS/TS pipeline.
+- Keep the Babel config to the plugins that SWC lacks, because it runs on every project script.
 - Keep Babel rules explicit so loader ordering stays predictable.
 - Reuse Babel only where migration or plugin compatibility requires it.
 
