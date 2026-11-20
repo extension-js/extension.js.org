@@ -126,6 +126,8 @@ deno run -A npm:extension@latest create my-extension --template=content-env
 从 4.2.0 起，env 文件是一个文件夹或无法读取时，构建会以 `E_ENV_FILE_UNREADABLE` 停止。消息会点名这个文件。
 如果项目旁存在 env 文件，但没有一个与当前浏览器和模式匹配，构建会打印警告，列出找到的文件与查找过的候选文件名。这样浏览器后缀的拼写错误会立刻暴露，而不是在没有值注入的情况下悄悄完成构建。以另一个模式或浏览器命名的文件，比如生产构建中的 `.env.development`，会被原样留下且不打印警告。只有当没有其他来源（比如 `extension.config.js`）定义这些值时，警告才会说它们是 undefined。
 
+从 4.2.0 之后的版本开始，文件名以页面、样式表、脚本或图片扩展名结尾的文件，比如 `.env.css` 或 `.env.side.html`，不算 env 文件，`.envrc` 也不算。这些文件是以 `.env` 开头的资源，所以警告不再点名它们，也不会只因为它们而打印。以浏览器或模式结尾的文件名，比如 `.env.chrome` 或 `.env.production`，始终算作 env 文件。
+
 ### 密钥永远不要使用 `EXTENSION_PUBLIC_` 前缀
 
 每一个 `EXTENSION_PUBLIC_*` 的值都会被写进构建出的 JavaScript。任何安装了该扩展的人都能读到它，每一次商店审核也能。把 `import.meta.env` 当作整个对象读取的代码会带上所有公开值，包括它从未点名的那些。
@@ -438,6 +440,8 @@ Extension.js 在输出资产时，会把 `$EXTENSION_PUBLIC_SITE_URL` 这样的�
 ```
 
 编译时，Extension.js 会替换输出 HTML 中的 `$EXTENSION_PUBLIC_API_URL`。
+
+从 4.2.0 之后的版本开始，构建会在它从项目中原样复制的每个 `.json` 和 `.html` 文件中填入同样的占位符。这包括 `web_accessible_resources` 中列出的文件、后台通过 `chrome.runtime.getURL()` 打开的文件，以及通过根绝对链接（比如 `/options.html`）访问的页面。每个值的转义方式与编译后的页面相同。没有占位符的复制文件保留原样的字节。4.2.0 及之前的版本发布这些副本时，占位符保持原样。
 
 ### 4. 在 JSX 组件中
 

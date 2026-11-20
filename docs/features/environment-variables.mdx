@@ -127,6 +127,8 @@ From 4.2.0, an env file that is a folder or cannot be read stops the build with 
 
 If env files exist next to your project but none match the current browser and mode, the build prints a warning naming the files it found and the candidates it looked for, so a misspelled browser suffix fails loudly instead of silently shipping without values. A file named for another mode or browser, such as `.env.development` in a production build, is left alone without a warning, and the warning calls the values undefined only when nothing else, such as `extension.config.js`, defined them.
 
+From the release after 4.2.0, a file whose name ends in a page, stylesheet, script, or image extension, such as `.env.css` or `.env.side.html`, is not an env file, and neither is `.envrc`. Those files are assets that start with `.env`, so the warning no longer names them or fires for them alone. A name that ends in a browser or a mode, such as `.env.chrome` or `.env.production`, always counts as an env file.
+
 ### Secrets never take the `EXTENSION_PUBLIC_` prefix
 
 Every `EXTENSION_PUBLIC_*` value is written into the built JavaScript. Anyone who installs the extension can read it, and so can every store review. Code that reads `import.meta.env` as a whole object carries every public value, even the ones it never names.
@@ -439,6 +441,8 @@ You can also use placeholders in static HTML files (for example, under `pages/`)
 ```
 
 During compilation, Extension.js replaces `$EXTENSION_PUBLIC_API_URL` in the output HTML.
+
+From the release after 4.2.0, the build fills the same placeholders in every `.json` and `.html` file it copies from your project as written. That covers a file listed in `web_accessible_resources`, a file your background opens with `chrome.runtime.getURL()`, and a page reached by a root-absolute link such as `/options.html`. Each value is escaped the way it is in a compiled page. A copied file without a placeholder keeps its exact bytes. Releases up to 4.2.0 shipped those copies with the placeholders left as written.
 
 ### 4. In JSX components
 
