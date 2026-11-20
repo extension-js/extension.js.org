@@ -71,6 +71,7 @@ Fields that are always present:
 | `manifestPath`     | string           | Absolute path to the source manifest.                                    |
 | `port`             | number or null   | The port that the dev server actually bound.                             |
 | `pid`              | number           | The dev server process id. Check liveness before trusting the contract.  |
+| `pidStartedAt`     | ISO string       | From 4.2.0, when the process behind `pid` started. A reused pid has another start time, so compare both. |
 | `ts`               | ISO string       | When this document was last written.                                     |
 | `compiledAt`       | string or null   | When the latest successful compile finished.                             |
 | `errors`           | string[]         | ANSI-stripped compile errors, capped at 10 entries.                      |
@@ -87,9 +88,11 @@ Fields that appear when known:
 | `instanceExplicit` | boolean  | Whether the instance id was user-supplied.                                       |
 | `controlPort`      | number or null | The control bridge WebSocket port.                                         |
 | `controlPath`      | string   | The control bridge WebSocket path (`/extjs-control`).                            |
+| `controlPortUnavailableReason` | string | Why `controlPort` is null when the session asked for a control channel. |
 | `logsPath`         | string   | Relative path to `logs.ndjson`.                                                  |
 | `cdpPort`          | number   | Chromium launches: the CDP port, stamped post-launch. From the release after 4.1.41, sessions started at the same time each get their own debugging port, so read this field instead of assuming 9222. On `preview` and `start`, it is on the record when the card prints. |
 | `rdpPort`          | number   | Gecko launches: the RDP debugger-server port, stamped post-launch. From the release after 4.1.41, sessions started at the same time each get their own port, so read this field. |
+| `rdpPortError`     | string   | Gecko launches, from 4.2.0: why Firefox opened no remote debugging port. `rdpPort` is absent beside it. |
 | `webdriverPort`    | number   | Safari `dev` sessions: the port of the safaridriver session the launcher holds beside the app. Safari grants one automation session at a time, so attach to this one instead of opening your own. |
 | `webdriverSessionId` | string | The session id beside `webdriverPort`.                                           |
 | `webdriverUnavailableReason` | string | Why the launcher holds no WebDriver session, such as Safari's Allow Remote Automation being off, or another Safari being open when the session was asked for. |
@@ -106,7 +109,11 @@ Fields that appear when known:
 | `binaryProvenance` | string   | How that binary was chosen: `managed` (the Extension.js cache), `pinned` (a binary flag or a binary variable), `system` (an installed browser), or `snapshot` (a cached dev-channel build). |
 | `binaryPinnedBy`   | string   | From the release after 4.1.39, the flag or variable that named a `pinned` binary, such as `--chromium-binary` or `FIREFOX_BINARY`. Absent for every other provenance. |
 | `browserPid`       | number   | The browser process id. The supported handle for tearing the browser down.       |
+| `browserStartedAt` | ISO string | From 4.2.0, when the process behind `browserPid` started, so a reused pid is caught. Absent when the process table cannot date it. |
+| `launcherPid`      | number   | From 4.2.0, the process that the launcher spawned, kept when the browser hands its session to another process. `browserPid` names the live one. |
+| `launcherStartedAt` | ISO string | From 4.2.0, when the process behind `launcherPid` started. |
 | `extensionId`      | string   | The id that the browser serves the dist under. Browser-confirmed when available, derived otherwise. From the release after 4.1.41, the field is absent while the contract records a load refusal, unless the browser itself confirmed the id. |
+| `extensionIdSource` | string  | From 4.2.0, where `extensionId` came from: `browser`, `derived`, or `packager`. |
 | `extensionBaseUrl` | string   | Firefox launches, from the release after 4.1.39: the `moz-extension://<uuid>/` address that the browser serves the extension from. Firefox chooses the UUID per profile, so the add-on id does not reveal it. |
 | `devAdditions`     | array    | `dev` sessions, from the release after 4.1.39: what the session has that the production build lacks. See [Dev additions](#dev-additions). |
 | `extensionName`    | string   | The extension's name, as build provenance.                                       |
@@ -124,6 +131,11 @@ Fields that appear when known:
 | `executorDetachedAt` | ISO string | From 4.1.20, when the last connected extension context disconnected.          |
 | `awaitingExecutorSince` | ISO string | `dev` sessions, from the release after 4.1.39: when the session began to hold `ready` for the background. Removed once the background connects or 10 seconds pass. |
 | `managedExtensions` | array   | Every extension that the engine loads besides yours, as `{path, id?}` records. Subtract them by id in a census. |
+| `reloadedAt`       | ISO string | `dev` sessions, from 4.2.0: when the last reload after a compile was applied. The reload of a compile is live once `reloadedAt` is later than its `compiledAt`. A compile that reloads nothing leaves the stamp as it was. |
+| `reloadKind`       | string   | The kind of that reload: `full`, `background`, `content`, `page`, or `safari-resync`. |
+| `reloadLabel`      | string   | A short label for that reload, when it has one.                                  |
+| `endedAsFailedAt`  | ISO string | From 4.2.0, stamped when the session ended as a failure. The status reads `error` from then on. |
+| `endedAsFailedCode` | string  | From 4.2.0, the `E_*` code that ended the session, such as `E_CONFIG_LOAD`. `--wait` answers with this code before the one that `code` maps to. |
 
 ## Dev additions
 
@@ -183,6 +195,8 @@ The `code` field names the failure class. Four codes matter for automation:
 | `browser_exited`          | The browser process died. `start` and `preview` flip to `error`. `dev` flips to `error` only when the browser exits before the extension loaded. After that point `dev` keeps its compile status and only stamps `browserExitedAt`. A Firefox that exits before its debugger answers lands here within about a second. |
 | `browser_launch_failed`   | No browser process came up: the binary is missing, cannot be executed, or the pin is wrong. A Firefox that runs but whose debugger never answers lands here too, and Extension.js stops that process. `dev`, `start`, and `preview` all flip to `error`. Carries `browserLaunchFailedAt` and `browserLaunchFailedReason`. A launch refused for a bad `--chromium-binary` or `--gecko-binary` pin also carries `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"`. A Gecko launch refused in system profile mode carries `browserLaunchFailedCode: "E_FLAG_NOT_SUPPORTED_HERE"`. |
 
+From 4.2.0, a `build` that is refused before it compiles, such as by an invalid [`perfBudgets`](/docs/workflows/performance-playbook#invalid-budget-values) value, marks the existing `ready.json` with `status: "error"` and `code: "build_failed"`. The refusal's own code goes in `endedAsFailedCode`. A project that never built gets no file, and the file of a live `dev` session is left alone.
+
 A load refusal outlives the next successful compile. Only a new run (`starting`) or a real executor attach clears it. From the release after 4.1.41, a stopped contract keeps `extensionLoadRefusedAt`, `extensionLoadRefusedReason`, and the cause.
 
 A `dev` session whose browser exited before the extension loaded stays in `error` across recompiles, because a recompile does not bring the browser back. A launch failure outlives recompiles too, until a browser does start or a new run begins.
@@ -203,12 +217,15 @@ A timeout exits with `E_READY_TIMEOUT`. A contract in `error` status fails the w
 | ------------------------- | -------------------------- |
 | `compile_error`           | `E_COMPILE`                |
 | `compile_failed`          | `E_COMPILE_FATAL`          |
+| `build_failed`            | `E_COMPILE`                |
 | `dev_server_start_failed` | `E_DEV_SERVER_START`       |
 | `browser_launch_failed`   | `E_BROWSER_LAUNCH`         |
 | `browser_exited`          | `E_BROWSER_EXITED`         |
 | `profile_locked`          | `E_PROFILE_LOCKED`         |
 | `extension_load_refused`  | `E_EXTENSION_LOAD_REFUSED` |
 | A code outside this list  | `E_READY_ERROR_STATUS`     |
+
+From 4.2.0, a contract that carries `endedAsFailedCode` fails the wait with that code first.
 
 A `browser_launch_failed` contract that carries `browserLaunchFailedCode: "E_BROWSER_BINARY_INVALID"` or `"E_FLAG_NOT_SUPPORTED_HERE"` fails the wait with that code and `status: "usage"` instead of `E_BROWSER_LAUNCH`.
 

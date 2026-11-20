@@ -123,6 +123,7 @@ deno run -A npm:extension@latest create my-extension --template=content-env
   `.env.example` 僅作為文件範例，永遠不會被當成值來源載入。
 </Note>
 
+從 4.2.0 起，env 檔案是一個資料夾或無法讀取時，建置會以 `E_ENV_FILE_UNREADABLE` 停止。訊息會指名這個檔案。
 如果專案旁存在 env 檔，但沒有任何一個符合目前的瀏覽器與模式，建置會印出警告，列出找到的檔案與查找過的候選檔名。這樣瀏覽器後綴的拼字錯誤會立刻暴露，而不是在沒有值注入的情況下悄悄完成建置。以另一個模式或瀏覽器命名的檔案，比如正式建置中的 `.env.development`，會被原樣留下且不印出警告。只有當沒有其他來源（比如 `extension.config.js`）定義這些值時，警告才會說它們是 undefined。
 
 ### 機密永遠不要使用 `EXTENSION_PUBLIC_` 前綴
@@ -148,13 +149,13 @@ LLM 或其他任何付費服務的 API key 應該放在你的擴充功能所呼�
 | 3         | `.env.local`             | `.env.local`                      |
 | 4         | `.env.development`       | `.env.production`                 |
 | 5         | `.env.development.local` | `.env.production.local`           |
-| 6（最強） | 無                       | 瀏覽器的檔案，依 bundle 讀取的順序 |
+| 6（最強） | 瀏覽器的檔案，從 4.2.0 之後的版本起 | 瀏覽器的檔案，依 bundle 讀取的順序 |
 
 每個存在的檔案都會載入，後面的檔案會覆寫前面檔案的值。shell 或 CI 匯出的變數永遠優先於所有檔案。讀取 `import.meta.env` 的 `.mjs` 設定檔看到的勝出值與 `process.env` 相同。`build --mode development` 讀取 development 檔案。
 
 建置不再讀取 `.env.development`。只存在於該檔案中的鍵，在 `build`、`start` 與 `preview` 的設定裡是 `undefined`。4.1.41 及更早的版本會為每個指令預先載入 `.env.development`，所以建置的設定讀到的是開發環境的值。
 
-從 4.1.41 之後的版本起，`build`、`start` 與 `preview` 也會預先載入瀏覽器的檔案，例如 `.env.chrome` 與 `.env.chrome.production`。設定因此看到與 bundle 相同的值。`dev` 在知道瀏覽器之前就載入設定，所以不讀取任何瀏覽器檔案。請在 shell 或持續整合（CI）流水線中設定 `dev` 的瀏覽器值。
+從 4.1.41 之後的版本起，`build`、`start` 與 `preview` 也會預先載入瀏覽器的檔案，例如 `.env.chrome` 與 `.env.chrome.production`。設定因此看到與 bundle 相同的值。4.2.0 及更早的版本在知道瀏覽器之前就載入 `dev` 的設定，所以 `dev` 不讀取任何瀏覽器檔案。從 4.2.0 之後的版本起，`dev` 在第一次載入設定時就讀取瀏覽器的檔案，例如 `.env.chrome` 與 `.env.chrome.development`。
 
 從 4.1.41 之後的版本起，`extension.config.js` 每個指令只執行一次。當設定本身指定瀏覽器時，它可能會執行第二次。只有在瀏覽器的檔案改變了它讀取的某個變數時才會這樣。
 
@@ -255,7 +256,7 @@ Extension.js 在編譯時把這些名稱替換為它們的值。替換涵蓋你�
 | `EXTENSION_BROWSER_FLAGS`         | 追加到每個被啟動瀏覽器的額外啟動 flag（空白分隔；在設定的 `browserFlags` 之後套用，因此環境變數獲勝） | CI / harness 傳入如 `--headless=new` 而不改 `extension.config.js` |
 | `EXTENSION_ALLOW_INSTALL_SCRIPTS` | 相依套件自動安裝時執行生命週期指令稿（設為 `true`）——自動安裝預設帶 `--ignore-scripts` 以確保安全     | 相依套件確實需要 postinstall 指令稿的專案                         |
 | `EXTENSION_JS_PACKAGE_MANAGER`    | 指定自動安裝相依套件所用的套件管理器：`npm`、`pnpm`、`yarn`、`bun` 或 `deno`。專案中的鎖定檔或 `packageManager` 欄位優先於它（[順序](/zh-Hant/docs/commands/dev#自動安裝相依套件)） | 不經由套件管理器指令稿執行 CLI 的機器 |
-| `EXTENSION_STRICT_REFS`           | 讓失效的 HTML 資源參照使建置失敗（設為 `true`）——預設只警告並跳過，與 Chrome 靜默 404 的行為一致      | 在 CI 中對 HTML 參照做嚴格驗證                                    |
+| `EXTENSION_STRICT_REFS`           | 讓失效的 HTML 與 CSS 資源參照使建置失敗（設為 `true`），預設只警告並跳過，與 Chrome 靜默 404 的行為一致      | 在 CI 中對 HTML 與 CSS 參照做嚴格驗證                                    |
 | `EXT_BROWSERS_CACHE_DIR`          | 覆寫受管理瀏覽器快取資料夾                                                                            | 自訂 CI 快取路徑                                                  |
 
 從 4.1.39 之後的版本起，每個瀏覽器都依同一個順序解析執行檔。先是執行檔旗標，接著是變數、受管理的執行檔，最後是系統安裝。變數指向不存在或不可執行的路徑時，啟動會以 `E_BROWSER_BINARY_INVALID` 失敗。見[執行檔如何選定](/zh-Hant/docs/browsers/browsers-available#執行檔如何選定)。
@@ -373,6 +374,8 @@ PRIVATE_KEY=abc123  # Not injected into JS bundles
 
 編譯時，Extension.js 會把 `$EXTENSION_PUBLIC_API_URL` 取代為解析後的 env 值。
 
+值會依它落腳的位置跳脫，所以輸出的檔案保持有效。在 JSON 字串裡，值中的引號或反斜線會被跳脫。在 HTML 文字與屬性裡，`&`、`<`、`>` 和引號會變成實體。在 `<script>` 的字串裡，值會依 JavaScript 字串跳脫。仍會破壞 JSON 檔案的值會讓建置以 `E_JSON_INVALID` 停止，訊息會指名該檔案與變數。
+
 #### 不讓本機來源進入正式 manifest
 
 同樣的佔位符也能用在比對模式裡，開發用的模擬伺服器就是這樣留在商店套件之外的。把來源寫成佔位符，並為每種模式提供各自的值：
@@ -458,6 +461,8 @@ export default ApiInfo;
 ```
 
 Extension.js 會在編譯時將這些值內嵌進來，並可隨瀏覽器／模式變化。
+
+從 4.2.0 起，`process.env.EXTENSION_PUBLIC_X = "v"` 這樣的寫入仍是有效程式碼，並在執行時寫到 env 物件上。對你自己的程式碼，建置會以 `W_ENV_DEFINE_WRITTEN` 警告，因為這個名稱的每一處點號讀取都保留建置時的值。執行時會變化的值請放進你自己的變數。
 
 ## `import.meta` 支援
 

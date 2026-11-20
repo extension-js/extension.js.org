@@ -181,6 +181,8 @@ export default {
 
 See [special folder locations](/docs/features/extension-configuration#special-folder-locations) for the full `folders` key.
 
+From the release after 4.2.0, the build looks for entries only in `pages/` and `scripts/`, at any depth, and skips `node_modules` folders. A page ends in `.html`. A script ends in `.js`, `.mjs`, `.jsx`, `.mjsx`, `.ts`, `.mts`, `.tsx`, or `.mtsx`, spelled in lowercase, so `scripts/Foo.JS` is not an entry. A link inside either folder is followed while it stays inside the project. A folder inside `pages/` or `scripts/` that the build cannot read stops the build with `E_FOLDER_UNREADABLE`, and the message names that folder.
+
 ### A helper module inside `scripts/`
 
 Every file in `scripts/` is built as an entry of its own. A helper that other files import ships as one more file that nothing loads. From the release after 4.1.39, the build prints one warning for a file that other files import and that nothing names by its output path. The warning prints the `exclude` value to paste:
@@ -293,7 +295,22 @@ From the release after 4.1.39, that copy is byte for byte in every mode. A produ
 
 ### Important `public/` guard
 
-Do not place `manifest.json` at `public/manifest.json`. Extension.js prevents this to avoid overwriting the generated manifest during compilation.
+Do not place `manifest.json` at `public/manifest.json`. Extension.js prevents this to avoid overwriting the generated manifest during compilation. The build stops with `E_MANIFEST_IN_PUBLIC`. From the release after 4.2.0, the message reads:
+
+```plaintext
+public/manifest.json is left out of the build: the manifest the build writes comes from the manifest.json the project names, and only one file can claim that output path.
+Move it out of the public folder, or delete it.
+```
+
+From the release after 4.2.0, a `public/` file whose output path an entry already writes is not copied. The entry's file wins, and one `W_PROJECT_LAYOUT` warning names the file.
+
+### The folder name is lowercase
+
+From the release after 4.2.0, the public folder must be named `public/` in lowercase. A `Public/` or `PUBLIC/` folder prints one `W_PROJECT_LAYOUT` warning that asks you to rename it:
+
+- On a disk that ignores letter case, the macOS default, the folder still ships.
+- There, the warning says that another spelling stops working in the next major version.
+- On a disk that keeps letter case, as on most Linux systems, nothing in the folder ships.
 
 ### Files that never ship
 

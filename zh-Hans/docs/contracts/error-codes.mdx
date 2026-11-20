@@ -44,7 +44,7 @@ keywords:
 | 错误码 | 含义 |
 | ---- | ------- |
 | `E_PROJECT_NOT_FOUND` | 解析出的项目目录不存在。 |
-| `E_CONFIG_LOAD` | `extension.config.js` 在加载时抛出了异常，或导出的不是一个对象。`dev`、`build`、`start` 和 `preview` 都以此代码作答。生产构建遇到不合法的 [`perfBudgets`](/zh-Hans/docs/workflows/performance-playbook) 值时也以此代码作答。 |
+| `E_CONFIG_LOAD` | `extension.config.js` 在加载时抛出了异常，或导出的不是一个对象。`dev`、`build`、`start` 和 `preview` 都以此代码作答。生产构建遇到不合法的 [`perfBudgets`](/zh-Hans/docs/workflows/performance-playbook) 值时也以此代码作答，从 4.2.0 起 `dev` 也是如此。 |
 | `E_DEPENDENCY_INSTALL` | 安装项目依赖失败。 |
 | `E_OPTIONAL_DEP_UNRESOLVED` | 某个可选依赖契约无法解析。 |
 | `E_OPTIONAL_DEP_LOAD` | 某个可选依赖已解析，但加载失败。从 4.1.41 之后的版本起，项目中的副本在加载时抛错会停止运行。消息会给出它的路径和原因。不会改用其他安装来顶替它。 |
@@ -52,6 +52,8 @@ keywords:
 | `E_COMPANION_EXTENSION_PATH` | 解析出的根目录下唯一的 manifest 属于 `extensions/` 下的某个协同扩展。浏览器不带它打开的协同扩展条目会以 `W_COMPANION_EXTENSION_PATH` 警告。 |
 | `E_PROJECT_LAYOUT` | `public/` 中的某个文件会覆盖构建输出的文件，或者 `extension.config.js` 中的某个 `include` 条目指向不存在的文件或扩展之外的输出路径。 |
 | `E_MANIFEST_IN_PUBLIC` | `manifest.json` 被放到了 `public/` 下面。 |
+| `E_FOLDER_UNREADABLE` | `pages/` 或 `scripts/` 里的某个文件夹无法读取，所以构建无法列出它的入口。从 4.2.0 之后的版本起。 |
+| `E_ENV_FILE_UNREADABLE` | 构建要读取的某个 env 文件是一个文件夹或无法读取。从 4.2.0 起。 |
 | `E_RUNTIME_NOT_FOUND` | extension-develop 运行时缺失或未编译。 |
 
 ## Manifest
@@ -223,7 +225,7 @@ keywords:
 | `W_ENTRY_NOT_FOUND` | 某个 manifest、HTML 或 JSON 入口指向了一个不存在或未被打包的文件。 |
 | `W_ASSET_MISSING` | 某个图标、静态资源或 JSON 依赖不存在或未被打包。 |
 | `W_SCRIPT_DEP_MISSING` | 某个脚本在运行时加载的文件不在构建中、按源码中的写法被引用，或无法被编译。 |
-| `W_CSS_PARSE` | 某个样式表解析失败。 |
+| `W_CSS_PARSE` | 某个样式表解析失败，或者压缩器丢掉了一条规则，样式表按原样发布。 |
 | `W_CSS_PREPROCESSOR_MISSING` | 请求了某个 CSS 预处理器，但无法解析到它。 |
 | `W_CSS_DEAD_REF` | CSS 中的某个 `url()` 或 `@import` 指向了不存在或未被打包的文件。 |
 | `W_POLYFILL_NOT_FOUND` | 请求了 `webextension-polyfill`，但它并不存在。 |
@@ -243,7 +245,7 @@ keywords:
 | `W_INTERNAL` | 某个构建步骤遇到了非预期的输出并继续进行。工具链需要更新。 |
 | `W_RESTART_REQUIRED` | 正在运行的开发会话只在启动时读取的某个文件发生了变化，所以改动在重启之后才生效。 |
 | `W_JSON_INVALID` | 某个 `declarativeNetRequest` 规则集可以解析，但其中有规则可能不会按写法生效，或者 Chrome 拒绝而 Firefox 会加载。 |
-| `W_PROJECT_LAYOUT` | 某个 `public/` 目录放错了位置或被另一个遮蔽，或者 `extension.config.js` 中的某个 `exclude` 条目指向不存在的文件。 |
+| `W_PROJECT_LAYOUT` | 某个 `public/` 目录放错了位置、大小写不对或被另一个遮蔽，某个 `public/` 文件被入口遮蔽，或者 `extension.config.js` 中的某个 `exclude` 条目指向不存在的文件。 |
 | `W_MANIFEST_COMPAT` | manifest 使用了目标浏览器会忽略或正在淘汰的版本、键或主机权限模式。 |
 | `W_STORE_READINESS` | manifest 可以构建和加载，但商店会按其写法拒绝或标记它。 |
 | `W_PERMISSION_MISMATCH` | 代码使用了某个 API 或访问了某个主机，而 manifest 权限没有按代码需要的方式覆盖它。 |
@@ -253,6 +255,7 @@ keywords:
 | `W_ENV_SECRET_PUBLIC` | 某个 `EXTENSION_PUBLIC_` 变量的名字看起来像密钥，而它的值被写进了构建出的代码。 |
 | `W_BUILD_CONSTANT_UNDEFINED` | 某个脚本读取了没有任何东西定义的构建常量，所以它在加载时会抛错。 |
 | `W_SCRIPT_WORLD_UNKNOWN` | 某个脚本在运行时以构建无法读出的 world 注册，所以它被当作隔离 world 脚本处理。 |
+| `W_ENV_DEFINE_WRITTEN` | 项目代码写入了构建会替换为其值的 env 名字，所以这个名字的点号读取保留构建时的值。 |
 | `W_ENV_NAME_RESERVED` | 某个 `.env` 文件设置了构建为其所编译的浏览器或模式保留的名字，所以该文件中的值被忽略。 |
 | `W_COMPANION_EXTENSION_PATH` | 某个协同扩展条目指向项目之外、不是未打包的扩展目录，或指向不存在的目录，所以浏览器打开时不带它。 |
 | `W_CDP_NOT_CONNECTED` | `dev`、`start` 或 `preview` 会话在没有存活 CDP 传输的情况下启动并保持就绪。reload 和 HMR 无法接上。 |

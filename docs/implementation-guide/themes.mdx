@@ -25,24 +25,31 @@ Write hex colors in your manifest and build for any target:
   "theme": {
     "colors": {
       "frame": "#1a1b26",
-      "toolbar": "#24283bcc"
+      "toolbar": "#24283b"
     }
   }
 }
 ```
 
-For Chromium-family targets, the build converts each hex string to the integer array Chrome requires. For Gecko targets, the string form ships unchanged, because Firefox parses it natively.
+For Chromium-family targets, the build writes each color string as the integer array that Chrome requires. One note lists the keys that it wrote. For Gecko targets, the string form ships unchanged, because Firefox parses it natively.
 
-The conversion accepts 3, 4, 6, and 8 digit hex. An 8 digit value becomes `[R, G, B, A]`, where the alpha byte is scaled to a 0 to 1 float and rounded to three decimals. `#24283bcc` becomes `[36, 40, 59, 0.8]`. The converter also reads named CSS keywords (`tomato` becomes `[255, 99, 71]`), `transparent` (`[0, 0, 0, 0]`), and numeric `rgb()`/`rgba()` strings. Values outside that grammar pass through untouched.
+From 4.2.0, the build translates only a string with one exact `[R, G, B]` reading. That is 3 or 6 digit hex, `rgb()` with three whole numbers, or a CSS color name in any case. `tomato` becomes `[255, 99, 71]`. To state the Chromium colors in the source, write the arrays in `manifest.json`. Firefox reads the same arrays.
 
 ## Invalid values fail the build
 
 Chrome refuses the whole extension when a theme value has the wrong shape, so Extension.js catches the mistake at compile time instead. On Chromium-family targets, every invalid theme value becomes a compilation error naming the exact field:
 
-- `theme.colors.*` entries must be `[R, G, B]` or `[R, G, B, A]` arrays, hex strings, or values the converter can produce those from. Channels must be integers from 0 to 255, and the alpha must be numeric.
+- `theme.colors.*` entries must be `[R, G, B]` or `[R, G, B, A]` arrays, or strings that the build translates.
+- A channel is a whole number from 0 to 255, and the alpha is a number from 0 to 1.
 - `theme.tints.*` entries must be `[hue, saturation, lightness]` arrays of exactly 3 numbers.
 
 Each error explains what Chrome accepts for that specific field, so you fix the value instead of decoding a refusal screen in the browser.
+
+From 4.2.0, a color string with no exact reading stops the build with `E_THEME_INVALID`. That covers `transparent`, `currentcolor`, hex or `rgba()` with an alpha, percentages, and `hsl()`. The message names each field and the array to write in its place:
+
+```plaintext
+  theme.colors.toolbar "#24283bcc", write [36, 40, 59, 0.8]
+```
 
 ## Safari targets warn
 

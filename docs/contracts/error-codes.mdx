@@ -44,7 +44,7 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | Code | Meaning |
 | ---- | ------- |
 | `E_PROJECT_NOT_FOUND` | The resolved project folder does not exist. |
-| `E_CONFIG_LOAD` | `extension.config.js` threw while loading, or exported something other than an object. `dev`, `build`, `start`, and `preview` all answer with it. A production build also answers with it for an invalid [`perfBudgets`](/docs/workflows/performance-playbook#invalid-budget-values) value. |
+| `E_CONFIG_LOAD` | `extension.config.js` threw while loading, or exported something other than an object. `dev`, `build`, `start`, and `preview` all answer with it. A production build also answers with it for an invalid [`perfBudgets`](/docs/workflows/performance-playbook#invalid-budget-values) value, and from 4.2.0 so does `dev`. |
 | `E_DEPENDENCY_INSTALL` | Installing project dependencies failed. |
 | `E_OPTIONAL_DEP_UNRESOLVED` | An optional dependency contract could not be resolved. |
 | `E_OPTIONAL_DEP_LOAD` | An optional dependency resolved but failed to load. From the release after 4.1.41, a copy in your project that throws on load stops the run. The message names its path and the cause. No other install stands in for it. |
@@ -52,6 +52,8 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_COMPANION_EXTENSION_PATH` | The only manifest at the resolved root belongs to a companion under `extensions/`. A companion entry that the browser opens without warns with `W_COMPANION_EXTENSION_PATH`. |
 | `E_PROJECT_LAYOUT` | A file in `public/` would overwrite a file the build emits, or an `include` entry in `extension.config.js` names a missing file or an output path outside the extension. |
 | `E_MANIFEST_IN_PUBLIC` | `manifest.json` was placed under `public/`. |
+| `E_FOLDER_UNREADABLE` | A folder inside `pages/` or `scripts/` cannot be read, so the build cannot list its entries. From the release after 4.2.0. |
+| `E_ENV_FILE_UNREADABLE` | An env file that the build reads is a folder or cannot be read. From 4.2.0. |
 | `E_RUNTIME_NOT_FOUND` | The extension-develop runtime is missing or uncompiled. |
 
 ## Manifest
@@ -224,7 +226,7 @@ Releases up to 4.1.41 reported many of these warnings under the `E_*` name with 
 | `W_ENTRY_NOT_FOUND` | A manifest, HTML, or JSON entry points at a file that is missing or not bundled. |
 | `W_ASSET_MISSING` | An icon, static asset, or JSON dependency is missing or not bundled. |
 | `W_SCRIPT_DEP_MISSING` | A file a script loads at runtime is missing from the build, is named by its source spelling, or could not be compiled. |
-| `W_CSS_PARSE` | A stylesheet failed to parse. |
+| `W_CSS_PARSE` | A stylesheet failed to parse, or the minifier dropped a rule and the sheet ships as authored. |
 | `W_CSS_PREPROCESSOR_MISSING` | A CSS preprocessor is requested but not resolvable. |
 | `W_CSS_DEAD_REF` | A CSS `url()` or `@import` names a file that is missing or not bundled. |
 | `W_POLYFILL_NOT_FOUND` | `webextension-polyfill` requested but absent. |
@@ -244,7 +246,7 @@ Releases up to 4.1.41 reported many of these warnings under the `E_*` name with 
 | `W_INTERNAL` | A build step met output it did not expect and carried on. The toolchain needs an update. |
 | `W_RESTART_REQUIRED` | A file the running dev session reads only at startup changed, so the change applies after a restart. |
 | `W_JSON_INVALID` | A `declarativeNetRequest` ruleset parses but has a rule that may not behave as written, or one that Chrome refuses and Firefox loads. |
-| `W_PROJECT_LAYOUT` | A `public/` folder is misplaced or shadowed by another one, or an `exclude` entry in `extension.config.js` names a file that is not there. |
+| `W_PROJECT_LAYOUT` | A `public/` folder is misplaced, named in another letter case, or shadowed by another one, a `public/` file is shadowed by an entry, or an `exclude` entry in `extension.config.js` names a file that is not there. |
 | `W_MANIFEST_COMPAT` | The manifest uses a version, key, or host permission pattern that the target browser ignores or is phasing out. |
 | `W_STORE_READINESS` | The manifest builds and loads, but a store would reject or flag it as written. |
 | `W_PERMISSION_MISMATCH` | The code uses an API or reaches a host that the manifest permissions do not cover the way the code needs. |
@@ -254,6 +256,7 @@ Releases up to 4.1.41 reported many of these warnings under the `E_*` name with 
 | `W_ENV_SECRET_PUBLIC` | An `EXTENSION_PUBLIC_` variable has a name that looks like a secret, and its value is written into the built code. |
 | `W_BUILD_CONSTANT_UNDEFINED` | A script reads a build constant that nothing defines, so it throws when it loads. |
 | `W_SCRIPT_WORLD_UNKNOWN` | A script is registered at runtime with a world the build cannot read, so it is treated as an isolated world script. |
+| `W_ENV_DEFINE_WRITTEN` | Project code writes to an env name that the build replaces with its value, so dotted reads of that name keep the build value. |
 | `W_ENV_NAME_RESERVED` | A `.env` file sets a name the build reserves for the browser or mode it compiles for, so the file value is ignored. |
 | `W_COMPANION_EXTENSION_PATH` | A companion extension entry leads outside the project, is not an unpacked extension folder, or names a folder that does not exist, so the browser opens without it. |
 | `W_CDP_NOT_CONNECTED` | A `dev`, `start`, or `preview` session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach. |

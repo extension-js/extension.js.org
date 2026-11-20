@@ -179,6 +179,8 @@ export default {
 
 完整的 `folders` 鍵請參閱[特殊資料夾的位置](/zh-Hant/docs/features/extension-configuration#特殊資料夾的位置)。
 
+從 4.2.0 之後的版本起，建置只在 `pages/` 與 `scripts/` 中尋找入口，任意深度，並略過 `node_modules` 資料夾。頁面以 `.html` 結尾。腳本以 `.js`、`.mjs`、`.jsx`、`.mjsx`、`.ts`、`.mts`、`.tsx` 或 `.mtsx` 結尾，並且必須是小寫，所以 `scripts/Foo.JS` 不是入口。兩個資料夾裡的連結只要仍在專案之內就會被跟隨。`pages/` 或 `scripts/` 裡建置無法讀取的資料夾會讓建置以 `E_FOLDER_UNREADABLE` 停止，訊息會指名那個資料夾。
+
 ### `scripts/` 裡的輔助模組
 
 `scripts/` 裡的每個檔案都會被建置成一個獨立的 entry。被其他檔案匯入的輔助模組會多輸出一個沒有任何東西載入的檔案。從 4.1.39 之後的版本起，如果一個檔案被其他檔案匯入，又沒有任何地方依輸出路徑提到它，建置會為它印出一則警告。警告裡給出可以直接貼上的 `exclude` 值：
@@ -268,6 +270,23 @@ Extension.js 會把 `public/` 下的所有內容 1:1 複製到輸出根目錄。
 ### 重要的 `public/` 防護
 
 不要把 `manifest.json` 放在 `public/manifest.json`。Extension.js 會阻擋這種情況，避免在編譯時覆蓋產生的 manifest。
+
+建置會以 `E_MANIFEST_IN_PUBLIC` 停止。從 4.2.0 之後的版本起，訊息如下：
+
+```plaintext
+public/manifest.json is left out of the build: the manifest the build writes comes from the manifest.json the project names, and only one file can claim that output path.
+Move it out of the public folder, or delete it.
+```
+
+從 4.2.0 之後的版本起，某個入口已經寫入其輸出路徑的 `public/` 檔案不會被複製。入口的檔案勝出，一則 `W_PROJECT_LAYOUT` 警告會指名該檔案。
+
+### 資料夾名稱必須小寫
+
+從 4.2.0 之後的版本起，public 資料夾必須命名為小寫的 `public/`。`Public/` 或 `PUBLIC/` 資料夾會印出一則 `W_PROJECT_LAYOUT` 警告，請你重新命名：
+
+- 在不區分大小寫的磁碟上（macOS 的預設設定），這個資料夾仍會發布。
+- 此時警告會說明，其他拼寫會在下一個主要版本中失效。
+- 在區分大小寫的磁碟上（大多數 Linux 系統如此），這個資料夾裡的內容都不會發布。
 
 ### 永遠不會打包的檔案
 

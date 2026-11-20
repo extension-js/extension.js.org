@@ -44,6 +44,8 @@ Top-level keys:
 | `config`            | Hook to extend/override the generated Rspack config. Receives the target browser, mode, and command. |
 | `configResolved`    | Hook that runs once the Rspack config is final, with every loader rule attached. |
 
+A key that nothing reads prints a warning. From the release after 4.2.0, the same check runs one level down, in each `commands.<cmd>` and `browser.<vendor>` block. A typo such as `commands.dev.browserFlag` prints one warning with the full path, and the key that it likely meant when one is close.
+
 ### Type-safe configuration
 
 Extension.js exports the `FileConfig` type from the `extension` package so editors can autocomplete and type-check your config. Annotate the export with a JSDoc `@type` tag, which works in `extension.config.js`, `.mjs`, and `.cjs` without a build step:
@@ -64,7 +66,7 @@ export default {
 - Extension.js preloads env files before evaluating `extension.config.*`: `.env.defaults`, `.env`, `.env.local`, and the file of the running mode, weakest to strongest. Every file that exists loads, and a variable your shell exported always wins.
 - From the release after 4.1.41, the mode file is `.env.development` for `dev` and `.env.production` for `build`, `start`, and `preview`. Earlier releases read `.env.development` for every command. See [Environment variables](/docs/features/environment-variables).
 - From the release after 4.1.41, `.env.<mode>.local` loads after the mode file.
-- `build`, `start`, and `preview` also load the browser's files, such as `.env.chrome`.
+- `build`, `start`, and `preview` also load the browser's files, such as `.env.chrome`. From the release after 4.2.0, `dev` loads them too.
 - The configuration then sees the values the bundle gets. It runs once per command.
 - It first checks the project folder.
 - In monorepos, if Extension.js finds no project-local `.env*` file, it falls back to the nearest workspace root. The workspace root is the folder containing `pnpm-workspace.yaml`.
@@ -288,6 +290,8 @@ export default {
 - The file lands at the output path with no hashing. A file that is not a script ships as is, like a file in `public/`.
 - From the release after 4.1.39, a production build minifies a `.js`, `.mjs` or `.cjs` file that `include` copies. It shortens names and drops comments, and it rewrites no statement. The value that `chrome.scripting.executeScript` reads from the file is unchanged, and a `/*!` banner stays. A `.min.js` file is left alone.
 - In `dev`, an edit to the source lands on the next compile.
+- From the release after 4.2.0, `dev` watches a source that is missing at start.
+- That source ships on the next compile after it appears.
 - A source that is not there fails the build.
 - An output path that is absolute, climbs out of the extension root, or is `manifest.json` fails the build too.
 - `include` merges key by key: top-level, then `browser.<vendor>.include`, then `commands.dev|start|build.include`.
