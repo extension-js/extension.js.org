@@ -123,6 +123,8 @@ Extension.js **always merges** `.env.defaults` first when present, then the matc
   `.env.example` is documentation only and is never loaded as a value source.
 </Note>
 
+From 4.2.0, an env file that is a folder or cannot be read stops the build with `E_ENV_FILE_UNREADABLE`. The message names the file.
+
 If env files exist next to your project but none match the current browser and mode, the build prints a warning naming the files it found and the candidates it looked for, so a misspelled browser suffix fails loudly instead of silently shipping without values. A file named for another mode or browser, such as `.env.development` in a production build, is left alone without a warning, and the warning calls the values undefined only when nothing else, such as `extension.config.js`, defined them.
 
 ### Secrets never take the `EXTENSION_PUBLIC_` prefix
@@ -148,13 +150,13 @@ If no matching file exists next to the project, Extension.js repeats the same se
 | 3             | `.env.local`             | `.env.local`                                  |
 | 4             | `.env.development`       | `.env.production`                             |
 | 5             | `.env.development.local` | `.env.production.local`                       |
-| 6 (strongest) | none                     | The browser's files, as the bundle reads them |
+| 6 (strongest) | The browser's files, from the release after 4.2.0 | The browser's files, as the bundle reads them |
 
 Every file that exists loads, and a later file overrides the values of an earlier one. A variable your shell or CI exported always wins over every file. An `.mjs` config that reads `import.meta.env` sees the same winners as `process.env`. `build --mode development` reads the development files.
 
 A build no longer reads `.env.development`. A key that exists only in that file is `undefined` in the configuration of `build`, `start`, and `preview`. Releases up to 4.1.41 preloaded `.env.development` for every command, so a build configuration read development values.
 
-From the release after 4.1.41, `build`, `start`, and `preview` also preload the browser's files, such as `.env.chrome` and `.env.chrome.production`. The configuration then sees the same values as the bundle. `dev` loads the configuration before it knows the browser, so it reads no browser file. Set browser values for `dev` in your shell or continuous integration (CI) pipeline.
+From the release after 4.1.41, `build`, `start`, and `preview` also preload the browser's files, such as `.env.chrome` and `.env.chrome.production`. The configuration then sees the same values as the bundle. Releases up to 4.2.0 loaded the `dev` configuration before they knew the browser, so `dev` read no browser file. From the release after 4.2.0, `dev` reads the browser's files on its first load of the configuration, such as `.env.chrome` and `.env.chrome.development`.
 
 From the release after 4.1.41, `extension.config.js` runs once per command. When the configuration names the browser itself, it can run a second time. That happens only if the browser's files change a variable it read.
 
@@ -255,7 +257,7 @@ From the release after 4.1.41, a `.env` file that sets `EXTENSION_PUBLIC_BROWSER
 | `EXTENSION_BROWSER_FLAGS`         | Extra launch flags appended to every launched browser (whitespace-separated; applied after config `browserFlags`, so the environment wins)   | CI/harness flags like `--headless=new` without touching `extension.config.js` |
 | `EXTENSION_ALLOW_INSTALL_SCRIPTS` | Run lifecycle scripts during dependency auto-install (`true` to set); auto-install passes `--ignore-scripts` by default for safety           | Projects whose dependencies genuinely need postinstall scripts                |
 | `EXTENSION_JS_PACKAGE_MANAGER`    | Name the manager for the automatic dependency install: `npm`, `pnpm`, `yarn`, `bun`, or `deno`. A lockfile or a `packageManager` field in the project wins over it ([order](/docs/commands/dev#automatic-dependency-install)) | Machines that run the CLI outside a package manager script |
-| `EXTENSION_STRICT_REFS`           | Make dead HTML asset references fail the build (`true` to set); by default they warn and are skipped, matching how Chrome 404s them silently | Strict CI validation of HTML references                                       |
+| `EXTENSION_STRICT_REFS`           | Make dead HTML and CSS asset references fail the build (`true` to set). By default they warn and are skipped, matching how Chrome 404s them silently | Strict CI validation of HTML and CSS references                               |
 | `EXT_BROWSERS_CACHE_DIR`          | Override managed browser cache folder                                                                                                        | Custom CI cache paths                                                         |
 
 From the release after 4.1.39, every browser resolves its binary in one order. The binary flag comes first, then the variable, the managed binary, and the system install. A variable that names a missing or non-executable path fails the launch with `E_BROWSER_BINARY_INVALID`. See [How the binary is chosen](/docs/browsers/browsers-available#how-the-binary-is-chosen).
@@ -373,6 +375,8 @@ You can use environment variables in `manifest.json`, locales, HTML, and JavaScr
 
 During compilation, Extension.js replaces `$EXTENSION_PUBLIC_API_URL` with the resolved env value.
 
+The value is escaped for the place where it lands, so the emitted file stays valid. In a JSON string, a quote or a backslash in the value is escaped. In HTML text and attributes, `&`, `<`, `>`, and quotes become entities. Inside a `<script>` string, the value is escaped as a JavaScript string. A value that would still break a JSON file stops the build with `E_JSON_INVALID`, and the message names the file and the variable.
+
 #### Keep a local origin out of the production manifest
 
 The same placeholders work in match patterns, which is how a development mock server stays out of the store package. Put the origin in a placeholder and give each mode its own value:
@@ -458,6 +462,8 @@ export default ApiInfo;
 ```
 
 Extension.js inlines these values at compile time, and they can vary by browser/mode.
+
+From 4.2.0, a write such as `process.env.EXTENSION_PUBLIC_X = "v"` stays valid code and reaches the env object at run time. The build warns with `W_ENV_DEFINE_WRITTEN` for your own code, because each dotted read of that name keeps the build value. Keep a value that changes at run time in a variable of your own.
 
 ## `import.meta` support
 

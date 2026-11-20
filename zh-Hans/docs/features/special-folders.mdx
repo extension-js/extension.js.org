@@ -179,6 +179,8 @@ export default {
 
 完整的 `folders` 键请参阅[特殊文件夹的位置](/zh-Hans/docs/features/extension-configuration#特殊文件夹的位置)。
 
+从 4.2.0 之后的版本起，构建只在 `pages/` 与 `scripts/` 中查找入口，任意深度，并跳过 `node_modules` 文件夹。页面以 `.html` 结尾。脚本以 `.js`、`.mjs`、`.jsx`、`.mjsx`、`.ts`、`.mts`、`.tsx` 或 `.mtsx` 结尾，并且必须是小写，所以 `scripts/Foo.JS` 不是入口。两个文件夹里的链接只要仍在项目之内就会被跟随。`pages/` 或 `scripts/` 里构建无法读取的文件夹会让构建以 `E_FOLDER_UNREADABLE` 停止，消息会点名那个文件夹。
+
 ### `scripts/` 里的辅助模块
 
 `scripts/` 里的每个文件都会被构建成一个独立的入口。被其他文件导入的辅助模块会多输出一个没有任何东西加载的文件。从 4.1.39 之后的版本起，如果一个文件被其他文件导入，又没有任何地方按输出路径提到它，构建会为它打印一条警告。警告里给出可以直接粘贴的 `exclude` 值：
@@ -268,6 +270,23 @@ Extension.js 会把 `public/` 下的所有内容 1:1 复制到输出根目录。
 ### `public/` 的重要保护
 
 不要把 `manifest.json` 放到 `public/manifest.json`。为了避免在编译过程中覆盖生成的 manifest，Extension.js 会阻止这种用法。
+
+构建会以 `E_MANIFEST_IN_PUBLIC` 停止。从 4.2.0 之后的版本起，消息如下：
+
+```plaintext
+public/manifest.json is left out of the build: the manifest the build writes comes from the manifest.json the project names, and only one file can claim that output path.
+Move it out of the public folder, or delete it.
+```
+
+从 4.2.0 之后的版本起，某个入口已经写入其输出路径的 `public/` 文件不会被复制。入口的文件胜出，一条 `W_PROJECT_LAYOUT` 警告会点名该文件。
+
+### 文件夹名必须小写
+
+从 4.2.0 之后的版本起，public 文件夹必须命名为小写的 `public/`。`Public/` 或 `PUBLIC/` 文件夹会打印一条 `W_PROJECT_LAYOUT` 警告，请你重命名：
+
+- 在不区分大小写的磁盘上（macOS 的默认设置），这个文件夹仍会发布。
+- 此时警告会说明，其他拼写会在下一个大版本中失效。
+- 在区分大小写的磁盘上（大多数 Linux 系统如此），这个文件夹里的内容都不会发布。
 
 ### 永远不会打包的文件
 

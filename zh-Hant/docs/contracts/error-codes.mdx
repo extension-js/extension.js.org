@@ -44,7 +44,7 @@ keywords:
 | 錯誤碼 | 意義 |
 | ---- | ------- |
 | `E_PROJECT_NOT_FOUND` | 解析出的專案資料夾不存在。 |
-| `E_CONFIG_LOAD` | `extension.config.js` 在載入時拋出例外，或匯出的不是物件。`dev`、`build`、`start` 與 `preview` 都以此代碼回應。正式建置遇到不合法的 [`perfBudgets`](/zh-Hant/docs/workflows/performance-playbook) 值時也以此代碼回應。 |
+| `E_CONFIG_LOAD` | `extension.config.js` 在載入時拋出例外，或匯出的不是物件。`dev`、`build`、`start` 與 `preview` 都以此代碼回應。正式建置遇到不合法的 [`perfBudgets`](/zh-Hant/docs/workflows/performance-playbook) 值時也以此代碼回應，從 4.2.0 起 `dev` 也是如此。 |
 | `E_DEPENDENCY_INSTALL` | 安裝專案相依套件失敗。 |
 | `E_OPTIONAL_DEP_UNRESOLVED` | 某個選用相依契約無法解析。 |
 | `E_OPTIONAL_DEP_LOAD` | 某個選用相依已解析，但載入失敗。從 4.1.41 之後的版本起，專案中的副本在載入時拋出例外會讓執行停止。訊息會點名它的路徑與原因。不會改用其他安裝來代替。 |
@@ -52,6 +52,8 @@ keywords:
 | `E_COMPANION_EXTENSION_PATH` | 解析出的根目錄下唯一的 manifest 屬於 `extensions/` 底下的某個搭配擴充功能。瀏覽器不載入它就開啟的搭配擴充功能條目，會以 `W_COMPANION_EXTENSION_PATH` 警告。 |
 | `E_PROJECT_LAYOUT` | `public/` 中的某個檔案會覆寫建置產出的檔案，或 `extension.config.js` 中的某個 `include` 條目指向不存在的檔案，或指向擴充功能之外的輸出路徑。 |
 | `E_MANIFEST_IN_PUBLIC` | `manifest.json` 被放在 `public/` 底下。 |
+| `E_FOLDER_UNREADABLE` | `pages/` 或 `scripts/` 裡的某個資料夾無法讀取，所以建置無法列出它的入口。從 4.2.0 之後的版本起。 |
+| `E_ENV_FILE_UNREADABLE` | 建置要讀取的某個 env 檔案是一個資料夾或無法讀取。從 4.2.0 起。 |
 | `E_RUNTIME_NOT_FOUND` | extension-develop 執行階段遺失或未編譯。 |
 
 ## Manifest
@@ -223,7 +225,7 @@ keywords:
 | `W_ENTRY_NOT_FOUND` | 某個 manifest、HTML 或 JSON 進入點指向不存在或未被打包的檔案。 |
 | `W_ASSET_MISSING` | 某個圖示、靜態資源或 JSON 相依不存在或未被打包。 |
 | `W_SCRIPT_DEP_MISSING` | 某個指令稿在執行階段載入的檔案不在建置中、以原始碼的寫法被點名，或無法編譯。 |
-| `W_CSS_PARSE` | 某個樣式表解析失敗。 |
+| `W_CSS_PARSE` | 某個樣式表解析失敗，或者壓縮器丟掉了一條規則，樣式表照原樣發布。 |
 | `W_CSS_PREPROCESSOR_MISSING` | 要求了某個 CSS 前處理器，但無法解析到它。 |
 | `W_CSS_DEAD_REF` | CSS 中的某個 `url()` 或 `@import` 指向不存在或未被打包的檔案。 |
 | `W_POLYFILL_NOT_FOUND` | 要求了 `webextension-polyfill`，但它並不存在。 |
@@ -243,7 +245,7 @@ keywords:
 | `W_INTERNAL` | 某個建置步驟遇到非預期的輸出並繼續進行。工具鏈需要更新。 |
 | `W_RESTART_REQUIRED` | 執行中的開發工作階段只在啟動時讀取的某個檔案變更了，因此變更會在重新啟動後生效。 |
 | `W_JSON_INVALID` | 某個 `declarativeNetRequest` 規則集可以解析，但含有可能不會照寫法運作的規則，或含有 Chrome 拒絕而 Firefox 會載入的規則。 |
-| `W_PROJECT_LAYOUT` | 某個 `public/` 資料夾放錯位置或被另一個遮蔽，或 `extension.config.js` 中的某個 `exclude` 條目指向不存在的檔案。 |
+| `W_PROJECT_LAYOUT` | 某個 `public/` 資料夾放錯位置、大小寫不對或被另一個遮蔽，某個 `public/` 檔案被入口遮蔽，或 `extension.config.js` 中的某個 `exclude` 條目指向不存在的檔案。 |
 | `W_MANIFEST_COMPAT` | manifest 使用了目標瀏覽器會忽略或正在淘汰的版本、鍵或主機權限樣式。 |
 | `W_STORE_READINESS` | manifest 可以建置並載入，但商店會照現在的寫法拒絕或標記它。 |
 | `W_PERMISSION_MISMATCH` | 程式碼使用的 API 或連線的主機，沒有被 manifest 權限以程式碼需要的方式涵蓋。 |
@@ -253,6 +255,7 @@ keywords:
 | `W_ENV_SECRET_PUBLIC` | 某個 `EXTENSION_PUBLIC_` 變數的名稱看起來像機密，而它的值會被寫入建置後的程式碼。 |
 | `W_BUILD_CONSTANT_UNDEFINED` | 某個指令稿讀取了沒有任何東西定義的建置常數，因此它在載入時會拋出例外。 |
 | `W_SCRIPT_WORLD_UNKNOWN` | 某個指令稿在執行階段以建置無法讀出的 world 註冊，因此被當成隔離 world 的指令稿。 |
+| `W_ENV_DEFINE_WRITTEN` | 專案程式碼寫入了建置會取代為其值的 env 名稱，所以這個名稱的點號讀取保留建置時的值。 |
 | `W_ENV_NAME_RESERVED` | 某個 `.env` 檔案設定了建置為它所編譯的瀏覽器或模式保留的名稱，因此檔案中的值被忽略。 |
 | `W_COMPANION_EXTENSION_PATH` | 某個搭配擴充功能條目通往專案之外、不是未封裝的擴充功能資料夾，或指向不存在的資料夾，因此瀏覽器在沒有它的情況下開啟。 |
 | `W_CDP_NOT_CONNECTED` | 某個 `dev`、`start` 或 `preview` 工作階段在沒有存活 CDP 傳輸的情況下啟動，並保持就緒。重新載入與 HMR 無法連上。 |

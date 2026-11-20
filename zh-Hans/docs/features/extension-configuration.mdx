@@ -42,6 +42,7 @@ keywords:
 | `config`            | 用于扩展/覆盖生成的 Rspack 配置的钩子。会收到目标浏览器、模式和命令。 |
 | `configResolved`    | 在 Rspack 配置最终确定、所有 loader 规则都已挂上之后运行的钩子。 |
 
+没有任何地方读取的键会打印一条警告。从 4.2.0 之后的版本起，同样的检查会向下深入一层，作用于每个 `commands.<cmd>` 与 `browser.<vendor>` 块。像 `commands.dev.browserFlag` 这样的拼写错误会打印一条带完整路径的警告，有相近的键时还会给出它很可能想写的那个键。
 ### 类型安全的配置
 
 Extension.js 从 `extension` 包中导出 `FileConfig` 类型，让编辑器可以对你的配置进行自动补全与类型检查。用 JSDoc 的 `@type` 标签标注导出即可 —— 它在 `extension.config.js`、`.mjs` 与 `.cjs` 中都能工作，且无需构建步骤：
@@ -62,7 +63,7 @@ export default {
 - 在求值 `extension.config.*` 之前，Extension.js 会按从弱到强的顺序预加载 env 文件：`.env.defaults`、`.env`、`.env.local`，以及当前运行模式的文件。每个存在的文件都会加载，而 shell 导出的变量始终优先。
 - 从 4.1.41 之后的版本起，模式文件对 `dev` 是 `.env.development`，对 `build`、`start` 和 `preview` 是 `.env.production`。更早的版本对每个命令都读取 `.env.development`。见[环境变量](/zh-Hans/docs/features/environment-variables)。
 - 从 4.1.41 之后的版本起，`.env.<mode>.local` 在模式文件之后加载。
-- `build`、`start` 和 `preview` 还会加载浏览器的文件，比如 `.env.chrome`。
+- `build`、`start` 和 `preview` 还会加载浏览器的文件，比如 `.env.chrome`。从 4.2.0 之后的版本起，`dev` 也会加载它们。
 - 这样配置看到的就是产物得到的值。它每个命令只运行一次。
 - 它会先检查项目目录。
 - 在 monorepo 中，如果 Extension.js 在项目本地没找到任何 `.env*` 文件，会回退到最近的 workspace 根目录。workspace 根目录是包含 `pnpm-workspace.yaml` 的目录。
@@ -280,6 +281,8 @@ export default {
 - 文件落到输出路径时不加哈希。不是脚本的文件会原样产出，就像 `public/` 里的文件一样。
 - 从 4.1.39 之后的版本起，生产构建会压缩 `include` 复制的 `.js`、`.mjs` 或 `.cjs` 文件。它缩短名称并去掉注释，不改写任何语句。`chrome.scripting.executeScript` 从这个文件读到的值不变，`/*!` 头注释也会保留。`.min.js` 文件保持原样。
 - 在 `dev` 中，对源文件的修改会在下一次编译时落地。
+- 从 4.2.0 之后的版本起，`dev` 会监听启动时还不存在的源文件。
+- 该源文件出现之后，会在下一次编译时发布。
 - 源文件不存在会让构建失败。
 - 输出路径是绝对路径、逃出扩展根目录，或者是 `manifest.json`，同样会让构建失败。
 - `include` 按键逐个合并：先是顶层，再是 `browser.<vendor>.include`，最后是 `commands.dev|start|build.include`。

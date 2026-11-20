@@ -25,24 +25,31 @@ Chrome 与 Firefox 对「主题颜色长什么样」并不一致。Firefox 把 `
   "theme": {
     "colors": {
       "frame": "#1a1b26",
-      "toolbar": "#24283bcc"
+      "toolbar": "#24283b"
     }
   }
 }
 ```
 
-对 Chromium 家族的目标，构建会把每个 hex 字符串转换成 Chrome 要求的整数数组。对 Gecko 目标，字符串形式原样输出，因为 Firefox 本来就能解析它。
+对 Chromium 家族的目标，构建会把每个颜色字符串写成 Chrome 要求的整数数组。一条提示会列出它写过的键。对 Gecko 目标，字符串形式原样输出，因为 Firefox 本来就能解析它。
 
-这个转换接受 3、4、6 和 8 位的 hex。8 位的值会变成 `[R, G, B, A]`，其中 alpha 字节会被缩放为 0 到 1 的浮点数并四舍五入到三位小数。`#24283bcc` 会变成 `[36, 40, 59, 0.8]`。转换器还能读 CSS 具名关键字（`tomato` 会变成 `[255, 99, 71]`）、`transparent`（`[0, 0, 0, 0]`），以及数值形式的 `rgb()`/`rgba()` 字符串。超出这套语法的值会原封不动地透传。
+从 4.2.0 起，构建只转换有唯一精确 `[R, G, B]` 读法的字符串。也就是 3 位或 6 位 hex、带三个整数的 `rgb()`，或者任意大小写的 CSS 颜色名。`tomato` 会变成 `[255, 99, 71]`。想在源码里写明 Chromium 的颜色，就在 `manifest.json` 里写数组。Firefox 读取同样的数组。
 
 ## 无效的值会让构建失败
 
 只要主题的某个值形状不对，Chrome 就会拒绝整个扩展，所以 Extension.js 改为在编译期就抓住这个错误。在 Chromium 家族的目标上，每一个无效的主题值都会变成一个点名到具体字段的编译错误：
 
-- `theme.colors.*` 的条目必须是 `[R, G, B]` 或 `[R, G, B, A]` 数组、hex 字符串，或者转换器能由此产出这些结果的值。各通道必须是 0 到 255 的整数，alpha 必须是数值。
+- `theme.colors.*` 的条目必须是 `[R, G, B]` 或 `[R, G, B, A]` 数组，或者构建能够转换的字符串。
+- 通道是 0 到 255 的整数，alpha 是 0 到 1 的数值。
 - `theme.tints.*` 的条目必须是恰好 3 个数字组成的 `[hue, saturation, lightness]` 数组。
 
 每条错误都会说明 Chrome 对那个具体字段能接受什么，这样你直接改值就行，不用去猜浏览器里那块拒绝提示的意思。
+
+从 4.2.0 起，没有精确读法的颜色字符串会让构建以 `E_THEME_INVALID` 停止。这包括 `transparent`、`currentcolor`、带 alpha 的 hex 或 `rgba()`、百分比，以及 `hsl()`。消息会点名每个字段，以及应该写在那里的数组：
+
+```plaintext
+  theme.colors.toolbar "#24283bcc", write [36, 40, 59, 0.8]
+```
 
 ## Safari 目标会给出警告
 
