@@ -64,6 +64,8 @@ You can develop against a browser that is already installed, with no download:
 
 On Linux, that install needs an interactive session with sudo rights. When the install fails and a system Edge exists, the installer reports the system binary and succeeds with it.
 
+From 4.2.0, when the Edge that `install` finds sits in a place that the run commands do not search, the message prints its path and asks you to pass that path with `--chromium-binary`.
+
 ## Which binary runs
 
 From the release after 4.1.39, `dev`, `start`, and `preview` choose the binary in one order for every browser:
@@ -177,6 +179,17 @@ extension install [browser-name] [options]
 - A failed download prints `ok: false` with `error.code: "E_BROWSER_DOWNLOAD"` before the process exits `1`.
 - A download that finishes without leaving a usable browser binary fails the same way. See [Behavior notes](#behavior-notes).
 - From the release after 4.1.41, a missing package runner fails with `E_BROWSER_INSTALLER_NOT_FOUND` instead.
+- From the release after 4.2.0, a package runner that is there but does not start fails with `E_BROWSER_DOWNLOAD`. The message names the runner and the system error code, and says that nothing was downloaded.
+- From the release after 4.2.0, an install fault of no known kind fails with `E_INTERNAL`. The hint asks you to run the install again, and to report the message when it fails the same way.
+
+From 4.2.0, these failures carry their own codes:
+
+| Code                           | When                                                                                         |
+| ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `E_BROWSER_INSTALL_TIMEOUT`    | The installer was still running at the install timeout, so `install` stopped it.             |
+| `E_BROWSER_INSTALL_BUSY`       | Another install of the same browser held the lock for the whole wait.                        |
+| `E_BROWSER_CACHE_NOT_WRITABLE` | The cache root is a file, cannot be created, or cannot be written to.                        |
+| `E_BROWSER_FOLDER_FOREIGN`     | The browser folder holds files that Extension.js did not put there, so nothing in it changed. |
 
 ## Examples
 
@@ -236,6 +249,9 @@ Set `EXTENSIONJS_BINARIES_IN_DIST=1` to make the run commands resolve managed bi
 - `chrome` installs Chrome for Testing rather than relying on the system Google Chrome app.
 - `edge` may require a privileged interactive session on Linux.
 - `install` checks the destination before it reports success. When the installer exits cleanly but the folder holds no browser binary that is a non-empty executable file, as after an interrupted download, the command fails with `E_BROWSER_DOWNLOAD` and exits `1`. It removes the incomplete files, so the next `extension install` starts clean.
+- From 4.2.0, `EXTENSION_INSTALL_TIMEOUT_MS` sets how long the installer may run, 30 minutes by default. The value is a whole number of milliseconds. Any other value, such as `30s`, means the default.
+- From 4.2.0, one install of a browser runs at a time. An install holds a lock folder in the cache root, named after the browser, such as `.chrome.lock`. A second install of the same browser waits for it, up to the install timeout, and then fails with `E_BROWSER_INSTALL_BUSY`. The message names the lock folder to delete when no such install is running. A lock whose holder process is gone is taken over.
+- From 4.2.0, `install` writes a `.extension-install.json` marker into the browser folder before the download starts. A folder with the marker, or with only files that the download engines write, belongs to Extension.js. A marked folder that also holds a browser profile does not. `install` and `uninstall` remove nothing from a folder that does not belong to Extension.js.
 - On Deno, `install` needs Node.js on your `PATH`. The browser installer shells out to `npx`, or to the package manager that launched the CLI, to run the download engine, and `deno` has no such runner. Without Node.js the command fails at the download step. The other commands run on Deno alone.
 
 ## Next steps

@@ -183,6 +183,16 @@ See [special folder locations](/docs/features/extension-configuration#special-fo
 
 From the release after 4.2.0, the build looks for entries only in `pages/` and `scripts/`, at any depth, and skips `node_modules` folders. A page ends in `.html`. A script ends in `.js`, `.mjs`, `.jsx`, `.mjsx`, `.ts`, `.mts`, `.tsx`, or `.mtsx`, spelled in lowercase, so `scripts/Foo.JS` is not an entry. A link inside either folder is followed while it stays inside the project. A folder inside `pages/` or `scripts/` that the build cannot read stops the build with `E_FOLDER_UNREADABLE`, and the message names that folder.
 
+From the release after 4.2.0, these two folders must be named in lowercase too. No build reads a `Pages/` or `Scripts/` folder, on any disk, so a project builds the same on macOS, Windows, and Linux. Each such folder prints one `W_PROJECT_LAYOUT` warning that names it and asks you to rename it.
+
+From the release after 4.2.0, a declaration file (`.d.ts`, `.d.mts`, or `.d.cts`) in `scripts/` is never an entry.
+
+### Two files with one entry name
+
+An entry is named by its path inside the folder, without the extension. A page named `index.html` inside a subfolder stands for that subfolder. So `pages/a.html` and `pages/a/index.html` both claim the name `pages/a`, and `scripts/a.js` and `scripts/a.ts` both claim `scripts/a`.
+
+From the release after 4.2.0, the build uses the file whose path sorts last: `pages/a/index.html` over `pages/a.html`, and `scripts/a.ts` over `scripts/a.js`. A file that a link inside the folder reaches follows the same rule. One `W_PROJECT_LAYOUT` warning names each entry name, the file used, and every file ignored. Rename or delete the ignored files.
+
 ### A helper module inside `scripts/`
 
 Every file in `scripts/` is built as an entry of its own. A helper that other files import ships as one more file that nothing loads. From the release after 4.1.39, the build prints one warning for a file that other files import and that nothing names by its output path. The warning prints the `exclude` value to paste:
@@ -311,6 +321,7 @@ From the release after 4.2.0, the public folder must be named `public/` in lower
 - On a disk that ignores letter case, the macOS default, the folder still ships.
 - There, the warning says that another spelling stops working in the next major version.
 - On a disk that keeps letter case, as on most Linux systems, nothing in the folder ships.
+- A `PUBLIC/` folder beside a real `public/` folder is a second folder. Nothing in it ships on any disk, and the warning says so.
 
 ### Files that never ship
 

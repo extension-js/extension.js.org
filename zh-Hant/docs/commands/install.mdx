@@ -64,6 +64,8 @@ keywords:
 
 在 Linux 上,這次安裝需要具備 sudo 權限的互動式工作階段。當安裝失敗且系統存在 Edge 時,安裝程式會回報系統執行檔,並以它成功完成。
 
+從 4.2.0 起，當 `install` 找到的 Edge 位於執行指令不會搜尋的位置時，訊息會印出它的路徑，並請你用 `--chromium-binary` 傳入這個路徑。
+
 ## 執行哪個執行檔
 
 從 4.1.39 之後的版本起,`dev`、`start` 與 `preview` 對每個瀏覽器都依同一個順序選定執行檔:
@@ -177,6 +179,17 @@ extension install [browser-name] [options]
 - 下載失敗會在行程以 `1` 結束前印出 `ok: false`,其 `error.code: "E_BROWSER_DOWNLOAD"`。
 - 下載結束了卻沒有留下可用的瀏覽器執行檔時,也以同樣的方式失敗。見[行為說明](#行為說明)。
 - 從 4.1.41 之後的版本起，缺少套件執行器時改為以 `E_BROWSER_INSTALLER_NOT_FOUND` 失敗。
+- 從 4.2.0 之後的版本起，存在但無法啟動的套件執行器會以 `E_BROWSER_DOWNLOAD` 失敗。訊息會指名執行器與系統錯誤代碼，並說明什麼都沒有下載。
+- 從 4.2.0 之後的版本起，類型未知的安裝故障會以 `E_INTERNAL` 失敗。提示會請你重新執行安裝，並在同樣失敗時回報這則訊息。
+
+從 4.2.0 起，這些失敗有各自的代碼：
+
+| 代碼                           | 何時                                                         |
+| ------------------------------ | ------------------------------------------------------------ |
+| `E_BROWSER_INSTALL_TIMEOUT`    | 到達安裝逾時時安裝程式仍在執行，所以 `install` 停止了它。    |
+| `E_BROWSER_INSTALL_BUSY`       | 同一瀏覽器的另一次安裝在整個等待期間都持有鎖。               |
+| `E_BROWSER_CACHE_NOT_WRITABLE` | 快取根目錄是一個檔案、無法建立或無法寫入。                   |
+| `E_BROWSER_FOLDER_FOREIGN`     | 瀏覽器資料夾中有不是 Extension.js 放進去的檔案，所以其中什麼都沒有變更。 |
 
 ## 範例
 
@@ -236,6 +249,9 @@ extension install chrome --where
 - `chrome` 會安裝 Chrome for Testing,而不是依賴系統的 Google Chrome 應用程式。
 - `edge` 在 Linux 上可能需要具備權限的互動式工作階段。
 - `install` 在回報成功之前會檢查目標資料夾。當安裝程式正常結束,但資料夾裡沒有一個非空且可執行的瀏覽器執行檔時(例如下載被中斷之後),指令會以 `E_BROWSER_DOWNLOAD` 失敗並以 `1` 結束。它會刪掉不完整的檔案,所以下一次 `extension install` 從乾淨的狀態開始。
+- 從 4.2.0 起，`EXTENSION_INSTALL_TIMEOUT_MS` 設定安裝程式可以執行多久，預設 30 分鐘。值是一個整數毫秒數。任何其他值，例如 `30s`，都代表預設值。
+- 從 4.2.0 起，同一個瀏覽器一次只執行一個安裝。安裝會在快取根目錄中持有一個以瀏覽器命名的鎖資料夾，例如 `.chrome.lock`。同一瀏覽器的第二次安裝會等待它，最長等到安裝逾時，然後以 `E_BROWSER_INSTALL_BUSY` 失敗。訊息會指名在沒有這樣的安裝執行時可以刪除的鎖資料夾。持有者處理程序已經不在的鎖會被接管。
+- 從 4.2.0 起，`install` 在下載開始之前會把一個 `.extension-install.json` 標記寫入瀏覽器資料夾。帶有該標記的資料夾，或只包含下載引擎所寫檔案的資料夾，屬於 Extension.js。同時還包含瀏覽器 profile 的帶標記資料夾則不屬於。`install` 與 `uninstall` 不會從不屬於 Extension.js 的資料夾中移除任何內容。
 - 在 Deno 上，`install` 需要 `PATH` 裡有 Node.js。瀏覽器安裝器會呼叫 `npx`（或啟動 CLI 的那個套件管理器）來執行下載引擎，而 `deno` 沒有這樣的執行器。沒有 Node.js 時，指令會在下載步驟失敗。其他指令只靠 Deno 就能執行。
 
 ## 後續步驟

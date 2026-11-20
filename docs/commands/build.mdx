@@ -217,6 +217,8 @@ The build stops with an error for two paths. One is a relative path that leaves 
 
 `--zip-filename` sets the name only. A folder in its value is dropped, so `--zip-filename=out/review.zip` on a Chrome build names the file `review-chrome.zip`.
 
+From the release after 4.2.0, a compile that fails creates no ZIP file, because `dist/<browser>` still holds the build before it. A ZIP file that cannot be written fails the build with `E_ZIP_SKIPPED`, and the closing line `Build failed with 1 error.` adds that the output folder is in place and loads as built.
+
 ## Source maps for a production build
 
 A production build writes no source maps. From the release after 4.1.39, `--source-maps` writes a `.map` file beside each script and stylesheet in `dist/<browser>`:
@@ -325,15 +327,19 @@ deno run -A npm:extension@latest build ./my-extension --zip --zip-source
 ## What a successful build prints
 
 After the asset summary, a successful build prints the output directory and its
-size, then a link you can use to share the build for review:
+size. A production build then prints the Node.js, package manager, and
+Extension.js versions that made it, so a store reviewer can rebuild the package
+and match its bytes:
 
 ```plaintext
 ⏵⏵⏵ Extension built for production in dist/chrome (35.5 KB).
-⏵⏵⏵ Send this build to someone for review: https://docs.extension.dev/share/unpublished-build-for-review
+⏵⏵⏵ Built with Node v22.18.0, pnpm 10.33.0 and Extension.js 4.2.0. Name these versions in the store's reviewer note so a reviewer can rebuild it and match these bytes.
 ```
 
-Each target prints its own pair of lines, so a multi-browser build repeats them
-once per browser.
+Each target prints its own build line, so a multi-browser build repeats it once
+per browser. The versions line prints once per run. The package manager appears
+in it only when a package manager script, such as `pnpm build`, started the
+build.
 
 From the release after 4.1.39, the size in that line counts the files that ship. Source maps are counted apart, and the line says how much was left out of the ZIP file:
 

@@ -34,7 +34,7 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_UNKNOWN_COMMAND` | No subcommand matches the given name. |
 | `E_NODE_VERSION` | The running Node version is below the supported minimum. |
 | `E_COMMAND_UNSUPPORTED_FOR_TARGET` | The command does not support the requested browser target. |
-| `E_UNSUPPORTED_BROWSER` | The requested vendor is not in the supported browser list. A `commands.<cmd>.browser` value in `extension.config.js` is checked the same way. |
+| `E_UNSUPPORTED_BROWSER` | The requested vendor is not in the supported browser list. A `commands.<cmd>.browser` value in `extension.config.js` is checked the same way. From 4.2.0, an empty `--browser` value, or an empty item in a comma list, answers it too. |
 | `E_BROWSER_NOT_INSTALLABLE` | The browser ships with the OS and cannot be installed by the CLI. |
 | `E_PARENT_GONE` | The `--parent-pid` owner died, so the dev server self-terminated. |
 | `E_REMOTE_URL_UNSUPPORTED` | The operation does not accept a remote URL. |
@@ -44,7 +44,7 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | Code | Meaning |
 | ---- | ------- |
 | `E_PROJECT_NOT_FOUND` | The resolved project folder does not exist. |
-| `E_CONFIG_LOAD` | `extension.config.js` threw while loading, or exported something other than an object. `dev`, `build`, `start`, and `preview` all answer with it. A production build also answers with it for an invalid [`perfBudgets`](/docs/workflows/performance-playbook#invalid-budget-values) value, and from 4.2.0 so does `dev`. |
+| `E_CONFIG_LOAD` | `extension.config.js` threw while loading, or exported something other than an object. `dev`, `build`, `start`, and `preview` all answer with it. A production build also answers with it for an invalid [`perfBudgets`](/docs/workflows/performance-playbook#invalid-budget-values) value, and from 4.2.0 so does `dev`. From the release after 4.2.0, a `vue.loader` or `svelte.loader` options file that throws stops the build with it too. |
 | `E_DEPENDENCY_INSTALL` | Installing project dependencies failed. |
 | `E_OPTIONAL_DEP_UNRESOLVED` | An optional dependency contract could not be resolved. |
 | `E_OPTIONAL_DEP_LOAD` | An optional dependency resolved but failed to load. From the release after 4.1.41, a copy in your project that throws on load stops the run. The message names its path and the cause. No other install stands in for it. |
@@ -54,7 +54,7 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_MANIFEST_IN_PUBLIC` | `manifest.json` was placed under `public/`. |
 | `E_FOLDER_UNREADABLE` | A folder inside `pages/` or `scripts/` cannot be read, so the build cannot list its entries. From the release after 4.2.0. |
 | `E_ENV_FILE_UNREADABLE` | An env file that the build reads is a folder or cannot be read. From 4.2.0. |
-| `E_RUNTIME_NOT_FOUND` | The extension-develop runtime is missing or uncompiled. |
+| `E_RUNTIME_NOT_FOUND` | The extension-develop runtime is missing, uncompiled, or at another version than the CLI. From the release after 4.2.0, it also covers an installed engine that throws while it loads, such as one whose native binding the install left out. The message names the engine folder, the reason, and the command that installs it again. |
 
 ## Manifest
 
@@ -116,7 +116,7 @@ The table ships as `extension-develop/contract/codes.json`, see [Result envelope
 | `E_BROWSER_START_TIMEOUT` | The browser never signalled startup. |
 | `E_PROFILE_LOCKED` | The profile directory is held by another browser process. |
 | `E_INSTANCE_AMBIGUOUS` | More than one live instance matches the requested id. |
-| `E_BROWSER_DOWNLOAD` | Downloading or installing a browser failed. From the release after 4.1.41, a missing package runner answers `E_BROWSER_INSTALLER_NOT_FOUND` instead. |
+| `E_BROWSER_DOWNLOAD` | Downloading or installing a browser failed. From the release after 4.1.41, a missing package runner answers `E_BROWSER_INSTALLER_NOT_FOUND` instead. From the release after 4.2.0, it also covers a package runner that is there but does not start, and an install fault of no known kind answers `E_INTERNAL` instead. |
 | `E_BROWSER_INSTALL_PRIVILEGE` | The install needs an interactive privileged session. |
 | `E_BROWSER_UNINSTALL` | Removing an installed browser failed. |
 | `E_BROWSER_INSTALL_TIMEOUT` | The browser installer was still running at the install timeout and was stopped. |
@@ -225,11 +225,11 @@ Releases up to 4.1.41 reported many of these warnings under the `E_*` name with 
 | `W_MODULE_NOT_FOUND` | A module specifier could not be resolved, and the build carried on without it. |
 | `W_ENTRY_NOT_FOUND` | A manifest, HTML, or JSON entry points at a file that is missing or not bundled. |
 | `W_ASSET_MISSING` | An icon, static asset, or JSON dependency is missing or not bundled. |
-| `W_SCRIPT_DEP_MISSING` | A file a script loads at runtime is missing from the build, is named by its source spelling, or could not be compiled. |
+| `W_SCRIPT_DEP_MISSING` | A file a script loads at runtime is missing from the build, is named by its source spelling, or could not be compiled. From the release after 4.2.0, a `new URL("...", import.meta.url)` reference in a script that names no file beside it and no installed package reports it too. The build keeps the address as written, and `EXTENSION_STRICT_REFS=true` turns it into `E_SCRIPT_DEP_MISSING`. |
 | `W_CSS_PARSE` | A stylesheet failed to parse, or the minifier dropped a rule and the sheet ships as authored. |
 | `W_CSS_PREPROCESSOR_MISSING` | A CSS preprocessor is requested but not resolvable. |
 | `W_CSS_DEAD_REF` | A CSS `url()` or `@import` names a file that is missing or not bundled. |
-| `W_POLYFILL_NOT_FOUND` | `webextension-polyfill` requested but absent. |
+| `W_POLYFILL_NOT_FOUND` | `webextension-polyfill` requested but absent. From the release after 4.2.0, it is listed among the first compile's warnings, where every output format reads them. |
 | `W_LOCALES_LAYOUT` | `_locales` layout or `messages.json` is invalid. |
 | `W_PROD_LOOPBACK_ORIGIN` | A production manifest names a loopback origin (`localhost`, `127.0.0.0/8`, `[::1]`, or `0.0.0.0`), which store reviewers read as unexplained host access. |
 | `W_NO_ENTRYPOINTS` | The compilation produced zero entrypoints. |
@@ -246,13 +246,13 @@ Releases up to 4.1.41 reported many of these warnings under the `E_*` name with 
 | `W_INTERNAL` | A build step met output it did not expect and carried on. The toolchain needs an update. |
 | `W_RESTART_REQUIRED` | A file the running dev session reads only at startup changed, so the change applies after a restart. |
 | `W_JSON_INVALID` | A `declarativeNetRequest` ruleset parses but has a rule that may not behave as written, or one that Chrome refuses and Firefox loads. |
-| `W_PROJECT_LAYOUT` | A `public/` folder is misplaced or shadowed by another one, or an `exclude` entry in `extension.config.js` names a file that is not there. From the release after 4.2.0, it also covers a `public/` folder named in another letter case and a `public/` file shadowed by an entry. |
+| `W_PROJECT_LAYOUT` | A `public/` folder is misplaced or shadowed by another one, or an `exclude` entry in `extension.config.js` names a file that is not there. From the release after 4.2.0, it also covers a `public/` folder named in another letter case and a `public/` file shadowed by an entry. It also covers a `Pages/` or `Scripts/` folder, which no build reads, and two files in `pages/` or `scripts/` that build under one entry name. |
 | `W_MANIFEST_COMPAT` | The manifest uses a version, key, or host permission pattern that the target browser ignores or is phasing out. |
 | `W_STORE_READINESS` | The manifest builds and loads, but a store would reject or flag it as written. |
 | `W_PERMISSION_MISMATCH` | The code uses an API or reaches a host that the manifest permissions do not cover the way the code needs. |
 | `W_API_UNSUPPORTED` | The code calls an extension API, or a form of one, that the target browser does not have. |
 | `W_WAR_EXPOSURE` | A file a script names is not reachable through `web_accessible_resources`, or the build exposed it more widely than the manifest lists. |
-| `W_CSS_NOT_APPLIED` | A stylesheet import or `url()` is kept in the output but the browser will not apply it where it sits. |
+| `W_CSS_NOT_APPLIED` | A stylesheet import or `url()` is kept in the output but the browser will not apply it where it sits. From the release after 4.2.0, it also marks a PostCSS or stylesheet setup step that did not run, such as a PostCSS config that does not load. Releases up to 4.2.0 gave those warnings `W_RESTART_REQUIRED`. |
 | `W_ENV_SECRET_PUBLIC` | An `EXTENSION_PUBLIC_` variable has a name that looks like a secret, and its value is written into the built code. |
 | `W_BUILD_CONSTANT_UNDEFINED` | A script reads a build constant that nothing defines, so it throws when it loads. |
 | `W_SCRIPT_WORLD_UNKNOWN` | A script is registered at runtime with a world the build cannot read, so it is treated as an isolated world script. |

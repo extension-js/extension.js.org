@@ -72,7 +72,8 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 | `port`             | number 或 null | dev 服务器实际绑定的端口。                                                   |
 | `pid`              | number         | dev 服务器进程 id。在信任这份契约之前，先确认它还活着。                      |
 | `pidStartedAt`     | ISO string     | 从 4.1.40 起，`pid` 背后的进程启动的时间。被复用的 pid 有另一个启动时间，所以两者都要比对。 |
-| `ts`               | ISO string     | 这份文档最后一次被写入的时间。                                               |
+| `pidStartId`       | string         | 从 4.2.0 之后的版本起，仅限 Linux：`pid` 的 boot id 与内核启动 tick，用冒号连接。时钟跳变（比如恢复的虚拟机或 WSL2）会改变 `pidStartedAt`，但永远不会改变这个值。当你能为存活的 pid 读到它时，用相等比较它，而不是比较日期。在其他系统上不存在。 |
+| `ts`               | ISO string     | 这份文档最后一次被写入的时间。从 4.2.0 之后的版本起，是 `status` 最后一次被写入的时间：写在状态旁边的事实不会改变它。                                               |
 | `compiledAt`       | string 或 null | 最近一次成功编译完成的时间。                                                 |
 | `errors`           | string[]       | 去掉 ANSI 转义的编译错误，最多 10 条。                                       |
 | `toolchainVersion` | string         | 产出这棵目录树的 Extension.js 版本。                                         |
@@ -200,6 +201,8 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 
 浏览器在扩展加载之前就退出的 `dev` 会话，会跨重新编译一直停在 `error`，因为重新编译不会把浏览器带回来。启动失败同样会活过重新编译，直到真的有一个浏览器启动，或者开始一次新的运行。
 
+从 4.2.0 之后的版本起，启动器写入的每个字段都会在同一次运行的重新编译之间保留。浏览器判定（`browser_exited`、`browser_launch_failed`、`profile_locked` 或 `extension_load_refused`）在一次成功的编译之后仍保留 `status: "error"`、它的 `code` 和 `message`。只有 `compile_error` 与 `compile_failed` 会在下一次成功编译时清除。
+
 ## 用 --wait 等待
 
 `extension dev --wait` 和 `extension start --wait` 每 250 毫秒轮询一次契约，并在它报告 `ready` 时退出。配合 `--output json` 可以拿到机器可读的结果。
@@ -233,7 +236,7 @@ attach 这个戳是幂等的，并且能挺过重新编译。一次 attach 也�
 
 同一个目录里还放着 `events.ndjson`（编译时间线）和 `logs.ndjson`（扩展的控制台输出）。这两个文件里的每一行都带着来自 `ready.json` 的 `runId`。
 
-`events.ndjson` 在每次运行开始时被清空，所以它永远只描述当前这次运行。事件类型有 `compile_start`、`compile_success`、`compile_error`、`browser_exited`、`browser_launch_failed` 和 `shutdown`。`browser_exited` 这一行对应启动器盖下的退出戳，带 `exitCode`、`exitSignal` 和 `browserExitedAt`，所以时间线会说明浏览器是什么时候、怎么走的。在它之后，每个 act verb 都会回答 `E_CONTROL_UNAVAILABLE`，并指出这次退出和需要的重启，因为在新的 `dev` 会话重新启动浏览器之前，不会有 service worker 重新连上。`browser_launch_failed` 这一行对应启动失败的戳，带 `browserLaunchFailedAt` 和 `reason`。
+`events.ndjson` 在每次运行开始时被清空，所以它永远只描述当前这次运行。事件类型有 `compile_start`、`compile_success`、`compile_error`、`browser_exited`、`browser_launch_failed` 和 `shutdown`。从 4.2.0 之后的版本起，`restart_failed` 行记录一次无法完成的 `dev` 重启，比如配置或入口变更之后，下一个编译器或服务器失败了。它带有错误 `code`、`reason` 和 `serving`：重启之前的构建仍在为会话服务并会在下一次变更时重试时为 `true`，没有服务器留下、会话结束时为 `false`。`browser_exited` 这一行对应启动器盖下的退出戳，带 `exitCode`、`exitSignal` 和 `browserExitedAt`，所以时间线会说明浏览器是什么时候、怎么走的。在它之后，每个 act verb 都会回答 `E_CONTROL_UNAVAILABLE`，并指出这次退出和需要的重启，因为在新的 `dev` 会话重新启动浏览器之前，不会有 service worker 重新连上。`browser_launch_failed` 这一行对应启动失败的戳，带 `browserLaunchFailedAt` 和 `reason`。
 
 ## 示例
 

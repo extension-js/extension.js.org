@@ -129,6 +129,12 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 - `EXTENSION_CREATE_TEMPLATE_REF` 指向另一个 ref。设为 `main` 可以恢复浮动行为。
 - `EXTENSION_CREATE_TEMPLATE_URL` 指向另一个完全不同的压缩包 URL。设置了它而该归档无法使用时，`create` 会直接失败，永远不会回退到内置模板。
 
+从 4.2.0 之后的版本起，`create` 会把固定提交的模板目录压缩包保存在每个用户的缓存中。之后从同一个固定版本运行的 `create` 会从磁盘读取压缩包，不再重新下载。只有当 ref 是完整的 40 位提交 SHA 时才使用缓存，默认的固定版本就是这样。分支、标签或 `EXTENSION_CREATE_TEMPLATE_URL` 总是会下载。缓存保留最新的 3 个压缩包，损坏的副本会被删除并重新下载。设置 `EXTENSION_CREATE_CACHE_DIR` 可以移动缓存。默认位置：
+
+- macOS：`~/Library/Caches/extension.js/templates`
+- Linux：`~/.cache/extension.js/templates` 或 `$XDG_CACHE_HOME/extension.js/templates`
+- Windows：`%LOCALAPPDATA%\extension.js\templates`
+
 每次生成都会在项目里写入一个 `.extension-create.json` 溯源文件。它记录 create 的版本、模板和来源，当模板来自模板目录的压缩包时还会记录解析出的 ref，让模板漂移始终可审计。内置的 `javascript` 起步模板记录的是 `"source": "bundled"`，不带 ref。
 
 每个模板还带有一个供 MCP 客户端读取的 `.mcp.json` 文件。如果文件夹里已经有 `.mcp.json`，`create` 会原样保留它。从 4.1.39 之后的版本起，如果 `create` 在一个已有的文件夹里中途失败，它会把你的 `.gitignore` 和 `.mcp.json` 恢复原样。
@@ -138,7 +144,7 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 `--output json` 会在 stdout 上打印一个 schema-1 信封，并把生成过程的进度行送到 stderr：
 
 - 成功的运行会打印一个 `status: "created"` 帧。它的 `value` 里带有 `projectPath`、`projectName`、`template` 和 `depsInstalled`。
-- 失败会打印 `ok: false` 以及一个 `error.code`：未知的模板名对应 `E_TEMPLATE_NOT_FOUND`，下载失败（连接被拒绝、HTTP 错误或超时）对应 `E_NETWORK`，目标目录的问题对应 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`。
+- 失败会打印 `ok: false` 以及一个 `error.code`：未知的模板名对应 `E_TEMPLATE_NOT_FOUND`，下载失败（连接被拒绝、HTTP 错误或超时）对应 `E_NETWORK`，目标目录的问题对应 `E_DESTINATION_NOT_EMPTY` 或 `E_DESTINATION_NOT_WRITABLE`，依赖安装失败对应 `E_DEPENDENCY_INSTALL`，类型未知的故障对应 `E_INTERNAL`。
 - 模板 URL 返回的不是 ZIP 归档，或返回的归档已损坏时，会以 `E_REMOTE_ZIP_INVALID` 失败，并且不会在磁盘上留下任何内容。
 - 归档含有位于其文件夹之外的条目时，同样以 `E_REMOTE_ZIP_INVALID` 失败，无论它来自模板 URL 还是 `EXTENSION_CREATE_TEMPLATE_URL`。`create` 会在写入任何条目之前检查每一个条目，所以消息会说明该归档被拒绝、点名该条目，也不会建议重试。
 - `EXTENSION_CREATE_TIMEOUT_MS` 限制整个模板拉取的时间，包括重试。超时的拉取以 `E_NETWORK` 失败，原因为 `No answer within N seconds`。

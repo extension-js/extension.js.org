@@ -215,6 +215,8 @@ development 模式的建置是可以直接發布的。它保留你在 manifest �
 
 `--zip-filename` 只決定名稱。值裡帶的資料夾會被去掉,所以在 Chrome 建置裡傳 `--zip-filename=out/review.zip`,檔名是 `review-chrome.zip`。
 
+從 4.2.0 之後的版本起，編譯失敗時不會建立 ZIP 檔案，因為 `dist/<browser>` 裡仍是上一次的建置。ZIP 檔案無法寫入時，建置以 `E_ZIP_SKIPPED` 失敗，結尾的 `Build failed with 1 error.` 會補充說明輸出資料夾已就位，可以照建置結果載入。
+
 ## 正式建置的 source map
 
 正式建置不寫 source map。從 4.1.39 之後的版本起,`--source-maps` 會在 `dist/<browser>` 裡的每個腳本與樣式表旁邊寫出一個 `.map` 檔:
@@ -322,15 +324,16 @@ deno run -A npm:extension@latest build ./my-extension --zip --zip-source
 
 ## 成功的建置會印出什麼
 
-在資源摘要之後,一次成功的建置會印出輸出資料夾與它的大小,
-接著是一個可以把建置交給別人審閱的連結:
+在資源摘要之後,一次成功的建置會印出輸出資料夾與它的大小。
+正式建置接著會印出產出它的 Node.js、套件管理器與 Extension.js 版本,
+讓商店審查人員可以重新建置這個套件並得到相同的位元組:
 
 ```plaintext
 ⏵⏵⏵ Extension built for production in dist/chrome (35.5 KB).
-⏵⏵⏵ Send this build to someone for review: https://docs.extension.dev/share/unpublished-build-for-review
+⏵⏵⏵ Built with Node v22.18.0, pnpm 10.33.0 and Extension.js 4.2.0. Name these versions in the store's reviewer note so a reviewer can rebuild it and match these bytes.
 ```
 
-每個目標都會印出自己的這一組行,所以多瀏覽器建置會按瀏覽器重複一次。
+每個目標都會印出自己的建置行,所以多瀏覽器建置會按瀏覽器重複一次。版本行每次執行只印出一次。只有當建置由套件管理器腳本(例如 `pnpm build`)啟動時,版本行中才會出現套件管理器。
 
 從 4.1.39 之後的版本起,那一行裡的大小只計算發佈出去的檔案。source map 另外計算,那一行會說明有多少沒有進入 ZIP 檔:
 

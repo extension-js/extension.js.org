@@ -64,6 +64,8 @@ keywords:
 
 在 Linux 上，这次安装需要一个有 sudo 权限的交互会话。当安装失败且系统中存在 Edge 时，安装器会报告系统二进制并以它成功完成。
 
+从 4.2.0 起，当 `install` 找到的 Edge 位于运行命令不会搜索的位置时，消息会打印它的路径，并请你用 `--chromium-binary` 传入这个路径。
+
 ## 运行哪个二进制
 
 从 4.1.39 之后的版本起，`dev`、`start` 和 `preview` 对每个浏览器都按同一个顺序选定二进制：
@@ -177,6 +179,17 @@ extension install [browser-name] [options]
 - 下载失败会在进程以 `1` 退出前打印 `ok: false`，其 `error.code: "E_BROWSER_DOWNLOAD"`。
 - 下载结束了却没有留下可用的浏览器二进制时，也以同样的方式失败。见[行为说明](#行为说明)。
 - 从 4.1.41 之后的版本起，缺少包运行器时改为以 `E_BROWSER_INSTALLER_NOT_FOUND` 失败。
+- 从 4.2.0 之后的版本起，存在但无法启动的包运行器会以 `E_BROWSER_DOWNLOAD` 失败。消息会点名运行器和系统错误代码，并说明什么都没有下载。
+- 从 4.2.0 之后的版本起，类型未知的安装故障会以 `E_INTERNAL` 失败。提示会请你重新运行安装，并在同样失败时报告这条消息。
+
+从 4.2.0 起，这些失败有各自的代码：
+
+| 代码                           | 何时                                                         |
+| ------------------------------ | ------------------------------------------------------------ |
+| `E_BROWSER_INSTALL_TIMEOUT`    | 到达安装超时时安装器仍在运行，所以 `install` 停止了它。      |
+| `E_BROWSER_INSTALL_BUSY`       | 同一浏览器的另一次安装在整个等待期间都持有锁。               |
+| `E_BROWSER_CACHE_NOT_WRITABLE` | 缓存根目录是一个文件、无法创建或无法写入。                   |
+| `E_BROWSER_FOLDER_FOREIGN`     | 浏览器文件夹中有不是 Extension.js 放进去的文件，所以其中什么都没有改动。 |
 
 ## 示例
 
@@ -236,6 +249,9 @@ extension install chrome --where
 - `chrome` 会安装 Chrome for Testing，而不是依赖系统中的 Google Chrome app。
 - 在 Linux 上，`edge` 可能需要一个有权限的交互会话。
 - `install` 在报告成功之前会检查目标目录。当安装器正常退出，但目录里没有一个非空且可执行的浏览器二进制文件时（比如下载被中断之后），命令会以 `E_BROWSER_DOWNLOAD` 失败并以 `1` 退出。它会删掉不完整的文件，所以下一次 `extension install` 从干净的状态开始。
+- 从 4.2.0 起，`EXTENSION_INSTALL_TIMEOUT_MS` 设置安装器可以运行多久，默认 30 分钟。值是一个整数毫秒数。任何其他值，比如 `30s`，都表示默认值。
+- 从 4.2.0 起，同一个浏览器一次只运行一个安装。安装会在缓存根目录中持有一个以浏览器命名的锁文件夹，比如 `.chrome.lock`。同一浏览器的第二次安装会等待它，最长等到安装超时，然后以 `E_BROWSER_INSTALL_BUSY` 失败。消息会点名在没有这样的安装运行时可以删除的锁文件夹。持有者进程已经不在的锁会被接管。
+- 从 4.2.0 起，`install` 在下载开始之前会把一个 `.extension-install.json` 标记写入浏览器文件夹。带有该标记的文件夹，或者只包含下载引擎所写文件的文件夹，属于 Extension.js。同时还包含浏览器 profile 的带标记文件夹则不属于。`install` 与 `uninstall` 不会从不属于 Extension.js 的文件夹中移除任何内容。
 - 在 Deno 上，`install` 需要 `PATH` 里有 Node.js。浏览器安装器会调用 `npx`（或启动 CLI 的那个包管理器）来运行下载引擎，而 `deno` 没有这样的运行器。没有 Node.js 时，命令会在下载步骤失败。其他命令只靠 Deno 就能运行。
 
 ## 下一步

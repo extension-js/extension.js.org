@@ -98,6 +98,8 @@ extension uninstall [browser-name] [options]
 
 `--all` removes the same managed set that `install --browser all` creates: `chrome`, `chromium`, `edge`, and `firefox`.
 
+From the release after 4.2.0, `--all` together with a browser name, such as `extension uninstall chrome --all`, is refused with `E_ARGS` and status `usage`, and nothing is removed. Pass the names to remove those browsers, or `--all` alone to remove every browser.
+
 ## Machine output with `--output json`
 
 `--output json` prints one schema-1 envelope on stdout:
@@ -115,7 +117,16 @@ From the release after 4.1.41, `value` carries `browsers`, `all`, and a `results
 | `system`  | Edge only. No managed Edge was found, and the system Edge at `systemPath` stays as it is.            |
 | `failed`  | The folder is still there. `reason` says why.                                                        |
 
-`uninstall` tries every target before it fails. A failed run still prints `value.results`, so a script can see which targets were removed. When no target was removed, the status is `noop` and the frame carries a `W_UNINSTALL_NOOP` warning.
+From the release after 4.2.0, a `failed` entry also carries `kind`, so a script can branch without reading `reason`:
+
+| `kind`       | Meaning                                                                                                   |
+| ------------ | --------------------------------------------------------------------------------------------------------- |
+| `removal`    | The removal was tried and failed, for example while a browser still runs from that folder.               |
+| `permission` | Your user may not remove a file in the folder. `reason` names the folder that refused.                    |
+| `foreign`    | The folder holds files that Extension.js did not put there, so it was left untouched.                     |
+| `installing` | An install of that browser is running, so the folder was left untouched. `reason` names its PID when known. |
+
+`uninstall` tries every target before it fails. The run exits `1` when any target fails, even when other targets were removed. A failed run still prints `value.results`, so a script can see which targets were removed. When no target was removed, the status is `noop` and the frame carries a `W_UNINSTALL_NOOP` warning.
 
 ## Examples
 
