@@ -19,36 +19,38 @@ Source map 把瀏覽器執行的打包後 JavaScript 連回你所撰寫的檔案
 
 ## 預設值
 
-打包器的 `devtool` 設定控制 source map 輸出。Extension.js 依據指令與 manifest 版本選擇：
+打包器的 `devtool` 設定控制 source map 輸出。Extension.js 依據指令選擇，兩個 manifest 版本得到相同的值：
 
 | 指令                                 | Manifest v3             | Manifest v2                  |
 | ------------------------------------ | ----------------------- | ---------------------------- |
-| `extension dev`                      | `cheap-source-map`      | `eval-cheap-source-map`      |
+| `extension dev`                      | `cheap-module-source-map` | `cheap-module-source-map` |
 | `extension build`                    | 無（`devtool: false`）  | 無（`devtool: false`）       |
-| `extension build --mode development` | `cheap-source-map`      | `eval-cheap-source-map`      |
+| `extension build --mode development` | `cheap-module-source-map` | `cheap-module-source-map` |
 
-Manifest v3 避開基於 eval 的 map，因為擴充功能 CSP 在那裡禁止 `eval()`。Manifest v2 得到較快的 eval 變體，因為 Extension.js 只在開發階段為 dev CSP 加上 `'unsafe-eval'`。
+兩個 manifest 版本都不使用 eval 變體，所以 bundle 在你擴充功能自己的 CSP 下執行。`extension build --source-maps` 會在正式建置旁寫出 `source-map` 檔案。4.1.13 之前的版本在開發階段使用 `cheap-source-map`，在 manifest v2 上使用 `eval-cheap-source-map`。
 
 ## 看到你的原始 TypeScript
 
-dev 的預設值 `cheap-source-map` 只對應行，會略過 loader 的 source map。在 DevTools 中你會落在編譯後的 JavaScript，而不是你的 TypeScript。要一路對應回去，透過 [`extension.config.js`](/zh-Hant/docs/features/rspack-configuration) 的 `config` hook 改用 `module` 變體：
+dev 的預設值 `cheap-module-source-map` 保留每個 loader 的 map，所以 DevTools 開啟的是你的 TypeScript，而不是編譯後的 JavaScript。它只對應行，不對應欄。當你也需要欄位置時，透過 [`extension.config.js`](/zh-Hant/docs/features/rspack-configuration) 的 `config` hook 改用 `source-map`，代價是重建速度較慢：
 
 ```js extension.config.js
 export default {
   config: (config) => {
-    config.devtool = "cheap-module-source-map";
+    config.devtool = "source-map";
     return config;
   },
 };
 ```
 
-這個 hook 對 `dev` 與 `build` 都會執行，因此覆寫在所有地方都生效。當你也需要欄位置時改用 `source-map`，代價是重建速度較慢。
+這個 hook 對 `dev` 與 `build` 都會執行，因此覆寫在所有地方都生效。
 
 接著在各自的檢查器中找到每個情境：
 
 - **Background service worker**：開啟 `chrome://extensions`，選擇你的擴充功能，點選「Inspect views」下的 **service worker** 連結。你的原始檔案會出現在 Sources 面板。
 - **Content scripts**：在頁面本身開啟 DevTools。在 Sources 面板中，**Content scripts** 分頁會列出你的擴充功能。如果獨立的 `.map` 檔案在那裡載入失敗，`inline-cheap-module-source-map` 這類 inline 變體會把 map 內嵌在輸出的檔案中。
 - **Popup、options、sidebar**：在介面內按右鍵，選擇 **Inspect**。
+
+從 4.2.0 之後的版本起，Sources 樹把 Extension.js 加入你 bundle 的程式碼，例如開發伺服器用戶端與熱更新執行環境，放在 `extension.js/` 之下，例如 `webpack://my-extension/extension.js/node_modules/@rspack/core/hot/log.js`。你自己的檔案與專案安裝的套件保持原本的名稱，所以 `extension.js/` 之下的影格指向工具鏈，而不是你的程式碼。
 
 同一個 session 的終端機優先版本，請參考 [除錯](/zh-Hant/docs/debugging)。
 
@@ -58,8 +60,8 @@ export default {
 
 在 manifest v3 上，從非 eval 家族中選擇：
 
-- `cheap-source-map`（dev 預設值）
-- `cheap-module-source-map`
+- `cheap-source-map`
+- `cheap-module-source-map`（dev 預設值）
 - `source-map`
 - `inline-cheap-module-source-map` 與其他 `inline-*` 變體
 - `hidden-source-map` 與 `nosources-source-map`
@@ -80,8 +82,8 @@ npx extension@latest build --mode development
 
 ## 最佳實務
 
-- **一般開發時保持預設值**：它們是擴充功能 CSP 允許的最快選項。
-- **需要原始 TypeScript 時改用 `cheap-module-source-map`**：它是能跨越 loader 鏈、成本最低的 map。
+- **一般開發時保持預設值**：它們能對應回你的原始碼，並且符合擴充功能 CSP。
+- **需要欄位置時改用 `source-map`**：預設值已經按行對應回你的原始 TypeScript。
 - **manifest v3 專案永遠不要發佈 eval devtool**：擴充功能會在你的第一個中斷點之前就先過不了 CSP。
 - **商店送審保持不輸出正式 map**：只在本機診斷時啟用。
 

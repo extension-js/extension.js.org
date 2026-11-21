@@ -19,36 +19,38 @@ Source maps connect the bundled JavaScript that the browser runs back to the fil
 
 ## Defaults
 
-The bundler's `devtool` setting controls source map output. Extension.js picks it from the command and the manifest version:
+The bundler's `devtool` setting controls source map output. Extension.js picks it from the command, and both manifest versions get the same value:
 
 | Command                              | Manifest v3             | Manifest v2                  |
 | ------------------------------------ | ----------------------- | ---------------------------- |
-| `extension dev`                      | `cheap-source-map`      | `eval-cheap-source-map`      |
+| `extension dev`                      | `cheap-module-source-map` | `cheap-module-source-map` |
 | `extension build`                    | none (`devtool: false`) | none (`devtool: false`)      |
-| `extension build --mode development` | `cheap-source-map`      | `eval-cheap-source-map`      |
+| `extension build --mode development` | `cheap-module-source-map` | `cheap-module-source-map` |
 
-Manifest v3 avoids eval-based maps because extension CSP forbids `eval()` there. Manifest v2 gets the faster eval variant because Extension.js patches the dev CSP with `'unsafe-eval'`, in development only.
+Neither manifest version gets an eval variant, so the bundle runs under your extension's own CSP. `extension build --source-maps` writes `source-map` files beside a production build. Releases before 4.1.13 used `cheap-source-map` in development, and `eval-cheap-source-map` on manifest v2.
 
 ## See your original TypeScript
 
-The dev default, `cheap-source-map`, maps lines but skips loader source maps. In DevTools you land on the compiled JavaScript, not your TypeScript. To map all the way back, switch to a `module` variant through the `config` hook in [`extension.config.js`](/docs/features/rspack-configuration):
+The dev default, `cheap-module-source-map`, keeps every loader map, so DevTools opens your TypeScript and not the compiled JavaScript. It maps lines, not columns. When you also want column positions, switch to `source-map` through the `config` hook in [`extension.config.js`](/docs/features/rspack-configuration), at a slower rebuild cost:
 
 ```js extension.config.js
 export default {
   config: (config) => {
-    config.devtool = "cheap-module-source-map";
+    config.devtool = "source-map";
     return config;
   },
 };
 ```
 
-The hook runs for `dev` and `build` alike, so the override applies everywhere. Use `source-map` instead when you also want column positions, at a slower rebuild cost.
+The hook runs for `dev` and `build` alike, so the override applies everywhere.
 
 Then find each context in its own inspector:
 
 - **Background service worker**: open `chrome://extensions`, choose your extension, and follow the **service worker** link under "Inspect views". Your original files appear in the Sources panel.
 - **Content scripts**: open DevTools on the page itself. In the Sources panel, the **Content scripts** tab lists your extension. If the separate `.map` file fails to load there, an inline variant such as `inline-cheap-module-source-map` embeds the map in the emitted file.
 - **Popup, options, sidebar**: right-click inside the surface and choose **Inspect**.
+
+From the release after 4.2.0, the Sources tree files the code that Extension.js adds to your bundle, such as the dev server client and the hot update runtime, under `extension.js/`, for example `webpack://my-extension/extension.js/node_modules/@rspack/core/hot/log.js`. Your own files and the packages your project installs keep their usual names, so a frame under `extension.js/` points at the toolchain and not at your code.
 
 For the terminal-first version of the same session, see [Debugging](/docs/debugging).
 
@@ -58,8 +60,8 @@ Every `devtool` value that starts with `eval` wraps modules in `eval()` calls. M
 
 On manifest v3, choose from the non-eval family:
 
-- `cheap-source-map` (the dev default)
-- `cheap-module-source-map`
+- `cheap-source-map`
+- `cheap-module-source-map` (the dev default)
 - `source-map`
 - `inline-cheap-module-source-map` and other `inline-*` variants
 - `hidden-source-map` and `nosources-source-map`
@@ -80,8 +82,8 @@ or set a `devtool` in the `config` hook, which production builds honor too. If y
 
 ## Best practices
 
-- **Keep the defaults during normal dev**: They are the fastest options that extension CSP allows.
-- **Reach for `cheap-module-source-map` when you need original TypeScript**: It is the cheapest map that crosses the loader chain.
+- **Keep the defaults during normal dev**: They map back to your source and stay within extension CSP.
+- **Reach for `source-map` when you need column positions**: The default already maps back to your original TypeScript, by line.
 - **Never ship eval devtools in a manifest v3 project**: The extension fails CSP before your first breakpoint.
 - **Leave production maps off for store submissions**: Enable them only for local diagnosis.
 

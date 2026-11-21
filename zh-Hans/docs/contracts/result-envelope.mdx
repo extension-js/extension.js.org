@@ -40,7 +40,7 @@ keywords:
 | --------- | ------ | ------------------------------------------------------------------------------------ |
 | `code`    | string | 来自 [错误码表](/zh-Hans/docs/contracts/error-codes) 的稳定 `E_*` 标识符。请匹配这个字段。   |
 | `message` | string | 自由文案，随时可能被改写。纯文本，不含符号前缀和颜色代码。永远不要匹配它。 |
-| `name`    | string | 可选。原始错误类的名称。从 4.2.0 之后的版本起，各命令遵循同一规则：命令自己发出的拒绝不带 `name`，参数解析器的拒绝写 `CliError`，运行中抛出的失败写它的错误类名。 |
+| `name`    | string | 可选。原始错误类的名称。从 4.2.0 之后的版本起，各命令遵循同一规则：命令自己发出的拒绝不带 `name`，参数解析器的拒绝写 `CliError`，运行中抛出的失败写它的错误类名。 加载失败的配置文件（`E_CONFIG_LOAD`）和无法使用的 `package.json`（`E_PACKAGE_JSON_INVALID`）在任何命令上都不带 `name`。 |
 | `engine`  | string | 可选。发生失败的浏览器引擎。                                                         |
 | `hint`    | string | 可选。修复建议文案。                                                                 |
 | `refs`    | object | 可选。message 中提到的那些可操作部分：`flag`、`command`、`path`、`version`。         |
@@ -152,6 +152,8 @@ keywords:
   "hint": "Fix the error above and run build again."
 }
 ```
+
+从 4.2.0 之后的版本起，加载失败的配置文件（`E_CONFIG_LOAD`）和无法使用的 `package.json`（`E_PACKAGE_JSON_INVALID`）在 `build`、`dev`、`start` 和 `preview` 上给出相同的帧。`error` 只包含 `code` 和 `message`，没有 `name`，顶层的 `hint` 为 `Fix the error above and run <command> again.`。在 `preview` 上，状态为 `failed`。
 
 成功的构建会把警告保留在顶层的 `warnings` 数组里。当能解析出错误码时，那里的每个字符串都以 `W_CODE: ` 开头，例如 `W_CSS_DEAD_REF: ...`，与 `logs` 和 `uninstall` 已有的约定相同。4.1.41 及更早的版本中，这些字符串以 `E_*` 名称开头。从 4.1.41 之后的版本起，失败构建的帧也带上它们：构建遇到的每个带错误码的警告各一次，包括失败前已构建完成的浏览器的警告。没有警告时，数组为 `[]`。
 
