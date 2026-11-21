@@ -52,6 +52,7 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 | `restart-failed` | false | 从 4.1.41 之后的版本起。重启无法构建下一个 bundle，所以之前的构建继续提供服务，`value.serving` 为 `true`。`error.code` 是该失败自身的错误码，或者 `E_DEV_SERVER_START`。再次保存改动的文件即可重试。 |
 | `load-refused`   | false | 浏览器拒绝了扩展。会话继续运行，并在下一次编译时再次提供扩展。 |
 | `ready-failed`   | false | 从 4.1.41 之后的版本起。会话继续运行时 `ready.json` 报告 `error`，例如启动失败。下一次编译会再次尝试。 |
+| `warning`        | true  | 从 4.2.0 之后的版本起。会话在两次编译之间警告过的事情，一旦得知就立即写入，比如扩展始终没有确认的重载。`value.code` 和 `value.message` 说明它，`warnings` 中有一条记录。之后的帧不会重复它。 |
 | `failed`         | false | 结束本次运行的会话级别失败，例如服务器始终没能绑定，重启时下一个服务器无法启动，或者停止超过了关闭时限。 |
 | `usage`          | false | 浏览器启动拒绝了你设置的值时的最后一帧，例如有问题的 `--chromium-binary` 固定路径。 |
 | `stopped`        | 视情况 | 最后一帧。会话自行以退出码 `0` 结束时为 `ok: true`。被 `SIGINT` 等信号停止时为 `ok: false`，带 `E_INTERRUPTED` 和 `value.signal`。 |
@@ -59,6 +60,10 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 每个帧的 `value` 都携带会话身份：`command`、`browser`、`distPath`、`pid`、`port`，以及已知时的 `readyPath`、`eventsPath`、`runId`、`instanceId` 和 `toolchainVersion`。
 
 `failed`、`usage` 和 `stopped` 是终止状态。终止帧表示进程正在结束，流在它之后不再写入任何内容，所以读到第一个终止帧就停止。其他每个 `ok: false` 帧都让会话继续运行。当 CLI 知道该错误码的解决办法时，`failed` 或 `usage` 帧会把它放在 `hint` 中。
+
+只有这三种会结束流。读取方忽略它不认识的状态并继续读取，所以之后版本新增的状态不会让它停下。
+
+从 4.2.0 之后的版本起，终端报告的两种重载失败，即扩展始终没有确认的编译和一直没有回来的扩展，也会以带 `W_RELOAD_NOT_APPLIED` 的 `warning` 帧送达。终端文本不带代码。
 
 在会话开始之前就被拒绝的运行只发送一个 `failed` 帧，不会有 `starting` 帧。缺少 manifest、配置文件加载失败，以及远程 URL 没有可用的归档，都以这种方式结束。
 

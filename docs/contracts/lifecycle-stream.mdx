@@ -52,6 +52,7 @@ While the stream is on, human copy that shares stdout moves to stderr. Error cop
 | `restart-failed` | false | From the release after 4.1.41. A restart could not build the next bundle, so the previous build keeps serving and `value.serving` is `true`. `error.code` is the failure's own code, or `E_DEV_SERVER_START`. Save the changed file again to retry. |
 | `load-refused`   | false | The browser refused the extension. The session goes on and offers it again on the next compile. |
 | `ready-failed`   | false | From the release after 4.1.41. `ready.json` reports `error` while the session goes on, for example a failed launch. The next compile tries again. |
+| `warning`        | true  | From the release after 4.2.0. Something the session warned about between two compiles, written the moment it is known, such as a reload that the extension never confirmed. `value.code` and `value.message` name it, and `warnings` holds one entry. No later frame repeats it. |
 | `failed`         | false | A session-level failure that ends the run, for example the server never bound, the next server of a restart could not start, or a stop passed its shutdown bound. |
 | `usage`          | false | The last frame when the browser launch refused a value that you set, such as a bad `--chromium-binary` pin. |
 | `stopped`        | varies | The last frame. `ok: true` when the session ended by itself with exit code `0`. `ok: false` with `E_INTERRUPTED` and `value.signal` when a signal such as `SIGINT` stopped it. |
@@ -59,6 +60,10 @@ While the stream is on, human copy that shares stdout moves to stderr. Error cop
 Every frame's `value` carries the session identity: `command`, `browser`, `distPath`, `pid`, `port`, plus `readyPath`, `eventsPath`, `runId`, `instanceId`, and `toolchainVersion` when known.
 
 `failed`, `usage`, and `stopped` are terminal. A terminal frame means that the process is ending, and the stream writes nothing after it, so stop reading at the first one. Every other `ok: false` frame leaves the session running. When the CLI knows the remedy for the code, a `failed` or `usage` frame carries it as `hint`.
+
+Only those three end the stream. A reader ignores a status it does not know and keeps reading, so a status added in a later release never stops it.
+
+From the release after 4.2.0, the two reload failures that the terminal reports, a compile the extension never confirmed and an extension that has not come back, also arrive as a `warning` frame with `W_RELOAD_NOT_APPLIED`. The terminal text carries no code.
 
 A run refused before the session begins sends one `failed` frame and no `starting` frame. A missing manifest, a config file that fails to load, and a remote URL with no usable archive all end that way.
 
