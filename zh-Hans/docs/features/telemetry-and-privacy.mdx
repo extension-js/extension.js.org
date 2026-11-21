@@ -101,6 +101,14 @@ Extension.js 会把它"考虑发送"的每个事件(无论是否真的发出) �
 
 审计日志的大小是有界的。达到 1 MiB 时，它会滚动成一个 `events.jsonl.1` 备份，覆盖此前的备份。可通过 `EXTENSION_TELEMETRY_AUDIT_MAX_BYTES` 覆盖这个上限。远超上限(达到 10 倍或以上) 的文件会被直接丢弃，而不是保留。如果审计写入本身失败，Extension.js 会在本次运行中禁用后续所有发送：一个无法在本地留下审计记录的事件，不会被发送出去。
 
+## 更新检查
+
+`dev`、`start`、`preview` 和 `build` 会询问 npm registry 是否有更新的 Extension.js，有的话会打印一条提示。检查使用 npm 会用的那个 registry。在 `--output json` 或 `--wait-format json` 下、在 CI 中，以及设置了 `EXTENSION_NO_UPDATE_CHECK=1` 或 `NO_UPDATE_NOTIFIER=1` 时，检查是关闭的。
+
+答案按 registry 缓存一小时，存放在用户缓存文件夹下的 `update-check.json` 中：设置了 `$XDG_CACHE_HOME` 时为 `$XDG_CACHE_HOME/extensionjs`，macOS 上为 `~/Library/Caches/extensionjs`，Windows 上为 `%LOCALAPPDATA%\extensionjs\Cache`，其他系统为 `~/.cache/extensionjs`。
+
+从 4.2.0 之后的版本起，没有回应的 registry 也会被记住同样的一小时，所以封闭的网络每小时只付出一次等待。先结束的 `build` 最多等待两秒钟来获取答案，这样提示仍会打印，答案也会留给下一次运行。
+
 ## 最佳实践
 
 - 当政策要求不上报遥测时，在 CI 中使用 `EXTENSION_TELEMETRY_DISABLED=1`。
