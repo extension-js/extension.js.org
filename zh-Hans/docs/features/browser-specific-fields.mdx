@@ -137,6 +137,12 @@ Edge 前缀还能修复会被 Edge 裁切的设置页。Edge 把内嵌的选项�
 
 带前缀的值会替换普通值，不会与它合并。不含 `tabs` 的 `firefox:permissions` 列表会让 Firefox 构建中没有 `tabs`。从 4.1.41 之后的版本起，当这样丢掉了代码使用的权限时，构建警告会同时给出这两个键。
 
+### 权限条目上的前缀
+
+浏览器前缀属于 manifest 的键，而不是列表中的条目。从 4.2.0 之后的版本起，如果你写 `"permissions": ["storage", "chromium:sidePanel"]`，构建会为每个带前缀的条目所指的浏览器解析它。它为该浏览器保留这个条目并去掉前缀，为其他浏览器省略它，并打印一条 `W_MANIFEST_COMPAT` 警告。这适用于 `permissions`、`optional_permissions`、`host_permissions` 和 `optional_host_permissions`。像 `chrome://favicon/` 这样的 URL scheme 是主机，不是前缀。
+
+文档推荐的写法是带前缀的键，例如 `"chromium:permissions": ["storage", "sidePanel"]`。带前缀的键会替换该浏览器的普通列表，所以要重复写出每个浏览器都需要的条目。
+
 ### 前缀在任意层级都会解析
 
 解析器会遍历整棵 manifest 树，包括数组。`content_scripts` 条目内部或任意嵌套对象内部的带前缀键，都按与顶层键相同的三层规则解析。
