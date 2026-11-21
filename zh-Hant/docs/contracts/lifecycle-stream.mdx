@@ -52,6 +52,7 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 | `restart-failed` | false | 從 4.1.41 之後的版本起。某次重新啟動無法建置下一個 bundle，因此先前的建置繼續提供服務，`value.serving` 為 `true`。`error.code` 是該失敗自己的錯誤碼，或 `E_DEV_SERVER_START`。再次儲存變更的檔案即可重試。 |
 | `load-refused`   | false | 瀏覽器拒絕了擴充功能。工作階段繼續進行，並在下一次編譯時再次提供它。 |
 | `ready-failed`   | false | 從 4.1.41 之後的版本起。工作階段仍在進行時 `ready.json` 回報 `error`，例如啟動失敗。下一次編譯會再試一次。 |
+| `warning`        | true  | 從 4.2.0 之後的版本起。工作階段在兩次編譯之間警告過的事情，一旦得知就立即寫入，例如擴充功能始終沒有確認的重新載入。`value.code` 與 `value.message` 說明它，`warnings` 中有一筆紀錄。之後的影格不會重複它。 |
 | `failed`         | false | 結束這次執行的工作階段層級失敗，例如伺服器始終沒能綁定、重新啟動的下一個伺服器無法啟動，或停止超過了關閉時限。 |
 | `usage`          | false | 瀏覽器啟動拒絕了你設定的值時的最後一個影格，例如有問題的 `--chromium-binary` 固定路徑。 |
 | `stopped`        | 視情況 | 最後一個影格。工作階段以結束代碼 `0` 自行結束時為 `ok: true`。被 `SIGINT` 這類訊號停止時為 `ok: false`，帶 `E_INTERRUPTED` 與 `value.signal`。 |
@@ -59,6 +60,10 @@ EXTENSION_OUTPUT=ndjson npx extension@latest dev ./my-extension --browser chromi
 每個影格的 `value` 都帶有工作階段身分：`command`、`browser`、`distPath`、`pid`、`port`，以及已知時的 `readyPath`、`eventsPath`、`runId`、`instanceId` 與 `toolchainVersion`。
 
 `failed`、`usage` 與 `stopped` 是終止狀態。終止影格表示處理程序正在結束，串流在它之後不再寫入任何內容，因此讀到第一個終止影格就停止。其他每個 `ok: false` 影格都讓工作階段繼續進行。當 CLI 知道該錯誤碼的解決方法時，`failed` 或 `usage` 影格會把它放在 `hint` 中。
+
+只有這三種會結束串流。讀取端忽略它不認得的狀態並繼續讀取，所以之後版本新增的狀態不會讓它停下。
+
+從 4.2.0 之後的版本起，終端機回報的兩種重新載入失敗，也就是擴充功能始終沒有確認的編譯與一直沒有回來的擴充功能，也會以帶 `W_RELOAD_NOT_APPLIED` 的 `warning` 影格送達。終端機文字不帶代碼。
 
 在工作階段開始之前就被拒絕的執行只會送出一個 `failed` 影格，不會有 `starting` 影格。缺少 manifest、設定檔載入失敗，以及遠端 URL 沒有可用的封存檔，都會以這種方式結束。
 

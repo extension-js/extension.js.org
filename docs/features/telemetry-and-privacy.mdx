@@ -101,6 +101,16 @@ Extension.js appends every event it considers sending (whether or not it actuall
 
 The audit log stays bounded. At 1 MiB it rolls to a single `events.jsonl.1` backup, replacing any previous backup. Override the cap with `EXTENSION_TELEMETRY_AUDIT_MAX_BYTES`. A file grossly over the cap (10 times or more) is dropped instead of kept. If the audit write itself fails, Extension.js disables all further sends for that run: an event that cannot be audited locally is not sent.
 
+## Update check
+
+`dev`, `start`, `preview`, and `build` ask the npm registry whether a newer Extension.js is out, and print a notice when one is. The check asks the registry that npm would use. It is off under `--output json` or `--wait-format json`, in CI, and when `EXTENSION_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1` is set.
+
+The answer is cached for one hour per registry, in `update-check.json` under the user cache folder: `$XDG_CACHE_HOME/extensionjs` when that variable is set, `~/Library/Caches/extensionjs` on macOS, `%LOCALAPPDATA%\extensionjs\Cache` on Windows, and `~/.cache/extensionjs` elsewhere.
+
+From the release after 4.2.0, a registry that does not answer is remembered for the same hour, so a closed network costs the wait once an hour. A `build` that finishes first waits at most two seconds for the answer, so the notice still prints and the answer is kept for the next run.
+
+From the release after 4.2.0, the check also runs only when stderr is a terminal. A run whose output a script pipes neither prints the notice nor waits on the registry.
+
 ## Best practices
 
 - Use `EXTENSION_TELEMETRY_DISABLED=1` in CI when policy requires no telemetry.
