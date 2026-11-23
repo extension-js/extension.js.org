@@ -61,7 +61,18 @@ npx extension@latest dev --browser=waterfox
 - `--chromium-binary <path>`
 - `--gecko-binary <path>`（别名：`--firefox-binary <path>`）
 
-无论你选择了哪个具名浏览器目标，这些二进制 flag 都会覆盖 Extension.js 实际启动的浏览器二进制。
+二进制 flag 会替换 Extension.js 为同一引擎的浏览器启动的二进制。在 4.3.0 中，另一种引擎的二进制 flag 会被忽略，运行的是你指定的浏览器。
+
+从 4.3.0 之后的版本起，二进制 flag 不会再被忽略：
+
+- 没有 `--browser` 时，只传 `--gecko-binary` 会运行 `gecko-based`。只传 `--chromium-binary` 时，浏览器名称保持为 `chromium`。
+- 与另一种引擎的 `--browser` 一起传入时，例如 `--browser firefox --chromium-binary <path>`，命令会在开始任何工作之前失败，并以 `E_INVALID_OPTION` 和状态 `usage` 回答。
+- 没有 `--browser` 却同时传入两个二进制 flag，也会以同样的方式失败。要运行两个二进制，请传入 `--browser chromium-based,gecko-based`。
+- 无法运行的固定二进制以 `E_BROWSER_LAUNCH` 失败。
+- 在扩展加载之前退出的固定二进制以 `E_BROWSER_EXITED` 失败。
+- 两种消息都会给出固定的路径和固定它的 flag 或变量。
+- 两种消息也都会说明该文件可能不是浏览器。
+- 固定的二进制无法运行时，`dev` 服务器会继续运行。它会在下一次编译时再次尝试启动。
 
 ## 二进制能力
 

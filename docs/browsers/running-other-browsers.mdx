@@ -61,7 +61,18 @@ To run a browser without a built-in locator, or to override the located binary, 
 - `--chromium-binary <path>`
 - `--gecko-binary <path>` (alias: `--firefox-binary <path>`)
 
-These binary flags override which browser binary Extension.js launches, regardless of the named browser target you selected.
+A binary flag replaces the binary that Extension.js launches for a browser of the same engine. In 4.3.0, a binary flag for the other engine is ignored, and the browser that you named runs.
+
+From the release after 4.3.0, a binary flag is never ignored:
+
+- With no `--browser`, `--gecko-binary` alone runs `gecko-based`. `--chromium-binary` alone keeps the browser name `chromium`.
+- Beside a `--browser` of the other engine, such as `--browser firefox --chromium-binary <path>`, the command fails before any work. It answers `E_INVALID_OPTION` with status `usage`.
+- Both binary flags with no `--browser` fail the same way. To run both binaries, pass `--browser chromium-based,gecko-based`.
+- A pinned binary that cannot run fails with `E_BROWSER_LAUNCH`.
+- A pinned binary that exits before the extension loads fails with `E_BROWSER_EXITED`.
+- Both messages name the pinned path and the flag or variable that pinned it.
+- Both messages also say that the file may not be a browser.
+- When the pinned binary cannot run, a `dev` server keeps running. It tries the launch again on the next compile.
 
 ## Binary capabilities
 

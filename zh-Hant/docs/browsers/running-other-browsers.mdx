@@ -61,7 +61,18 @@ npx extension@latest dev --browser=waterfox
 - `--chromium-binary <path>`
 - `--gecko-binary <path>`(別名:`--firefox-binary <path>`)
 
-不論你選擇的具名瀏覽器目標為何,這些執行檔旗標都會覆寫 Extension.js 啟動時所使用的瀏覽器執行檔。
+執行檔旗標會取代 Extension.js 為同一引擎的瀏覽器所啟動的執行檔。在 4.3.0 中,另一種引擎的執行檔旗標會被忽略,執行的是你指定的瀏覽器。
+
+從 4.3.0 之後的版本起,執行檔旗標不會再被忽略:
+
+- 沒有 `--browser` 時,只傳 `--gecko-binary` 會執行 `gecko-based`。只傳 `--chromium-binary` 時,瀏覽器名稱維持為 `chromium`。
+- 與另一種引擎的 `--browser` 一起傳入時,例如 `--browser firefox --chromium-binary <path>`,命令會在開始任何工作之前失敗,並以 `E_INVALID_OPTION` 和狀態 `usage` 回應。
+- 沒有 `--browser` 卻同時傳入兩個執行檔旗標,也會以同樣的方式失敗。若要執行兩個執行檔,請傳入 `--browser chromium-based,gecko-based`。
+- 無法執行的固定執行檔以 `E_BROWSER_LAUNCH` 失敗。
+- 在擴充功能載入之前結束的固定執行檔以 `E_BROWSER_EXITED` 失敗。
+- 兩種訊息都會列出固定的路徑和固定它的旗標或變數。
+- 兩種訊息也都會說明該檔案可能不是瀏覽器。
+- 固定的執行檔無法執行時,`dev` 伺服器會繼續執行。它會在下一次編譯時再次嘗試啟動。
 
 ## 執行檔功能
 
