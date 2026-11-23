@@ -250,6 +250,10 @@ export function buildSnapshot() {
       if (verbs.includes(verb)) flags.add(flag);
     }
 
+    // --format is a deprecated alias the entry rewrites to --output before
+    // commander parses, so every verb that takes --output still accepts it.
+    if (flags.has("--output")) flags.add("--format");
+
     snapshot[verb] = [...flags].sort();
   }
 
