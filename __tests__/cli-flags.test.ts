@@ -14,6 +14,8 @@ const COMMANDS_DIR = resolve(
   "commands",
 );
 const CLI_INDEX = resolve(MONOREPO_ROOT, "programs", "extension", "index.ts");
+// The entry moved its root options out of index.ts into run.ts.
+const CLI_RUN = resolve(MONOREPO_ROOT, "programs", "extension", "run.ts");
 const HAS_MONOREPO = existsSync(COMMANDS_DIR);
 
 interface CommandMapping {
@@ -154,7 +156,9 @@ describe("CLI command flags match source", () => {
       // The page also documents cross-cutting flags that commands register
       // themselves (e.g. --debug), so search index.ts plus every command file
       // and the shared options those commands register.
-      const sourceContent = [readFileSync(CLI_INDEX, "utf-8")]
+      const sourceContent = [CLI_INDEX, CLI_RUN]
+        .filter((file) => existsSync(file))
+        .map((file) => readFileSync(file, "utf-8"))
         .concat(
           readdirSync(COMMANDS_DIR)
             .filter((f) => f.endsWith(".ts"))

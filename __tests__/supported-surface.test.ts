@@ -14,6 +14,13 @@ const CONSTANTS_TS = resolve(
   "lib",
   "constants.ts",
 );
+const JS_TOOLS_DIR = resolve(
+  MONOREPO_ROOT,
+  "programs",
+  "develop",
+  "plugin-js-frameworks",
+  "js-tools",
+);
 const HAS_MONOREPO = existsSync(CONSTANTS_TS);
 
 // Vendored copies of the canonical lists in
@@ -51,9 +58,13 @@ describe("supported surface", () => {
         SUPPORTED_PACKAGE_MANAGERS,
       );
 
-      expect(extractArrayLiteral(source, "SUPPORTED_UI_FRAMEWORKS")).toEqual(
-        SUPPORTED_UI_FRAMEWORKS,
+      // The product keeps no framework list anymore. Each framework it
+      // compiles has one tool file, so a dropped framework fails here.
+      const missing = SUPPORTED_UI_FRAMEWORKS.filter(
+        (framework) => !existsSync(resolve(JS_TOOLS_DIR, `${framework}.ts`)),
       );
+
+      expect(missing).toEqual([]);
     },
   );
 
