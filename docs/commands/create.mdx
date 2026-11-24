@@ -75,7 +75,7 @@ deno run -A npm:extension@latest create <extension-name|extension-path> [options
 | Flag                      | Alias | What it does                                                        | Default      |
 | ------------------------- | ----- | ------------------------------------------------------------------- | ------------ |
 | `[path or name]`          | -     | Project folder/name to create.                                      | required     |
-| `--template <name\|url>`  | `-t`  | Catalog name, GitHub URL, or ZIP URL to scaffold from.              | `typescript` |
+| `--template <name\|url\|directory>` | `-t` | Catalog name, GitHub URL, ZIP URL, or template directory on your machine to scaffold from. | `typescript` |
 | `--install [boolean]`     | -     | Installs dependencies after scaffolding.                            | `false`      |
 | `--source <source>`       | -     | Attribution tag for where this create started (for example `cli`). Recorded in anonymous telemetry only. | unset |
 | `--output <pretty\|json>` | -     | Result format. `json` prints a schema-1 envelope on stdout.         | `pretty`     |
@@ -84,7 +84,7 @@ When you want the default TypeScript starter, omit `--template` entirely. Add `-
 
 From 4.1.19, a template URL must use `https://`. `create` refuses a plain `http://` URL, and a download that redirects to `http://`, before it writes the project. To allow `http://` on a network that you trust, set `EXTENSION_ALLOW_HTTP_TEMPLATE=true`.
 
-The catalog holds 60 templates in 7 groups: starters, sidebar, content scripts, new tab, toolbar action, DevTools panel, and special folders. Run `extension create --help` for the full list. The default `typescript` template downloads the catalog archive like every other name. Only the `javascript` template ships inside the CLI. When you omit `--template`, `EXTENSION_CREATE_TEMPLATE_URL` is not set, and the download fails, `create` falls back to that bundled `javascript` template and says so, naming the network error, so an offline machine still gets a project. An explicit `--template` that fails to download fails loudly instead.
+The catalog holds 60 templates in 7 groups: starters, sidebar, content scripts, new tab, toolbar action, DevTools panel, and special folders. Run `extension create --help` for the full list. The default `typescript` template downloads the catalog archive like every other name. Only the `javascript` template ships inside the CLI. When you omit `--template`, `EXTENSION_CREATE_TEMPLATE_URL` is not set, and the download fails, `create` falls back to that bundled `javascript` template and says so, naming the network error, so an offline machine still gets a project. An explicit `--template` that fails to download fails loudly instead. To create without the network, pass a template directory on your machine, such as `--template ./my-template`. `create` reads a value written as a path (`./`, `../`, `/`, or `~/`) as a directory and copies it, without its `dist`, `node_modules`, `.extension-js`, and `.git` folders. A bare name such as `react` always means the catalog entry, and a path that does not exist falls through to the catalog entry named by its last segment.
 
 A scaffold has one package manager. A starter's `packageManager` pin (or a `pnpm-workspace.yaml` it ships) decides it, otherwise the manager that invoked `create` does. The `packageManager` field written to `package.json`, the `--install` run, and the printed next steps all name that same manager.
 
