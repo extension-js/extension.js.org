@@ -53,6 +53,9 @@ for (const file of walk(ROOT)) {
     for (const m of line.matchAll(/--template[= ]([A-Za-z0-9._:/-]+)/g)) {
       // The flag also accepts GitHub and ZIP URLs, which are not slugs.
       if (m[1].includes("://")) continue;
+      // A value that starts as a path names a template folder on the reader's
+      // machine, as `create` reads it. `examples/x` still names the catalog.
+      if (/^[./]/.test(m[1])) continue;
 
       if (!slugs.has(m[1])) {
         const rel = path.relative(ROOT, file);
