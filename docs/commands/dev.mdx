@@ -647,6 +647,15 @@ npx extension@latest dev ./my-extension --host 0.0.0.0 --allowed-hosts web,.ngro
 
 `--host 0.0.0.0` alone does not allow every name. The bind address and the allowed names are separate settings.
 
+From 4.2.0, the dev server also checks where a browser request comes from. It reads the `Sec-Fetch-Site` header with the `Origin` header, or with the referrer when the request has no `Origin`. The dev server answers a request from its own address on the session port (`localhost`, `127.0.0.1` and `[::1]` included), from a host named with `--allowed-hosts`, from the emulator viewer page, or from the extension of the session. It refuses a request from a page on another site or from another port on the same host. A request without fetch metadata, such as one from `curl` or a script, passes as it does through the stock rspack dev server. The reload socket at `/ws` accepts the same web origins and any extension origin.
+
+At the first refused request, the terminal prints one warning for the session:
+
+```text
+A page outside this session (https://other.example) made a request to the dev server and was refused.
+Your extension's own pages still load. This line prints once per session.
+```
+
 ### Running in Brave as a custom binary
 
 <CodeGroup>
