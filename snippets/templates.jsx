@@ -1515,7 +1515,7 @@ export const TemplatesGallery = ({ locale = "en" }) => {
       featured: true,
       difficulty: "beginner",
       tags: ["sidebar", "preact", "typescript"],
-      icon: "public/logo.svg",
+      icon: "src/images/icon.png",
       screenshot: "screenshot.png",
       video: "VcAPgX8KHgI",
       docsUrl: "https://extension.js.org/docs/getting-started/templates/preact",
@@ -1622,7 +1622,7 @@ export const TemplatesGallery = ({ locale = "en" }) => {
       featured: true,
       difficulty: "intermediate",
       tags: ["sidebar", "monorepo", "nx", "javascript"],
-      icon: null,
+      icon: "packages/extension/src/images/icon.png",
       screenshot: "screenshot.png",
       video: "2zuBnmCVvqg",
       docsUrl: "https://nx.dev/docs",
@@ -1649,7 +1649,7 @@ export const TemplatesGallery = ({ locale = "en" }) => {
       featured: true,
       difficulty: "intermediate",
       tags: ["sidebar", "monorepo", "turborepo", "javascript"],
-      icon: null,
+      icon: "packages/extension/src/images/icon.png",
       screenshot: "screenshot.png",
       video: "l3Z90k_4c3I",
       docsUrl: "https://turborepo.dev/docs",
@@ -2596,6 +2596,11 @@ export const TemplatesGallery = ({ locale = "en" }) => {
                   loading="lazy"
                   crossOrigin="anonymous"
                   onLoad={(event) => measureIcon(item.slug, event.target)}
+                  onError={(event) => {
+                    if (!event.target.src.endsWith("/favicon.png")) {
+                      event.target.src = "/favicon.png";
+                    }
+                  }}
                 />
                 <div className="ext-tpl-titles">
                   <h3 className="ext-tpl-name">
