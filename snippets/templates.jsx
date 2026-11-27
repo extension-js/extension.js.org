@@ -1,5 +1,5 @@
 /* global useState, useEffect, useRef */
-export const TemplatesGallery = () => {
+export const TemplatesGallery = ({ locale = "en" }) => {
   // @generated:start
   const templates = [
     {
@@ -1882,6 +1882,300 @@ export const TemplatesGallery = () => {
     svelte: "Svelte",
   };
 
+  const labels = {
+    en: {
+      optimizedFor: "Optimized for",
+      close: "Close",
+      createProject: "Create project",
+      useTemplate: (title) =>
+        `Use the ${title} template to scaffold a new extension project.`,
+      command: "Command",
+      instructions: "Instructions",
+      whatToExpect: "What to expect",
+      jump: "Click to run",
+      expectation: "Scaffolds this template and opens it in a real browser.",
+      walkthrough: "walkthrough",
+      screenshot: "screenshot",
+      copyAndRun: "Copy & run",
+      copy: "Copy",
+      copied: "Copied",
+      firstSteps: "First steps",
+      useItFor: "Use it for",
+      sourceCode: "Source code",
+      referenceDocs: "Reference docs",
+      searchPlaceholder: "Search templates by name, tag, or description",
+      searchLabel: "Search templates",
+      featuredOnly: "Featured only",
+      count: (shown, total) => `${shown} of ${total} templates`,
+      more: (first, second, rest) => `${first}, ${second} and ${rest} more`,
+      empty: "No template matches that search.",
+      emptyFeatured: " Turn off Featured only to search all of them.",
+    },
+    "zh-Hans": {
+      optimizedFor: "适配浏览器",
+      close: "关闭",
+      createProject: "创建项目",
+      useTemplate: (title) => `使用 ${title} 模板搭建一个新的扩展项目。`,
+      command: "命令",
+      instructions: "说明",
+      whatToExpect: "效果预览",
+      jump: "点击运行",
+      expectation: "搭建这个模板，并在真实浏览器中打开它。",
+      walkthrough: "演示",
+      screenshot: "截图",
+      copyAndRun: "复制并运行",
+      copy: "复制",
+      copied: "已复制",
+      firstSteps: "第一步",
+      useItFor: "适用场景",
+      sourceCode: "源码",
+      referenceDocs: "参考文档",
+      searchPlaceholder: "按名称、标签或描述搜索模板",
+      searchLabel: "搜索模板",
+      featuredOnly: "仅显示精选",
+      count: (shown, total) => `共 ${total} 个模板，显示 ${shown} 个`,
+      more: (first, second, rest) => `${first}、${second} 等 ${rest + 2} 项`,
+      empty: "没有匹配的模板。",
+      emptyFeatured: "关闭“仅显示精选”即可搜索全部模板。",
+    },
+    "zh-Hant": {
+      optimizedFor: "適用瀏覽器",
+      close: "關閉",
+      createProject: "建立專案",
+      useTemplate: (title) => `使用 ${title} 範本建立一個新的擴充功能專案。`,
+      command: "指令",
+      instructions: "說明",
+      whatToExpect: "效果預覽",
+      jump: "點擊執行",
+      expectation: "建立這個範本，並在真實瀏覽器中開啟它。",
+      walkthrough: "示範",
+      screenshot: "截圖",
+      copyAndRun: "複製並執行",
+      copy: "複製",
+      copied: "已複製",
+      firstSteps: "第一步",
+      useItFor: "適用情境",
+      sourceCode: "原始碼",
+      referenceDocs: "參考文件",
+      searchPlaceholder: "依名稱、標籤或描述搜尋範本",
+      searchLabel: "搜尋範本",
+      featuredOnly: "僅顯示精選",
+      count: (shown, total) => `共 ${total} 個範本，顯示 ${shown} 個`,
+      more: (first, second, rest) => `${first}、${second} 等 ${rest + 2} 項`,
+      empty: "沒有符合的範本。",
+      emptyFeatured: "關閉「僅顯示精選」即可搜尋全部範本。",
+    },
+  };
+  const t = labels[locale] || labels.en;
+  // The catalog is written in English. A description missing here falls back
+  // to it, as a template added upstream does until it is translated.
+  const descriptions = {
+    "zh-Hans": {
+      action: "为浏览器添加一个工具栏弹出窗口，内含一个简单的页面。",
+      "action-locales": "添加一个工具栏弹出窗口，其文字会跟随浏览器的语言。",
+      "action-preact":
+        "为浏览器添加一个工具栏弹出窗口，内含一个简单的 Preact 页面。",
+      "action-svelte":
+        "为浏览器添加一个工具栏弹出窗口，内含一个简单的 Svelte 页面。",
+      "action-vue": "为浏览器添加一个工具栏弹出窗口，内含一个简单的 Vue 页面。",
+      "ai-chatgpt": "添加一个侧边栏面板，让你就正在浏览的页面与 ChatGPT 对话。",
+      "ai-claude": "添加一个侧边栏面板，让你就正在浏览的页面与 Claude 对话。",
+      "ai-gemini": "添加一个侧边栏面板，让你就正在浏览的页面与 Gemini 对话。",
+      "ai-perplexity":
+        "添加一个侧边栏面板，让你就正在浏览的页面与 Perplexity 对话。",
+      content:
+        "在你访问的每个网页中注入一个小徽标，并附带一个选项页，可把它移到左侧或右侧边缘。",
+      "content-css-modules": "在你访问的每个网页中注入一个带样式的小徽标。",
+      "content-custom-font":
+        "在你访问的每个网页中注入一个以自定义字体渲染的徽标，并附带一个选项页，可开启或关闭该字体。",
+      "content-env":
+        "在你访问的每个网页中注入一个小面板，显示扩展的环境变量值。",
+      "content-less":
+        "在你访问的每个网页中注入一个带样式的小徽标，并附带一个 Less 选项页，可把它移到左侧或右侧边缘。",
+      "content-less-modules":
+        "在每个网页中注入一个带样式的小徽标，并附带一个 Less modules 选项页，可把它移到左侧或右侧边缘。",
+      "content-main-world":
+        "从扩展和页面两个执行环境向每个页面注入一个小界面，并附带一个选项页，可把它移到左侧或右侧。",
+      "content-multi-one-entry": "在你访问的每个网页中注入四个小元素。",
+      "content-multi-three-entries": "在你访问的每个网页中注入四个小元素。",
+      "content-preact":
+        "在网页上显示一个浮层界面，并附带一个选项页，可把它从右侧移到左侧。",
+      "content-react":
+        "在每个网页上显示一个小浮层界面，并附带一个 React 选项页，可把它从右侧移到左侧。",
+      "content-sass":
+        "在你访问的每个网页中注入一个带样式的小徽标，并附带一个 Sass 选项页，可把它移到左侧或右侧边缘。",
+      "content-sass-modules":
+        "在每个网页中注入一个带样式的小徽标，并附带一个 Sass modules 选项页，可把它移到左侧或右侧边缘。",
+      "content-svelte":
+        "在你访问的每个网页上显示一个 Svelte 浮层，并附带一个选项页，可把它从右侧移到左侧。",
+      "content-typescript":
+        "在每个网页上显示一个小浮层界面，并附带一个选项页，可把它从右侧移到左侧。",
+      "content-vue":
+        "在每个网页上显示一个小浮层界面，并附带一个 Vue 选项页，可把它从右侧移到左侧。",
+      devtools: "为浏览器添加一个开发者工具面板，可读取被检查的页面。",
+      "devtools-preact":
+        "为浏览器添加一个用 Preact 编写的开发者工具面板，可读取被检查的页面。",
+      "devtools-react":
+        "为浏览器添加一个用 React 编写的开发者工具面板，可读取被检查的页面。",
+      "devtools-svelte":
+        "为浏览器添加一个用 Svelte 编写的开发者工具面板，可读取被检查的页面。",
+      "devtools-typescript":
+        "为浏览器添加一个开发者工具面板，可读取被检查的页面。",
+      "devtools-typescript-sqlite":
+        "把被检查页面的网络请求记录到 SQLite，并让你对其进行查询。",
+      "devtools-vue":
+        "为浏览器添加一个用 Vue 编写的开发者工具面板，可读取被检查的页面。",
+      init: "一个能在浏览器中加载的最小扩展，可直接在其上继续构建。",
+      javascript: "为浏览器添加一个侧边栏面板，内含一个简单的页面。",
+      newtab: "用一个可自定义的简单页面替换你的新标签页。",
+      "newtab-browser-flags":
+        "用一个启动页替换你的新标签页，它会打开扩展的侧边栏面板。",
+      "newtab-config-eslint": "用一个简单的页面替换你的新标签页。",
+      "newtab-config-prettier": "用一个简单的页面替换你的新标签页。",
+      "newtab-config-stylelint": "用一个简单的页面替换你的新标签页。",
+      "newtab-crypto":
+        "用一个页面替换你的新标签页，它会用 SHA-256 对你输入的任意文本进行哈希。",
+      "newtab-env": "用一个显示扩展环境变量值的页面替换你的新标签页。",
+      "newtab-less": "用一个带样式的简单页面替换你的新标签页。",
+      "newtab-preact": "用一个简单的 Preact 页面替换你的新标签页。",
+      "newtab-preact-router":
+        "用一个可在多个路由间导航的小型 Preact 应用替换你的新标签页。",
+      "newtab-react": "用一个简单的 React 页面替换你的新标签页。",
+      "newtab-react-router":
+        "用一个可在多个路由间导航的小型 React 应用替换你的新标签页。",
+      "newtab-sass": "用一个带样式的简单页面替换你的新标签页。",
+      "newtab-svelte": "用一个简单的 Svelte 页面替换你的新标签页。",
+      "newtab-svelte-router":
+        "用一个可在多个路由间导航的小型 Svelte 应用替换你的新标签页。",
+      "newtab-typescript": "用一个简单的页面替换你的新标签页。",
+      "newtab-vue": "用一个简单的 Vue 页面替换你的新标签页。",
+      "newtab-vue-router":
+        "用一个可在多个路由间导航的小型 Vue 应用替换你的新标签页。",
+      playwright:
+        "为浏览器添加一个侧边栏面板，并由 Playwright 测试进行端到端覆盖。",
+      preact: "为浏览器添加一个侧边栏面板，内含一个简单的 Preact 页面。",
+      react: "为浏览器添加一个侧边栏面板，内含一个简单的 React 页面。",
+      sidebar: "为浏览器添加一个侧边栏面板，内含一个简单的页面。",
+      "sidebar-antd": "为浏览器添加一个展示 Ant Design 组件的侧边栏面板。",
+      "sidebar-monorepo-nx":
+        "添加一个侧边栏面板，并在你访问的每个网页上显示一个小浮层界面。",
+      "sidebar-monorepo-turborepo":
+        "添加一个侧边栏面板，并在你访问的每个网页上显示一个小浮层界面。",
+      "sidebar-shadcn": "为浏览器添加一个用 shadcn/ui 组件构建的侧边栏面板。",
+      "special-folders-pages": "扩展加载时在新标签页中打开一个欢迎页面。",
+      "special-folders-scripts":
+        "在网页上显示一个小浮层，并添加一个工具栏弹出窗口来运行扩展打包的脚本。",
+      svelte: "为浏览器添加一个侧边栏面板，内含一个简单的 Svelte 页面。",
+      "transformers-js":
+        "添加一个侧边栏面板，用设备端 AI 模型对当前页面或你选中的文本进行分类。",
+      typescript: "为浏览器添加一个侧边栏面板，内含一个简单的页面。",
+      vue: "为浏览器添加一个侧边栏面板，内含一个简单的 Vue 页面。",
+    },
+    "zh-Hant": {
+      action: "為瀏覽器新增一個工具列彈出視窗，內含一個簡單的頁面。",
+      "action-locales": "新增一個工具列彈出視窗，其文字會跟隨瀏覽器的語言。",
+      "action-preact":
+        "為瀏覽器新增一個工具列彈出視窗，內含一個簡單的 Preact 頁面。",
+      "action-svelte":
+        "為瀏覽器新增一個工具列彈出視窗，內含一個簡單的 Svelte 頁面。",
+      "action-vue": "為瀏覽器新增一個工具列彈出視窗，內含一個簡單的 Vue 頁面。",
+      "ai-chatgpt": "新增一個側邊欄面板，讓你就正在瀏覽的頁面與 ChatGPT 對話。",
+      "ai-claude": "新增一個側邊欄面板，讓你就正在瀏覽的頁面與 Claude 對話。",
+      "ai-gemini": "新增一個側邊欄面板，讓你就正在瀏覽的頁面與 Gemini 對話。",
+      "ai-perplexity":
+        "新增一個側邊欄面板，讓你就正在瀏覽的頁面與 Perplexity 對話。",
+      content:
+        "在你造訪的每個網頁中注入一個小徽章，並附帶一個選項頁，可把它移到左側或右側邊緣。",
+      "content-css-modules": "在你造訪的每個網頁中注入一個帶樣式的小徽章。",
+      "content-custom-font":
+        "在你造訪的每個網頁中注入一個以自訂字型呈現的徽章，並附帶一個選項頁，可開啟或關閉該字型。",
+      "content-env":
+        "在你造訪的每個網頁中注入一個小面板，顯示擴充功能的環境變數值。",
+      "content-less":
+        "在你造訪的每個網頁中注入一個帶樣式的小徽章，並附帶一個 Less 選項頁，可把它移到左側或右側邊緣。",
+      "content-less-modules":
+        "在每個網頁中注入一個帶樣式的小徽章，並附帶一個 Less modules 選項頁，可把它移到左側或右側邊緣。",
+      "content-main-world":
+        "從擴充功能和頁面兩個執行環境向每個頁面注入一個小介面，並附帶一個選項頁，可把它移到左側或右側。",
+      "content-multi-one-entry": "在你造訪的每個網頁中注入四個小元素。",
+      "content-multi-three-entries": "在你造訪的每個網頁中注入四個小元素。",
+      "content-preact":
+        "在網頁上顯示一個浮層介面，並附帶一個選項頁，可把它從右側移到左側。",
+      "content-react":
+        "在每個網頁上顯示一個小浮層介面，並附帶一個 React 選項頁，可把它從右側移到左側。",
+      "content-sass":
+        "在你造訪的每個網頁中注入一個帶樣式的小徽章，並附帶一個 Sass 選項頁，可把它移到左側或右側邊緣。",
+      "content-sass-modules":
+        "在每個網頁中注入一個帶樣式的小徽章，並附帶一個 Sass modules 選項頁，可把它移到左側或右側邊緣。",
+      "content-svelte":
+        "在你造訪的每個網頁上顯示一個 Svelte 浮層，並附帶一個選項頁，可把它從右側移到左側。",
+      "content-typescript":
+        "在每個網頁上顯示一個小浮層介面，並附帶一個選項頁，可把它從右側移到左側。",
+      "content-vue":
+        "在每個網頁上顯示一個小浮層介面，並附帶一個 Vue 選項頁，可把它從右側移到左側。",
+      devtools: "為瀏覽器新增一個開發者工具面板，可讀取受檢查的頁面。",
+      "devtools-preact":
+        "為瀏覽器新增一個以 Preact 撰寫的開發者工具面板，可讀取受檢查的頁面。",
+      "devtools-react":
+        "為瀏覽器新增一個以 React 撰寫的開發者工具面板，可讀取受檢查的頁面。",
+      "devtools-svelte":
+        "為瀏覽器新增一個以 Svelte 撰寫的開發者工具面板，可讀取受檢查的頁面。",
+      "devtools-typescript":
+        "為瀏覽器新增一個開發者工具面板，可讀取受檢查的頁面。",
+      "devtools-typescript-sqlite":
+        "把受檢查頁面的網路請求記錄到 SQLite，並讓你對其進行查詢。",
+      "devtools-vue":
+        "為瀏覽器新增一個以 Vue 撰寫的開發者工具面板，可讀取受檢查的頁面。",
+      init: "一個能在瀏覽器中載入的最小擴充功能，可直接在其上繼續打造。",
+      javascript: "為瀏覽器新增一個側邊欄面板，內含一個簡單的頁面。",
+      newtab: "以一個可自訂的簡單頁面取代你的新分頁。",
+      "newtab-browser-flags":
+        "以一個啟動頁取代你的新分頁，它會開啟擴充功能的側邊欄面板。",
+      "newtab-config-eslint": "以一個簡單的頁面取代你的新分頁。",
+      "newtab-config-prettier": "以一個簡單的頁面取代你的新分頁。",
+      "newtab-config-stylelint": "以一個簡單的頁面取代你的新分頁。",
+      "newtab-crypto":
+        "以一個頁面取代你的新分頁，它會用 SHA-256 對你輸入的任意文字進行雜湊。",
+      "newtab-env": "以一個顯示擴充功能環境變數值的頁面取代你的新分頁。",
+      "newtab-less": "以一個帶樣式的簡單頁面取代你的新分頁。",
+      "newtab-preact": "以一個簡單的 Preact 頁面取代你的新分頁。",
+      "newtab-preact-router":
+        "以一個可在多個路由間瀏覽的小型 Preact 應用程式取代你的新分頁。",
+      "newtab-react": "以一個簡單的 React 頁面取代你的新分頁。",
+      "newtab-react-router":
+        "以一個可在多個路由間瀏覽的小型 React 應用程式取代你的新分頁。",
+      "newtab-sass": "以一個帶樣式的簡單頁面取代你的新分頁。",
+      "newtab-svelte": "以一個簡單的 Svelte 頁面取代你的新分頁。",
+      "newtab-svelte-router":
+        "以一個可在多個路由間瀏覽的小型 Svelte 應用程式取代你的新分頁。",
+      "newtab-typescript": "以一個簡單的頁面取代你的新分頁。",
+      "newtab-vue": "以一個簡單的 Vue 頁面取代你的新分頁。",
+      "newtab-vue-router":
+        "以一個可在多個路由間瀏覽的小型 Vue 應用程式取代你的新分頁。",
+      playwright:
+        "為瀏覽器新增一個側邊欄面板，並由 Playwright 測試進行端對端涵蓋。",
+      preact: "為瀏覽器新增一個側邊欄面板，內含一個簡單的 Preact 頁面。",
+      react: "為瀏覽器新增一個側邊欄面板，內含一個簡單的 React 頁面。",
+      sidebar: "為瀏覽器新增一個側邊欄面板，內含一個簡單的頁面。",
+      "sidebar-antd": "為瀏覽器新增一個展示 Ant Design 元件的側邊欄面板。",
+      "sidebar-monorepo-nx":
+        "新增一個側邊欄面板，並在你造訪的每個網頁上顯示一個小浮層介面。",
+      "sidebar-monorepo-turborepo":
+        "新增一個側邊欄面板，並在你造訪的每個網頁上顯示一個小浮層介面。",
+      "sidebar-shadcn": "為瀏覽器新增一個以 shadcn/ui 元件打造的側邊欄面板。",
+      "special-folders-pages": "擴充功能載入時在新分頁中開啟一個歡迎頁面。",
+      "special-folders-scripts":
+        "在網頁上顯示一個小浮層，並新增一個工具列彈出視窗來執行擴充功能打包的腳本。",
+      svelte: "為瀏覽器新增一個側邊欄面板，內含一個簡單的 Svelte 頁面。",
+      "transformers-js":
+        "新增一個側邊欄面板，用裝置端 AI 模型對目前頁面或你選取的文字進行分類。",
+      typescript: "為瀏覽器新增一個側邊欄面板，內含一個簡單的頁面。",
+      vue: "為瀏覽器新增一個側邊欄面板，內含一個簡單的 Vue 頁面。",
+    },
+  };
+  const describe = (item) =>
+    (descriptions[locale] && descriptions[locale][item.slug]) ||
+    item.description;
   const [query, setQuery] = useState("");
   const [featuredOnly, setFeaturedOnly] = useState(true);
   const [openSlug, setOpenSlug] = useState(null);
@@ -1945,7 +2239,7 @@ export const TemplatesGallery = () => {
 
     if (names.length <= 2) return names.join(", ");
 
-    return `${names[0]}, ${names[1]} and ${names.length - 2} more`;
+    return t.more(names[0], names[1], names.length - 2);
   };
 
   const commandOf = (item) =>
@@ -1969,7 +2263,13 @@ export const TemplatesGallery = () => {
 
     if (!needle) return true;
 
-    return [item.slug, item.title, item.description, ...item.tags]
+    return [
+      item.slug,
+      item.title,
+      item.description,
+      describe(item),
+      ...item.tags,
+    ]
       .join(" ")
       .toLowerCase()
       .includes(needle);
@@ -1979,7 +2279,7 @@ export const TemplatesGallery = () => {
   // element and its ancestors into the click event, so no capture call is needed.
   const browserRow = (item) => (
     <div className="ext-tpl-browsers">
-      <span className="ext-tpl-browsers-label">Optimized for</span>
+      <span className="ext-tpl-browsers-label">{t.optimizedFor}</span>
       <ul className="ext-tpl-browsers-row">
         {item.browsers.map((key) => (
           <li key={key} title={browserNames[key] || key}>
@@ -2028,7 +2328,7 @@ export const TemplatesGallery = () => {
           ref={closeRef}
           type="button"
           className="ext-tpl-close"
-          aria-label="Close"
+          aria-label={t.close}
           onClick={close}
         >
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
@@ -2048,17 +2348,15 @@ export const TemplatesGallery = () => {
             alt=""
           />
           <div>
-            <h2 id="ext-tpl-dialog-title">Create project</h2>
-            <p>
-              Use the {item.title} template to scaffold a new extension project.
-            </p>
+            <h2 id="ext-tpl-dialog-title">{t.createProject}</h2>
+            <p>{t.useTemplate(item.title)}</p>
           </div>
         </header>
 
         <div className="ext-tpl-tabs" role="tablist">
           {[
-            ["command", "Command"],
-            ["instructions", "Instructions"],
+            ["command", t.command],
+            ["instructions", t.instructions],
           ].map(([key, label]) => (
             <button
               key={key}
@@ -2078,34 +2376,32 @@ export const TemplatesGallery = () => {
         {tab === "command" ? (
           <div className="ext-tpl-panel" role="tabpanel">
             {sectionTitle(
-              "What to expect",
+              t.whatToExpect,
               <button
                 type="button"
                 className="ext-tpl-jump"
                 data-ph-capture-attribute-template_action="jump"
                 onClick={jumpToCommand}
               >
-                Copy & run {"\u2193"}
+                {t.jump} {"\u2193"}
               </button>,
             )}
-            <p className="ext-tpl-muted ext-tpl-oneline">
-              Scaffolds this template and opens it in a real browser.
-            </p>
+            <p className="ext-tpl-muted ext-tpl-oneline">{t.expectation}</p>
             <div className="ext-tpl-media">
               {item.video ? (
                 <iframe
-                  title={`${item.title} walkthrough`}
+                  title={`${item.title} ${t.walkthrough}`}
                   src={`https://www.youtube-nocookie.com/embed/${item.video}?rel=0&playsinline=1`}
                   loading="lazy"
                   allow="encrypted-media; picture-in-picture; fullscreen"
                   allowFullScreen
                 />
               ) : (
-                <img src={shotOf(item)} alt={`${item.title} screenshot`} />
+                <img src={shotOf(item)} alt={`${item.title} ${t.screenshot}`} />
               )}
             </div>
 
-            {sectionTitle("Copy & run")}
+            {sectionTitle(t.copyAndRun)}
             <div
               ref={commandRef}
               className={flash ? "ext-tpl-command is-flash" : "ext-tpl-command"}
@@ -2119,23 +2415,23 @@ export const TemplatesGallery = () => {
                 data-ph-capture-attribute-template_action="copy"
                 onClick={() => copy(commandOf(item))}
               >
-                {copied ? "Copied" : "Copy"}
+                {copied ? t.copied : t.copy}
               </button>
             </div>
           </div>
         ) : (
           <div className="ext-tpl-panel" role="tabpanel">
             {sectionTitle(item.title)}
-            <p className="ext-tpl-muted">{item.description}</p>
+            <p className="ext-tpl-muted">{describe(item)}</p>
 
-            {item.firstSteps.length > 0 ? sectionTitle("First steps") : null}
+            {item.firstSteps.length > 0 ? sectionTitle(t.firstSteps) : null}
             <ol className="ext-tpl-list">
               {item.firstSteps.map((step) => (
                 <li key={step}>{step}</li>
               ))}
             </ol>
 
-            {item.useCases.length > 0 ? sectionTitle("Use it for") : null}
+            {item.useCases.length > 0 ? sectionTitle(t.useItFor) : null}
             <ul className="ext-tpl-list">
               {item.useCases.map((useCase) => (
                 <li key={useCase}>{useCase}</li>
@@ -2149,7 +2445,7 @@ export const TemplatesGallery = () => {
                 target="_blank"
                 rel="noreferrer"
               >
-                Source code
+                {t.sourceCode}
               </a>
               {item.docsUrl ? (
                 <a
@@ -2158,7 +2454,7 @@ export const TemplatesGallery = () => {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Reference docs
+                  {t.referenceDocs}
                 </a>
               ) : null}
             </div>
@@ -2174,8 +2470,8 @@ export const TemplatesGallery = () => {
         <input
           type="search"
           className="ext-tpl-search"
-          placeholder="Search templates by name, tag, or description"
-          aria-label="Search templates"
+          placeholder={t.searchPlaceholder}
+          aria-label={t.searchLabel}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -2186,12 +2482,12 @@ export const TemplatesGallery = () => {
             checked={featuredOnly}
             onChange={(event) => setFeaturedOnly(event.target.checked)}
           />
-          Featured only
+          {t.featuredOnly}
         </label>
       </div>
 
       <p className="ext-tpl-count" aria-live="polite">
-        {visible.length} of {templates.length} templates
+        {t.count(visible.length, templates.length)}
       </p>
 
       <div className="ext-tpl-grid">
@@ -2236,7 +2532,7 @@ export const TemplatesGallery = () => {
                   </span>
                 ) : null}
               </div>
-              <p className="ext-tpl-desc">{item.description}</p>
+              <p className="ext-tpl-desc">{describe(item)}</p>
               {browserRow(item)}
             </div>
           </article>
@@ -2245,8 +2541,8 @@ export const TemplatesGallery = () => {
 
       {visible.length === 0 ? (
         <p className="ext-tpl-empty">
-          No template matches that search.
-          {featuredOnly ? " Turn off Featured only to search all of them." : ""}
+          {t.empty}
+          {featuredOnly ? t.emptyFeatured : ""}
         </p>
       ) : null}
 
