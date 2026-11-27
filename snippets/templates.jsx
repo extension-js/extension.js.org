@@ -1887,12 +1887,15 @@ export const TemplatesGallery = () => {
   const [openSlug, setOpenSlug] = useState(null);
   const [tab, setTab] = useState("command");
   const [copied, setCopied] = useState(false);
+  const [flash, setFlash] = useState(false);
   const closeRef = useRef(null);
+  const commandRef = useRef(null);
   const active = templates.find((item) => item.slug === openSlug) || null;
 
   const open = (slug) => {
     setTab("command");
     setCopied(false);
+    setFlash(false);
     setOpenSlug(slug);
     window.history.replaceState(null, "", `#${slug}`);
   };
@@ -1991,12 +1994,25 @@ export const TemplatesGallery = () => {
     </div>
   );
 
-  const sectionTitle = (text) => (
+  const sectionTitle = (text, action) => (
     <div className="ext-tpl-section-title">
       <h3>{text}</h3>
       <span aria-hidden="true" />
+      {action || null}
     </div>
   );
+
+  const jumpToCommand = () => {
+    if (commandRef.current) {
+      commandRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+
+    setFlash(true);
+    setTimeout(() => setFlash(false), 1600);
+  };
 
   const dialog = (item) => (
     <div className="ext-tpl-overlay" onClick={close}>
@@ -2061,7 +2077,17 @@ export const TemplatesGallery = () => {
 
         {tab === "command" ? (
           <div className="ext-tpl-panel" role="tabpanel">
-            {sectionTitle("What to expect")}
+            {sectionTitle(
+              "What to expect",
+              <button
+                type="button"
+                className="ext-tpl-jump"
+                data-ph-capture-attribute-template_action="jump"
+                onClick={jumpToCommand}
+              >
+                Copy & run {"\u2193"}
+              </button>,
+            )}
             <p className="ext-tpl-muted ext-tpl-oneline">
               Scaffolds this template and opens it in a real browser.
             </p>
@@ -2080,7 +2106,10 @@ export const TemplatesGallery = () => {
             </div>
 
             {sectionTitle("Copy & run")}
-            <div className="ext-tpl-command">
+            <div
+              ref={commandRef}
+              className={flash ? "ext-tpl-command is-flash" : "ext-tpl-command"}
+            >
               <pre>
                 <code>{commandOf(item)}</code>
               </pre>
