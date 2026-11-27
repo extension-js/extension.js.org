@@ -2182,6 +2182,7 @@ export const TemplatesGallery = ({ locale = "en" }) => {
   const [tab, setTab] = useState("command");
   const [copied, setCopied] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [darkIcons, setDarkIcons] = useState({});
   const closeRef = useRef(null);
   const commandRef = useRef(null);
   const active = templates.find((item) => item.slug === openSlug) || null;
@@ -2267,6 +2268,48 @@ export const TemplatesGallery = ({ locale = "en" }) => {
 
   const iconOf = (item) =>
     item.icon ? `${RAW}${item.slug}/${item.icon}` : "/favicon.png";
+
+  // A dark icon on a clear background disappears on the dark page, so the
+  // icon is measured once it loads and a dark one gets a light plate.
+  const measureIcon = (slug, image) => {
+    if (slug in darkIcons) return;
+
+    let dark = false;
+
+    try {
+      const size = 32;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0, size, size);
+      const { data } = context.getImageData(0, 0, size, size);
+      let solid = 0;
+      let light = 0;
+
+      for (let index = 0; index < data.length; index += 4) {
+        if (data[index + 3] < 128) continue;
+
+        solid += 1;
+        light +=
+          (0.2126 * data[index] +
+            0.7152 * data[index + 1] +
+            0.0722 * data[index + 2]) /
+          255;
+      }
+
+      dark = data[3] < 128 && solid > 0 && light / solid < 0.36;
+    } catch {
+      // An image the canvas cannot read keeps its plain look.
+    }
+
+    setDarkIcons((known) => ({ ...known, [slug]: dark }));
+  };
+
+  const iconClass = (item, extra) =>
+    ["ext-tpl-icon", extra, darkIcons[item.slug] ? "is-dark" : ""]
+      .filter(Boolean)
+      .join(" ");
   const shotOf = (item) =>
     item.screenshot ? `${RAW}${item.slug}/${item.screenshot}` : null;
 
@@ -2378,7 +2421,7 @@ export const TemplatesGallery = ({ locale = "en" }) => {
 
         <header className="ext-tpl-dialog-head">
           <img
-            className="ext-tpl-icon ext-tpl-icon-sm"
+            className={iconClass(item, "ext-tpl-icon-sm")}
             src={iconOf(item)}
             alt=""
           />
@@ -2547,10 +2590,12 @@ export const TemplatesGallery = ({ locale = "en" }) => {
             <div className="ext-tpl-body">
               <div className="ext-tpl-head">
                 <img
-                  className="ext-tpl-icon"
+                  className={iconClass(item)}
                   src={iconOf(item)}
                   alt=""
                   loading="lazy"
+                  crossOrigin="anonymous"
+                  onLoad={(event) => measureIcon(item.slug, event.target)}
                 />
                 <div className="ext-tpl-titles">
                   <h3 className="ext-tpl-name">
