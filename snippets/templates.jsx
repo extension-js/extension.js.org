@@ -2186,7 +2186,43 @@ export const TemplatesGallery = ({ locale = "en" }) => {
   const commandRef = useRef(null);
   const active = templates.find((item) => item.slug === openSlug) || null;
 
+  // The docs PostHog project has autocapture off and the page exposes no
+  // client, so each template action is sent to the capture endpoint directly.
+  const track = (action, props) => {
+    try {
+      const key = Object.keys(localStorage).find(
+        (name) => name.startsWith("ph_") && name.endsWith("_posthog"),
+      );
+      const state = key ? JSON.parse(localStorage.getItem(key)) : null;
+      if (!state || !state.distinct_id) return;
+
+      fetch("https://us.i.posthog.com/i/v0/e/", {
+        method: "POST",
+        keepalive: true,
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          api_key: key.slice(3, -8),
+          event: "template_action",
+          distinct_id: state.distinct_id,
+          properties: {
+            $current_url: window.location.href,
+            $host: window.location.host,
+            $pathname: window.location.pathname,
+            $session_id: (state.$sesid || [])[1],
+            $process_person_profile: false,
+            template_action: action,
+            template_locale: locale,
+            ...props,
+          },
+        }),
+      }).catch(() => {});
+    } catch {
+      // Storage can be blocked. Tracking never breaks the page.
+    }
+  };
+
   const open = (slug) => {
+    track("open", { template_slug: slug });
     setTab("command");
     setCopied(false);
     setFlash(false);
@@ -2275,8 +2311,6 @@ export const TemplatesGallery = ({ locale = "en" }) => {
       .includes(needle);
   });
 
-  // PostHog autocapture copies each data-ph-capture-attribute-* on a clicked
-  // element and its ancestors into the click event, so no capture call is needed.
   const browserRow = (item) => (
     <div className="ext-tpl-browsers">
       <span className="ext-tpl-browsers-label">{t.optimizedFor}</span>
@@ -2303,6 +2337,8 @@ export const TemplatesGallery = ({ locale = "en" }) => {
   );
 
   const jumpToCommand = () => {
+    track("jump", { template_slug: openSlug });
+
     if (commandRef.current) {
       commandRef.current.scrollIntoView({
         behavior: "smooth",
@@ -2321,7 +2357,6 @@ export const TemplatesGallery = ({ locale = "en" }) => {
         aria-modal="true"
         aria-labelledby="ext-tpl-dialog-title"
         className="ext-tpl-dialog"
-        data-ph-capture-attribute-template_slug={item.slug}
         onClick={(event) => event.stopPropagation()}
       >
         <button
@@ -2364,9 +2399,10 @@ export const TemplatesGallery = ({ locale = "en" }) => {
               role="tab"
               aria-selected={tab === key}
               className={tab === key ? "is-active" : ""}
-              data-ph-capture-attribute-template_action="tab"
-              data-ph-capture-attribute-template_tab={key}
-              onClick={() => setTab(key)}
+              onClick={() => {
+                track("tab", { template_slug: item.slug, template_tab: key });
+                setTab(key);
+              }}
             >
               {label}
             </button>
@@ -2380,7 +2416,6 @@ export const TemplatesGallery = ({ locale = "en" }) => {
               <button
                 type="button"
                 className="ext-tpl-jump"
-                data-ph-capture-attribute-template_action="jump"
                 onClick={jumpToCommand}
               >
                 {t.jump} {"\u2193"}
@@ -2412,8 +2447,10 @@ export const TemplatesGallery = ({ locale = "en" }) => {
               <button
                 type="button"
                 className="ext-tpl-copy"
-                data-ph-capture-attribute-template_action="copy"
-                onClick={() => copy(commandOf(item))}
+                onClick={() => {
+                  track("copy", { template_slug: item.slug });
+                  copy(commandOf(item));
+                }}
               >
                 {copied ? t.copied : t.copy}
               </button>
@@ -2441,7 +2478,7 @@ export const TemplatesGallery = ({ locale = "en" }) => {
             <div className="ext-tpl-links">
               <a
                 href={`${REPO}${item.slug}`}
-                data-ph-capture-attribute-template_action="source"
+                onClick={() => track("source", { template_slug: item.slug })}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -2450,7 +2487,9 @@ export const TemplatesGallery = ({ locale = "en" }) => {
               {item.docsUrl ? (
                 <a
                   href={item.docsUrl}
-                  data-ph-capture-attribute-template_action="reference"
+                  onClick={() =>
+                    track("reference", { template_slug: item.slug })
+                  }
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -2478,9 +2517,11 @@ export const TemplatesGallery = ({ locale = "en" }) => {
         <label className="ext-tpl-featured">
           <input
             type="checkbox"
-            data-ph-capture-attribute-template_action="featured"
             checked={featuredOnly}
-            onChange={(event) => setFeaturedOnly(event.target.checked)}
+            onChange={(event) => {
+              track("featured", { template_featured: event.target.checked });
+              setFeaturedOnly(event.target.checked);
+            }}
           />
           {t.featuredOnly}
         </label>
@@ -2516,8 +2557,6 @@ export const TemplatesGallery = ({ locale = "en" }) => {
                     <button
                       type="button"
                       className="ext-tpl-hit"
-                      data-ph-capture-attribute-template_action="open"
-                      data-ph-capture-attribute-template_slug={item.slug}
                       aria-haspopup="dialog"
                       onClick={() => open(item.slug)}
                     >
