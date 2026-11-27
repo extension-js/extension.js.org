@@ -62,7 +62,7 @@ keywords:
 
 `extension install edge` 会运行 `playwright install msedge`，它把 Microsoft Edge 安装到你的系统上。Extension.js 的缓存里没有固定版本的 Edge 副本。`--browser=edge` 会自己找到系统 Edge，所以 Edge 已经安装时你可以跳过这条命令。
 
-在 Linux 上，这次安装需要一个有 sudo 权限的交互会话。当安装失败且系统中存在 Edge 时，安装器会报告系统二进制并以它成功完成。
+在 Linux 上，这次安装需要 sudo 权限：交互会话、root 进程，或无需密码的 `sudo`（多数 CI 运行器如此）。当安装失败且系统中存在 Edge 时，安装器会报告系统二进制并以它成功完成。
 
 从 4.2.0 起，当 `install` 找到的 Edge 位于运行命令不会搜索的位置时，消息会打印它的路径，并请你用 `--chromium-binary` 传入这个路径。
 
@@ -247,7 +247,7 @@ extension install chrome --where
 ## 行为说明
 
 - `chrome` 会安装 Chrome for Testing，而不是依赖系统中的 Google Chrome app。
-- 在 Linux 上，`edge` 可能需要一个有权限的交互会话。
+- 在 Linux 上，当 `sudo` 需要密码时，`edge` 可能需要一个交互会话。
 - `install` 在报告成功之前会检查目标目录。当安装器正常退出，但目录里没有一个非空且可执行的浏览器二进制文件时（比如下载被中断之后），命令会以 `E_BROWSER_DOWNLOAD` 失败并以 `1` 退出。它会删掉不完整的文件，所以下一次 `extension install` 从干净的状态开始。
 - 从 4.2.0 起，`EXTENSION_INSTALL_TIMEOUT_MS` 设置安装器可以运行多久，默认 30 分钟。值是一个整数毫秒数。任何其他值，比如 `30s`，都表示默认值。
 - 从 4.2.0 起，同一个浏览器一次只运行一个安装。安装会在缓存根目录中持有一个以浏览器命名的锁文件夹，比如 `.chrome.lock`。同一浏览器的第二次安装会等待它，最长等到安装超时，然后以 `E_BROWSER_INSTALL_BUSY` 失败。消息会点名在没有这样的安装运行时可以删除的锁文件夹。持有者进程已经不在的锁会被接管。
